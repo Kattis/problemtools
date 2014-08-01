@@ -1,0 +1,6 @@
+name: math ensuremath \
+      displaymath equation equation* \
+      eqnarray eqnarray* align align* gather gather* falign falign* \
+      multiline multiline* alignat alignat* split
+type: xml
+<span class="tex2jax_process" tal:content="text self/source"></span>

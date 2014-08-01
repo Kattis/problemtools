@@ -1,0 +1,20 @@
+name: uline
+<u><u tal:content="self"></u></u>
+
+name: uuline
+<span style='border-bottom:3px double;' tal:content="self"></span>
+
+name: uwave
+<span style='text-decoration: underline wavy;' tal:content="self"></span>
+
+name: sout
+<del tal:content="self"></del>
+
+name: xout
+<del tal:content="self"></del>
+
+name: dashuline
+<span style='border-bottom:1pt dashed;' tal:content="self"></span>
+
+name: dotuline
+<span style='border-bottom:1pt dotted;' tal:content="self"></span>

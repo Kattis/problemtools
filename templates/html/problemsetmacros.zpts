@@ -1,0 +1,30 @@
+name: problemheader
+<div class="problemheader" tal:condition="not:self/ownerDocument/userdata/noheaders">
+   <h1 tal:content="self/attributes/title"></h1>
+   <h3>Problem ID: <span tal:replace="self/attributes/id"></span></h3>
+   <h3 tal:condition="self/attributes/timelim">Time Limit: <span tal:replace="self/attributes/timelim"></span> seconds</h3>
+</div>
+
+name: sampletable
+<table class="sample" summary="sample data">
+   <tr>
+      <th tal:content="self/attributes/header1"></th>
+      <th tal:content="self/attributes/header2"></th>
+   </tr>
+   <tr>
+      <td>
+<pre tal:content="self/attributes/data1"></pre>
+      </td>
+      <td>
+<pre tal:content="self/attributes/data2"></pre>
+      </td>
+   </tr>
+</table>
+
+name: illustration
+<div class="illustration" tal:attributes="style string:width:${self/style/width}">
+   <img class="illustration" tal:attributes="src self/image/url; alt self/image/url"/>
+   <div class="description" tal:content="self/attributes/description">
+   </div>
+</div>
+

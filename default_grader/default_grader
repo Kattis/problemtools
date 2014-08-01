@@ -1,0 +1,28 @@
+#!/usr/bin/python
+
+import sys
+import argparse
+
+def avg(L): return 1.0*sum(L)/len(L)
+
+aggregators = {
+    'sum': sum,
+    'avg': avg,
+    'max': max,
+    'min': min
+    }
+
+parser = argparse.ArgumentParser(description='''Default grader.''')
+parser.add_argument('aggregation', help='aggregation type', default='sum', nargs = '?', action='store', choices = aggregators.keys())
+args = parser.parse_args()
+
+agg = aggregators[args.aggregation]
+
+try:
+    data = sys.stdin.read().split()
+    scores = map(float, data[1::2])
+    print 'AC %f' % agg(scores)
+except:
+    print 'JE 0'
+
+sys.exit(0)
