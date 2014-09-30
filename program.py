@@ -37,7 +37,7 @@ class Program:
         'C++': ['%(exec)s'],
         'Java': ['java', '-Xmx1024m', '-Xss8m', '-cp', '%(execdir)s', '%(execbase)s'],
         'Python': ['python2', '%(mainfile)s'],
-        'C#': ['%(exec)s.exe'],
+        'C#': ['mono', '%(exec)s.exe'],
         'Go': ['%(exec)s'],
         'Haskell': ['%(exec)s'],
         'dir': ['%(path)s/run'],
