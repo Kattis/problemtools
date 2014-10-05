@@ -40,7 +40,7 @@ class Program:
         'Java': ['java', '-Xmx2048m', '-Xss8m', '-cp', '%(execdir)s', '%(execbase)s'],
         'Prolog': ['%(exec)s'],
         'Python': ['python2', '%(mainfile)s'],
-        'C#': ['%(exec)s.exe'],
+        'C#': ['mono', '%(exec)s.exe'],
         'Go': ['%(exec)s'],
         'Haskell': ['%(exec)s'],
         'dir': ['%(path)s/run'],
