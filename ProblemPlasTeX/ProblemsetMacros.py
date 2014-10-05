@@ -129,29 +129,6 @@ class ExecuteOptions(Command):
     pass
 
 
-# (Partial) implementation of import.sty because plasTeX does not ship
-# with an implementation.  Only implement \import command which is the
-# only one we'll use.
-class import_sty(Command):
-    macroName = 'import'
-    args = 'dir:str file:str'
-
-    def invoke(self, tex):
-        a = self.parse(tex)
-        path = os.path.join(a['dir'], a['file'])
-        fullpath = tex.kpsewhich(path)
-        status.info(' ( %s ' % fullpath)
-        try:
-            encoding = self.config['files']['input-encoding']
-            tex.input(codecs.open(fullpath, 'r', encoding, 'replace'))
-        except (OSError , IOError):
-            log.warning('\nProblem opening file "%s"', fullpath)
-        status.info(' ) ')
-        return []
-            
-
-
-
 def init(tex):
     # Dirty hack #25783 to get plasTeX to work properly:
     # any subprocess of the tex instance won't remember things like,
@@ -163,12 +140,6 @@ def init(tex):
     # Import the macros
     tex.ownerDocument.context.importMacros(vars(sys.modules[__name__]))
 
-    # Dirty dirty hack to trick plasTeX that some packages have already 
-    # been loaded (because we provide reimplementation of them)
-    tex.ownerDocument.context.packages['import']={}
-    tex.ownerDocument.context.packages['listingsutf8']={}
-
     # So apparently this is how to communicate to Plastex where to
     # search for modules... Eugch.
     sys.path = [os.path.dirname(__file__)] + sys.path
-

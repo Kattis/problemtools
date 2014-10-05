@@ -403,7 +403,7 @@ class ProblemConfig(ProblemAspect):
         self._data.update(problem.statement.get_config())
 
         # Populate rights_owner unless license is public domain
-        if 'rights_owner' not in self._data and ('license' not in self._data or self._data['license'] != 'public_domain'):
+        if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
             if 'author' in self._data:
                 self._data['rights_owner'] = self._data['author']
             elif 'source' in self._data:
@@ -460,10 +460,11 @@ class ProblemConfig(ProblemAspect):
                 self.error("Mandatory field '%s' not provided" % field)
 
         for field, value in self._origdata.iteritems():
-            if value is None:
-                self.error("Field '%s' provided in problem.yaml but is empty" % field)
             if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
                 self.warning("Unknown field '%s' provided in problem.yaml" % field)
+            if value is None:
+                self.error("Field '%s' provided in problem.yaml but is empty" % field)
+                self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
 
         # Check type
         if not self._data['type'] in ['pass-fail', 'scoring']:

@@ -1,0 +1,2 @@
+name: lstinputlisting
+<pre style='border:1px solid; padding: 10px;' tal:content="self/attributes/data"></pre>
