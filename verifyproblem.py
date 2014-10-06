@@ -1,3 +1,5 @@
+#! /usr/bin/env python2
+# -*- coding: utf-8 -*-
 import glob
 import string
 import hashlib
@@ -13,12 +15,12 @@ import sys
 import copy
 import random
 from optparse import OptionParser
-from program import Program
+from program import Executable, Program, ProgramError, ProgramWarning
 import problem2pdf
 import problem2html
 
 
-def get_programs(dir, pattern='.*', includedir=None, error_handler=logging):
+def get_programs(dir, tmpdir, pattern='.*', includedir=None, error_handler=logging):
     if not os.path.isdir(dir):
         return []
     ret = []
@@ -26,18 +28,22 @@ def get_programs(dir, pattern='.*', includedir=None, error_handler=logging):
         try:
             if re.match(pattern, f):
                 path = os.path.join(dir, f)
-                ret.append(Program(path, includedir=includedir))
+                ret.append(Program(path, tmpdir, includedir=includedir))
             else:
                 error_handler.info("Ignoring '%s'; invalid filename" % f)
+        except ProgramError as e:
+            error_handler.error('%s: %s' % (f, e))
+        except ProgramWarning as e:
+            error_handler.warning('%s: %s' % (f, e))
         except Exception as e:
-            error_handler.info(e)
+            raise
     return ret
 
 
 def locate_program(candidatePaths):
     for p in candidatePaths:
         if os.path.isfile(p) and os.access(p, os.X_OK):
-            return Program(p, True)
+            return Executable(p)
     return None
 
 
@@ -143,7 +149,7 @@ class TestCase(ProblemAspect):
                          % file)
 
     def strip_path_prefix(self, path):
-        return '/'.join(path.split('/')[4:])
+        return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
 
     def check(self):
         if self._check_res is not None:
@@ -165,7 +171,7 @@ class TestCase(ProblemAspect):
         return 'test case %s' % self.strip_path_prefix(self._base)
 
     def run_submission(self, sub, timelim_low=1000, timelim_high=1000):
-        outfile = os.path.join(self._problem.probdir, 'output')
+        outfile = os.path.join(self._problem.tmpdir, 'output')
         if sys.stdout.isatty():
             msg = 'Running %s on %s...' % (sub.name, self)
             sys.stdout.write('%s' % msg)
@@ -232,17 +238,18 @@ class TestCaseGroup(ProblemAspect):
 
         seenfiles = set()
         self._items = []
-        for f in sorted(os.listdir(datadir)):
-            f = os.path.join(datadir, f)
-            if os.path.isdir(f):
-                self._items.append(TestCaseGroup(problem, f, self))
-            else:
-                base, ext = os.path.splitext(f)
-                if ext == '.ans' and os.path.isfile(base + '.in'):
-                    self._items.append(TestCase(problem, base, self))
+        if os.path.isdir(datadir):
+            for f in sorted(os.listdir(datadir)):
+                f = os.path.join(datadir, f)
+                if os.path.isdir(f):
+                    self._items.append(TestCaseGroup(problem, f, self))
+                else:
+                    base, ext = os.path.splitext(f)
+                    if ext == '.ans' and os.path.isfile(base + '.in'):
+                        self._items.append(TestCase(problem, base, self))
 
     def __str__(self):
-        return 'test case group %s' % '/'.join(self._datadir.split('/')[3:])
+        return 'test case group %s' % os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
 
     def get_subgroup(self, name):
         return next([i for i in self._items if isinstance(i, TestCaseGroup) and os.path.basename(i._basedir) == name], None)
@@ -541,7 +548,7 @@ class ProblemStatement(ProblemAspect):
         pdfopt.nopdf = True
         pdfopt.quiet = True
         htmlopt = problem2html.ConvertOptions()
-        htmlopt.destdir = os.path.join(self._problem._basedir, '__html')
+        htmlopt.destdir = os.path.join(self._problem.tmpdir, 'html')
         htmlopt.quiet = True
 
         for lang in self.languages:
@@ -598,7 +605,7 @@ class InputFormatValidators(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._validators = get_programs(os.path.join(problem.probdir, 'input_format_validators'), error_handler=self)
+        self._validators = get_programs(os.path.join(problem.probdir, 'input_format_validators'), problem.tmpdir, error_handler=self)
         self._seen_flags = []
         fd, self._random_input = tempfile.mkstemp()
         os.close(fd)
@@ -646,7 +653,7 @@ class Graders(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._graders = get_programs(os.path.join(problem.probdir, 'graders'), error_handler=self)
+        self._graders = get_programs(os.path.join(problem.probdir, 'graders'), problem.tmpdir, error_handler=self)
 
     def __str__(self):
         return 'graders'
@@ -723,7 +730,7 @@ class OutputValidators(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._validators = get_programs(os.path.join(problem.probdir, 'output_validators'), error_handler=self)
+        self._validators = get_programs(os.path.join(problem.probdir, 'output_validators'), problem.tmpdir, error_handler=self)
 
     def __str__(self):
         return 'output validators'
@@ -798,7 +805,7 @@ class OutputValidators(ProblemAspect):
         submission_args = submission.get_runcmd()
         for val in self._actual_validators():
             if val is not None and val.compile():
-                feedbackdir = tempfile.mkdtemp(prefix='testprob', dir=self._problem.probdir)
+                feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 validator_args[2] = feedbackdir
                 f = tempfile.NamedTemporaryFile(delete=False)
                 interactive_out = f.name
@@ -837,7 +844,7 @@ class OutputValidators(ProblemAspect):
     def validate(self, testcase, submission_output, errorhandler):
         for val in self._actual_validators():
             if val is not None and val.compile():
-                feedbackdir = tempfile.mkdtemp(prefix='testprob', dir=self._problem.probdir)
+                feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 status, runtime = val.run(submission_output,
                                           args=[testcase.infile, testcase.ansfile, feedbackdir] + self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split(),
                                           logger=self)
@@ -867,8 +874,9 @@ class Submissions(ProblemAspect):
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             self._submissions[acr] = get_programs(os.path.join(srcdir, verdict[1]),
-                                                  Submissions._SUB_REGEXP,
-                                                  os.path.join(problem.probdir, 'include'),
+                                                  problem.tmpdir, 
+                                                  pattern=Submissions._SUB_REGEXP,
+                                                  includedir=os.path.join(problem.probdir, 'include'),
                                                   error_handler=self)
 
     def __str__(self):
@@ -931,20 +939,17 @@ class Problem(ProblemAspect):
     def __init__(self, probdir):
         if probdir[-1] == '/':
             probdir = probdir[:-1]
-        self.srcdir = probdir
-        self.shortname = os.path.basename(self.srcdir)
+        self.probdir = probdir
+        self.shortname = os.path.basename(os.path.realpath(self.probdir))
 
     def __enter__(self):
-        self._basedir = tempfile.mkdtemp(prefix='testprob', dir='.')
-        self.probdir = os.path.join(self._basedir, self.shortname)
-        if not os.path.isdir(self.srcdir):
-            self.error("Problem directory '%s' not found" % self.srcdir)
+        self.tmpdir = tempfile.mkdtemp(prefix='verify-%s-'%self.shortname)
+        if not os.path.isdir(self.probdir):
+            self.error("Problem directory '%s' not found" % self.probdir)
             self.shortname = None
             return self
 
         self.msg('Loading problem %s' % self.shortname)
-
-        shutil.copytree(self.srcdir, self.probdir)
 
         self.statement = ProblemStatement(self)
         self.config = ProblemConfig(self)
@@ -956,10 +961,10 @@ class Problem(ProblemAspect):
         return self
 
     def __exit__(self, type, value, traceback):
-        shutil.rmtree(self._basedir)
+        shutil.rmtree(self.tmpdir)
 
     def __str__(self):
-        return self.probdir
+        return self.shortname
 
     def check(self, items='all', bail_on_error=False):
         if self.shortname is None:
@@ -1006,4 +1011,4 @@ if __name__ == '__main__':
     for dir in args:
         with Problem(dir) as prob:
             [errors, warnings] = prob.check()
-            print "%s tested: %d errors, %d warnings" % (dir, errors, warnings)
+            print "%s tested: %d errors, %d warnings" % (prob.shortname, errors, warnings)
