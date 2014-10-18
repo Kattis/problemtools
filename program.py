@@ -189,17 +189,18 @@ class Program(Runnable):
             else:
                 shutil.copy(src, dest)
 
-    def __init__(self, path, tmpdir, includedir=None):
+    def __init__(self, path, tmpdir=None, includedir=None):
         if path[-1] == '/':
             path = path[:-1]
         self.name = os.path.basename(path)
-        self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=tmpdir)
-        self.rmtree = shutil.rmtree # Needed in destructor
-        files = []
-        if os.path.isdir(path):
-            self.add_files(path)
+        if tmpdir is None:
+            self.path = path
         else:
-            shutil.copy(path, self.path)
+            self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=tmpdir)
+            if os.path.isdir(path):
+                self.add_files(path)
+            else:
+                shutil.copy(path, self.path)
 
         self.lang = self.guess_language()
 

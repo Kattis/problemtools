@@ -303,7 +303,7 @@ class TestCaseGroup(ProblemAspect):
                                 md5.update(buf)
                         filehash = md5.digest()
                         filepath = os.path.join(root, filename)
-                        hashes[filehash].append('/'.join(filepath.split('/')[4:]))
+                        hashes[filehash].append(os.path.relpath(filepath, self._problem.probdir))
             for _, files in hashes.iteritems():
                 if len(files) > 1:
                     self.warning("Identical input files: '%s'" % str(files))
