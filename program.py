@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import shlex
 import fnmatch
+import platform
 
 class ProgramError(Exception):
     pass
@@ -105,8 +106,8 @@ class Program(Runnable):
                  'python3': "^#!.*python3 "}
     _SHEBANG_DEFAULT = ['python2']
     _COMPILE = {
-        'c': 'gcc -O2 -static -std=gnu99 -o "%(exe)s" %(src)s -lm',
-        'cpp': 'g++ -O2 -static -std=gnu++0x -o "%(exe)s" %(src)s',
+        'c': 'gcc -O2 -static -std=gnu99 -o "%(exe)s" %(src)s -lm' if platform.system() != 'Darwin' else 'gcc -O2 -std=gnu99 -o "%(exe)s" %(src)s -lm',
+        'cpp': 'g++ -O2 -static -std=gnu++0x -o "%(exe)s" %(src)s' if platform.system() != 'Darwin' else 'g++ -O2 -std=gnu++0x -o "%(exe)s" %(src)s',
         'java': 'javac -d %(path)s %(src)s',
         'prolog': 'swipl -O -q -g main -t halt -o "%(exe)s" -c %(src)s',
         'csharp': 'dmcs -optimize+ -r:System.Numerics "-out:%(exe)s.exe" %(src)s',
