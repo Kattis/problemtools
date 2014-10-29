@@ -101,8 +101,8 @@ class Program(Runnable):
               'prolog': '*.pl',
               'javascript': '*.js',
               'php': '*.php'}
-    _SHEBANGS = {'python2': "^#!.*python2 ",
-                 'python3': "^#!.*python3 "}
+    _SHEBANGS = {'python2': "^#!.*python2\b",
+                 'python3': "^#!.*python3\b"}
     _SHEBANG_DEFAULT = ['python2']
     _COMPILE = {
         'c': 'gcc -O2 -static -std=gnu99 -o "%(exe)s" %(src)s -lm',
@@ -189,18 +189,20 @@ class Program(Runnable):
             else:
                 shutil.copy(src, dest)
 
-    def __init__(self, path, tmpdir=None, includedir=None):
+    def __init__(self, path, workdir, includedir=None):
         if path[-1] == '/':
             path = path[:-1]
         self.name = os.path.basename(path)
-        if tmpdir is None:
-            self.path = path
+        self.path = os.path.join(workdir, self.name)
+        if os.path.exists(self.path):
+            self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=workdir)
         else:
-            self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=tmpdir)
-            if os.path.isdir(path):
-                self.add_files(path)
-            else:
-                shutil.copy(path, self.path)
+            os.makedirs(self.path)
+
+        if os.path.isdir(path):
+            self.add_files(path)
+        else:
+            shutil.copy(path, self.path)
 
         self.lang = self.guess_language()
 
