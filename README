@@ -19,7 +19,11 @@ test on another platform, we'd be happy to hear what worked and what
 did not work, so that we can write proper instructions (and try to
 figure out how to make the non-working stuff work).
 
-Build default_validator and interactive before running verifyproblem.py.
+Build checktestdata, default_validator and interactive before running
+verifyproblem.py.  Checktestdata requires a relatively recent gcc
+version (4.8 suffices), but is only needed for running checktestdata
+input validation scripts, the rest of problemtools will run fine
+without it.
 
 
 Programs Provided

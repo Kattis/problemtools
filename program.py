@@ -10,6 +10,19 @@ import shlex
 import fnmatch
 import platform
 
+def locate_program(candidatePaths):
+    for p in candidatePaths:
+        if os.path.isfile(p) and os.access(p, os.X_OK):
+            return Executable(p)
+    return None
+
+def locate_checktestdata():
+    defaultPaths = [os.path.join(os.path.dirname(__file__),
+                                 'checktestdata', 'checktestdata'),
+                    '/usr/local/kattis/bin/checktestdata']
+    return locate_program(defaultPaths)
+
+
 class ProgramError(Exception):
     pass
 
@@ -23,8 +36,8 @@ class Runnable:
         runcmd = self.get_runcmd()
         if runcmd == []:
             if logger != None:
-                logger.error('Could not figure out how to run %s' % (self.name))
-            return -1
+                logger.error('Could not figure out how to run %s' % self)
+            return (-1, 0.0)
         if args == None:
             args = []  # Damn you Python
 
@@ -74,6 +87,42 @@ class Executable(Runnable):
         return [self.path]
 
 
+class ValidationScript(Runnable):
+    _CHECKTESTDATA = locate_checktestdata()
+
+    def __str__(self):
+        return 'ValidationScript(%s)' % (self.path)
+
+    def __init__(self, path):
+        ext = os.path.splitext(path)[1]
+        if not os.path.isfile(path) or ext != '.ctd':
+            raise ProgramWarning('Not a recognized validation script')
+        self.path = path
+        self.name = path
+        self.runcmd = None
+        if ValidationScript._CHECKTESTDATA is not None:
+            self.runcmd = ValidationScript._CHECKTESTDATA.get_runcmd() + [path]
+
+    _compile_result = None
+    def compile(self):
+        if self._compile_result is None:
+            self._compile_result = False
+            (status, runtime) = self.run()
+            self._compile_result = os.WIFEXITED(status) and os.WEXITSTATUS(status) in [1,42]
+        return self._compile_result
+
+    def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null', args=None, timelim=1000, logger=None):
+        if self.runcmd is None:
+            raise ProgramError('Could not locate checktestdata executable, needed to run %s' % self.path)
+        (status, runtime) = Runnable.run(self, infile, outfile, errfile, args, timelim, logger)
+        if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
+            status = 42<<8
+        return (status, runtime)
+    
+    def get_runcmd(self):
+        return self.runcmd
+
+
 class Program(Runnable):
     # TODO: make language settings more configurable
     _LANGNAME = {
@@ -101,7 +150,8 @@ class Program(Runnable):
               'objectivec': '*.m',
               'prolog': '*.pl',
               'javascript': '*.js',
-              'php': '*.php'}
+              'php': '*.php',
+          }
     _SHEBANGS = {'python2': "^#!.*python2\b",
                  'python3': "^#!.*python3\b"}
     _SHEBANG_DEFAULT = ['python2']
@@ -125,7 +175,7 @@ class Program(Runnable):
         'csharp': 'mono %(exe)s.exe',
         'go': '%(exe)s',
         'haskell': '%(exe)s',
-        'dir': '%(path)s/run'
+        'dir': '%(path)s/run',
         }
 
     def check_shebang(self, file):

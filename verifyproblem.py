@@ -15,19 +15,26 @@ import sys
 import copy
 import random
 from optparse import OptionParser
-from program import Executable, Program, ProgramError, ProgramWarning
+from program import Executable, Program, ValidationScript, ProgramError, ProgramWarning, locate_program
 import problem2pdf
 import problem2html
 
 
-def get_programs(dir, tmpdir, pattern='.*', includedir=None, error_handler=logging):
+def get_programs(dir, tmpdir, pattern='.*', allow_validation_scripts=False, includedir=None, error_handler=logging):
     if not os.path.isdir(dir):
         return []
     ret = []
     for f in sorted(os.listdir(dir)):
+        path = os.path.join(dir, f)
+        added = False
+        if allow_validation_scripts:
+            try:
+                ret.append(ValidationScript(path))
+                continue
+            except ProgramWarning as e:
+                pass
         try:
             if re.match(pattern, f):
-                path = os.path.join(dir, f)
                 ret.append(Program(path, tmpdir, includedir=includedir))
             else:
                 error_handler.info("Ignoring '%s'; invalid filename" % f)
@@ -38,13 +45,6 @@ def get_programs(dir, tmpdir, pattern='.*', includedir=None, error_handler=loggi
         except Exception as e:
             raise
     return ret
-
-
-def locate_program(candidatePaths):
-    for p in candidatePaths:
-        if os.path.isfile(p) and os.access(p, os.X_OK):
-            return Executable(p)
-    return None
 
 
 def locate_interactive():
@@ -426,7 +426,7 @@ class ProblemConfig(ProblemAspect):
         for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).iteritems():
             if not field in self._data:
                 self._data[field] = default
-            elif type(default) is dict:
+            elif type(default) is dict and type(self._data[field]) is dict:
                 self._data[field] = dict(default.items() + self._data[field].items())
 
         self._origdata = copy.deepcopy(self._data)
@@ -512,6 +512,11 @@ class ProblemConfig(ProblemAspect):
             for param in self._data['validation-params']:
                 if param not in['score', 'interactive']:
                     self.error("Invalid parameter '%s' for custom validation" % param)
+
+        # Check limits
+        if type(self._data['limits']) is not dict:
+            self.error('Limits key in problem.yaml must specify a dict')
+            self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
 
         # Some things not yet implemented
         if self._data['grading']['on_reject'] == 'worst_error':
@@ -605,7 +610,7 @@ class InputFormatValidators(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._validators = get_programs(os.path.join(problem.probdir, 'input_format_validators'), problem.tmpdir, error_handler=self)
+        self._validators = get_programs(os.path.join(problem.probdir, 'input_format_validators'), problem.tmpdir, allow_validation_scripts=True, error_handler=self)
         self._seen_flags = []
         fd, self._random_input = tempfile.mkstemp()
         os.close(fd)
@@ -624,8 +629,11 @@ class InputFormatValidators(ProblemAspect):
             self.error('No input format validators found')
 
         for val in self._validators:
-            if not val.compile():
-                self.error('Compile error for input format validator %s' % val.name)
+            try:
+                if not val.compile():
+                    self.error('Compile error for input format validator %s' % val.name)
+            except ProgramError as e:
+                self.error(e)
 
         return self._check_res
 
