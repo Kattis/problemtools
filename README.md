@@ -36,8 +36,3 @@ The problem tools provide the following three programs:
 
 Running any of them without any command-line options gives
 documentation on what parameters they accept.
-
-## Known Issues
-
-Gentoo: there seems to be some issue with Mono in Gentoo causing C#
-programs to be detected as crashing.
