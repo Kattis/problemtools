@@ -17,12 +17,16 @@ test on another platform, we'd be happy to hear what worked and what
 did not work, so that we can write proper instructions (and try to
 figure out how to make the non-working stuff work).
 
-Build `checktestdata`, `default_validator` and `interactive` before running
-`verifyproblem.py`.  Checktestdata requires a relatively recent gcc version
-(4.8 suffices), but is only needed for running checktestdata input validation
-scripts, the rest of problemtools will run fine without it.
+Build all the support programs by running
 
-    (cd checktestdata && make)
+    make
+
+The checktestdata program requires a relatively recent gcc version
+(4.8 suffices), but is only needed for running checktestdata input
+validation scripts.  The rest of problemtools will run fine without
+it, but in this case you need to build the other programs separately,
+e.g.  by running
+
     (cd default_validator && make)
     (cd interactive && make)
 

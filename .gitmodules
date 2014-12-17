@@ -1,0 +1,3 @@
+[submodule "checktestdata"]
+	path = checktestdata
+	url = git@github.com:Kattis/checktestdata.git
