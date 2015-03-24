@@ -22,6 +22,12 @@ def locate_checktestdata():
                     '/usr/local/kattis/bin/checktestdata']
     return locate_program(defaultPaths)
 
+def locate_viva():
+    defaultPaths = [os.path.join(os.path.dirname(__file__),
+                                 'viva', 'viva.sh'),
+                    '/usr/local/kattis/bin/viva.sh']
+    return locate_program(defaultPaths)
+
 
 class ProgramError(Exception):
     pass
@@ -88,35 +94,49 @@ class Executable(Runnable):
 
 
 class ValidationScript(Runnable):
-    _CHECKTESTDATA = locate_checktestdata()
+    _TYPES = {'.ctd': {'run': locate_checktestdata(),
+                       'input_src': 'stdin',
+                       'compile_exit': 1,
+                       'run_exit': 0},
+              '.viva': {'run': locate_viva(), 
+                        'input_src': 'arg',
+                        'compile_exit': 0,
+                        'run_exit': 0}}
 
     def __str__(self):
         return 'ValidationScript(%s)' % (self.path)
 
     def __init__(self, path):
         ext = os.path.splitext(path)[1]
-        if not os.path.isfile(path) or ext != '.ctd':
+        if not os.path.isfile(path) or ext not in ValidationScript._TYPES.keys():
             raise ProgramWarning('Not a recognized validation script')
         self.path = path
         self.name = path
         self.runcmd = None
-        if ValidationScript._CHECKTESTDATA is not None:
-            self.runcmd = ValidationScript._CHECKTESTDATA.get_runcmd() + [path]
+        self.type = ValidationScript._TYPES[ext]
+        if self.type['run'] is not None:
+            self.runcmd = self.type['run'].get_runcmd() + [path]
 
     _compile_result = None
     def compile(self):
         if self._compile_result is None:
             self._compile_result = False
-            (status, runtime) = self.run()
-            self._compile_result = os.WIFEXITED(status) and os.WEXITSTATUS(status) in [1,42]
+            (status, runtime) = self.run(switch_exitcodes=False)
+            self._compile_result = os.WIFEXITED(status) and os.WEXITSTATUS(status) == self.type['compile_exit']
         return self._compile_result
 
-    def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null', args=None, timelim=1000, logger=None):
+    def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null', args=None, timelim=1000, logger=None, switch_exitcodes=True):
         if self.runcmd is None:
-            raise ProgramError('Could not locate checktestdata executable, needed to run %s' % self.path)
+            raise ProgramError('Could not locate runner for validation script %s' % self.path)
+        if self.type['input_src'] == 'arg' and infile != '/dev/null':
+            args = [infile]
         (status, runtime) = Runnable.run(self, infile, outfile, errfile, args, timelim, logger)
-        if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
-            status = 42<<8
+        # This is ugly, switches the accept exit status and our accept exit status 42.
+        if switch_exitcodes:
+            if os.WIFEXITED(status) and os.WEXITSTATUS(status) == self.type['run_exit']:
+                status = 42<<8
+            elif os.WIFEXITED(status) and os.WEXITSTATUS(status) == 42:
+                status = self.type['run_exit'] << 8
         return (status, runtime)
     
     def get_runcmd(self):
@@ -156,8 +176,8 @@ class Program(Runnable):
                  'python3': "^#!.*python3\b"}
     _SHEBANG_DEFAULT = ['python2']
     _COMPILE = {
-        'c': 'gcc -O2 -static -std=gnu99 -o "%(exe)s" %(src)s -lm' if platform.system() != 'Darwin' else 'gcc -O2 -std=gnu99 -o "%(exe)s" %(src)s -lm',
-        'cpp': 'g++ -O2 -static -std=gnu++0x -o "%(exe)s" %(src)s' if platform.system() != 'Darwin' else 'g++ -O2 -std=gnu++0x -o "%(exe)s" %(src)s',
+        'c': 'gcc -g -O2 -static -std=gnu99 -o "%(exe)s" %(src)s -lm' if platform.system() != 'Darwin' else 'gcc -g -O2 -std=gnu99 -o "%(exe)s" %(src)s -lm',
+        'cpp': 'g++ -g -O2 -static -std=gnu++11 -o "%(exe)s" %(src)s' if platform.system() != 'Darwin' else 'g++ -g -O2 -std=gnu++11 -o "%(exe)s" %(src)s',
         'java': 'javac -d %(path)s %(src)s',
         'prolog': 'swipl -O -q -g main -t halt -o "%(exe)s" -c %(src)s',
         'csharp': 'dmcs -optimize+ -r:System.Numerics "-out:%(exe)s.exe" %(src)s',
