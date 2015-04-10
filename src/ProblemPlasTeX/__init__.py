@@ -83,7 +83,8 @@ class ProblemRenderer(Renderer):
 
     def render(self, document):
         templatepaths = [os.path.join(os.path.dirname(__file__), '../templates/html'),
-                         '/usr/local/kattis/data/templates/html']
+                         os.path.join(os.path.dirname(__file__), '../../templates/html'),
+                         '/usr/lib/problemtools/templates/html']
         templatepath = None
         for p in templatepaths:
             if os.path.isdir(p):

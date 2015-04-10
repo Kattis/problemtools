@@ -65,7 +65,8 @@ class Template:
             clsfile = 'problemset_%s.cls' % version
 
         templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/latex'),
-                         '/usr/local/kattis/data/templates/latex']
+                         os.path.join(os.path.dirname(__file__), '../templates/latex'),
+                         '/usr/lib/problemtools/templates/latex']
         templatepath = None
         for p in templatepaths:
             if os.path.isdir(p) and os.path.isfile(os.path.join(p, templatefile)):
