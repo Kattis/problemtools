@@ -945,10 +945,8 @@ class Submissions(ProblemAspect):
 
 class Problem(ProblemAspect):
     def __init__(self, probdir):
-        if probdir[-1] == '/':
-            probdir = probdir[:-1]
-        self.probdir = probdir
-        self.shortname = os.path.basename(os.path.realpath(self.probdir))
+        self.probdir = os.path.realpath(probdir)
+        self.shortname = os.path.basename(self.probdir)
 
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp(prefix='verify-%s-'%self.shortname)

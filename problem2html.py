@@ -15,8 +15,7 @@ import template
 
 
 def convert(problem, options=None):
-    if (problem[-1] == '/'):
-        problem = problem[:-1]
+    problem = os.path.realpath(problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destdir = Template(options.destdir).safe_substitute(problem=problembase)

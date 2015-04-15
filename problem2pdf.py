@@ -14,8 +14,7 @@ def convert(problem, options=None):
     if options == None:
         options = ConvertOptions()
 
-    if (problem[-1] == '/'):
-        problem = problem[:-1]
+    problem = os.path.realpath(problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = Template(options.destfile).safe_substitute(problem=problembase)
 
