@@ -18,14 +18,18 @@ def locate_program(candidatePaths):
 
 def locate_checktestdata():
     defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'checktestdata', 'checktestdata'),
-                    '/usr/local/kattis/bin/checktestdata']
+                                 'checktestdata/checktestdata'),
+                    os.path.join(os.path.dirname(__file__),
+                                 '../support/checktestdata/checktestdata'),
+                    '/usr/lib/problemtools/bin/checktestdata']
     return locate_program(defaultPaths)
 
 def locate_viva():
     defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'viva', 'viva.sh'),
-                    '/usr/local/kattis/bin/viva.sh']
+                                 'viva/viva.sh'),
+                    os.path.join(os.path.dirname(__file__),
+                                 '../support/viva/viva.sh'),
+                    '/usr/lib/problemtools/bin/viva.sh']
     return locate_program(defaultPaths)
 
 

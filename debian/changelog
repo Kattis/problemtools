@@ -1,0 +1,5 @@
+kattis-problemtools (2:1.0) unstable; urgency=low
+
+  * Initial debian packaging.
+
+ -- Per Austrin <austrin@kattis.com>  Thu, 09 Apr 2015 12:26:51 +0200

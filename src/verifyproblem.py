@@ -49,22 +49,28 @@ def get_programs(dir, tmpdir, pattern='.*', allow_validation_scripts=False, incl
 
 def locate_interactive():
     defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'interactive', 'interactive'),
-                    '/usr/local/kattis/bin/interactive']
+                                 'interactive/interactive'),
+                    os.path.join(os.path.dirname(__file__),
+                                 '../support/interactive/interactive'),
+                    '/usr/lib/problemtools/bin/interactive']
     return locate_program(defaultPaths)
 
 
 def locate_default_validator():
     defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'default_validator', 'default_validator'),
-                    '/usr/local/kattis/bin/default_validator']
+                                 'default_validator/default_validator'),
+                    os.path.join(os.path.dirname(__file__),
+                                 '../support/default_validator/default_validator'),
+                    '/usr/lib/problemtools/bin/default_validator']
     return locate_program(defaultPaths)
 
 
 def locate_default_grader():
     defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'default_grader', 'default_grader'),
-                    '/usr/local/kattis/bin/default_grader']
+                                 'default_grader/default_grader'),
+                    os.path.join(os.path.dirname(__file__),
+                                 '../support/default_grader/default_grader'),
+                    '/usr/lib/problemtools/bin/default_grader']
     return locate_program(defaultPaths)
 
 
