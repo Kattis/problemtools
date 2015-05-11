@@ -47,7 +47,9 @@
 \RequirePackage{url}              % Urls
 \RequirePackage[normalem]{ulem}   % \sout
 \RequirePackage[colorlinks=true,implicit=false]{hyperref}
-
+\ifplastex\else
+\RequirePackage{pgffor}
+\fi
 
 %% Commands used to set name, logo, etc of contest
 \newcommand*{\contestname}[1]{\def\@contestname{#1}}
@@ -69,7 +71,7 @@
 \savebox{\PS@headerbox}{}
 \addtolength{\headheight}{0.25in}
 \addtolength{\textheight}{-0.25in}
-\setlength{\headsep}{12pt} 
+\setlength{\headsep}{12pt}
 \newcommand*{\headerlogo}[1]{
   \def\@headerlogo{#1}
   \savebox{\PS@headerbox}{\includegraphics[width=\textwidth]{\@headerlogo}}
@@ -114,7 +116,7 @@
 %% Redefine cleardoublepage to put a text on even-numbered empty
 %% pages.
 \newcommand{\makeemptypage}{
-  ~\thispagestyle{empty} 
+  ~\thispagestyle{empty}
   \vfill
   \centerline{\Large \textsf{ This page is intentionally left blank.}}
   \vfill
@@ -154,6 +156,15 @@
 \newcommand{\includeproblem}[1]{
   \startproblem{#1}
   \import{#1/problem_statement/}{problem\@problemlanguage.tex}
+
+  %% Automatically include samples 1..20
+  \ifplastex\else
+  \foreach \SampleNum in {1,...,9} {
+    \IfFileExists{\@problemid/data/sample/\SampleNum.in}{
+      \displaysample{\@problemid/data/sample/\SampleNum}
+    }
+  }
+  \fi
 }
 
 \newcommand{\startproblem}[1]{
@@ -169,6 +180,10 @@
   \problemheader{\@problemname}{\@problemid}
 }
 
+\newcommand{\ps@formattime}[1]{
+  #1\ifnum#1=1 second \else seconds \fi
+}
+
 \newcommand{\problemheader}[2]{
   \begin{center}
     \textsf{
@@ -176,7 +191,10 @@
       {\LARGE #1}
       \if@problemids {\\[2mm]{\Large Problem ID: #2}} \fi
       \IfFileExists{#2/.timelimit}{
-        \\[2mm]{\Large Time limit: \input{#2/.timelimit}seconds}
+        \newread\ps@timelimitfile
+        \openin\ps@timelimitfile=#2/.timelimit
+        \read\ps@timelimitfile to\ps@timelimit
+        \\[2mm]{\Large Time limit:\ps@formattime{\ps@timelimit}}
       }{}
       \\[5mm]
     }
@@ -212,7 +230,7 @@
 }
 
 \newlength{\PS@sampleidealwidth}
-\setlength{\PS@sampleidealwidth}{0.474\textwidth}
+\setlength{\PS@sampleidealwidth}{0.473\textwidth}
 \newsavebox{\PS@sampleinbox}
 \newsavebox{\PS@sampleoutbox}
 \newlength{\PS@sampleinwidth}
@@ -234,7 +252,7 @@
     \begin{tabular}{|l|}
       \multicolumn{1}{l}{\textsf{\textbf{#1}}}\\
       \hline
-      \parbox[t]{0.974\textwidth}{\vspace{-0.3cm}\usebox{\PS@sampleinbox}}\\
+      \parbox[t]{0.968\textwidth}{\vspace{-0.3cm}\usebox{\PS@sampleinbox}}\\
       \hline
     \end{tabular}
     \par
