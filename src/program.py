@@ -168,7 +168,7 @@ class Program(Runnable):
               'java': '*.java',
               'csharp': '*.cs',
               'python2': '*.py',
-#              'python3': '*.py',
+              'python3': '*.py',
               'go': '*.go',
               'haskell': '*.hs',
               'objectivec': '*.m',
@@ -176,8 +176,8 @@ class Program(Runnable):
               'javascript': '*.js',
               'php': '*.php',
           }
-    _SHEBANGS = {'python2': "^#!.*python2\b",
-                 'python3': "^#!.*python3\b"}
+    _SHEBANGS = {'python2': r"^#!.*python2\b",
+                 'python3': r"^#!.*python3\b"}
     _SHEBANG_DEFAULT = ['python2']
     _COMPILE = {
         'c': 'gcc -g -O2 -static -std=gnu99 -o "%(exe)s" %(src)s -lm' if platform.system() != 'Darwin' else 'gcc -g -O2 -std=gnu99 -o "%(exe)s" %(src)s -lm',
@@ -217,14 +217,14 @@ class Program(Runnable):
         result = []
         for (path,dirs,files) in os.walk(self.path):
             for f in files:
-                fullpath = os.path.join(self.path, f)
-                if lang in Program._SHEBANGS.keys():
-                    sheblang = self.check_shebang(fullpath)
-                    if ((sheblang is None and lang not in Program._SHEBANG_DEFAULT) or
-                        (sheblang is not None and sheblang != lang)):
-                        continue
+                fullpath = os.path.join(self.path, path, f)
                 for g in globs:
                     if fnmatch.fnmatch(fullpath, g):
+                        if lang in Program._SHEBANGS.keys():
+                            sheblang = self.check_shebang(fullpath)
+                            if ((sheblang is None and lang not in Program._SHEBANG_DEFAULT) or
+                                (sheblang is not None and sheblang != lang)):
+                                continue
                         result.append(fullpath)
                         break
         return result
