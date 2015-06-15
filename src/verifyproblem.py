@@ -201,8 +201,8 @@ class TestCase(ProblemAspect):
         if 'interactive' in self._problem.config.get('validation-params'):
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
-            status, runtime = sub.run(self.infile, outfile, timelim=timelim_high, logger=self)
-            if is_TLE(status):
+            status, runtime = sub.run(self.infile, outfile, timelim=timelim_high+1, logger=self)
+            if is_TLE(status) or runtime > timelim_high:
                 res2 = SubmissionResult('TLE', score=self._problem.config.get('grading')['reject_score'])
             elif is_RTE(status):
                 res2 = SubmissionResult('RTE', score=self._problem.config.get('grading')['reject_score'])
