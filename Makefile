@@ -1,4 +1,4 @@
-CONF=support/checktestdata/paths.mk
+CONF=support/checktestdata/config.mk
 PROGRAMS=checktestdata default_validator interactive
 LIBDIR=$(DESTDIR)/usr/lib/problemtools/
 BINDIR=$(DESTDIR)/usr/bin
@@ -29,8 +29,11 @@ install: all
 	install support/viva/viva.sh $(LIBDIR)/bin
 	cp -r templates $(LIBDIR)/
 
-$(CONF):
+$(CONF): support/checktestdata/bootstrap
 	cd support/checktestdata && ./bootstrap
+
+support/checktestdata/bootstrap:
+	git submodule update --init
 
 clean:
 	$(foreach prog,$(PROGRAMS),$(MAKE) -C support/$(prog) clean;)
