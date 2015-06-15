@@ -178,7 +178,12 @@ class TestCase(ProblemAspect):
             self.error('Answer file (%.1f Mb) is larger than output limit (%d Mb), you need to increase output limit' % (anssize, outputlim))
         elif 2 * anssize > outputlim:
             self.warning('Answer file (%.1f Mb) is within %.0f%% of output limit (%d Mb), you might want to increase output limit' % (anssize, 100.0*anssize/outputlim, outputlim))
-#        self._problem.output_validators.validate(self, self.ansfile, self)
+        val_res = self._problem.output_validators.validate(self, self.ansfile, self)
+        if val_res.verdict != 'AC':
+            if self.strip_path_prefix(self.infile)[0:6] == 'sample':
+                self.error('Output validator did not accept judge answer file')
+            else:
+                self.warning('Output validator did not accept judge answer file')
         return self._check_res
 
     def __str__(self):
