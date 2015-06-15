@@ -14,7 +14,7 @@ import tempfile
 import sys
 import copy
 import random
-from optparse import OptionParser
+from argparse import ArgumentParser, ArgumentTypeError
 from program import Executable, Program, ValidationScript, ProgramError, ProgramWarning, locate_program
 import problem2pdf
 import problem2html
@@ -116,15 +116,23 @@ class SubmissionResult:
                                              self.runtime, self.runtime_reason)
 
 
+
+class VerifyError(Exception):
+    pass
+
+
 class ProblemAspect:
     errors = 0
     warnings = 0
+    bail_on_error = False
     _check_res = None
 
     def error(self, msg):
         self._check_res = False
         ProblemAspect.errors += 1
         logging.error('in %s: %s' % (self, msg))
+        if ProblemAspect.bail_on_error:
+            raise VerifyError(msg)
 
     def warning(self, msg):
         ProblemAspect.warnings += 1
@@ -157,26 +165,29 @@ class TestCase(ProblemAspect):
     def strip_path_prefix(self, path):
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
         self.check_newlines(self.infile)
         self.check_newlines(self.ansfile)
         self._problem.input_format_validators.validate(self)
-        anssize = os.path.getsize(self.ansfile)
+        anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
         outputlim = self._problem.config.get('limits')['output']
-        if anssize > outputlim * 1024 * 1024:
-            self.error('Answer file (%.1f Mb) larger than output limit (%d Mb), you need to increase output limit' % (anssize / 1024.0 / 1024.0, outputlim))
-        elif 2 * anssize > outputlim * 1024 * 1024:
-            self.warning('Answer file (%.1f Mb) is within 50%% of output limit (%d Mb), you might want to increase output limit' % (anssize / 1024.0 / 1024.0, outputlim))
+        if anssize > outputlim:
+            self.error('Answer file (%.1f Mb) is larger than output limit (%d Mb), you need to increase output limit' % (anssize, outputlim))
+        elif 2 * anssize > outputlim:
+            self.warning('Answer file (%.1f Mb) is within %.0f%% of output limit (%d Mb), you might want to increase output limit' % (anssize, 100.0*anssize/outputlim, outputlim))
 #        self._problem.output_validators.validate(self, self.ansfile, self)
         return self._check_res
 
     def __str__(self):
         return 'test case %s' % self.strip_path_prefix(self._base)
 
-    def run_submission(self, sub, timelim_low=1000, timelim_high=1000):
+    def matches_filter(self, filter_re):
+        return filter_re.search(self.strip_path_prefix(self._base)) is not None
+
+    def run_submission(self, sub, args, timelim_low=1000, timelim_high=1000):
         outfile = os.path.join(self._problem.tmpdir, 'output')
         if sys.stdout.isatty():
             msg = 'Running %s on %s...' % (sub.name, self)
@@ -257,10 +268,13 @@ class TestCaseGroup(ProblemAspect):
     def __str__(self):
         return 'test case group %s' % os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
 
+    def matches_filter(self, filter_re):
+        return True
+
     def get_subgroup(self, name):
         return next([i for i in self._items if isinstance(i, TestCaseGroup) and os.path.basename(i._basedir) == name], None)
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -322,7 +336,8 @@ class TestCaseGroup(ProblemAspect):
                 self.error("No matching input file for answer '%s'" % f)
 
         for subdata in self._items:
-            subdata.check()
+            if subdata.matches_filter(args.data_filter):
+                subdata.check(args)
 
         return self._check_res
 
@@ -344,14 +359,16 @@ class TestCaseGroup(ProblemAspect):
             return self._problem.graders.grade(self, sub_results, shadow_result)
         return SubmissionResult(verdict, subresults=sub_results, reason=reason)
 
-    def run_submission(self, sub, timelim_low, timelim_high):
+    def run_submission(self, sub, args, timelim_low, timelim_high):
         self.info('Running on %s' % self)
         subres1 = []
         subres2 = []
         probtype = self._problem.config.get('type')
         on_reject = self._problem.config.get('grading')['on_reject']
         for subdata in self._items:
-            (r1, r2) = subdata.run_submission(sub, timelim_low, timelim_high)
+            if not subdata.matches_filter(args.data_filter):
+                continue
+            (r1, r2) = subdata.run_submission(sub, args, timelim_low, timelim_high)
             subres1.append(r1)
             subres2.append(r2)
             if on_reject == 'first_error' and r2.verdict != 'AC':
@@ -460,7 +477,7 @@ class ProblemConfig(ProblemAspect):
             return self._data[key]
         return self._data
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -546,7 +563,7 @@ class ProblemStatement(ProblemAspect):
         for f in glob.glob(glob_path + '[a-z][a-z].tex'):
             self.languages.append(re.search("problem.([a-z][a-z]).tex$", f).group(1))
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -627,7 +644,7 @@ class InputFormatValidators(ProblemAspect):
     def __str__(self):
         return 'input format validators'
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -672,7 +689,7 @@ class Graders(ProblemAspect):
     def __str__(self):
         return 'graders'
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -749,7 +766,7 @@ class OutputValidators(ProblemAspect):
     def __str__(self):
         return 'output validators'
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -896,8 +913,8 @@ class Submissions(ProblemAspect):
     def __str__(self):
         return 'submissions'
 
-    def check_submission(self, sub, expected_verdict, timelim_low, timelim_high):
-        (result1, result2) = self._problem.testdata.run_submission(sub, timelim_low, timelim_high)
+    def check_submission(self, sub, args, expected_verdict, timelim_low, timelim_high):
+        (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
 
         if result1.verdict != result2.verdict:
             self.warning('%s submission %s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (expected_verdict, sub.name, timelim_low, result1.verdict, timelim_high, result2.verdict))
@@ -910,7 +927,7 @@ class Submissions(ProblemAspect):
             self.error('%s submission %s got %s' % (expected_verdict, sub.name, result1))
         return result1
 
-    def check(self):
+    def check(self, args):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -919,6 +936,9 @@ class Submissions(ProblemAspect):
         timelim = 300
         if 'time_for_AC_submissions' in self._problem.config.get('limits'):
             timelim = timelim_margin = self._problem.config.get('limits')['time_for_AC_submissions']
+        if args.fixed_timelim is not None:
+            timelim = args.fixed_timelim
+            timelim_margin = timelim * self._problem.config.get('limits')['time_safety_margin']
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -928,23 +948,33 @@ class Submissions(ProblemAspect):
             runtimes = []
 
             for sub in self._submissions[acr]:
-                self.info('Check %s submission %s' % (acr, sub.name))
+                if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
+                    self.info('Check %s submission %s' % (acr, sub.name))
 
-                if not sub.compile():
-                    self.error('Compile error for %s submission %s' % (acr, sub.name))
-                    continue
+                    if not sub.compile():
+                        self.error('Compile error for %s submission %s' % (acr, sub.name))
+                        continue
 
-                res = self.check_submission(sub, acr, timelim, timelim_margin)
-                runtimes.append(res.runtime)
+                    res = self.check_submission(sub, args, acr, timelim, timelim_margin)
+                    runtimes.append(res.runtime)
 
-            if acr == 'AC' and len(runtimes) > 0:
-                max_runtime = max(runtimes)
-                exact_timelim = max_runtime * self._problem.config.get('limits')['time_multiplier']
-                timelim = max(1, int(0.5 + exact_timelim))
-                self._problem.config.get('limits')['time'] = timelim
-                timelim_margin = max(exact_timelim + 1,
-                                     int(0.5 + exact_timelim * self._problem.config.get('limits')['time_safety_margin']))
-                self.msg("   Slowest AC runtime: %.3lf, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
+            if acr == 'AC':
+                if len(runtimes) > 0:
+                    max_runtime = max(runtimes)
+                    exact_timelim = max_runtime * self._problem.config.get('limits')['time_multiplier']
+                    max_runtime = '%.3f' % max_runtime
+                    timelim = max(1, int(0.5 + exact_timelim))
+                    timelim_margin = max(timelim + 1,
+                                         int(0.5 + exact_timelim * self._problem.config.get('limits')['time_safety_margin']))
+                else:
+                    max_runtime = None
+                if args.fixed_timelim is not None and args.fixed_timelim != timelim:
+                    self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
+                    timelim = args.fixed_timelim
+                    timelim_margin = timelim * self._problem.config.get('limits')['time_safety_margin']
+
+                self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
+            self._problem.config.get('limits')['time'] = timelim
 
         return self._check_res
 
@@ -978,49 +1008,57 @@ class Problem(ProblemAspect):
     def __str__(self):
         return self.shortname
 
-    def check(self, items='all', bail_on_error=False):
+    def check(self, args, items='all'):
         if self.shortname is None:
             return [1, 0]
 
-        mapping = {'config': self.config,
-                   'problem statement': self.statement,
-                   'input format validators': self.input_format_validators,
-                   'output validators': self.output_validators,
-                   'graders': self.graders,
-                   'test data': self.testdata,
-                   'submissions': self.submissions}
-        if items == 'all':
-            items = ['config', 'problem statement', 'input format validators', 'output validators', 'test data', 'submissions']
-
-        if not re.match('^[a-z0-9]+$', self.shortname):
-            self.error("Invalid shortname '%s' (must be [a-z0-9]+)" % self.shortname)
-
         ProblemAspect.errors = 0
         ProblemAspect.warnings = 0
-        for item in items:
-            self.msg('Checking %s' % item)
-            mapping[item].check()
-            if ProblemAspect.errors > 0 and bail_on_error:
-                break
+        ProblemAspect.bail_on_error = args.bail_on_error
+
+        try:
+            mapping = {'config': self.config,
+                       'problem statement': self.statement,
+                       'input format validators': self.input_format_validators,
+                       'output validators': self.output_validators,
+                       'graders': self.graders,
+                       'test data': self.testdata,
+                       'submissions': self.submissions}
+            if items == 'all':
+                items = ['config', 'problem statement', 'input format validators', 'output validators', 'test data', 'submissions']
+
+            if not re.match('^[a-z0-9]+$', self.shortname):
+                self.error("Invalid shortname '%s' (must be [a-z0-9]+)" % self.shortname)
+
+            for item in items:
+                self.msg('Checking %s' % item)
+                mapping[item].check(args)
+        except VerifyError:
+            pass
         return [ProblemAspect.errors, ProblemAspect.warnings]
 
 
+def re_argument(s):
+    try:
+        r = re.compile(s)
+        return r
+    except re.error:
+        raise ArgumentTypeError('%s is not a valid regex' % s)
+
 if __name__ == '__main__':
-    parser = OptionParser(usage="usage: %prog [options] problems")
-    parser.add_option("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
-#    parser.add_option("-b", dest="bail_on_error", help="bail verification on first error (useful together with debug output)", action=store_true)
-#    parser.add_option("-n", "--count", dest="count", help="number of times to run each submission", default=3, type="int")
-#    parser.add_option("-g", "--gen-answers", dest="genanswers", help="generate answer files using", default=False)
-    (options, args) = parser.parse_args()
+    parser = ArgumentParser(description="Validate a problem package in the Kattis problem format.")
+    parser.add_argument("-s", "--submission_filter", metavar='SUBMISSIONS', help="run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. 'accepted/hello.java' (for a single file submission) or 'wrong_answer/hello' (for a directory submission)", type=re_argument, default=re.compile('.*'))
+    parser.add_argument("-d", "--data_filter", metavar='DATA', help="use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. 'sample/hello' for a sample data file", type=re_argument, default=re.compile('.*'))
+    parser.add_argument("-t", "--fixed_timelim", help="use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)", type=int)
+    parser.add_argument("-b", "--bail_on_error", help="bail verification on first error", action='store_true')
+    parser.add_argument("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
+    parser.add_argument('problemdir')
+    args = parser.parse_args()
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
-                        level=eval("logging." + options.loglevel.upper()))
+                        level=eval("logging." + args.loglevel.upper()))
 
-    if not args:
-        parser.print_help()
-
-    for dir in args:
-        with Problem(dir) as prob:
-            [errors, warnings] = prob.check()
-            print "%s tested: %d errors, %d warnings" % (prob.shortname, errors, warnings)
+    with Problem(args.problemdir) as prob:
+        [errors, warnings] = prob.check(args)
+        print "%s tested: %d errors, %d warnings" % (prob.shortname, errors, warnings)
