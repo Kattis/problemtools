@@ -1013,9 +1013,11 @@ class Problem(ProblemAspect):
     def __str__(self):
         return self.shortname
 
-    def check(self, args, items='all'):
+    def check(self, args=None, items='all'):
         if self.shortname is None:
             return [1, 0]
+        if args is None:
+            args = default_args()
 
         ProblemAspect.errors = 0
         ProblemAspect.warnings = 0
@@ -1050,7 +1052,8 @@ def re_argument(s):
     except re.error:
         raise ArgumentTypeError('%s is not a valid regex' % s)
 
-if __name__ == '__main__':
+
+def argparser():
     parser = ArgumentParser(description="Validate a problem package in the Kattis problem format.")
     parser.add_argument("-s", "--submission_filter", metavar='SUBMISSIONS', help="run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. 'accepted/hello.java' (for a single file submission) or 'wrong_answer/hello' (for a directory submission)", type=re_argument, default=re.compile('.*'))
     parser.add_argument("-d", "--data_filter", metavar='DATA', help="use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. 'sample/hello' for a sample data file", type=re_argument, default=re.compile('.*'))
@@ -1058,7 +1061,15 @@ if __name__ == '__main__':
     parser.add_argument("-b", "--bail_on_error", help="bail verification on first error", action='store_true')
     parser.add_argument("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
     parser.add_argument('problemdir')
-    args = parser.parse_args()
+    return parser
+
+
+def default_args():
+    return argparser().parse_args([None])
+
+
+if __name__ == '__main__':
+    args = argparser().parse_args()
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
