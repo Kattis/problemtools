@@ -201,6 +201,7 @@ class Program(Runnable):
         'haskell': '%(exe)s',
         'dir': '%(path)s/run',
         }
+    _RUN_PATH_VARS = ['path', 'mainfile', 'exe']
 
     def check_shebang(self, file):
         shebang_line = open(file, 'r').readline()
@@ -300,7 +301,7 @@ class Program(Runnable):
     _compile_result = None
 
     def compile(self, logger=None):
-        if self._compile_result != None:
+        if self._compile_result is not None:
             return self._compile_result
 
         if self.lang not in Program._COMPILE:
@@ -312,7 +313,7 @@ class Program(Runnable):
         status = os.system(compiler)
 
         if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
-            if logger != None:
+            if logger is not None:
                 logger.error('Compiler failed (status %d) when compiling %s\n        Command used: %s' % (status, self.name, compiler))
             self._compile_result = False
             return False
@@ -324,9 +325,15 @@ class Program(Runnable):
     runtime = 0
 
 
-    def get_runcmd(self):
+    def get_runcmd(self, cwd=None):
         self.compile()
-        return shlex.split(Program._RUN[self.lang] %  self.__dict__)
+        vals = self.__dict__
+        if cwd is not None:
+            vals = vals.copy()
+            for key in Program._RUN_PATH_VARS:
+                if key in vals:
+                    vals[key] = os.path.relpath(vals[key], cwd)
+        return shlex.split(Program._RUN[self.lang] % vals)
 
 
     def __str__(self):
