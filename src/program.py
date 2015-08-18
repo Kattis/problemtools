@@ -160,6 +160,7 @@ class Program(Runnable):
         'prolog': 'Prolog',
         'python2': 'Python 2',
         'python3': 'Python 3',
+        'ruby': 'Ruby',
         'javascript': 'JavaScript',
         'php': 'PHP'
     }
@@ -169,6 +170,7 @@ class Program(Runnable):
               'csharp': '*.cs',
               'python2': '*.py',
               'python3': '*.py',
+              'ruby': '*.rb',
               'go': '*.go',
               'haskell': '*.hs',
               'objectivec': '*.m',
@@ -196,6 +198,7 @@ class Program(Runnable):
         'prolog': '%(exe)s',
         'python2': '/usr/bin/python2 %(mainfile)s',
         'python3': '/usr/bin/python3 %(mainfile)s',
+        'ruby': '/usr/bin/ruby2.0 %(mainfile)s',
         'csharp': '/usr/bin/mono %(exe)s.exe',
         'go': '%(exe)s',
         'haskell': '%(exe)s',
