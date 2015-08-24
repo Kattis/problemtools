@@ -198,7 +198,7 @@ class Program(Runnable):
         'prolog': '%(exe)s',
         'python2': '/usr/bin/python2 %(mainfile)s',
         'python3': '/usr/bin/python3 %(mainfile)s',
-        'ruby': '/usr/bin/ruby2.0 %(mainfile)s',
+        'ruby': '/usr/bin/ruby %(mainfile)s',
         'csharp': '/usr/bin/mono %(exe)s.exe',
         'go': '%(exe)s',
         'haskell': '%(exe)s',
