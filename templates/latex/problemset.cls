@@ -19,6 +19,9 @@
 
 \newif\if@clearevenpages\@clearevenpagestrue
 
+\newif\if@autoincludesamples\@autoincludesamplestrue
+\DeclareOption{noautoincludesamples}{\@autoincludesamplesfalse}
+
 \DeclareOption{plainproblems}{
   \@footerfalse
   \@problemnumbersfalse
@@ -157,13 +160,15 @@
   \startproblem{#1}
   \import{#1/problem_statement/}{problem\@problemlanguage.tex}
 
-  %% Automatically include samples 1..20
+  %% Automatically include samples 1..9, if enabled
   \ifplastex\else
+  \if@autoincludesamples
   \foreach \SampleNum in {1,...,9} {
     \IfFileExists{\@problemid/data/sample/\SampleNum.in}{
       \displaysample{\@problemid/data/sample/\SampleNum}
     }
   }
+  \fi
   \fi
 }
 
