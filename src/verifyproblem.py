@@ -613,9 +613,8 @@ class ProblemStatement(ProblemAspect):
     def get_config(self):
         ret = {}
         for lang in self.languages:
-            if lang != '':
-                lang = lang + '.'
-            stmt = open(os.path.join(self._problem.probdir, 'problem_statement', 'problem.' + lang + 'tex')).read()
+            filename = ('problem.%s.tex' % lang) if lang != '' else 'problem.tex'
+            stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
             patterns = [('\\problemname{(.*)}', 'name'),
                         ('^%%\s*plainproblemname:(.*)$', 'name')
                         ]
