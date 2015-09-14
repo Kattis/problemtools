@@ -178,12 +178,13 @@ class TestCase(ProblemAspect):
             self.error('Answer file (%.1f Mb) is larger than output limit (%d Mb), you need to increase output limit' % (anssize, outputlim))
         elif 2 * anssize > outputlim:
             self.warning('Answer file (%.1f Mb) is within %.0f%% of output limit (%d Mb), you might want to increase output limit' % (anssize, 100.0*anssize/outputlim, outputlim))
-        val_res = self._problem.output_validators.validate(self, self.ansfile, self)
-        if val_res.verdict != 'AC':
-            if self.strip_path_prefix(self.infile)[0:6] == 'sample':
-                self.error('Output validator did not accept judge answer file')
-            else:
-                self.warning('Output validator did not accept judge answer file')
+        if not self._problem.is_interactive:
+            val_res = self._problem.output_validators.validate(self, self.ansfile, self)
+            if val_res.verdict != 'AC':
+                if self.strip_path_prefix(self.infile)[0:6] == 'sample':
+                    self.error('Output validator did not accept judge answer file')
+                else:
+                    self.warning('Output validator did not accept judge answer file')
         return self._check_res
 
     def __str__(self):
@@ -198,7 +199,7 @@ class TestCase(ProblemAspect):
             msg = 'Running %s on %s...' % (sub.name, self)
             sys.stdout.write('%s' % msg)
             sys.stdout.flush()
-        if 'interactive' in self._problem.config.get('validation-params'):
+        if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
             status, runtime = sub.run(self.infile, outfile, timelim=timelim_high+1, logger=self)
@@ -1000,6 +1001,7 @@ class Problem(ProblemAspect):
 
         self.statement = ProblemStatement(self)
         self.config = ProblemConfig(self)
+        self.is_interactive = 'interactive' in self.config.get('validation-params')
         self.input_format_validators = InputFormatValidators(self)
         self.output_validators = OutputValidators(self)
         self.graders = Graders(self)
