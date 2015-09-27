@@ -203,7 +203,7 @@ class Program(Runnable):
         'go': '%(exe)s',
         'haskell': '%(exe)s',
         'dir': '%(path)s/run',
-        'javascript': '/usr/bin/js %(mainfile)s',
+        'javascript': '/usr/bin/js24 %(mainfile)s',
         'php': '/usr/bin/php -n %(mainfile)s',
         }
     _RUN_PATH_VARS = ['path', 'mainfile', 'exe']
