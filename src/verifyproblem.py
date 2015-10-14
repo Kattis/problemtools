@@ -278,7 +278,7 @@ class TestCaseGroup(ProblemAspect):
         return True
 
     def get_subgroup(self, name):
-        return next([i for i in self._items if isinstance(i, TestCaseGroup) and os.path.basename(i._basedir) == name], None)
+        return next((i for i in self._items if isinstance(i, TestCaseGroup) and os.path.basename(i._datadir) == name), None)
 
     def check(self, args):
         if self._check_res is not None:
