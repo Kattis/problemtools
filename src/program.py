@@ -9,6 +9,7 @@ import tempfile
 import shlex
 import fnmatch
 import platform
+import errno
 
 def locate_program(candidatePaths):
     for p in candidatePaths:
@@ -102,7 +103,7 @@ class ValidationScript(Runnable):
                        'input_src': 'stdin',
                        'compile_exit': 1,
                        'run_exit': 0},
-              '.viva': {'run': locate_viva(), 
+              '.viva': {'run': locate_viva(),
                         'input_src': 'arg',
                         'compile_exit': 0,
                         'run_exit': 0}}
@@ -142,7 +143,7 @@ class ValidationScript(Runnable):
             elif os.WIFEXITED(status) and os.WEXITSTATUS(status) == 42:
                 status = self.type['run_exit'] << 8
         return (status, runtime)
-    
+
     def get_runcmd(self):
         return self.runcmd
 
@@ -238,13 +239,9 @@ class Program(Runnable):
     def guess_language(self):
         files = [os.path.join(self.path, f) for f in os.listdir(self.path)]
         executables = [os.path.basename(f) for f in files if os.access(f, os.X_OK)]
-        has_build = 'build' in executables
-        has_run = 'run' in executables
-        if has_build and has_run:
+        if 'build' in executables:
             return 'dir'
-        elif has_build:
-            raise ProgramWarning("Has build script but no run script; I'm confused and won't use this")
-        elif has_run:
+        elif 'run' in executables:
             raise ProgramWarning("Has run script but no build script; I'm confused and won't use this")
 
         possible_langs = []
@@ -259,8 +256,8 @@ class Program(Runnable):
             raise ProgramError('Could not uniquely determine language.  Candidates are: %s' % (', '.join(possible_langs)))
 
         raise ProgramWarning('Could not guess any language.')
-        
-            
+
+
     def add_files(self, srcdir):
         for f in os.listdir(srcdir):
             src = os.path.join(srcdir, f)
@@ -280,10 +277,15 @@ class Program(Runnable):
         else:
             os.makedirs(self.path)
 
-        if os.path.isdir(path):
-            self.add_files(path)
-        else:
-            shutil.copy(path, self.path)
+        try:
+            if os.path.isdir(path):
+                self.add_files(path)
+            else:
+                shutil.copy(path, self.path)
+        except IOError, e:
+            if e.errno == errno.ENOENT:
+                raise ProgramError('File not found when copying program:\n %s' % e.filename)
+            raise
 
         self.lang = self.guess_language()
 
@@ -305,7 +307,7 @@ class Program(Runnable):
 
     _compile_result = None
 
-    def compile(self, logger=None):
+    def compile(self):
         if self._compile_result is not None:
             return self._compile_result
 
@@ -318,10 +320,16 @@ class Program(Runnable):
         status = os.system(compiler)
 
         if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
-            if logger is not None:
-                logger.error('Compiler failed (status %d) when compiling %s\n        Command used: %s' % (status, self.name, compiler))
+            logging.debug('Compiler failed (status %d) when compiling %s\n        Command used:\n%s' % (status, self.name, compiler))
             self._compile_result = False
             return False
+
+        if self.lang == 'dir':
+            run = Program._RUN[self.lang] % {'path': self.path}
+            if not os.path.isfile(run) or not os.access(run, os.X_OK):
+                logging.error("build script for directory %s did not produce an executable called 'run'" % self.name)
+                self._compile_result = False
+                return False
 
         self._compile_result = True
         return True
@@ -343,4 +351,3 @@ class Program(Runnable):
 
     def __str__(self):
         return 'Program(%s)' % (self.name)
-
