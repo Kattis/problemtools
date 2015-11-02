@@ -32,14 +32,14 @@ def clean_width(width):
 # \problemheader
 class problemheader(Command):
     args = 'title id:str'
-    
+
     def invoke(self, tex):
         res = Command.invoke(self, tex)
-        id = self.attributes['id']
-        timelimfile = os.path.join(id, '.timelimit')
+        timelimfile = os.path.join(os.path.dirname(tex.filename),
+                                   '..', '.timelimit')
         if os.path.isfile(timelimfile):
             self.attributes['timelim'] = open(timelimfile, 'r').read()
-        
+
 
 # \sampleheader
 class sampletable(Command):
@@ -71,8 +71,8 @@ class sampletable(Command):
 class _graphics_command(Command):
     def invoke(self, tex):
         res = Command.invoke(self, tex)
-        
-        # Overcome plasTeX bug by looking for love in the right place 
+
+        # Overcome plasTeX bug by looking for love in the right place
         basetex = self.ownerDocument.userdata['base_tex_instance']
         f = self.attributes['file']
         ext = self.ownerDocument.userdata.getPath(
@@ -94,18 +94,18 @@ class _graphics_command(Command):
         # Check for file using kpsewhich
         if img is None:
             for e in ['']+ext:
-                try: 
+                try:
                     img = os.path.abspath(basetex.kpsewhich(f+e))
                     break
-                except (OSError, IOError): 
-                    pass 
+                except (OSError, IOError):
+                    pass
 
         if not os.path.isfile(img):
             log.warning('Could not identify image "%s"' % f)
 
         self.imageoverride = img
         return res
-        
+
 
 # \illustration
 class illustration(_graphics_command):
