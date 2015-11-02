@@ -878,6 +878,7 @@ class OutputValidators(ProblemAspect):
         return res
 
     def validate(self, testcase, submission_output, errorhandler):
+        res = SubmissionResult('JE')
         for val in self._actual_validators():
             if val is not None and val.compile():
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
