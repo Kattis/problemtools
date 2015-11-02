@@ -157,10 +157,13 @@ class TestCase(ProblemAspect):
         self.testcasegroup = testcasegroup
 
     def check_newlines(self, file):
-        data = open(file).read()
+        with open(file, 'r') as f:
+            data = f.read()
         if data.find('\r') != -1:
             self.warning('The file %s contains non-standard line breaks.'
                          % file)
+        if data[-1] != '\n':
+            self.warning("The file %s does not end with '\\n'." % file)
 
     def strip_path_prefix(self, path):
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
@@ -911,7 +914,7 @@ class Submissions(ProblemAspect):
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             self._submissions[acr] = get_programs(os.path.join(srcdir, verdict[1]),
-                                                  problem.tmpdir, 
+                                                  problem.tmpdir,
                                                   pattern=Submissions._SUB_REGEXP,
                                                   includedir=os.path.join(problem.probdir, 'include'),
                                                   error_handler=self)
