@@ -162,7 +162,7 @@ class TestCase(ProblemAspect):
         if data.find('\r') != -1:
             self.warning('The file %s contains non-standard line breaks.'
                          % file)
-        if data[-1] != '\n':
+        if len(data) > 0 and data[-1] != '\n':
             self.warning("The file %s does not end with '\\n'." % file)
 
     def strip_path_prefix(self, path):
