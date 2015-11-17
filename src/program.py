@@ -101,11 +101,11 @@ class Executable(Runnable):
 class ValidationScript(Runnable):
     _TYPES = {'.ctd': {'run': locate_checktestdata(),
                        'input_src': 'stdin',
-                       'compile_exit': 1,
+                       'compile_exit': [0,1],
                        'run_exit': 0},
               '.viva': {'run': locate_viva(),
                         'input_src': 'arg',
-                        'compile_exit': 0,
+                        'compile_exit': [0],
                         'run_exit': 0}}
 
     def __str__(self):
@@ -127,7 +127,7 @@ class ValidationScript(Runnable):
         if self._compile_result is None:
             self._compile_result = False
             (status, runtime) = self.run(switch_exitcodes=False)
-            self._compile_result = os.WIFEXITED(status) and os.WEXITSTATUS(status) == self.type['compile_exit']
+            self._compile_result = os.WIFEXITED(status) and os.WEXITSTATUS(status) in self.type['compile_exit']
         return self._compile_result
 
     def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null', args=None, timelim=1000, logger=None, switch_exitcodes=True):
