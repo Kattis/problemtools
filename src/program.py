@@ -64,6 +64,7 @@ class Runnable:
         if pid == 0:  # child
             try:
                 resource.setrlimit(resource.RLIMIT_CPU, (timelim, timelim + 1))
+                resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
                 self._setfd(0, infile, os.O_RDONLY)
                 self._setfd(1, outfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
                 self._setfd(2, errfile, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
