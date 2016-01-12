@@ -312,8 +312,10 @@
     \fancyfoot[L]{
       \emph{
         \@contestshortname{}
-        \if@problemnumbers Problem \problemnumber:{} \fi
-        \@problemname
+        \ifdefined\@problemname
+          \if@problemnumbers Problem \problemnumber:{} \fi
+          \@problemname
+        \fi
         \ifx\@licenseblurb\@empty\relax\else
         \\\@licenseblurb
         \fi
