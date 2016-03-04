@@ -550,6 +550,15 @@ class ProblemConfig(ProblemAspect):
             self.error('Limits key in problem.yaml must specify a dict')
             self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
 
+        # Check grading
+        try:
+            score_range = self._data['grading']['range']
+            (min_score, max_score) = map(float, score_range.split())
+            if min_score >= max_score:
+                self.error("Invalid score range '%s': minimum score must be smaller than maximum score" % score_range)
+        except:
+            self.error("Invalid format '%s' for grading.range: must be exactly two floats" % score_range)
+
         # Some things not yet implemented
         if self._data['grading']['on_reject'] == 'worst_error':
             self.error("'on_reject: worst_error' not yet supported")
