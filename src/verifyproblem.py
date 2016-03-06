@@ -556,6 +556,8 @@ class ProblemConfig(ProblemAspect):
             (min_score, max_score) = map(float, score_range.split())
             if min_score >= max_score:
                 self.error("Invalid score range '%s': minimum score must be smaller than maximum score" % score_range)
+        except VerifyError:
+            raise
         except:
             self.error("Invalid format '%s' for grading.range: must be exactly two floats" % score_range)
 
