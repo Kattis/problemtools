@@ -196,7 +196,7 @@ class Program(Runnable):
     _RUN = {
         'c': '%(exe)s',
         'cpp': '%(exe)s',
-        'java': '/usr/bin/java -Xmx1024m -Xss64m -cp %(path)s %(mainclass)s',
+        'java': '/usr/bin/java -XX:+UseSerialGC -Xss64m -Xms1024m -Xmx1024m -cp %(path)s %(mainclass)s',
         'prolog': '%(exe)s',
         'python2': '/usr/bin/python2 %(mainfile)s',
         'python3': '/usr/bin/python3 %(mainfile)s',
