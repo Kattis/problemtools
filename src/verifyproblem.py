@@ -674,6 +674,7 @@ class InputFormatValidators(ProblemAspect):
             try:
                 if not val.compile():
                     self.error('Compile error for input format validator %s' % val.name)
+                    self._validators.remove(val)
             except ProgramError as e:
                 self.error(e)
 
@@ -684,19 +685,18 @@ class InputFormatValidators(ProblemAspect):
         should_test = flags not in self._seen_flags
         if should_test:
             self._seen_flags.append(flags)
+        self.check(None)
         for val in self._validators:
-            if val.compile():
-                if should_test:
-                    self._seen_flags.append(flags)
-                    status, runtime = val.run(self._random_input, args=flags, logger=self)
-                    if os.WEXITSTATUS(status) == 42:
-                        testcase.testcasegroup.warning("The validator flags of %s and validator %s does not reject random input" % (testcase.testcasegroup, val))
-                status, runtime = val.run(testcase.infile, args=flags, logger=self)
-                if not os.WIFEXITED(status):
-                    testcase.error('Input format validator %s crashed on input %s' % (val, testcase.infile))
-                if os.WEXITSTATUS(status) != 42:
-                    testcase.error('Input format validator %s did not accept input %s, exit code: %d' % (val, testcase.infile, os.WEXITSTATUS(status)))
-
+            if should_test:
+                self._seen_flags.append(flags)
+                status, runtime = val.run(self._random_input, args=flags, logger=self)
+                if os.WEXITSTATUS(status) == 42:
+                    testcase.testcasegroup.warning("The validator flags of %s and validator %s does not reject random input" % (testcase.testcasegroup, val))
+            status, runtime = val.run(testcase.infile, args=flags, logger=self)
+            if not os.WIFEXITED(status):
+                testcase.error('Input format validator %s crashed on input %s' % (val, testcase.infile))
+            if os.WEXITSTATUS(status) != 42:
+                testcase.error('Input format validator %s did not accept input %s, exit code: %d' % (val, testcase.infile, os.WEXITSTATUS(status)))
 
 class Graders(ProblemAspect):
     _default_grader = locate_default_grader()
