@@ -262,7 +262,6 @@ class TestCaseGroup(ProblemAspect):
             if not field in self.config:
                 self.config[field] = default
 
-        seenfiles = set()
         self._items = []
         if os.path.isdir(datadir):
             for f in sorted(os.listdir(datadir)):
@@ -280,8 +279,14 @@ class TestCaseGroup(ProblemAspect):
     def matches_filter(self, filter_re):
         return True
 
+    def get_testcases(self):
+        return [sub for sub in self._items if isinstance(sub, TestCase)]
+
+    def get_subgroups(self):
+        return [sub for sub in self._items if isinstance(sub, TestCaseGroup)]
+
     def get_subgroup(self, name):
-        return next((i for i in self._items if isinstance(i, TestCaseGroup) and os.path.basename(i._datadir) == name), None)
+        return next((sub for sub in self._items if isinstance(sub, TestCaseGroup) and os.path.basename(sub._datadir) == name), None)
 
     def check(self, args):
         if self._check_res is not None:
@@ -644,8 +649,12 @@ class ProblemStatement(ProblemAspect):
         return ret
 
 
-def generate_random_input():
-    return ''.join(random.choice(string.printable) for _ in range(200))
+_JUNK_CASES = [
+    ('an empty file', ''),
+    ('a binary file with byte values 0 up to 256', ''.join(chr(x) for x in range(256))),
+    ('a text file with the ascii characters 32 up to 127', ''.join(chr(x) for x in range(32, 127))),
+    ('a random text file with printable characters', ''.join(random.choice(string.printable) for _ in range(200))),
+]
 
 
 class InputFormatValidators(ProblemAspect):
@@ -653,15 +662,11 @@ class InputFormatValidators(ProblemAspect):
     def __init__(self, problem):
         self._problem = problem
         self._validators = get_programs(os.path.join(problem.probdir, 'input_format_validators'), problem.tmpdir, allow_validation_scripts=True, error_handler=self)
-        self._seen_flags = []
-        fd, self._random_input = tempfile.mkstemp()
-        os.close(fd)
-        f = open(self._random_input, "wb")
-        f.write(generate_random_input())
-        f.close()
+
 
     def __str__(self):
         return 'input format validators'
+
 
     def check(self, args):
         if self._check_res is not None:
@@ -678,25 +683,45 @@ class InputFormatValidators(ProblemAspect):
             except ProgramError as e:
                 self.error(e)
 
+        # Only sanity check input validators if they all actually compiled
+        if self._check_res:
+            all_flags = set()
+            def collect_flags(group, flags):
+                if len(group.get_testcases()) > 0:
+                    flags.add(group.config['input_validator_flags'])
+                for subgroup in group.get_subgroups():
+                    collect_flags(subgroup, flags)
+            collect_flags(self._problem.testdata, all_flags)
+
+            fd, file_name = tempfile.mkstemp()
+            os.close(fd)
+            for (desc, case) in _JUNK_CASES:
+                f = open(file_name, "wb")
+                f.write(case)
+                f.close()
+                for flags in all_flags:
+                    flags = flags.split()
+                    for val in self._validators:
+                        status, runtime = val.run(file_name, args=flags, logger=self)
+                        if os.WEXITSTATUS(status) != 42:
+                            break
+                    else:
+                        self.warning('No validator rejects %s with flags "%s"' % (desc, ' '.join(flags)))
+            os.unlink(file_name)
+
         return self._check_res
+
 
     def validate(self, testcase):
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
-        should_test = flags not in self._seen_flags
-        if should_test:
-            self._seen_flags.append(flags)
         self.check(None)
         for val in self._validators:
-            if should_test:
-                self._seen_flags.append(flags)
-                status, runtime = val.run(self._random_input, args=flags, logger=self)
-                if os.WEXITSTATUS(status) == 42:
-                    testcase.testcasegroup.warning("The validator flags of %s and validator %s does not reject random input" % (testcase.testcasegroup, val))
             status, runtime = val.run(testcase.infile, args=flags, logger=self)
             if not os.WIFEXITED(status):
                 testcase.error('Input format validator %s crashed on input %s' % (val, testcase.infile))
             if os.WEXITSTATUS(status) != 42:
                 testcase.error('Input format validator %s did not accept input %s, exit code: %d' % (val, testcase.infile, os.WEXITSTATUS(status)))
+
 
 class Graders(ProblemAspect):
     _default_grader = locate_default_grader()
