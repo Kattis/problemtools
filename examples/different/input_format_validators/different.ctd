@@ -1,0 +1,6 @@
+SET(cases = 0)
+WHILE(!ISEOF)
+   INT(0, 10^15) SPACE INT(0, 10^15) NEWLINE
+   SET(cases = cases + 1)
+END
+ASSERT(1 <= cases && cases <= 40)

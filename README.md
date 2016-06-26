@@ -16,6 +16,11 @@ Running any of them without any command-line options gives
 documentation on what parameters they accept.
 
 
+## Example Problems
+
+A few examples of problem packages can be found in [examples](examples).
+
+
 ## Installing and using problemtools
 
 There are two recommended ways of installing and running problemtools.

@@ -1,0 +1,10 @@
+source: Kattis
+license: cc by-sa
+
+validation: custom interactive
+
+# Override standard limits: say that the TLE solutions provided should
+# be at least 4 times above the time limit in order for us to be
+# happy.
+limits:
+  time_safety_margin: 4
