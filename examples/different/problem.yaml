@@ -1,11 +1,3 @@
-source: Kattis
-license: cc by-sa
-
-# Indicate that we use a custom output validator instead of the
-# default token-based diff.
-validation: custom
-
-
 # Override standard limits: say that the TLE solutions provided should
 # be at least 4 times above the time limit in order for us to be
 # happy.
