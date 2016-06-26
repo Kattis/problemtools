@@ -1,6 +1,7 @@
+PACKAGE=problemtools
 CONF=support/checktestdata/config.mk
 PROGRAMS=checktestdata default_validator interactive
-LIBDIR=$(DESTDIR)/usr/lib/problemtools/
+LIBDIR=$(DESTDIR)/usr/lib/$(PACKAGE)/
 BINDIR=$(DESTDIR)/usr/bin
 
 all: $(CONF)
@@ -27,7 +28,7 @@ install: all
 	install support/default_grader/default_grader $(LIBDIR)/bin
 	cp support/viva/viva.jar $(LIBDIR)/bin
 	install support/viva/viva.sh $(LIBDIR)/bin
-	cp -r templates $(LIBDIR)/
+	cp -r examples templates $(LIBDIR)/
 
 $(CONF): support/checktestdata/bootstrap
 	cd support/checktestdata && ./bootstrap
