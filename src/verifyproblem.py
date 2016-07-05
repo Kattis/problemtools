@@ -85,35 +85,70 @@ def is_RTE(status):
 
 
 class SubmissionResult:
-    def __init__(self, verdict, score=None, subresults=None, reason=None):
+    def __init__(self, verdict, score=None, testcase=None, reason=None):
         self.verdict = verdict
         self.score = score
-        self.subresults = subresults
+        self.testcase = testcase
         self.reason = reason
         self.runtime = -1.0
-        self.runtime_reason = None
+        self.runtime_testcase = None
         self.ac_runtime = -1.0
-        self.ac_runtime_reason = None
-        if subresults is not None:
-            for r in subresults:
-                if r.runtime > self.runtime:
-                    self.runtime = r.runtime
-                    self.runtime_reason = r.runtime_reason
-                if r.ac_runtime > self.ac_runtime:
-                    self.ac_runtime = r.ac_runtime
-                    self.ac_runtime_reason = r.ac_runtime_reason
+        self.ac_runtime_testcase = None
+
+
+    @staticmethod
+    def aggregate_results(sub_results, policy, grade=None):
+        res = SubmissionResult(None)
+
+        for r in sub_results:
+            if r.runtime > res.runtime:
+                res.runtime = r.runtime
+                res.runtime_testcase = r.runtime_testcase
+            if r.ac_runtime > res.ac_runtime:
+                res.ac_runtime = r.ac_runtime
+                res.ac_runtime_testcase = r.ac_runtime_testcase
+
+        verdict_value = {'JE': -1, 'CE': 0, 'TLE': 1, 'RTE': 2, 'WA': 3, 'AC': 4}
+
+        rejection = next((r for r in sub_results if r.verdict == 'JE'), None)
+        if rejection is None:
+            if policy == 'first_error':
+                rejection = next((r for r in sub_results if r.verdict != 'AC'), None)
+            elif policy == 'worst_error':
+                rejection = min(sub_results, key=lambda r: verdict_value[r.verdict])
+            # else policy is 'grade' and we should grade the results
+
+        if rejection is None:
+            if grade is not None:
+                (res.verdict, res.score) = grade(sub_results)
+            else:
+                res.verdict = 'AC'
+        else:
+            res.verdict = rejection.verdict
+            res.reason = rejection.reason
+            res.testcase = rejection.testcase
+
+        return res
+
+
 
     def __str__(self):
-        res = self.verdict
-        score_str = ''
-        reason_str = ''
-        if self.score is not None and self.verdict == 'AC':
-            score_str = ' (%.0f)' % self.score
-        if self.verdict != 'AC' and self.reason is not None:
-            reason_str = 'dataset: %s, ' % self.reason
-        return '%s%s [%sCPU: %.2fs @ %s]' % (self.verdict, score_str,
-                                             reason_str,
-                                             self.runtime, self.runtime_reason)
+        verdict = self.verdict
+        details = []
+
+        if verdict == 'AC' and self.score is not None:
+            verdict += ' (%.0f)' % self.score
+
+        if self.reason is not None:
+            details.append(self.reason)
+        if self.verdict != 'AC' and self.testcase is not None:
+            details.append('test case: %s' % self.testcase)
+        if self.runtime != -1:
+            details.append('CPU: %.2fs @ %s' % (self.runtime, self.runtime_testcase))
+
+        if len(details) == 0:
+            return verdict
+        return '%s [%s]' % (verdict, ', '.join(details))
 
 
 
@@ -185,9 +220,9 @@ class TestCase(ProblemAspect):
             val_res = self._problem.output_validators.validate(self, self.ansfile, self)
             if val_res.verdict != 'AC':
                 if self.strip_path_prefix(self.infile)[0:6] == 'sample':
-                    self.error('Output validator did not accept judge answer file')
+                    self.error('judge answer file got %s' % val_res)
                 else:
-                    self.warning('Output validator did not accept judge answer file')
+                    self.warning('judge answer file got %s' % val_res)
         return self._check_res
 
     def __str__(self):
@@ -202,6 +237,7 @@ class TestCase(ProblemAspect):
             msg = 'Running %s on %s...' % (sub.name, self)
             sys.stdout.write('%s' % msg)
             sys.stdout.flush()
+
         if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
@@ -219,17 +255,20 @@ class TestCase(ProblemAspect):
             res1 = res2
         else:
             res1 = SubmissionResult('TLE', score=self._problem.config.get('grading')['reject_score'])
-        res1.reason = res2.reason = self
-        res1.runtime_reason = res2.runtime_reason = self
+        res1.testcase = res2.testcase = self
+        res1.runtime_testcase = res2.runtime_testcase = self
         res1.runtime = res2.runtime
         if res1.verdict == 'AC':
             res1.ac_runtime = res1.runtime
-            res1.ac_runtime_reason = res1.runtime_reason
+            res1.ac_runtime_testcase = res1.runtime_testcase
         if res2.verdict == 'AC':
             res2.ac_runtime = res2.runtime
-            res2.ac_runtime_reason = res2.runtime_reason
+            res2.ac_runtime_testcase = res2.runtime_testcase
         self.info('Test file result: %s)' % (res1))
         return (res1, res2)
+
+    def get_all_testcases(self):
+        return [self]
 
     def all_datasets(self):
         return [self._base]
@@ -273,20 +312,33 @@ class TestCaseGroup(ProblemAspect):
                     if ext == '.ans' and os.path.isfile(base + '.in'):
                         self._items.append(TestCase(problem, base, self))
 
+
     def __str__(self):
         return 'test case group %s' % os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
+
 
     def matches_filter(self, filter_re):
         return True
 
+
+    def get_all_testcases(self):
+        res = []
+        for subdata in self._items:
+            res += subdata.get_all_testcases()
+        return res
+
+
     def get_testcases(self):
         return [sub for sub in self._items if isinstance(sub, TestCase)]
+
 
     def get_subgroups(self):
         return [sub for sub in self._items if isinstance(sub, TestCaseGroup)]
 
+
     def get_subgroup(self, name):
         return next((sub for sub in self._items if isinstance(sub, TestCaseGroup) and os.path.basename(sub._datadir) == name), None)
+
 
     def check(self, args):
         if self._check_res is not None:
@@ -355,23 +407,13 @@ class TestCaseGroup(ProblemAspect):
 
         return self._check_res
 
+
     def compute_result(self, sub_results, probtype, on_reject, shadow_result=False):
-        verdict_value = {'JE': -1, 'CE': 0, 'TLE': 1, 'RTE': 2, 'WA': 3, 'AC': 4}
-        verdict = 'AC'
-        reason = None
-        if on_reject == 'first_error':
-            first_fail = next((r for r in sub_results if r.verdict != 'AC'), None)
-            if first_fail is not None:
-                verdict = first_fail.verdict
-                reason = first_fail.reason
-        elif on_reject == 'worst_error':
-            worst_fail = min(sub_results, key=lambda r: verdict_value[r.verdict])
-            if worst_fail is not None:
-                verdict = worst_fail.verdict
-                reason = worst_fail.reason
-        if probtype == 'scoring' and verdict == 'AC':
-            return self._problem.graders.grade(self, sub_results, shadow_result)
-        return SubmissionResult(verdict, subresults=sub_results, reason=reason)
+        grade = None
+        if probtype == 'scoring':
+            grade = lambda x: self._problem.graders.grade(x, self, shadow_result)
+        return SubmissionResult.aggregate_results(sub_results, on_reject, grade=grade)
+
 
     def run_submission(self, sub, args, timelim_low, timelim_high):
         self.info('Running on %s' % self)
@@ -746,17 +788,19 @@ class Graders(ProblemAspect):
                 self.error('Compile error for grader %s' % grader.name)
         return self._check_res
 
-    def grade(self, testcasegroup, results, shadow_result=False):
+    def grade(self, sub_results, testcasegroup, shadow_result=False):
+
         if testcasegroup.config['grading'] == 'default':
             graders = [self._default_grader]
         else:
             graders = self._graders
-        grader_input = ''.join(['%s %s\n' % (r.verdict, r.score) for r in results])
+
+        grader_input = ''.join(['%s %s\n' % (r.verdict, r.score) for r in sub_results])
         grader_output_re = '^((AC)|(WA)|(TLE)|(RTE))\s+[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
 
-        self.debug('Grading %d results:\n%s' % (len(results), grader_input))
+        self.debug('Grading %d results:\n%s' % (len(sub_results), grader_input))
         self.debug('Grader flags: %s' % (testcasegroup.config.get('grader_flags')))
 
         for grader in graders:
@@ -778,18 +822,18 @@ class Graders(ProblemAspect):
                 if not os.WIFEXITED(status):
                     self.error('Judge error: grader %s crashed' % (grader.name))
                     self.debug('Grader input:\n%s' % grader_input)
-                    return SubmissionResult('JE', score=0.0, subresults=results)
+                    return SubmissionResult('JE', score=0.0)
 #                ret = os.WEXITSTATUS(status)
 #                if ret != 42:
 #                    self.error('Judge error: exit code %d for grader %s' % (ret, grader.name))
 #                    self.debug('Grader input: %s\n' % grader_input)
-#                    return SubmissionResult('JE', 0.0, results)
+#                    return SubmissionResult('JE', 0.0)
 
                 if not re.match(grader_output_re, grader_output):
                     self.error('Judge error: invalid format of grader output')
                     self.debug('Output must match: "%s"' % grader_output_re)
                     self.debug('Output was: "%s"' % grader_output)
-                    return SubmissionResult('JE', score=0.0, subresults=results)
+                    return SubmissionResult('JE', score=0.0)
 
                 verdict, score = grader_output.split()
                 score = float(score)
@@ -797,18 +841,22 @@ class Graders(ProblemAspect):
 
         if not shadow_result:
             self.info('Grade on %s is %s (%s)' % (testcasegroup, verdict, score))
-        return SubmissionResult(verdict, score=score, subresults=results)
+
+        return (verdict, score)
 
 
 class OutputValidators(ProblemAspect):
     _default_validator = locate_default_validator()
 
+
     def __init__(self, problem):
         self._problem = problem
         self._validators = get_programs(os.path.join(problem.probdir, 'output_validators'), problem.tmpdir, error_handler=self)
 
+
     def __str__(self):
         return 'output validators'
+
 
     def check(self, args):
         if self._check_res is not None:
@@ -826,32 +874,55 @@ class OutputValidators(ProblemAspect):
         for val in self._validators:
             if not val.compile():
                 self.error('Compile error for output validator %s' % val.name)
+
+
+        # Only sanity check output validators if they all actually compiled
+        if self._check_res:
+            flags = self._problem.config.get('validator_flags')
+
+            fd, file_name = tempfile.mkstemp()
+            os.close(fd)
+            for (desc, case) in _JUNK_CASES:
+                f = open(file_name, "wb")
+                f.write(case)
+                f.close()
+                rejected = False
+                for testcase in self._problem.testdata.get_all_testcases():
+                    result = self.validate(testcase, file_name, self)
+                    if result.verdict != 'AC':
+                        rejected = True
+                    if result.verdict == 'JE':
+                        self.error('%s as output, and output validator flags "%s" gave %s' % (desc, ' '.join(flags), result))
+                        break
+                if not rejected:
+                    self.warning('%s gets AC' % (desc))
+            os.unlink(file_name)
+
         return self._check_res
 
-    def _parse_validator_results(self, val, status, feedbackdir, errorhandler):
+
+    def _parse_validator_results(self, val, status, feedbackdir):
         custom_score = self._problem.config.get('grading')['custom_scoring']
         score = None
         # TODO: would be good to have some way of displaying the feedback for debugging uses
         score_file = os.path.join(feedbackdir, 'score.txt')
         if not custom_score and os.path.isfile(score_file):
-            errorhandler.error('validator produced "score.txt" but problem does not have custom scoring activated')
+            return SubmissionResult('JE', reason='validator produced "score.txt" but problem does not have custom scoring activated')
         if custom_score:
             if os.path.isfile(score_file):
                 try:
                     score_str = open(score_file).read()
                     score = float(score_str)
                 except Exception as e:
-                    errorhandler.error('failed to check validator score: %s' % e)
+                    return SubmissionResult('JE', reason='failed to parse validator score: %s' % e)
             else:
-                errorhandler.error('problem has custom scoring but validator did not produce "score.txt"')
+                return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
         if not os.WIFEXITED(status):
-            errorhandler.error('Judge error: output validator %s crashed, status %d' % (val.name, status))
-            return SubmissionResult('JE')
+            return SubmissionResult('JE', reason='output validator %s crashed, status %d' % (val.name, status))
         ret = os.WEXITSTATUS(status)
         if ret not in [42, 43]:
-            errorhandler.error('Judge error: exit code %d for output validator %s' % (ret, val.name))
-            return SubmissionResult('JE')
+            return SubmissionResult('JE', reason='exit code %d for output validator %s' % (ret, val.name))
 
         if ret == 43:
             if score is None:
@@ -861,11 +932,13 @@ class OutputValidators(ProblemAspect):
             score = self._problem.config.get('grading')['accept_score']
         return SubmissionResult('AC', score=score)
 
+
     def _actual_validators(self):
         vals = self._validators
         if self._problem.config.get('validation') == 'default':
             vals = [self._default_validator]
         return vals
+
 
     def validate_interactive(self, testcase, submission, timelim, errorhandler):
         interactive_output_re = '\d+ \d+\.\d+ \d+ \d+\.\d+'
@@ -906,7 +979,8 @@ class OutputValidators(ProblemAspect):
                         elif is_RTE(sub_status):
                             res = SubmissionResult('RTE', score=self._problem.config.get('grading')['reject_score'])
                         else:
-                            res = self._parse_validator_results(val, val_status, feedbackdir, errorhandler)
+                            res = self._parse_validator_results(val, val_status, feedbackdir)
+
                         res.runtime = sub_runtime
 
                 os.unlink(interactive_out)
@@ -915,6 +989,7 @@ class OutputValidators(ProblemAspect):
                     return res
         # TODO: check that all output validators give same result
         return res
+
 
     def validate(self, testcase, submission_output, errorhandler):
         res = SubmissionResult('JE')
@@ -925,7 +1000,7 @@ class OutputValidators(ProblemAspect):
                                           args=[testcase.infile, testcase.ansfile, feedbackdir] + self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split(),
                                           logger=self)
 
-                res = self._parse_validator_results(val, status, feedbackdir, errorhandler)
+                res = self._parse_validator_results(val, status, feedbackdir)
                 shutil.rmtree(feedbackdir)
                 if res.verdict != 'AC':
                     return res
