@@ -15,18 +15,17 @@ import sys
 import copy
 import random
 from argparse import ArgumentParser, ArgumentTypeError
-from program import Executable, Program, ValidationScript, ProgramError, ProgramWarning, locate_program
+from program import Program, ValidationScript, ProgramError, ProgramWarning, locate_program
 import problem2pdf
 import problem2html
 
 
-def get_programs(dir, tmpdir, pattern='.*', allow_validation_scripts=False, includedir=None, error_handler=logging):
-    if not os.path.isdir(dir):
+def get_programs(srcdir, tmpdir, pattern='.*', allow_validation_scripts=False, includedir=None, error_handler=logging):
+    if not os.path.isdir(srcdir):
         return []
     ret = []
-    for f in sorted(os.listdir(dir)):
-        path = os.path.join(dir, f)
-        added = False
+    for f in sorted(os.listdir(srcdir)):
+        path = os.path.join(srcdir, f)
         if allow_validation_scripts:
             try:
                 ret.append(ValidationScript(path))
@@ -165,22 +164,22 @@ class ProblemAspect:
     def error(self, msg):
         self._check_res = False
         ProblemAspect.errors += 1
-        logging.error('in %s: %s' % (self, msg))
+        logging.error('in %s: %s', self, msg)
         if ProblemAspect.bail_on_error:
             raise VerifyError(msg)
 
     def warning(self, msg):
         ProblemAspect.warnings += 1
-        logging.warning('in %s: %s' % (self, msg))
+        logging.warning('in %s: %s', self, msg)
 
     def msg(self, msg):
         print msg
 
     def info(self, msg):
-        logging.info(': %s' % (msg))
+        logging.info(': %s', msg)
 
     def debug(self, msg):
-        logging.debug(': %s' % (msg))
+        logging.debug(': %s', msg)
 
 
 class TestCase(ProblemAspect):
@@ -191,14 +190,14 @@ class TestCase(ProblemAspect):
         self._problem = problem
         self.testcasegroup = testcasegroup
 
-    def check_newlines(self, file):
-        with open(file, 'r') as f:
+    def check_newlines(self, filename):
+        with open(filename, 'r') as f:
             data = f.read()
         if data.find('\r') != -1:
             self.warning('The file %s contains non-standard line breaks.'
-                         % file)
+                         % filename)
         if len(data) > 0 and data[-1] != '\n':
-            self.warning("The file %s does not end with '\\n'." % file)
+            self.warning("The file %s does not end with '\\n'." % filename)
 
     def strip_path_prefix(self, path):
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
@@ -217,7 +216,7 @@ class TestCase(ProblemAspect):
         elif 2 * anssize > outputlim:
             self.warning('Answer file (%.1f Mb) is within %.0f%% of output limit (%d Mb), you might want to increase output limit' % (anssize, 100.0*anssize/outputlim, outputlim))
         if not self._problem.is_interactive:
-            val_res = self._problem.output_validators.validate(self, self.ansfile, self)
+            val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.strip_path_prefix(self.infile)[0:6] == 'sample':
                     self.error('judge answer file got %s' % val_res)
@@ -247,7 +246,7 @@ class TestCase(ProblemAspect):
             elif is_RTE(status):
                 res2 = SubmissionResult('RTE', score=self._problem.config.get('grading')['reject_score'])
             else:
-                res2 = self._problem.output_validators.validate(self, outfile, self._problem.submissions)
+                res2 = self._problem.output_validators.validate(self, outfile)
             res2.runtime = runtime
         if sys.stdout.isatty():
             sys.stdout.write('%s' % '\b' * (len(msg)))
@@ -385,7 +384,7 @@ class TestCaseGroup(ProblemAspect):
                     if filename[-3:] == ".in":
                         md5 = hashlib.md5()
                         with open(os.path.join(root, filename), 'rb') as f:
-                            for buf in iter(lambda: f.read(1024),  b''):
+                            for buf in iter(lambda: f.read(1024), b''):
                                 md5.update(buf)
                         filehash = md5.digest()
                         filepath = os.path.join(root, filename)
@@ -678,7 +677,7 @@ class ProblemStatement(ProblemAspect):
             filename = ('problem.%s.tex' % lang) if lang != '' else 'problem.tex'
             stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
             patterns = [('\\problemname{(.*)}', 'name'),
-                        ('^%%\s*plainproblemname:(.*)$', 'name')
+                        (r'^%%\s*plainproblemname:(.*)$', 'name')
                         ]
             for tup in patterns:
                 pattern = tup[0]
@@ -744,7 +743,7 @@ class InputFormatValidators(ProblemAspect):
                 for flags in all_flags:
                     flags = flags.split()
                     for val in self._validators:
-                        status, runtime = val.run(file_name, args=flags, logger=self)
+                        status, _ = val.run(file_name, args=flags, logger=self)
                         if os.WEXITSTATUS(status) != 42:
                             break
                     else:
@@ -758,7 +757,7 @@ class InputFormatValidators(ProblemAspect):
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
         self.check(None)
         for val in self._validators:
-            status, runtime = val.run(testcase.infile, args=flags, logger=self)
+            status, _ = val.run(testcase.infile, args=flags, logger=self)
             if not os.WIFEXITED(status):
                 testcase.error('Input format validator %s crashed on input %s' % (val, testcase.infile))
             if os.WEXITSTATUS(status) != 42:
@@ -796,7 +795,7 @@ class Graders(ProblemAspect):
             graders = self._graders
 
         grader_input = ''.join(['%s %s\n' % (r.verdict, r.score) for r in sub_results])
-        grader_output_re = '^((AC)|(WA)|(TLE)|(RTE))\s+[0-9.]+\s*$'
+        grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE))\s+[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
 
@@ -888,7 +887,7 @@ class OutputValidators(ProblemAspect):
                 f.close()
                 rejected = False
                 for testcase in self._problem.testdata.get_all_testcases():
-                    result = self.validate(testcase, file_name, self)
+                    result = self.validate(testcase, file_name)
                     if result.verdict != 'AC':
                         rejected = True
                     if result.verdict == 'JE':
@@ -941,7 +940,7 @@ class OutputValidators(ProblemAspect):
 
 
     def validate_interactive(self, testcase, submission, timelim, errorhandler):
-        interactive_output_re = '\d+ \d+\.\d+ \d+ \d+\.\d+'
+        interactive_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+'
         res = SubmissionResult('JE')
         interactive = locate_interactive()
         if interactive is None:
@@ -958,7 +957,7 @@ class OutputValidators(ProblemAspect):
                 f = tempfile.NamedTemporaryFile(delete=False)
                 interactive_out = f.name
                 f.close()
-                i_status, i_runtime = interactive.run(outfile=interactive_out,
+                i_status, _ = interactive.run(outfile=interactive_out,
                                                       args=initargs + val.get_runcmd() + validator_args + [';'] + submission_args)
                 if is_RTE(i_status):
                     errorhandler.error('Interactive crashed, status %d' % i_status)
@@ -968,11 +967,10 @@ class OutputValidators(ProblemAspect):
                     if not re.match(interactive_output_re, interactive_output):
                         errorhandler.error('Output from interactive does not follow expected format, got output "%s"' % interactive_output)
                     else:
-                        val_status, val_runtime, sub_status, sub_runtime = interactive_output.split()
+                        val_status, _, sub_status, sub_runtime = interactive_output.split()
                         sub_status = int(sub_status)
                         sub_runtime = float(sub_runtime)
                         val_status = int(val_status)
-                        val_runtime = float(val_runtime)
 
                         if is_TLE(sub_status, True):
                             res = SubmissionResult('TLE', score=self._problem.config.get('grading')['reject_score'])
@@ -991,7 +989,7 @@ class OutputValidators(ProblemAspect):
         return res
 
 
-    def validate(self, testcase, submission_output, errorhandler):
+    def validate(self, testcase, submission_output):
         res = SubmissionResult('JE')
         for val in self._actual_validators():
             if val is not None and val.compile():
@@ -1010,7 +1008,7 @@ class OutputValidators(ProblemAspect):
 
 
 class Submissions(ProblemAspect):
-    _SUB_REGEXP = re.compile("^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$")
+    _SUB_REGEXP = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$')
     _VERDICTS = [
         ['AC', 'accepted', True],
         ['WA', 'wrong_answer', False],
@@ -1123,7 +1121,7 @@ class Problem(ProblemAspect):
         self.submissions = Submissions(self)
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
         shutil.rmtree(self.tmpdir)
 
     def __str__(self):
@@ -1189,7 +1187,7 @@ def default_args():
     return argparser().parse_args([None])
 
 
-if __name__ == '__main__':
+def main():
     args = argparser().parse_args()
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
@@ -1200,3 +1198,7 @@ if __name__ == '__main__':
     with Problem(args.problemdir) as prob:
         [errors, warnings] = prob.check(args)
         print "%s tested: %d errors, %d warnings" % (prob.shortname, errors, warnings)
+
+
+if __name__ == '__main__':
+    main()
