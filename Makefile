@@ -3,6 +3,7 @@ CONF=support/checktestdata/config.mk
 PROGRAMS=checktestdata default_validator interactive
 LIBDIR=$(DESTDIR)/usr/lib/$(PACKAGE)/
 BINDIR=$(DESTDIR)/usr/bin
+ETCDIR=$(DESTDIR)/etc/kattis/problemtools
 
 all: $(CONF)
 	$(foreach prog,$(PROGRAMS),$(MAKE) -C support/$(prog);)
@@ -28,6 +29,8 @@ install: all
 	install support/default_grader/default_grader $(LIBDIR)/bin
 	cp support/viva/viva.jar $(LIBDIR)/bin
 	install support/viva/viva.sh $(LIBDIR)/bin
+	install -d $(ETCDIR)
+	install etc/* $(ETCDIR)
 	cp -r examples templates $(LIBDIR)/
 
 $(CONF): support/checktestdata/bootstrap
