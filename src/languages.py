@@ -9,8 +9,6 @@ import string
 import types
 import yaml.parser
 
-import util
-
 
 class LanguageConfigError(Exception):
     """Exception class for errors in language configuration."""
