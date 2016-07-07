@@ -1,0 +1,189 @@
+# Language configuration for Kattis Problem Format
+# ================================================
+#
+# The language configuration consists of a dictionary of languages.
+# The keys in the dictionary are lower-case alphanumeric identifiers
+# (must match the regular expression "[a-z][a-z0-9]*").  Each language
+# is in turn a dictionary which may contain the following six keys.
+#
+#   name: String, name of the language.
+#
+#   priority: Integer indicating the tie-breaker priority of this
+#             language for language detection.  See "language detection"
+#             below.  All languages must have distinct priorities.
+#
+#   files: String, space-separated glob patterns indicating what files
+#          are considered source files.
+#
+#   shebang: Optional, string, for language detection only.  See
+#            semantics under "language detection" below.
+#
+#   compile: Optional, string, command to compile or syntax-check the
+#            source code.
+#
+#   run: String, command to run a program.
+#
+#
+# Language detection
+# ==================
+#
+# Language detection proceeds as follows:
+#
+# 1. For each language, a file included in the program is considered
+#    to be a source file if its name matches the "files" glob for the
+#    language.  If the language specifies a "shebang" entry, the
+#    first line of the file *must additionally* match the shebang.
+#
+# 2. For each language, count how many files in the program are source
+#    files for that language.
+#
+# 3. The language of the program is the one under which the program
+#    has the maximum number of source files.  In case of ties, the
+#    language that has the highest priority takes precedence.
+#
+#
+# Entry point type
+# ================
+#
+# A language can have three different entry point types, reflecting
+# how a program in the language is started:
+#
+# binary: the compile command produces an executable file
+#
+# mainfile: name of source code file to pass to interpreter/runtime
+#           environment as entry point to the program.
+#
+# mainclass: similar to mainfile, but at a higher level than a file.
+#            Typical (only?) example is Java.
+#
+#
+# The entry point type of a language is implicitly specified by using
+# one of the three meta-variables {binary}, {mainfile}, {mainclass}
+# defined below.  A language specification *must* use exactly one of
+# these three metavariables.
+#
+#
+# Metavariables
+# =============
+#
+# The following metavariables are available for use in the "compile"
+# and "run" entries of a language.
+#
+# {path}: path where the source files are located
+#
+# {files}: list of all source files
+#
+# {binary}: arbitrary file name that can be defined by the
+#           implementation.
+#
+# {mainfile}: * if the program consists of a single source file,
+#               {mainfile} equals the name of that source file.
+#             * if the program contains a source file matching the
+#               glob "[mM][aA][iI][nN].*", {mainfile} equals the name
+#               of that file (in case of multiple such files,
+#               behaviour is undefined).
+#             * otherwise, {mainfile} equals the lexicographically
+#               smallest source file name
+#
+# {mainclass}: equals {mainfile} without filename extension.
+#
+# {memlim}: memory limit
+#
+
+---
+
+c:
+    name: "C"
+    priority: 950
+    files: "*.c"
+    compile: "/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm"
+    run: "{binary}"
+
+cpp:
+    name: "C++"
+    priority: 1000
+    files: "*.cc *.C *.cpp *.cxx *.c++"
+    compile: "/usr/bin/g++ -g -O2 -std=gnu++11 -static -o {binary} {files}"
+    run: "{binary}"
+
+csharp:
+    name: "C#"
+    priority: 700
+    files: "*.cs"
+    compile: "/usr/bin/dmcs -out:{binary}.exe -optimize+ -r:System.Numerics {files}"
+    run: "/usr/bin/mono {binary}.exe"
+
+go:
+    name: "Go"
+    priority: 400
+    files: "*.go"
+    compile: "/usr/bin/gccgo -g -o {binary} -static-libgcc {files}"
+    run: "{binary}"
+
+haskell:
+    name: "Haskell"
+    priority: 600
+    files: "*.hs *.c"
+    compile: "/usr/bin/ghc -O2 -ferror-spans -threaded -rtsopts -tmpdir {path} -o {binary} {files}"
+    run: "{binary} +RTS -M{memlim}m -K8m -RTS"
+
+java:
+    name: "Java"
+    priority: 800
+    files: "*.java"
+    compile: "/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}"
+    run: "/usr/bin/java -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}"
+
+javascript:
+    name: "JavaScript"
+    priority: 500
+    files: "*.js"
+    compile: "/usr/bin/js24 -c {files}"
+    run: "/usr/bin/js24 '{mainfile}'"
+
+objectivec:
+    name: "Objective C"
+    priority: 300
+    files: "*.m *.c"
+    # The postargs for the compile command are "-lm -lobjc `gnustep-config --objc-flags` -lgnustep-base -o {binary}", edited to remove -I. and -I(home dir of user running the command), and to remove duplicate definition of GNUSTEP_BASE_LIBRARY
+    compile: "/usr/bin/gcc -O2 -std=gnu99 {files} -lm -lobjc -MMD -MP -DGNUSTEP -DGNUSTEP_BASE_LIBRARY=2 -DGNU_GUI_LIBRARY=1 -DGNU_RUNTIME=1 -fno-strict-aliasing -fexceptions -fobjc-exceptions -D_NATIVE_OBJC_EXCEPTIONS -fPIC -Wall -DGSWARN -DGSDIAGNOSE -Wno-import -g -O2 -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -Werror=format-security -fgnu-runtime -fconstant-string-class=NSConstantString -I/usr/local/include/GNUstep -I/usr/include/GNUstep -lgnustep-base -o {binary}"
+    run: "{binary}"
+
+php:
+    name: "PHP"
+    priority: 450
+    files: "*.php"
+    compile: "/usr/bin/php -n -d display_errors=stderr -d html_errors=0 -l {files}"
+    run: "/usr/bin/php -n -d display_errors=stderr -d html_errors=0 -d memory_limit={memlim}m -f '{mainfile}'"
+
+prolog:
+    name: "Prolog"
+    priority: 100
+    files: "*.pl"
+    compile: "/usr/bin/swipl -O -q -g main -t halt -o {binary} -c {files}"
+    run: "{binary}"
+
+python3:
+    name: "Python 3"
+    priority: 900
+    files: "*.py"
+    shebang: "^#!.*python3\b"
+    compile: "/usr/bin/python3 -m py_compile {files}"
+    run: "/usr/bin/python3 '{mainfile}'"
+
+python2:
+    name: "Python 2"
+    priority: 850
+    files: "*.py"
+    compile: "/usr/bin/python2 -m py_compile {files}"
+    run: "/usr/bin/python2 '{mainfile}'"
+
+ruby:
+    name: "Ruby"
+    priority: 650
+    files: "*.rb"
+    # Note that this compile command only syntax-checks the main file --
+    # unfortunately the ruby -c command does not provide the option to
+    # syntax-check multiple files.
+    compile: "/usr/bin/ruby -c {mainfile}"
+    run: "/usr/bin/ruby '{mainfile}'"

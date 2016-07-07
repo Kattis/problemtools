@@ -15,62 +15,41 @@ import sys
 import copy
 import random
 from argparse import ArgumentParser, ArgumentTypeError
-from program import Program, ValidationScript, ProgramError, ProgramWarning, locate_program
 import problem2pdf
 import problem2html
 
-
-def get_programs(srcdir, tmpdir, pattern='.*', allow_validation_scripts=False, includedir=None, error_handler=logging):
-    if not os.path.isdir(srcdir):
-        return []
-    ret = []
-    for f in sorted(os.listdir(srcdir)):
-        path = os.path.join(srcdir, f)
-        if allow_validation_scripts:
-            try:
-                ret.append(ValidationScript(path))
-                continue
-            except ProgramWarning as e:
-                pass
-        try:
-            if re.match(pattern, f):
-                ret.append(Program(path, tmpdir, includedir=includedir))
-            else:
-                error_handler.info("Ignoring '%s'; invalid filename" % f)
-        except ProgramError as e:
-            error_handler.error('%s: %s' % (f, e))
-        except ProgramWarning as e:
-            error_handler.warning('%s: %s' % (f, e))
-        except Exception as e:
-            raise
-    return ret
+import languages
+import run
 
 
 def locate_interactive():
-    defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'interactive/interactive'),
-                    os.path.join(os.path.dirname(__file__),
-                                 '../support/interactive/interactive'),
-                    '/usr/lib/problemtools/bin/interactive']
-    return locate_program(defaultPaths)
+    default_paths = [os.path.join(os.path.dirname(__file__),
+                                  'interactive/interactive'),
+                     os.path.join(os.path.dirname(__file__),
+                                  '../support/interactive/interactive'),
+                     '/usr/lib/problemtools/bin/interactive']
+    path = run.locate_executable(default_paths)
+    return run.Executable(path) if path is not None else None
 
 
 def locate_default_validator():
-    defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'default_validator/default_validator'),
-                    os.path.join(os.path.dirname(__file__),
-                                 '../support/default_validator/default_validator'),
-                    '/usr/lib/problemtools/bin/default_validator']
-    return locate_program(defaultPaths)
+    default_paths = [os.path.join(os.path.dirname(__file__),
+                                  'default_validator/default_validator'),
+                     os.path.join(os.path.dirname(__file__),
+                                  '../support/default_validator/default_validator'),
+                     '/usr/lib/problemtools/bin/default_validator']
+    path = run.locate_executable(default_paths)
+    return run.Executable(path) if path is not None else None
 
 
 def locate_default_grader():
-    defaultPaths = [os.path.join(os.path.dirname(__file__),
-                                 'default_grader/default_grader'),
-                    os.path.join(os.path.dirname(__file__),
-                                 '../support/default_grader/default_grader'),
-                    '/usr/lib/problemtools/bin/default_grader']
-    return locate_program(defaultPaths)
+    default_paths = [os.path.join(os.path.dirname(__file__),
+                                  'default_grader/default_grader'),
+                     os.path.join(os.path.dirname(__file__),
+                                  '../support/default_grader/default_grader'),
+                     '/usr/lib/problemtools/bin/default_grader']
+    path = run.locate_executable(default_paths)
+    return run.Executable(path) if path is not None else None
 
 
 def is_TLE(status, may_signal_with_usr1=False):
@@ -240,7 +219,7 @@ class TestCase(ProblemAspect):
         if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
-            status, runtime = sub.run(self.infile, outfile, timelim=timelim_high+1, logger=self)
+            status, runtime = sub.run(self.infile, outfile, timelim=timelim_high+1)
             if is_TLE(status) or runtime > timelim_high:
                 res2 = SubmissionResult('TLE', score=self._problem.config.get('grading')['reject_score'])
             elif is_RTE(status):
@@ -702,7 +681,11 @@ class InputFormatValidators(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._validators = get_programs(os.path.join(problem.probdir, 'input_format_validators'), problem.tmpdir, allow_validation_scripts=True, error_handler=self)
+        self._validators = run.find_programs(os.path.join(problem.probdir,
+                                                          'input_format_validators'),
+                                             language_config=problem.language_config,
+                                             allow_validation_script=True,
+                                             work_dir=problem.tmpdir)
 
 
     def __str__(self):
@@ -719,9 +702,9 @@ class InputFormatValidators(ProblemAspect):
         for val in self._validators:
             try:
                 if not val.compile():
-                    self.error('Compile error for input format validator %s' % val.name)
+                    self.error('Compile error for %s' % val)
                     self._validators.remove(val)
-            except ProgramError as e:
+            except run.ProgramError as e:
                 self.error(e)
 
         # Only sanity check input validators if they all actually compiled
@@ -743,7 +726,7 @@ class InputFormatValidators(ProblemAspect):
                 for flags in all_flags:
                     flags = flags.split()
                     for val in self._validators:
-                        status, _ = val.run(file_name, args=flags, logger=self)
+                        status, _ = val.run(file_name, args=flags)
                         if os.WEXITSTATUS(status) != 42:
                             break
                     else:
@@ -757,7 +740,7 @@ class InputFormatValidators(ProblemAspect):
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
         self.check(None)
         for val in self._validators:
-            status, _ = val.run(testcase.infile, args=flags, logger=self)
+            status, _ = val.run(testcase.infile, args=flags)
             if not os.WIFEXITED(status):
                 testcase.error('Input format validator %s crashed on input %s' % (val, testcase.infile))
             if os.WEXITSTATUS(status) != 42:
@@ -769,7 +752,9 @@ class Graders(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._graders = get_programs(os.path.join(problem.probdir, 'graders'), problem.tmpdir, error_handler=self)
+        self._graders = run.find_programs(os.path.join(problem.probdir, 'graders'),
+                                          language_config=problem.language_config,
+                                          work_dir=problem.tmpdir)
 
     def __str__(self):
         return 'graders'
@@ -784,7 +769,7 @@ class Graders(ProblemAspect):
 
         for grader in self._graders:
             if not grader.compile():
-                self.error('Compile error for grader %s' % grader.name)
+                self.error('Compile error for %s' % grader)
         return self._check_res
 
     def grade(self, sub_results, testcasegroup, shadow_result=False):
@@ -812,14 +797,13 @@ class Graders(ProblemAspect):
                 open(infile, 'w').write(grader_input)
 
                 status, runtime = grader.run(infile, outfile,
-                                             args=testcasegroup.config.get('grader_flags').split(),
-                                             logger=self)
+                                             args=testcasegroup.config.get('grader_flags').split())
 
                 grader_output = open(outfile, 'r').read()
                 os.remove(infile)
                 os.remove(outfile)
                 if not os.WIFEXITED(status):
-                    self.error('Judge error: grader %s crashed' % (grader.name))
+                    self.error('Judge error: %s crashed' % grader)
                     self.debug('Grader input:\n%s' % grader_input)
                     return SubmissionResult('JE', score=0.0)
 #                ret = os.WEXITSTATUS(status)
@@ -850,7 +834,10 @@ class OutputValidators(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._validators = get_programs(os.path.join(problem.probdir, 'output_validators'), problem.tmpdir, error_handler=self)
+        self._validators = run.find_programs(os.path.join(problem.probdir,
+                                                          'output_validators'),
+                                             language_config=problem.language_config,
+                                             work_dir=problem.tmpdir)
 
 
     def __str__(self):
@@ -995,8 +982,7 @@ class OutputValidators(ProblemAspect):
             if val is not None and val.compile():
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 status, runtime = val.run(submission_output,
-                                          args=[testcase.infile, testcase.ansfile, feedbackdir] + self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split(),
-                                          logger=self)
+                                          args=[testcase.infile, testcase.ansfile, feedbackdir] + self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split())
 
                 res = self._parse_validator_results(val, status, feedbackdir)
                 shutil.rmtree(feedbackdir)
@@ -1022,11 +1008,12 @@ class Submissions(ProblemAspect):
         srcdir = os.path.join(problem.probdir, 'submissions')
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
-            self._submissions[acr] = get_programs(os.path.join(srcdir, verdict[1]),
-                                                  problem.tmpdir,
-                                                  pattern=Submissions._SUB_REGEXP,
-                                                  includedir=os.path.join(problem.probdir, 'include'),
-                                                  error_handler=self)
+            self._submissions[acr] = run.find_programs(os.path.join(srcdir, verdict[1]),
+                                                       language_config=problem.language_config,
+                                                       pattern=Submissions._SUB_REGEXP,
+                                                       work_dir=problem.tmpdir,
+                                                       include_dir=os.path.join(problem.probdir,
+                                                                                    'include'))
 
     def __str__(self):
         return 'submissions'
@@ -1103,6 +1090,7 @@ class Problem(ProblemAspect):
     def __init__(self, probdir):
         self.probdir = os.path.realpath(probdir)
         self.shortname = os.path.basename(self.probdir)
+        self.language_config = languages.load_language_config_default_paths()
 
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp(prefix='verify-%s-'%self.shortname)
