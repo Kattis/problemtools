@@ -266,6 +266,5 @@ def load_language_config_default_paths():
         Languages object for the set of languages defined by the
         default config files.
     """
-    return load_language_config(['/etc/kattis/problemtools/languages.yaml',
-                                 os.path.join(os.path.dirname(__file__),
-                                              '../etc/languages.yaml')])
+    return load_language_config([os.path.join(os.path.dirname(__file__),
+                                              'languages.yaml')])

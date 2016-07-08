@@ -1,6 +1,5 @@
 PACKAGE=problemtools
 LIBDIR=$(DESTDIR)/usr/lib/$(PACKAGE)/
-ETCDIR=$(DESTDIR)/etc/kattis/problemtools
 
 all:
 	make -C support
@@ -10,8 +9,6 @@ builddeb:
 
 install:
 	python setup.py install --root $(DESTDIR)
-	install -d $(ETCDIR)
-	install etc/* $(ETCDIR)
 	install -d $(LIBDIR)
 	cp -r examples $(LIBDIR)/
 

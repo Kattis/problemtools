@@ -1,2 +1,3 @@
 recursive-include problemtools/templates *
 recursive-include support *
+include problemtools/languages.yaml
