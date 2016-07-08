@@ -10,15 +10,6 @@ all: $(CONF)
 builddeb:
 	dpkg-buildpackage -us -uc -tc -b
 
-dist:
-	make clean
-	mkdir -p dist/problemtools
-	cp -r src/* dist/problemtools
-	cp -r support/* dist/problemtools
-	cp -r templates dist/problemtools
-	cd dist && tar cvzf ../problemtools-dist.tar.gz problemtools
-	rm -rf dist
-
 install: all
 	python setup.py install --root $(DESTDIR)
 	install -d $(LIBDIR)/bin
@@ -28,7 +19,7 @@ install: all
 	install support/viva/viva.sh $(LIBDIR)/bin
 	install -d $(ETCDIR)
 	install etc/* $(ETCDIR)
-	cp -r examples templates $(LIBDIR)/
+	cp -r examples $(LIBDIR)/
 
 $(CONF): support/checktestdata/bootstrap
 	cd support/checktestdata && ./bootstrap
@@ -39,5 +30,7 @@ support/checktestdata/bootstrap:
 clean:
 	$(foreach prog,$(PROGRAMS),$(MAKE) -C support/$(prog) clean;)
 	python setup.py clean --all
-	rm -f $(CONF)
 	rm -rf dist
+
+distclean: clean
+	rm -f $(CONF)
