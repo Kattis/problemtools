@@ -2,7 +2,6 @@ PACKAGE=problemtools
 CONF=support/checktestdata/config.mk
 PROGRAMS=checktestdata default_validator interactive
 LIBDIR=$(DESTDIR)/usr/lib/$(PACKAGE)/
-BINDIR=$(DESTDIR)/usr/bin
 ETCDIR=$(DESTDIR)/etc/kattis/problemtools
 
 all: $(CONF)
@@ -22,8 +21,6 @@ dist:
 
 install: all
 	python setup.py install --root $(DESTDIR)
-	install -d $(BINDIR)
-	install bin/* $(BINDIR)
 	install -d $(LIBDIR)/bin
 	$(foreach prog,$(PROGRAMS),install support/$(prog)/$(prog) $(LIBDIR)/bin;)
 	install support/default_grader/default_grader $(LIBDIR)/bin

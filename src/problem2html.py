@@ -128,7 +128,7 @@ class ConvertOptions:
         self.quiet = False
 
 
-if __name__ == '__main__':
+def main():
     options = ConvertOptions()
     optparse = OptionParser(usage="usage: %prog [options] problem")
     for (dest, action, short, long, help) in ConvertOptions.available:
@@ -144,3 +144,6 @@ if __name__ == '__main__':
 
     texfile = args[0]
     convert(texfile, options)
+
+if __name__ == '__main__':
+    main()
