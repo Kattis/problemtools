@@ -5,7 +5,7 @@ import resource
 import signal
 import logging
 
-from errors import ProgramError
+from .errors import ProgramError
 
 class Program(object):
     """Abstract base class for programs.

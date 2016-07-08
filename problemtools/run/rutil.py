@@ -4,7 +4,7 @@ import errno
 import os
 import shutil
 
-from errors import ProgramError
+from .errors import ProgramError
 
 def add_files(src, dstdir):
     """Copy src to dstdir.

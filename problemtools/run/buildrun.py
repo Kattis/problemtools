@@ -7,10 +7,9 @@ import tempfile
 
 import logging
 
-from errors import ProgramError
-from executable import locate_executable
-from program import Program
-import rutil
+from .errors import ProgramError
+from .program import Program
+from . import rutil
 
 
 class BuildRun(Program):

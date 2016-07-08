@@ -4,15 +4,14 @@ Problemtools.
 import re
 import os
 
-from buildrun import BuildRun
-from checktestdata import Checktestdata
-from errors import ProgramError
-from executable import Executable, locate_executable
-from program import Program
-from source import SourceCode
-from viva import Viva
-
-import rutil
+from .buildrun import BuildRun
+from .checktestdata import Checktestdata
+from .errors import ProgramError
+from .executable import Executable, locate_executable
+from .program import Program
+from .source import SourceCode
+from .viva import Viva
+from . import rutil
 
 
 def find_programs(path, pattern='.*', language_config=None, work_dir=None,

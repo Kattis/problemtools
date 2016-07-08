@@ -2,8 +2,8 @@
 Implementation of programs provided by an executable file.
 """
 import os
-from program import Program
-from errors import ProgramError
+from .program import Program
+from .errors import ProgramError
 
 class Executable(Program):
     """Class for executable files.

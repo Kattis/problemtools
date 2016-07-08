@@ -3,8 +3,8 @@ verification language (https://github.com/DOMjudge/checktestdata)
 """
 
 import os
-from executable import Executable, locate_executable
-from errors import ProgramError
+from .executable import Executable, locate_executable
+from .errors import ProgramError
 
 
 def _locate_ctd():

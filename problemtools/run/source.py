@@ -7,9 +7,9 @@ import shlex
 import tempfile
 import logging
 
-from errors import ProgramError
-from program import Program
-import rutil
+from .errors import ProgramError
+from .program import Program
+from . import rutil
 
 class SourceCode(Program):
     """Class representing a program provided by source code.
