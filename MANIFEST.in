@@ -1,1 +1,2 @@
 recursive-include problemtools/templates *
+recursive-include support *

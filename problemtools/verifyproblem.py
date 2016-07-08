@@ -24,30 +24,27 @@ import run
 
 def locate_interactive():
     default_paths = [os.path.join(os.path.dirname(__file__),
-                                  'interactive/interactive'),
+                                  'support/interactive'),
                      os.path.join(os.path.dirname(__file__),
-                                  '../support/interactive/interactive'),
-                     '/usr/lib/problemtools/bin/interactive']
+                                  '../support/interactive/interactive')]
     path = run.locate_executable(default_paths)
     return run.Executable(path) if path is not None else None
 
 
 def locate_default_validator():
     default_paths = [os.path.join(os.path.dirname(__file__),
-                                  'default_validator/default_validator'),
+                                  'support/default_validator'),
                      os.path.join(os.path.dirname(__file__),
-                                  '../support/default_validator/default_validator'),
-                     '/usr/lib/problemtools/bin/default_validator']
+                                  '../support/default_validator/default_validator')]
     path = run.locate_executable(default_paths)
     return run.Executable(path) if path is not None else None
 
 
 def locate_default_grader():
     default_paths = [os.path.join(os.path.dirname(__file__),
-                                  'default_grader/default_grader'),
+                                  'support/default_grader'),
                      os.path.join(os.path.dirname(__file__),
-                                  '../support/default_grader/default_grader'),
-                     '/usr/lib/problemtools/bin/default_grader']
+                                  '../support/default_grader/default_grader')]
     path = run.locate_executable(default_paths)
     return run.Executable(path) if path is not None else None
 

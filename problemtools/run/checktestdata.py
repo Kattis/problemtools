@@ -10,10 +10,9 @@ from .errors import ProgramError
 def _locate_ctd():
     """Attempt to find the path to the external Checktestdata program."""
     default_paths = [os.path.join(os.path.dirname(__file__),
-                                 'checktestdata/checktestdata'),
+                                 '../support/checktestdata'),
                      os.path.join(os.path.dirname(__file__),
-                                  '../support/checktestdata/checktestdata'),
-                     '/usr/lib/problemtools/bin/checktestdata']
+                                  '../../support/checktestdata/checktestdata')]
     return locate_executable(default_paths)
 
 

@@ -10,10 +10,9 @@ from .errors import ProgramError
 def _locate_viva():
     """Attempt to find the path to the external VIVA program."""
     default_paths = [os.path.join(os.path.dirname(__file__),
-                                  'viva/viva.sh'),
+                                  '../support/viva.sh'),
                      os.path.join(os.path.dirname(__file__),
-                                  '../support/viva/viva.sh'),
-                     '/usr/lib/problemtools/bin/viva.sh']
+                                  '../../support/viva/viva.sh')]
     return locate_executable(default_paths)
 
 
