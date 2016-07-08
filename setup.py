@@ -9,7 +9,6 @@ setup(name='problemtools',
       maintainer_email='austrin@kattis.com',
       url='https://github.com/Kattis/problemtools',
       license='MIT',
-      package_dir = {'problemtools': 'src'},
       packages=[
           'problemtools',
           'problemtools.ProblemPlasTeX',
@@ -17,6 +16,7 @@ setup(name='problemtools',
       ],
       install_requires=[
           'PyYAML',
+          'plasTeX',
       ],
       entry_points = {
           'console_scripts': [
@@ -26,4 +26,4 @@ setup(name='problemtools',
           ]
       },
       include_package_data=True,
- )
+)
