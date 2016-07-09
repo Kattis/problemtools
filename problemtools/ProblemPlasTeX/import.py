@@ -21,7 +21,7 @@ class import_sty(Command):
         try:
             encoding = self.config['files']['input-encoding']
             tex.input(codecs.open(fullpath, 'r', encoding, 'replace'))
-        except (OSError , IOError):
+        except (OSError, IOError):
             log.warning('\nProblem opening file "%s"', fullpath)
         status.info(' ) ')
         return []

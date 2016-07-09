@@ -1,6 +1,10 @@
 from plasTeX.Base import Command
+from plasTeX.Logging import getLogger
+
 import cgi
 import os
+
+log = getLogger()
 
 # Implementation of (parts) of listingsutf8 package since PlasTeX does
 # not have one
@@ -21,7 +25,7 @@ class lstinputlisting(Command):
         paths = [os.path.dirname(basetex.filename)]
         # Locate file
         for p in paths:
-            fname = os.path.join(p,f)
+            fname = os.path.join(p, f)
             if os.path.isfile(fname):
                 self.attributes['data'] = self.read_file(fname)
                 break

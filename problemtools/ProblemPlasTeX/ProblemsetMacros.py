@@ -61,7 +61,7 @@ class sampletable(Command):
             status.info(') ( verbatim %s ' % file2)
             self.attributes['data2'] = self.read_sample_file(file2)
             status.info(') ')
-        except (OSError , IOError):
+        except (OSError, IOError):
             log.warning('\nProblem opening files "%s" and "%s"', file1, file2)
 
 
@@ -77,14 +77,14 @@ class _graphics_command(Command):
         f = self.attributes['file']
         ext = self.ownerDocument.userdata.getPath(
                       'packages/graphicx/extensions',
-                      ['.png','.jpg','.jpeg','.gif','.pdf'])
+                      ['.png', '.jpg', '.jpeg', '.gif', '.pdf'])
         paths = self.ownerDocument.userdata.getPath(
                         'packages/graphicx/paths', [os.path.dirname(basetex.filename)])
         img = None
         # Check for file using graphicspath
         for p in paths:
             for e in ['']+ext:
-                fname = os.path.join(p,f+e)
+                fname = os.path.join(p, f+e)
                 if os.path.isfile(fname):
                     img = os.path.abspath(fname)
                     break
