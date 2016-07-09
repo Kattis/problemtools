@@ -35,18 +35,3 @@ class Executable(Program):
         """Command to run the program.
         """
         return [self.path] + self.args
-
-
-def locate_executable(candidate_paths):
-    """Find executable among a set of paths.
-
-    Args:
-        candidate_paths (list of str): list of locations in which to
-            look for an executable file.
-
-    Returns:
-        str, first entry of candidate_paths that is an executable
-            file, or None if no such entry.
-    """
-    return next((p for p in candidate_paths
-                 if os.path.isfile(p) and os.access(p, os.X_OK)), None)

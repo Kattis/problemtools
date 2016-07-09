@@ -3,23 +3,15 @@ verification language (https://github.com/DOMjudge/checktestdata)
 """
 
 import os
-from .executable import Executable, locate_executable
+from .executable import Executable
 from .errors import ProgramError
-
-
-def _locate_ctd():
-    """Attempt to find the path to the external Checktestdata program."""
-    default_paths = [os.path.join(os.path.dirname(__file__),
-                                 '../support/checktestdata'),
-                     os.path.join(os.path.dirname(__file__),
-                                  '../../support/checktestdata/checktestdata')]
-    return locate_executable(default_paths)
+from .tools import get_tool_path
 
 
 class Checktestdata(Executable):
     """Wrapper class for running Checktestdata scripts.
     """
-    _CTD_PATH = _locate_ctd()
+    _CTD_PATH = get_tool_path('checktestdata')
 
     def __init__(self, path):
         """Create a Checktestdata wrapper.

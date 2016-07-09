@@ -7,10 +7,11 @@ import os
 from .buildrun import BuildRun
 from .checktestdata import Checktestdata
 from .errors import ProgramError
-from .executable import Executable, locate_executable
+from .executable import Executable
 from .program import Program
 from .source import SourceCode
 from .viva import Viva
+from .tools import get_tool_path, get_tool
 from . import rutil
 
 
@@ -100,7 +101,8 @@ def get_program(path, language_config=None, work_dir=None, include_dir=None,
                 return Checktestdata(path)
         files = [path]
     else:
-        if locate_executable([os.path.join(path, 'build')]) is not None:
+        build = os.path.join(path, 'build')
+        if os.path.isfile(build) and os.access(path, os.X_OK):
             return BuildRun(path, work_dir)
         files = rutil.list_files_recursive(path)
 

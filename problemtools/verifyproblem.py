@@ -22,33 +22,6 @@ import languages
 import run
 
 
-def locate_interactive():
-    default_paths = [os.path.join(os.path.dirname(__file__),
-                                  'support/interactive'),
-                     os.path.join(os.path.dirname(__file__),
-                                  '../support/interactive/interactive')]
-    path = run.locate_executable(default_paths)
-    return run.Executable(path) if path is not None else None
-
-
-def locate_default_validator():
-    default_paths = [os.path.join(os.path.dirname(__file__),
-                                  'support/default_validator'),
-                     os.path.join(os.path.dirname(__file__),
-                                  '../support/default_validator/default_validator')]
-    path = run.locate_executable(default_paths)
-    return run.Executable(path) if path is not None else None
-
-
-def locate_default_grader():
-    default_paths = [os.path.join(os.path.dirname(__file__),
-                                  'support/default_grader'),
-                     os.path.join(os.path.dirname(__file__),
-                                  '../support/default_grader/default_grader')]
-    path = run.locate_executable(default_paths)
-    return run.Executable(path) if path is not None else None
-
-
 def is_TLE(status, may_signal_with_usr1=False):
     return (os.WIFSIGNALED(status) and
             (os.WTERMSIG(status) == signal.SIGXCPU or
@@ -745,7 +718,7 @@ class InputFormatValidators(ProblemAspect):
 
 
 class Graders(ProblemAspect):
-    _default_grader = locate_default_grader()
+    _default_grader = run.get_tool('default_grader')
 
     def __init__(self, problem):
         self._problem = problem
@@ -826,7 +799,7 @@ class Graders(ProblemAspect):
 
 
 class OutputValidators(ProblemAspect):
-    _default_validator = locate_default_validator()
+    _default_validator = run.get_tool('default_validator')
 
 
     def __init__(self, problem):
@@ -926,7 +899,7 @@ class OutputValidators(ProblemAspect):
     def validate_interactive(self, testcase, submission, timelim, errorhandler):
         interactive_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+'
         res = SubmissionResult('JE')
-        interactive = locate_interactive()
+        interactive = run.get_tool('interactive')
         if interactive is None:
             errorhandler.error('Could not locate interactive runner')
             return res

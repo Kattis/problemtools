@@ -3,23 +3,15 @@ verification language (http://viva.vanb.org/).
 """
 
 import os
-from .executable import Executable, locate_executable
+from .executable import Executable
 from .errors import ProgramError
-
-
-def _locate_viva():
-    """Attempt to find the path to the external VIVA program."""
-    default_paths = [os.path.join(os.path.dirname(__file__),
-                                  '../support/viva.sh'),
-                     os.path.join(os.path.dirname(__file__),
-                                  '../../support/viva/viva.sh')]
-    return locate_executable(default_paths)
+from .tools import get_tool_path
 
 
 class Viva(Executable):
     """Wrapper class for running VIVA scripts.
     """
-    _VIVA_PATH = _locate_viva()
+    _VIVA_PATH = get_tool_path('viva.sh')
 
     def __init__(self, path):
         """Create a VIVA wrapper.
