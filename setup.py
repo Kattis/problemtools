@@ -65,6 +65,8 @@ setup(name='problemtools',
           'PyYAML',
           'plasTeX',
       ],
+      setup_requires=['pytest-runner'],
+      tests_require=['pytest'],
       cmdclass={
           'build_support': BuildSupport,
           'bdist_egg': bdist_egg,

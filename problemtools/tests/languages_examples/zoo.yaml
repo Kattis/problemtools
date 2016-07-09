@@ -1,0 +1,20 @@
+---
+
+zoo:
+    name: "Zoo"
+    priority: 10
+    files: "*.zoo"
+    run: "{binary}"
+
+zoork:
+    name: "Zoork"
+    priority: 20
+    files: "*.zoo"
+    shebang: ">.*Zoork"
+    run: "{binary}"
+
+zoopp:
+    name: "Zoo++"
+    priority: 0
+    files: "*.zoo *.zpp"
+    run: "{binary}"

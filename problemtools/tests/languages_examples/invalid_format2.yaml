@@ -1,0 +1,12 @@
+# List instead of dict
+- name: "C"
+  priority: 1
+  files: "*.c"
+  compile: "/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm"
+  run: "{binary}"
+
+- name: "C++"
+  priority: 2
+  files: "*.cc *.C *.cpp *.cxx *.c++"
+  compile: "/usr/bin/g++ -g -O2 -std=gnu++11 -static -o {binary} {files}"
+  run: "{binary}"

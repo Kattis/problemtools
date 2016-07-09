@@ -33,6 +33,8 @@ class Language(object):
             lang_spec (dict): dictionary containing the specification
                 of the language.
         """
+        if not re.match('[a-z][a-z0-9]*', lang_id):
+            raise LanguageConfigError('Invalid language ID "%s"' % lang_id)
         self.lang_id = lang_id
         self.name = None
         self.priority = None

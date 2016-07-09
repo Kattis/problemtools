@@ -1,0 +1,13 @@
+c:
+    name: "C"
+    priority: 42
+    files: "*.c"
+    compile: "/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm"
+    run: "{binary}"
+
+cpp:
+    name: "C++"
+    priority: 42
+    files: "*.cc *.C *.cpp *.cxx *.c++"
+    compile: "/usr/bin/g++ -g -O2 -std=gnu++11 -static -o {binary} {files}"
+    run: "{binary}"
