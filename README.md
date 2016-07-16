@@ -1,6 +1,9 @@
 # Kattis Problem Tools
 
-[![Build Status](https://travis-ci.org/Kattis/problemtools.svg?branch=master)](https://travis-ci.org/Kattis/problemtools)
+master:
+[![Master Build Status](https://travis-ci.org/Kattis/problemtools.svg?branch=master)](https://travis-ci.org/Kattis/problemtools).
+develop:
+[![Develop Build Status](https://travis-ci.org/Kattis/problemtools.svg?branch=develop)](https://travis-ci.org/Kattis/problemtools)
 
 These are tools to manage problem packages using the Kattis problem package
 format.

@@ -45,8 +45,27 @@ class build(_build):
         _build.run(self)
 
 
+def get_version():
+    base_dir = os.path.dirname(__file__)
+
+    __version__ = None
+    try:
+        __version__ = subprocess.check_output(['git', 'describe']).strip()
+        update_script = os.path.join(base_dir, 'admin', 'update_version.py.sh')
+        subprocess.check_call([update_script])
+    except:
+        pass
+
+    if __version__ is None:
+        version_file = os.path.join(base_dir, 'problemtools', '_version.py')
+        with open(version_file, 'r') as version_in:
+            exec(version_in.read())
+
+    return __version__
+
+
 setup(name='problemtools',
-      version='1.1',
+      version=get_version(),
       description='Kattis Problem Tools',
       maintainer='Per Austrin',
       maintainer_email='austrin@kattis.com',

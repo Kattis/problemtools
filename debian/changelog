@@ -1,5 +1,17 @@
-kattis-problemtools (2:1.0) unstable; urgency=low
+kattis-problemtools (20160716-rev1) trusty; urgency=medium
 
-  * Initial debian packaging.
+  * automatic versioning of the python package from git changelog
+  * include _version.py
+  * new version numbering for deb packaging
+  * move generation of _version.py to shellscript
+  * add a script to make releases
+  * add build status for develop branch
+  * fixes to release scripts
 
- -- Per Austrin <austrin@kattis.com>  Thu, 09 Apr 2015 12:26:51 +0200
+ -- Per Austrin <austrin@kattis.com>  Sat, 16 Jul 2016 22:25:31 +0200
+
+kattis-problemtools (20160716) trusty; urgency=low
+
+  * First proper release.
+
+ -- Per Austrin <austrin@kattis.com>  Sat, 16 Jul 2016 19:40:00 +0200
