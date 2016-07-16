@@ -3,7 +3,12 @@
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
+
+# Uncomment this to turn off cleanup.
+export PYBUILD_DISABLE=clean
+
 export PYBUILD_AFTER_CLEAN=make -C support distclean
+export PYBUILD_TEST_PYTEST=1
 
 %:
 	dh $@ --with python2 --buildsystem=pybuild
