@@ -17,10 +17,8 @@ set -x
 
 git flow release start $VERSION
 
-git tag -a $VERSION -m "Release of version $VERSION"
-
 # Update _version.py
-$ROOT/admin/update_version.py.sh
+$ROOT/admin/update_version.py.sh $VERSION
 
 # Update debian/changelog
 git-dch $ROOT --release --new-version=$VERSION --git-author --debian-tag='%(version)s' --debian-branch=release/$VERSION --spawn-editor=never
