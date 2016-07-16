@@ -1,3 +1,15 @@
+kattis-problemtools (20160716-rev1) trusty; urgency=medium
+
+  * automatic versioning of the python package from git changelog
+  * include _version.py
+  * new version numbering for deb packaging
+  * move generation of _version.py to shellscript
+  * add a script to make releases
+  * add build status for develop branch
+  * fixes to release scripts
+
+ -- Per Austrin <austrin@kattis.com>  Sat, 16 Jul 2016 22:25:31 +0200
+
 kattis-problemtools (20160716) trusty; urgency=low
 
   * First proper release.
