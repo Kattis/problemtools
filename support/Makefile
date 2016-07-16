@@ -20,7 +20,6 @@ checktestdata/bootstrap:
 
 clean:
 	$(foreach prog,$(PROGRAMS),$(MAKE) -C $(prog) clean;)
-	rm -rf dist
 
 distclean: clean
 	rm -f $(CONF)

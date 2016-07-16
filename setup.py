@@ -65,8 +65,10 @@ setup(name='problemtools',
           'PyYAML',
           'plasTeX',
       ],
-      setup_requires=['pytest-runner'],
-      tests_require=['pytest'],
+#      Temporarily disabled, see setup.cfg
+#      For now tests can be run manually with pytest
+#      setup_requires=['pytest-runner'],
+#      tests_require=['pytest'],
       cmdclass={
           'build_support': BuildSupport,
           'bdist_egg': bdist_egg,

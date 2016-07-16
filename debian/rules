@@ -3,8 +3,7 @@
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
+export PYBUILD_AFTER_CLEAN=make -C support distclean
 
 %:
-	dh $@ --with python2
-
-override_dh_usrlocal:
+	dh $@ --with python2 --buildsystem=pybuild
