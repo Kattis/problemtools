@@ -24,7 +24,7 @@ class Executable(Program):
 
     def __str__(self):
         """String representation"""
-        return 'Executable(%s)' % (self.path)
+        return '%s' % (self.path)
 
     def compile(self):
         """Dummy implementation of the compile method -- nothing to check!

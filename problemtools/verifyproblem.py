@@ -182,7 +182,7 @@ class TestCase(ProblemAspect):
     def run_submission(self, sub, args, timelim_low=1000, timelim_high=1000):
         outfile = os.path.join(self._problem.tmpdir, 'output')
         if sys.stdout.isatty():
-            msg = 'Running %s on %s...' % (sub.name, self)
+            msg = 'Running %s on %s...' % (sub, self)
             sys.stdout.write('%s' % msg)
             sys.stdout.flush()
 
@@ -778,7 +778,7 @@ class Graders(ProblemAspect):
                     return SubmissionResult('JE', score=0.0)
 #                ret = os.WEXITSTATUS(status)
 #                if ret != 42:
-#                    self.error('Judge error: exit code %d for grader %s' % (ret, grader.name))
+#                    self.error('Judge error: exit code %d for grader %s' % (ret, grader))
 #                    self.debug('Grader input: %s\n' % grader_input)
 #                    return SubmissionResult('JE', 0.0)
 
@@ -829,7 +829,7 @@ class OutputValidators(ProblemAspect):
 
         for val in self._validators:
             if not val.compile():
-                self.error('Compile error for output validator %s' % val.name)
+                self.error('Compile error for output validator %s' % val)
 
 
         # Only sanity check output validators if they all actually compiled
@@ -875,10 +875,10 @@ class OutputValidators(ProblemAspect):
                 return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
         if not os.WIFEXITED(status):
-            return SubmissionResult('JE', reason='output validator %s crashed, status %d' % (val.name, status))
+            return SubmissionResult('JE', reason='output validator %s crashed, status %d' % (val, status))
         ret = os.WEXITSTATUS(status)
         if ret not in [42, 43]:
-            return SubmissionResult('JE', reason='exit code %d for output validator %s' % (ret, val.name))
+            return SubmissionResult('JE', reason='exit code %d for output validator %s' % (ret, val))
 
         if ret == 43:
             if score is None:
@@ -992,14 +992,14 @@ class Submissions(ProblemAspect):
         (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
 
         if result1.verdict != result2.verdict:
-            self.warning('%s submission %s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (expected_verdict, sub.name, timelim_low, result1.verdict, timelim_high, result2.verdict))
+            self.warning('%s submission %s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (expected_verdict, sub, timelim_low, result1.verdict, timelim_high, result2.verdict))
 
         if result1.verdict == expected_verdict:
-            self.msg('   %s submission %s OK: %s' % (expected_verdict, sub.name, result1))
+            self.msg('   %s submission %s OK: %s' % (expected_verdict, sub, result1))
         elif result2.verdict == expected_verdict:
-            self.msg('   %s submission %s OK with extra time: %s' % (expected_verdict, sub.name, result2))
+            self.msg('   %s submission %s OK with extra time: %s' % (expected_verdict, sub, result2))
         else:
-            self.error('%s submission %s got %s' % (expected_verdict, sub.name, result1))
+            self.error('%s submission %s got %s' % (expected_verdict, sub, result1))
         return result1
 
     def check(self, args):
@@ -1024,10 +1024,10 @@ class Submissions(ProblemAspect):
 
             for sub in self._submissions[acr]:
                 if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
-                    self.info('Check %s submission %s' % (acr, sub.name))
+                    self.info('Check %s submission %s' % (acr, sub))
 
                     if not sub.compile():
-                        self.error('Compile error for %s submission %s' % (acr, sub.name))
+                        self.error('Compile error for %s submission %s' % (acr, sub))
                         continue
 
                     res = self.check_submission(sub, args, acr, timelim, timelim_margin)

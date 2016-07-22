@@ -120,7 +120,7 @@ class SourceCode(Program):
 
     def __str__(self):
         """String representation"""
-        return '%s program(%s)' % (self.language.lang_id, self.name)
+        return '%s (%s)' % (self.name, self.language.name)
 
 
     def __get_substitution(self, memlim=1024):
