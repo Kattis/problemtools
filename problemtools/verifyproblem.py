@@ -1106,6 +1106,8 @@ class Problem(ProblemAspect):
             if not re.match('^[a-z0-9]+$', self.shortname):
                 self.error("Invalid shortname '%s' (must be [a-z0-9]+)" % self.shortname)
 
+            run.limit.check_limit_capabilities(self)
+
             for part in args.parts:
                 self.msg('Checking %s' % part)
                 for item in part_mapping[part]:
