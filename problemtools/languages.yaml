@@ -93,97 +93,97 @@
 ---
 
 c:
-    name: "C"
+    name: 'C'
     priority: 950
-    files: "*.c"
-    compile: "/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm"
-    run: "{binary}"
+    files: '*.c'
+    compile: '/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm'
+    run: '{binary}'
 
 cpp:
-    name: "C++"
+    name: 'C++'
     priority: 1000
-    files: "*.cc *.C *.cpp *.cxx *.c++"
-    compile: "/usr/bin/g++ -g -O2 -std=gnu++11 -static -o {binary} {files}"
-    run: "{binary}"
+    files: '*.cc *.C *.cpp *.cxx *.c++'
+    compile: '/usr/bin/g++ -g -O2 -std=gnu++11 -static -o {binary} {files}'
+    run: '{binary}'
 
 csharp:
-    name: "C#"
+    name: 'C#'
     priority: 700
-    files: "*.cs"
-    compile: "/usr/bin/dmcs -out:{binary}.exe -optimize+ -r:System.Numerics {files}"
-    run: "/usr/bin/mono {binary}.exe"
+    files: '*.cs'
+    compile: '/usr/bin/dmcs -out:{binary}.exe -optimize+ -r:System.Numerics {files}'
+    run: '/usr/bin/mono {binary}.exe'
 
 go:
-    name: "Go"
+    name: 'Go'
     priority: 400
-    files: "*.go"
-    compile: "/usr/bin/gccgo -g -o {binary} -static-libgcc {files}"
-    run: "{binary}"
+    files: '*.go'
+    compile: '/usr/bin/gccgo -g -o {binary} -static-libgcc {files}'
+    run: '{binary}'
 
 haskell:
-    name: "Haskell"
+    name: 'Haskell'
     priority: 600
-    files: "*.hs *.c"
-    compile: "/usr/bin/ghc -O2 -ferror-spans -threaded -rtsopts -tmpdir {path} -o {binary} {files}"
-    run: "{binary} +RTS -M{memlim}m -K8m -RTS"
+    files: '*.hs *.c'
+    compile: '/usr/bin/ghc -O2 -ferror-spans -threaded -rtsopts -tmpdir {path} -o {binary} {files}'
+    run: '{binary} +RTS -M{memlim}m -K8m -RTS'
 
 java:
-    name: "Java"
+    name: 'Java'
     priority: 800
-    files: "*.java"
-    compile: "/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}"
-    run: "/usr/bin/java -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}"
+    files: '*.java'
+    compile: '/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}'
+    run: '/usr/bin/java -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
 
 javascript:
-    name: "JavaScript"
+    name: 'JavaScript'
     priority: 500
-    files: "*.js"
-    compile: "/usr/bin/js24 -c {files}"
-    run: "/usr/bin/js24 '{mainfile}'"
+    files: '*.js'
+    compile: '/usr/bin/js24 -c {files}'
+    run: '/usr/bin/js24 "{mainfile}"'
 
 objectivec:
-    name: "Objective C"
+    name: 'Objective C'
     priority: 300
-    files: "*.m *.c"
-    # The postargs for the compile command are "-lm -lobjc `gnustep-config --objc-flags` -lgnustep-base -o {binary}", edited to remove -I. and -I(home dir of user running the command), and to remove duplicate definition of GNUSTEP_BASE_LIBRARY
-    compile: "/usr/bin/gcc -O2 -std=gnu99 {files} -lm -lobjc -MMD -MP -DGNUSTEP -DGNUSTEP_BASE_LIBRARY=2 -DGNU_GUI_LIBRARY=1 -DGNU_RUNTIME=1 -fno-strict-aliasing -fexceptions -fobjc-exceptions -D_NATIVE_OBJC_EXCEPTIONS -fPIC -Wall -DGSWARN -DGSDIAGNOSE -Wno-import -g -O2 -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -Werror=format-security -fgnu-runtime -fconstant-string-class=NSConstantString -I/usr/local/include/GNUstep -I/usr/include/GNUstep -lgnustep-base -o {binary}"
-    run: "{binary}"
+    files: '*.m *.c'
+    # The postargs for the compile command are '-lm -lobjc `gnustep-config --objc-flags` -lgnustep-base -o {binary}', edited to remove -I. and -I(home dir of user running the command), and to remove duplicate definition of GNUSTEP_BASE_LIBRARY
+    compile: '/usr/bin/gcc -O2 -std=gnu99 {files} -lm -lobjc -MMD -MP -DGNUSTEP -DGNUSTEP_BASE_LIBRARY=2 -DGNU_GUI_LIBRARY=1 -DGNU_RUNTIME=1 -fno-strict-aliasing -fexceptions -fobjc-exceptions -D_NATIVE_OBJC_EXCEPTIONS -fPIC -Wall -DGSWARN -DGSDIAGNOSE -Wno-import -g -O2 -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -Werror=format-security -fgnu-runtime -fconstant-string-class=NSConstantString -I/usr/local/include/GNUstep -I/usr/include/GNUstep -lgnustep-base -o {binary}'
+    run: '{binary}'
 
 php:
-    name: "PHP"
+    name: 'PHP'
     priority: 450
-    files: "*.php"
-    compile: "/usr/bin/php -n -d display_errors=stderr -d html_errors=0 -l {files}"
-    run: "/usr/bin/php -n -d display_errors=stderr -d html_errors=0 -d memory_limit={memlim}m -f '{mainfile}'"
+    files: '*.php'
+    compile: '/usr/bin/php -n -d display_errors=stderr -d html_errors=0 -l {files}'
+    run: '/usr/bin/php -n -d display_errors=stderr -d html_errors=0 -d memory_limit={memlim}m -f "{mainfile}"'
 
 prolog:
-    name: "Prolog"
+    name: 'Prolog'
     priority: 100
-    files: "*.pl"
-    compile: "/usr/bin/swipl -O -q -g main -t halt -o {binary} -c {files}"
-    run: "{binary}"
+    files: '*.pl'
+    compile: '/usr/bin/swipl -O -q -g main -t halt -o {binary} -c {files}'
+    run: '{binary}'
 
 python3:
-    name: "Python 3"
+    name: 'Python 3'
     priority: 900
-    files: "*.py"
-    shebang: "^#!.*python3\b"
-    compile: "/usr/bin/python3 -m py_compile {files}"
-    run: "/usr/bin/python3 '{mainfile}'"
+    files: '*.py'
+    shebang: '^#!.*python3\b'
+    compile: '/usr/bin/python3 -m py_compile {files}'
+    run: '/usr/bin/python3 "{mainfile}"'
 
 python2:
-    name: "Python 2"
+    name: 'Python 2'
     priority: 850
-    files: "*.py"
-    compile: "/usr/bin/python2 -m py_compile {files}"
-    run: "/usr/bin/python2 '{mainfile}'"
+    files: '*.py'
+    compile: '/usr/bin/python2 -m py_compile {files}'
+    run: '/usr/bin/python2 "{mainfile}"'
 
 ruby:
-    name: "Ruby"
+    name: 'Ruby'
     priority: 650
-    files: "*.rb"
+    files: '*.rb'
     # Note that this compile command only syntax-checks the main file --
     # unfortunately the ruby -c command does not provide the option to
     # syntax-check multiple files.
-    compile: "/usr/bin/ruby -c {mainfile}"
-    run: "/usr/bin/ruby '{mainfile}'"
+    compile: '/usr/bin/ruby -c "{mainfile}"'
+    run: '/usr/bin/ruby "{mainfile}"'
