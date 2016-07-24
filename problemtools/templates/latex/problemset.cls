@@ -43,10 +43,10 @@
 \RequirePackage{subfigure}        % Subfigures
 \RequirePackage{wrapfig}          % Illustrations
 \RequirePackage{import}           % Proper file inclusion
-\RequirePackage{fancyvrb}         % 
-\RequirePackage{listingsutf8}         % For samples
+\RequirePackage{fancyvrb}         %
+\RequirePackage{listingsutf8}     % For samples
 \RequirePackage[left=1in,right=1in,top=0.75in,bottom=0.75in]{geometry}
-%\RequirePackage{fullpage}         % Set up margins for full page
+%\RequirePackage{fullpage}        % Set up margins for full page
 \RequirePackage{url}              % Urls
 \RequirePackage[normalem]{ulem}   % \sout
 \RequirePackage[colorlinks=true,implicit=false]{hyperref}
