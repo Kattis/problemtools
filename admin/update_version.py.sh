@@ -8,6 +8,7 @@ if (($# > 0)); then
     VERSION=$1
 else
     VERSION=$(git describe)
+    VERSION=${VERSION:1} # remove leading 'v' from git tag
 fi
 
 cat <<EOF > $ROOT/problemtools/_version.py
