@@ -1,4 +1,4 @@
-kattis-problemtools (20160716-rev1) trusty; urgency=medium
+kattis-problemtools (1.20160716-rev1) trusty; urgency=medium
 
   * automatic versioning of the python package from git changelog
   * include _version.py
@@ -10,7 +10,7 @@ kattis-problemtools (20160716-rev1) trusty; urgency=medium
 
  -- Per Austrin <austrin@kattis.com>  Sat, 16 Jul 2016 22:25:31 +0200
 
-kattis-problemtools (20160716) trusty; urgency=low
+kattis-problemtools (1.20160716) trusty; urgency=low
 
   * First proper release.
 
