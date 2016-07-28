@@ -28,7 +28,7 @@ class Checktestdata(Executable):
 
     def __str__(self):
         """String representation"""
-        return 'Checktestdata script %s' % (self.args[0])
+        return '%s' % (self.args[0])
 
 
     _compile_result = None

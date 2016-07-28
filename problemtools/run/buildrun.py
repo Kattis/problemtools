@@ -48,6 +48,11 @@ class BuildRun(Program):
         rutil.add_files(path, self.path)
 
 
+    def __str__(self):
+        """String representation"""
+        return '%s/' % (self.path)
+
+
     _compile_result = None
     def compile(self):
         """Run the build script."""

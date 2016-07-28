@@ -1,4 +1,19 @@
-kattis-problemtools (20160716-rev1) trusty; urgency=medium
+kattis-problemtools (1.20160728) trusty; urgency=medium
+
+  * change version numbering scheme slightly
+  * fix use of invalid .name attribute
+  * handle running in an rlimit-restricted environment
+  * add simple test for new limit module
+  * problemset.cls formatting
+  * switch single and double quotes in languages.yaml to avoid escaping of \
+  * add installation via pip as primary recommended way of running problemtools
+  * fix update_version
+  * minor updates to release script
+  * backfix changelog version numbering
+
+ -- Per Austrin <austrin@kattis.com>  Thu, 28 Jul 2016 15:50:26 +0200
+
+kattis-problemtools (1.20160716-rev1) trusty; urgency=medium
 
   * automatic versioning of the python package from git changelog
   * include _version.py
@@ -10,7 +25,7 @@ kattis-problemtools (20160716-rev1) trusty; urgency=medium
 
  -- Per Austrin <austrin@kattis.com>  Sat, 16 Jul 2016 22:25:31 +0200
 
-kattis-problemtools (20160716) trusty; urgency=low
+kattis-problemtools (1.20160716) trusty; urgency=low
 
   * First proper release.
 

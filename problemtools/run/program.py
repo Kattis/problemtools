@@ -1,6 +1,7 @@
 """Abstract base class for programs.
 """
 import os
+import limit
 import resource
 import signal
 import logging
@@ -51,11 +52,9 @@ class Program(object):
         pid = os.fork()
         if pid == 0:  # child
             try:
-                resource.setrlimit(resource.RLIMIT_CPU,
-                                   (timelim, timelim + 1))
-                resource.setrlimit(resource.RLIMIT_STACK,
-                                   (resource.RLIM_INFINITY,
-                                    resource.RLIM_INFINITY))
+                limit.try_limit(resource.RLIMIT_STACK,
+                                resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+                limit.try_limit(resource.RLIMIT_CPU, timelim, timelim + 1)
                 Program.__setfd(0, infile, os.O_RDONLY)
                 Program.__setfd(1, outfile,
                                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
@@ -63,7 +62,7 @@ class Program(object):
                                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
                 os.execvp(argv[0], argv)
             except Exception as exc:
-                print "Error"
+                print "Oops. Fatal error in child process:"
                 print exc
                 os.kill(os.getpid(), signal.SIGTERM)
             #Unreachable
