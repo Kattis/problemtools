@@ -15,7 +15,7 @@ fi
 
 set -x
 
-git flow release start $VERSION
+git flow release start --showcommands $VERSION
 
 # Update _version.py
 $ROOT/admin/update_version.py.sh $VERSION
@@ -26,4 +26,4 @@ git-dch $ROOT --release --new-version=$VERSION --git-author --debian-tag='v%(ver
 git add $ROOT/problemtools/_version.py $ROOT/debian/changelog
 git commit -m "Release of version $VERSION: bump version in problemtools/_version.py and debian/changelog"
 
-git flow release finish $VERSION
+git flow release finish --showcommands --message "Release $VERSION" $VERSION
