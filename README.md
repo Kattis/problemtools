@@ -17,8 +17,8 @@ The problem tools provide the following three programs:
  - `problem2pdf`: convert a problem statement to pdf
  - `problem2html`: convert a problem statement to html
 
-Running any of them without any command-line options gives
-documentation on what parameters they accept.
+Running any of them with command-line option `-h` gives
+documentation on what arguments they accept.
 
 
 ## Example Problems
@@ -28,9 +28,45 @@ A few examples of problem packages can be found in [examples](examples).
 
 ## Installing and using problemtools
 
-There are two recommended ways of installing and running problemtools.
+There are three recommended ways of installing and running problemtools.
 
-### Method 1: Build and install the Debian package
+### Method 1: Install the Python package
+
+Run
+```
+pip install https://github.com/kattis/problemtools
+```
+
+Or if you don't want a system-wide installation,
+```
+pip install --user https://github.com/kattis/problemtools
+```
+With this second option, in order to get the command line scripts, you need
+to make sure that the local user bin path used (e.g., on Linux,
+`$HOME/.local/usr/local/bin`) is in your `$PATH`.
+
+In order for problemtools to run properly, you also need to have LaTeX
+and various LaTeX packages installed.  See [Requirements and
+compatbility](#requirements-and-compatibility) below for details on
+which packages are needed.
+
+
+### Method 2: Run directly from the repository.
+
+In order for the tools to work, you first have to compile the various
+support programs, which can be done by running `make` in the root
+directory of problemtools.
+
+When this is done, you can run the three programs
+`bin/verifyproblem.sh`, `bin/problem2pdf.sh`, and
+`bin/problem2html.sh` directly from the repository.
+
+See [Requirements and compatibility](#requirements-and-compatibility)
+below for what other software needs to be installed on your machine in
+order for problemtools to work correctly.
+
+
+### Method 3: Build and install the Debian package
 
 This applies if you are running on Debian or a Debian derivative such
 as Ubuntu.
@@ -43,32 +79,12 @@ root of the repository).
 To see which packages are required in order to be able to do this, see
 the "Build-Depends" line of the file debian/control.
 
-The package can then be installed using (replace X.Y as appropriate):
+The package can then be installed using (replace `<version>` as appropriate):
 
-    sudo gdebi kattis-problemtools_X.Y.deb
+    sudo gdebi kattis-problemtools_<version>.deb
 
 This installs the three provided programs in your path and they should
 now be ready to use.
-
-
-### Method 2: Run directly from the repository.
-
-In order for the tools to work, you first have to compile the various
-support programs, which can be done by running `make` in the root
-directory of problemtools.
-
-The checktestdata program requires a relatively recent gcc version
-(4.8 suffices), but is only needed for running checktestdata input
-validation scripts.  The rest of problemtools will run fine without
-it, but in this case you need to build the other programs separately,
-e.g. by running
-
-    (cd support/default_validator && make)
-    (cd support/interactive && make)
-
-When this is done, you can run the three programs `verifyproblem.py`,
-`problem2pdf.py`, and `problem2html.py` directly from the src
-directory of problemtools.
 
 
 ## Requirements and compatibility
@@ -82,3 +98,4 @@ The problem tools have not been tested on other platforms.  If you do
 test on another platform, we'd be happy to hear what worked and what
 did not work, so that we can write proper instructions (and try to
 figure out how to make the non-working stuff work).
+
