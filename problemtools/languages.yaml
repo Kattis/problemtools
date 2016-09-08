@@ -110,7 +110,7 @@ csharp:
     name: 'C#'
     priority: 700
     files: '*.cs'
-    compile: '/usr/bin/dmcs -out:{binary}.exe -optimize+ -r:System.Numerics {files}'
+    compile: '/usr/bin/mcs -out:{binary}.exe -optimize+ -r:System.Numerics {files}'
     run: '/usr/bin/mono {binary}.exe'
 
 go:
