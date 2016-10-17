@@ -34,12 +34,12 @@ There are three recommended ways of installing and running problemtools.
 
 Run
 ```
-pip install https://github.com/kattis/problemtools
+pip install git+https://github.com/kattis/problemtools
 ```
 
 Or if you don't want a system-wide installation,
 ```
-pip install --user https://github.com/kattis/problemtools
+pip install --user git+https://github.com/kattis/problemtools
 ```
 With this second option, in order to get the command line scripts, you need
 to make sure that the local user bin path used (e.g., on Linux,
