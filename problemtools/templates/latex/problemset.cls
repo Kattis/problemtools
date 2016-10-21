@@ -186,7 +186,7 @@
 }
 
 \newcommand{\ps@formattime}[1]{
-  #1\ifnum#1=1 second \else seconds \fi
+  #1\ifdim#1in=1in second \else seconds \fi
 }
 
 \newcommand{\problemheader}[2]{
