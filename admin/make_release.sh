@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -21,7 +21,7 @@ git flow release start --showcommands $VERSION
 $ROOT/admin/update_version.py.sh $VERSION
 
 # Update debian/changelog
-git-dch $ROOT --release --new-version=$VERSION --git-author --debian-tag='v%(version)s' --debian-branch=release/$VERSION --spawn-editor=never
+gbp dch $ROOT --release --new-version=$VERSION --git-author --debian-tag='v%(version)s' --debian-branch=release/$VERSION --spawn-editor=never
 
 git add $ROOT/problemtools/_version.py $ROOT/debian/changelog
 git commit -m "Release of version $VERSION: bump version in problemtools/_version.py and debian/changelog"

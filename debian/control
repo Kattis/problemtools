@@ -2,7 +2,7 @@ Source: kattis-problemtools
 Section: devel
 Priority: optional
 Maintainer: Per Austrin <austrin@kattis.com>
-Build-Depends: debhelper (>= 8.0.0), g++ (>= 4.8), python (>= 2.6.6-3~), python-setuptools, python-pytest, libboost-regex-dev, libgmp3-dev, automake, autoconf
+Build-Depends: debhelper (>= 8.0.0), g++ (>= 4.8), dh-python, python (>= 2.6.6-3~), python-setuptools, python-pytest, python-yaml, libboost-regex-dev, libgmp3-dev, automake, autoconf
 Standards-Version: 3.9.4
 Homepage: https://github.com/Kattis/problemtools
 

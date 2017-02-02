@@ -118,6 +118,9 @@ class ProblemAspect:
             raise VerifyError(msg)
 
     def warning(self, msg):
+        if ProblemAspect.consider_warnings_errors:
+            self.error(msg)
+            return
         ProblemAspect.warnings += 1
         logging.warning('in %s: %s', self, msg)
 
@@ -1094,6 +1097,7 @@ class Problem(ProblemAspect):
         ProblemAspect.errors = 0
         ProblemAspect.warnings = 0
         ProblemAspect.bail_on_error = args.bail_on_error
+        ProblemAspect.consider_warnings_errors = args.werror
 
         try:
             part_mapping = {'config': [self.config],
@@ -1139,6 +1143,7 @@ def argparser():
     parser.add_argument("-p", "--parts", help="only test the indicated parts of the problem.  Each PROBLEM_PART can be one of %s." % PROBLEM_PARTS, metavar='PROBLEM_PART', type=part_argument, nargs='+', default=PROBLEM_PARTS)
     parser.add_argument("-b", "--bail_on_error", help="bail verification on first error", action='store_true')
     parser.add_argument("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
+    parser.add_argument("-e", "--werror", help="consider warnings as errors", action='store_true')
     parser.add_argument('problemdir')
     return parser
 
@@ -1159,6 +1164,7 @@ def main():
         [errors, warnings] = prob.check(args)
         print "%s tested: %d errors, %d warnings" % (prob.shortname, errors, warnings)
 
+    sys.exit(1 if errors > 0 else 0)
 
 if __name__ == '__main__':
     main()

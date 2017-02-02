@@ -54,7 +54,7 @@ typedef void (*feedback_function)(const std::string &, ...);
 
 const int EXITCODE_AC = 42;
 const int EXITCODE_WA = 43;
-const std::string FILENAME_AUTHOR_MESSAGE = "authormessage.txt";
+const std::string FILENAME_AUTHOR_MESSAGE = "teammessage.txt";
 const std::string FILENAME_JUDGE_MESSAGE = "judgemessage.txt";
 const std::string FILENAME_JUDGE_ERROR = "judgeerror.txt";
 const std::string FILENAME_SCORE = "score.txt";
