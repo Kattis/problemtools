@@ -1,3 +1,30 @@
+kattis-problemtools (1.20170202) xenial; urgency=medium
+
+  [ Per Austrin ]
+  * add dh-python as deb dependency
+  * python-yaml is a build dependency since tests depend on it
+
+  [ Pehr Söderman ]
+  * Changing from dmcs to mcs to compile C#
+
+  [ Tobias Werth ]
+  * Fix pip installation instructions.
+
+  [ Robin Lee ]
+  * verifyproblem - exit 1 in case of errors
+
+  [ Per Austrin ]
+  * fix author message feedback file name in validate.h
+
+  [ Thorsten Wißmann ]
+  * Fix python2 calls and shebangs
+  * Update checktestdata to active repo
+
+  [ Per Austrin ]
+  * update release script, git-dch has changed name
+
+ -- Per Austrin <austrin@kattis.com>  Thu, 02 Feb 2017 14:02:12 +0100
+
 kattis-problemtools (1.20160728) trusty; urgency=medium
 
   * change version numbering scheme slightly
