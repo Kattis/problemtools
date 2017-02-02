@@ -87,7 +87,7 @@ root of the repository).
 To see which packages are required in order to be able to do this, see
 the "Build-Depends" line of the file debian/control. *Note that the
 dependencies needed to build the Debian package are not the same as
-the depencies listed below, which are the dependencies for **running**
+the depencies listed below, which are the dependencies for __running__
 problemtools.*
 
 The package can then be installed using (replace `<version>` as appropriate):
