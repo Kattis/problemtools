@@ -31,7 +31,11 @@ class Executable(Program):
         """
         return True
 
-    def get_runcmd(self):
+    def get_runcmd(self, cwd=None, memlim=None):
         """Command to run the program.
         """
         return [self.path] + self.args
+
+    def should_skip_memory_rlimit(self):
+        """Ugly hack (see program.py for details)."""
+        return True

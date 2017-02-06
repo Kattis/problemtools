@@ -192,7 +192,9 @@ class TestCase(ProblemAspect):
         if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
-            status, runtime = sub.run(self.infile, outfile, timelim=timelim_high+1)
+            status, runtime = sub.run(self.infile, outfile,
+                                      timelim=timelim_high+1,
+                                      memlim=self._problem.config.get('limits')['memory'])
             if is_TLE(status) or runtime > timelim_high:
                 res2 = SubmissionResult('TLE', score=self._problem.config.get('grading')['reject_score'])
             elif is_RTE(status):
@@ -909,7 +911,7 @@ class OutputValidators(ProblemAspect):
         # file descriptor, wall time lim
         initargs = ['1', str(2 * timelim)]
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>']
-        submission_args = submission.get_runcmd()
+        submission_args = submission.get_runcmd(memlim=self._problem.config.get('limits')['memory'])
         for val in self._actual_validators():
             if val is not None and val.compile():
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
