@@ -123,7 +123,7 @@ class SourceCode(Program):
 
     def should_skip_memory_rlimit(self):
         """Ugly hack (see program.py for details)."""
-        return self.language.name == 'Java'
+        return self.language.name in ['Java', 'Scala']
 
 
     def __str__(self):

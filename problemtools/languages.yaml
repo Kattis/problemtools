@@ -54,8 +54,8 @@
 #           environment as entry point to the program.
 #
 # mainclass: similar to mainfile, but at a higher level than a file.
-#            Typical (only?) example is Java.
-#
+#            Typical (only?) examples are Java and Java-based
+#            languages such as Scala.
 #
 # The entry point type of a language is implicitly specified by using
 # one of the three meta-variables {binary}, {mainfile}, {mainclass}
@@ -187,3 +187,10 @@ ruby:
     # syntax-check multiple files.
     compile: '/usr/bin/ruby -c "{mainfile}"'
     run: '/usr/bin/ruby "{mainfile}"'
+
+scala:
+    name: 'Scala'
+    priority: 550
+    files: '*.sc *.scala'
+    compile: '/usr/bin/scalac -encoding UTF-8 -sourcepath {path} -d {path} {files}'
+    run: '/usr/bin/scala -J-Xmx{memlim}m -classpath {path} {mainclass}'
