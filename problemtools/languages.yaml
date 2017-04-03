@@ -149,6 +149,13 @@ objectivec:
     compile: '/usr/bin/gcc -O2 -std=gnu99 {files} -lm -lobjc -MMD -MP -DGNUSTEP -DGNUSTEP_BASE_LIBRARY=2 -DGNU_GUI_LIBRARY=1 -DGNU_RUNTIME=1 -fno-strict-aliasing -fexceptions -fobjc-exceptions -D_NATIVE_OBJC_EXCEPTIONS -fPIC -Wall -DGSWARN -DGSDIAGNOSE -Wno-import -g -O2 -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security -Werror=format-security -fgnu-runtime -fconstant-string-class=NSConstantString -I/usr/local/include/GNUstep -I/usr/include/GNUstep -lgnustep-base -o {binary}'
     run: '{binary}'
 
+pascal:
+    name: 'Pascal'
+    priority: 350
+    files: '*.pas'
+    compile: '/usr/bin/fpc -o"{mainfile}.out" -O2 -XS -Xt "{mainfile}"'
+    run: '"{mainfile}.out"'
+
 php:
     name: 'PHP'
     priority: 450
