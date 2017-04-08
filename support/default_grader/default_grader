@@ -3,25 +3,47 @@
 import sys
 import argparse
 
-def avg(L): return 1.0*sum(L)/len(L)
 
-aggregators = {
+def no_errors(verdicts):
+    sorting_order = ['JE', 'IF', 'RTE', 'MLE', 'TLE', 'OLE', 'WA', 'PE', 'AC']
+    verdicts = verdicts + ['AC']
+    index = min(sorting_order.index(verdict) for verdict in verdicts)
+    return sorting_order[index]
+
+def always_accept(verdicts):
+    return 'AC'
+
+verdict_aggregators = {
+    'no_errors': no_errors,
+    'always_accept': always_accept
+}
+
+def avg(scores): return 1.0*sum(scores) / len(scores)
+
+score_aggregators = {
     'sum': sum,
     'avg': avg,
     'max': max,
     'min': min
-    }
+}
 
-parser = argparse.ArgumentParser(description='''Default grader.''')
-parser.add_argument('aggregation', help='aggregation type', default='sum', nargs = '?', action='store', choices = aggregators.keys())
-args = parser.parse_args()
+aggregate_scores = score_aggregators['sum']
+aggregate_verdicts = None
 
-agg = aggregators[args.aggregation]
+for flag in sys.argv:
+    if flag in score_aggregators:
+        aggrecate_scores = score_aggregators[flag]
+    if flag in verdict_aggregators:
+        aggregate_verdicts = verdict_aggregators[flag]
+
+# This should always be given by the judging system
+assert aggregate_verdicts is not None
 
 try:
     data = sys.stdin.read().split()
+    verdicts = data[0::2]
     scores = map(float, data[1::2])
-    print 'AC %f' % agg(scores)
+    print '%s %f' % (aggregate_verdicts(verdicts), aggregate_scores(scores))
 except:
     print 'JE 0'
 
