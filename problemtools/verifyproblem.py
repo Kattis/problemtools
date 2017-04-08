@@ -644,6 +644,40 @@ class ProblemStatement(ProblemAspect):
         return ret
 
 
+class Attachments(ProblemAspect):
+    """Represents the attachments of a problem.
+
+    Attributes:
+        attachments: The absolute paths to the attachment files for this problem.
+
+    """
+
+    def __init__(self, problem):
+        attachments_path = os.path.join(problem.probdir, 'attachments')
+        if os.path.isdir(attachments_path):
+            self.attachments = [os.path.join(attachments_path, attachment_name) for attachment_name in os.listdir(attachments_path)]
+        else:
+            self.attachments = []
+        self.debug('Adding attachments %s' % str(self.attachments))
+
+    def check(self, args):
+        if self._check_res is not None:
+            return self._check_res
+        self._check_res = True
+
+        for attachment_path in self.attachments:
+            if os.path.isdir(attachment_path):
+                self.error('Directories are not allowed as attachments (%s is a directory)' % attachment_path)
+
+        return self._check_res
+
+    def get_attachment_paths(self):
+        return self.attachments
+
+    def __str__(self):
+        return 'attachments'
+
+
 _JUNK_CASES = [
     ('an empty file', ''),
     ('a binary file with byte values 0 up to 256', ''.join(chr(x) for x in range(256))),
@@ -1081,6 +1115,7 @@ class Problem(ProblemAspect):
             return self
 
         self.statement = ProblemStatement(self)
+        self.attachments = Attachments(self)
         self.config = ProblemConfig(self)
         self.is_interactive = 'interactive' in self.config.get('validation-params')
         self.input_format_validators = InputFormatValidators(self)
@@ -1109,7 +1144,7 @@ class Problem(ProblemAspect):
 
         try:
             part_mapping = {'config': [self.config],
-                            'statement': [self.statement],
+                            'statement': [self.statement, self.attachments],
                             'validators': [self.input_format_validators, self.output_validators],
                             'graders': [self.graders],
                             'data': [self.testdata],
