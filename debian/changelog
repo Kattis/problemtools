@@ -1,3 +1,32 @@
+kattis-problemtools (1.20170408) xenial; urgency=medium
+
+  [ Simon Lindholm ]
+  * Support floats in .timelimit
+
+  [ Per Austrin ]
+  * switch checktestdata to release branch
+  * update installation instructions to clarify that repository needs to be cloned
+  * clarify build dependencies
+  * fix formatting
+
+  [ austrin ]
+  * Really fix formatting.
+
+  [ Per Austrin ]
+  * enforce memory limit (via rlimit) for submissions
+  * example submission breaking memory limit
+  * add Scala to languages.yaml
+  * apply time and memory limit to output validators for standard problems (for interactive problems, time and memory limits are not applied correctly)
+  * fix snafus in memory limit capability check
+
+  [ Johan Sannemo ]
+  * Add support for Pascal
+  * Add support for attachments
+
+  [ Per Austrin ]
+
+ -- Per Austrin <austrin@kattis.com>  Sat, 08 Apr 2017 15:03:31 +0200
+
 kattis-problemtools (1.20170202) xenial; urgency=medium
 
   [ Per Austrin ]
