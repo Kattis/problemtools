@@ -192,7 +192,9 @@ class TestCase(ProblemAspect):
         if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
-            status, runtime = sub.run(self.infile, outfile, timelim=timelim_high+1)
+            status, runtime = sub.run(self.infile, outfile,
+                                      timelim=timelim_high+1,
+                                      memlim=self._problem.config.get('limits')['memory'])
             if is_TLE(status) or runtime > timelim_high:
                 res2 = SubmissionResult('TLE', score=self._problem.config.get('grading')['reject_score'])
             elif is_RTE(status):
@@ -642,6 +644,40 @@ class ProblemStatement(ProblemAspect):
         return ret
 
 
+class Attachments(ProblemAspect):
+    """Represents the attachments of a problem.
+
+    Attributes:
+        attachments: The absolute paths to the attachment files for this problem.
+
+    """
+
+    def __init__(self, problem):
+        attachments_path = os.path.join(problem.probdir, 'attachments')
+        if os.path.isdir(attachments_path):
+            self.attachments = [os.path.join(attachments_path, attachment_name) for attachment_name in os.listdir(attachments_path)]
+        else:
+            self.attachments = []
+        self.debug('Adding attachments %s' % str(self.attachments))
+
+    def check(self, args):
+        if self._check_res is not None:
+            return self._check_res
+        self._check_res = True
+
+        for attachment_path in self.attachments:
+            if os.path.isdir(attachment_path):
+                self.error('Directories are not allowed as attachments (%s is a directory)' % attachment_path)
+
+        return self._check_res
+
+    def get_attachment_paths(self):
+        return self.attachments
+
+    def __str__(self):
+        return 'attachments'
+
+
 _JUNK_CASES = [
     ('an empty file', ''),
     ('a binary file with byte values 0 up to 256', ''.join(chr(x) for x in range(256))),
@@ -909,7 +945,10 @@ class OutputValidators(ProblemAspect):
         # file descriptor, wall time lim
         initargs = ['1', str(2 * timelim)]
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>']
-        submission_args = submission.get_runcmd()
+        submission_args = submission.get_runcmd(memlim=self._problem.config.get('limits')['memory'])
+
+        val_timelim = self._problem.config.get('limits')['validation_time']
+        val_memlim = self._problem.config.get('limits')['validation_memory']
         for val in self._actual_validators():
             if val is not None and val.compile():
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
@@ -918,7 +957,7 @@ class OutputValidators(ProblemAspect):
                 interactive_out = f.name
                 f.close()
                 i_status, _ = interactive.run(outfile=interactive_out,
-                                                      args=initargs + val.get_runcmd() + validator_args + [';'] + submission_args)
+                                              args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args)
                 if is_RTE(i_status):
                     errorhandler.error('Interactive crashed, status %d' % i_status)
                 else:
@@ -951,12 +990,15 @@ class OutputValidators(ProblemAspect):
 
     def validate(self, testcase, submission_output):
         res = SubmissionResult('JE')
+        val_timelim = self._problem.config.get('limits')['validation_time']
+        val_memlim = self._problem.config.get('limits')['validation_memory']
+        flags = self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split()
         for val in self._actual_validators():
             if val is not None and val.compile():
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 status, runtime = val.run(submission_output,
-                                          args=[testcase.infile, testcase.ansfile, feedbackdir] + self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split())
-
+                                          args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
+                                          timelim=val_timelim, memlim=val_memlim)
                 res = self._parse_validator_results(val, status, feedbackdir)
                 shutil.rmtree(feedbackdir)
                 if res.verdict != 'AC':
@@ -1073,6 +1115,7 @@ class Problem(ProblemAspect):
             return self
 
         self.statement = ProblemStatement(self)
+        self.attachments = Attachments(self)
         self.config = ProblemConfig(self)
         self.is_interactive = 'interactive' in self.config.get('validation-params')
         self.input_format_validators = InputFormatValidators(self)
@@ -1101,7 +1144,7 @@ class Problem(ProblemAspect):
 
         try:
             part_mapping = {'config': [self.config],
-                            'statement': [self.statement],
+                            'statement': [self.statement, self.attachments],
                             'validators': [self.input_format_validators, self.output_validators],
                             'graders': [self.graders],
                             'data': [self.testdata],

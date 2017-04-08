@@ -102,20 +102,28 @@ class SourceCode(Program):
         return self._compile_result
 
 
-    def get_runcmd(self, cwd=None):
+    def get_runcmd(self, cwd=None, memlim=1024):
         """Run command for the program.
 
         Args:
             cwd (str): if not None, the run command is provided
                 relative to cwd (otherwise absolute paths are given).
+            memlim (int): if not None, memory limit in MB (only
+                relevant for languages where memory limit is passed on
+                command line)
         """
         self.compile()
-        subs = self.__get_substitution()
+        subs = self.__get_substitution(memlim)
         if cwd is not None:
             subs['path'] = os.path.relpath(subs['path'], cwd)
             subs['binary'] = os.path.relpath(subs['binary'], cwd)
             subs['mainfile'] = os.path.relpath(subs['mainfile'], cwd)
         return shlex.split(self.language.run.format(**subs))
+
+
+    def should_skip_memory_rlimit(self):
+        """Ugly hack (see program.py for details)."""
+        return self.language.name in ['Java', 'Scala']
 
 
     def __str__(self):

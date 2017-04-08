@@ -14,15 +14,21 @@ def check_limit_capabilities(logger):
     FIXME: if running as root with a hard stack or cpu rlimit set,
     this will still issue warnings.
     """
+    (_, cpu_hard) = resource.getrlimit(resource.RLIMIT_CPU)
+    if cpu_hard != resource.RLIM_INFINITY:
+        logger.warning("Hard CPU rlimit of %d, runs involving higher CPU limits than this may behave incorrectly."
+                       % cpu_hard)
+
     (_, stack_hard) = resource.getrlimit(resource.RLIMIT_STACK)
     if stack_hard != resource.RLIM_INFINITY:
         logger.warning("Hard stack rlimit of %d so I can't set it to unlimited. I will keep it at %d. If you experience unexpected issues (in particular run-time errors) this may be the cause."
                        % (stack_hard, stack_hard))
 
-    (_, cpu_hard) = resource.getrlimit(resource.RLIMIT_CPU)
-    if cpu_hard != resource.RLIM_INFINITY:
-        logger.warning("Hard CPU rlimit of %d, runs involving higher CPU limits than this may behave incorrectly."
-                       % cpu_hard)
+    (_, mem_hard) = resource.getrlimit(resource.RLIMIT_AS)
+    if mem_hard != resource.RLIM_INFINITY:
+        logger.warning("Hard memory rlimit of %d MB, runs involving a higher memory limit may behave incorrectly.  If you experience unexpected issues (in particular run-time errors) this may be the cause."
+                       % (mem_hard/1024/1024))
+
 
 
 def try_limit(limit, soft, hard):

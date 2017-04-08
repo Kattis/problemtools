@@ -53,6 +53,10 @@ which packages are needed.
 
 ### Method 2: Run directly from the repository.
 
+For this method, you need to clone the repository (just downloading a
+zip archive of it does not work, because the project has submodules
+that are not included in that zip archive).
+
 In order for the tools to work, you first have to compile the various
 support programs, which can be done by running `make` in the root
 directory of problemtools.
@@ -71,13 +75,20 @@ order for problemtools to work correctly.
 This applies if you are running on Debian or a Debian derivative such
 as Ubuntu.
 
+As with method 2, you need to clone the repository (just downloading a
+zip archive of it does not work, because the project has submodules
+that are not included in that zip archive).
+
 Run `make builddeb` in the root of the problemtools repository to
 build the package.  It will be found as kattis-problemtools_X.Y.deb in
 the directory containing problemtools (i.e., one level up from the
 root of the repository).
 
 To see which packages are required in order to be able to do this, see
-the "Build-Depends" line of the file debian/control.
+the "Build-Depends" line of the file debian/control. *Note that the
+dependencies needed to build the Debian package are not the same as
+the depencies listed below, which are the dependencies for __running__
+problemtools.*
 
 The package can then be installed using (replace `<version>` as appropriate):
 
@@ -98,4 +109,3 @@ The problem tools have not been tested on other platforms.  If you do
 test on another platform, we'd be happy to hear what worked and what
 did not work, so that we can write proper instructions (and try to
 figure out how to make the non-working stuff work).
-

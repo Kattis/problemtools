@@ -77,7 +77,7 @@ class BuildRun(Program):
         return True
 
 
-    def get_runcmd(self, cwd=None):
+    def get_runcmd(self, cwd=None, memlim=None):
         """Run command for the program.
 
         Args:
@@ -86,3 +86,8 @@ class BuildRun(Program):
         """
         path = self.path if cwd is None else os.path.relpath(self.path, cwd)
         return [os.path.join(path, 'run')]
+
+
+    def should_skip_memory_rlimit(self):
+        """Ugly hack (see program.py for details)."""
+        return True
