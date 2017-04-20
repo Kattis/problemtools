@@ -1,3 +1,12 @@
+kattis-problemtools (1.20170420) xenial; urgency=medium
+
+  [ Johan Sannemo ]
+  * Add support for new grading settings.
+
+  [ Per Austrin ]
+
+ -- Per Austrin <austrin@kattis.com>  Thu, 20 Apr 2017 19:55:56 +0200
+
 kattis-problemtools (1.20170408) xenial; urgency=medium
 
   [ Simon Lindholm ]
