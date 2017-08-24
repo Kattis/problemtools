@@ -9,6 +9,7 @@ export PYBUILD_DISABLE=clean
 
 export PYBUILD_AFTER_CLEAN=make -C support distclean
 export PYBUILD_TEST_PYTEST=1
+export no_proxy=github.com
 
 %:
 	dh $@ --with python2 --buildsystem=pybuild
