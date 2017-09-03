@@ -69,7 +69,11 @@ class SourceCode(Program):
                                           re.IGNORECASE)), None)
         if self.mainfile is None:
             self.mainfile = self.src[0]
+
         self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
+        if self.language.name == 'Kotlin':
+          self.mainclass = self.mainclass.capitalize() + 'Kt'
+
         self.binary = os.path.join(self.path, 'run')
 
 
@@ -123,7 +127,7 @@ class SourceCode(Program):
 
     def should_skip_memory_rlimit(self):
         """Ugly hack (see program.py for details)."""
-        return self.language.name in ['Java', 'Scala']
+        return self.language.name in ['Java', 'Scala', 'Kotlin']
 
 
     def __str__(self):

@@ -141,6 +141,13 @@ javascript:
     compile: '/usr/bin/js24 -c {files}'
     run: '/usr/bin/js24 "{mainfile}"'
 
+kotlin:
+    name: 'Kotlin'
+    priority: 250
+    files: '*.kt *.ktm *.kts'
+    compile: '/usr/bin/kotlinc -jvm-target 1.8 -d {path}/ -- {files}'
+    run: '/usr/bin/kotlin -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {mainclass}'
+
 objectivec:
     name: 'Objective C'
     priority: 300
