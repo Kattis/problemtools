@@ -103,7 +103,7 @@ now be ready to use.
 To run the tools, you need Python 2 with the YAML and PlasTeX libraries,
 and a LaTeX installation.  In Ubuntu, the precise dependencies are as follows:
 
-    libboost-regex1.54.0, libc6 (>= 2.14), libgcc1 (>= 1:4.1.1), libgmp10, libgmpxx4ldbl, libstdc++6 (>= 4.4.0), python (>= 2.7), python (<< 2.8), python:any (>= 2.7.1-0ubuntu2), python-yaml, python-plastex, texlive-latex-recommended, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript
+    libboost-regex1.54.0, libc6 (>= 2.14), libgcc1 (>= 1:4.1.1), libgmp10, libgmpxx4ldbl, libstdc++6 (>= 4.4.0), python (>= 2.7), python (<< 2.8), python:any (>= 2.7.1-0ubuntu2), python-yaml, python-plastex, texlive-latex-recommended, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript automake libgmp-dev
 
 The problem tools have not been tested on other platforms.  If you do
 test on another platform, we'd be happy to hear what worked and what
