@@ -408,7 +408,7 @@ class TestCaseGroup(ProblemAspect):
             (res.verdict, score) = self._problem.graders.grade(sub_results, self, shadow_result)
             if self._problem.config.get('type') == 'scoring':
                 res.score = score
-            res.testcase = sub_results[-1].testcase
+            res.testcase = sub_results[-1].testcase if sub_results else None
         return res
 
 
