@@ -697,6 +697,23 @@ _JUNK_CASES = [
     ('a random text file with printable characters', ''.join(random.choice(string.printable) for _ in range(200))),
 ]
 
+_JUNK_MODIFICATIONS = [
+    ('add spaces where there already is whitespace',
+        lambda f: re.search(r'\s', f),
+        lambda f: re.sub(r'\s', lambda m: m.group(0) + ' ' * random.randint(0, 5), f)),
+    ('add newlines where there already are newlines',
+        lambda f: re.search('\n', f),
+        lambda f: re.sub('\n', lambda m: '\n' * random.randint(1, 5), f)),
+    ('add random junk to the end of the file',
+        lambda f: True,
+        lambda f: f + ''.join(random.choice(string.printable) for _ in range(200))),
+    ('add leading zeros to integers',
+        lambda f: re.search(r'(^|[^.]\b)([0-9]+)\b', f),
+        lambda f: re.sub(r'(^|[^.]\b)([0-9]+)\b', lambda m: m.group(1) + '0' * 10 + m.group(2), f)),
+    ('add trailing zeros to real numbers',
+        lambda f: re.search(r'\.[0-9]+\b', f),
+        lambda f: re.sub(r'\.[0-9]+\b', lambda m: m.group(0) + '0' * 10, f)),
+]
 
 class InputFormatValidators(ProblemAspect):
 
@@ -752,6 +769,30 @@ class InputFormatValidators(ProblemAspect):
                             break
                     else:
                         self.warning('No validator rejects %s with flags "%s"' % (desc, ' '.join(flags)))
+
+            def modified_input_validates(desc, applicable, modifier):
+                tested_any = False
+                for testcase in self._problem.testdata.get_all_testcases():
+                    with open(file_name, "wb") as f:
+                        infile = open(testcase.infile).read()
+                        if not applicable(infile):
+                            continue
+                        tested_any = True
+                        f.write(modifier(infile))
+
+                    for flags in all_flags:
+                        flags = flags.split()
+                        for val in self._validators:
+                            status, _ = val.run(file_name, args=flags)
+                            if os.WEXITSTATUS(status) != 42:
+                                return False
+
+                return tested_any
+
+            for (desc, applicable, modifier) in _JUNK_MODIFICATIONS:
+                if modified_input_validates(desc, applicable, modifier):
+                    self.warning('No validator rejects %s' % (desc,))
+
             os.unlink(file_name)
 
         return self._check_res
