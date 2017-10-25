@@ -770,14 +770,14 @@ class InputFormatValidators(ProblemAspect):
                     else:
                         self.warning('No validator rejects %s with flags "%s"' % (desc, ' '.join(flags)))
 
-            def modified_input_validates(desc, applicable, modifier):
-                tested_any = False
+            def modified_input_validates(applicable, modifier):
                 for testcase in self._problem.testdata.get_all_testcases():
+                    with open(testcase.infile) as infile:
+                        infile = infile.read()
+                    if not applicable(infile):
+                        continue
+
                     with open(file_name, "wb") as f:
-                        infile = open(testcase.infile).read()
-                        if not applicable(infile):
-                            continue
-                        tested_any = True
                         f.write(modifier(infile))
 
                     for flags in all_flags:
@@ -785,12 +785,18 @@ class InputFormatValidators(ProblemAspect):
                         for val in self._validators:
                             status, _ = val.run(file_name, args=flags)
                             if os.WEXITSTATUS(status) != 42:
+                                # expected behavior; validator rejects modified input
                                 return False
 
-                return tested_any
+                    # we found file we could modify, and all validators
+                    # accepted the modifications
+                    return True
+
+                # no files were modifiable
+                return False
 
             for (desc, applicable, modifier) in _JUNK_MODIFICATIONS:
-                if modified_input_validates(desc, applicable, modifier):
+                if modified_input_validates(applicable, modifier):
                     self.warning('No validator rejects %s' % (desc,))
 
             os.unlink(file_name)
