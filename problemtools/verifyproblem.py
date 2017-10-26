@@ -697,22 +697,16 @@ _JUNK_CASES = [
     ('a random text file with printable characters', ''.join(random.choice(string.printable) for _ in range(200))),
 ]
 
+def _build_junk_modifier(desc, pattern, repl):
+    p = re.compile(pattern)
+    return (desc, p.search, lambda text: p.sub(repl, text))
+
 _JUNK_MODIFICATIONS = [
-    ('add spaces where there already is whitespace',
-        lambda f: re.search(r'\s', f),
-        lambda f: re.sub(r'\s', lambda m: m.group(0) + ' ' * random.randint(0, 5), f)),
-    ('add newlines where there already are newlines',
-        lambda f: re.search('\n', f),
-        lambda f: re.sub('\n', lambda m: '\n' * random.randint(1, 5), f)),
-    ('add random junk to the end of the file',
-        lambda f: True,
-        lambda f: f + ''.join(random.choice(string.printable) for _ in range(200))),
-    ('add leading zeros to integers',
-        lambda f: re.search(r'(^|[^.]\b)([0-9]+)\b', f),
-        lambda f: re.sub(r'(^|[^.]\b)([0-9]+)\b', lambda m: m.group(1) + '0' * 10 + m.group(2), f)),
-    ('add trailing zeros to real numbers',
-        lambda f: re.search(r'\.[0-9]+\b', f),
-        lambda f: re.sub(r'\.[0-9]+\b', lambda m: m.group(0) + '0' * 10, f)),
+    _build_junk_modifier('spaces added where there already is whitespace', r'\s', lambda m: m.group(0) + ' ' * random.randint(0, 5)),
+    _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n' * random.randint(1, 5)),
+    _build_junk_modifier('leading zeros added to integers', r'(^|[^.]\b)([0-9]+)\b', r'\g<1>0000000000\g<2>'),
+    _build_junk_modifier('trailing zeros added to real number decimal portion', r'\.[0-9]+\b', r'\g<0>0000000000'),
+    ('random junk added to the end of the file', lambda f: True, lambda f: f + ''.join(random.choice(string.printable) for _ in range(200))),
 ]
 
 class InputFormatValidators(ProblemAspect):
@@ -788,7 +782,7 @@ class InputFormatValidators(ProblemAspect):
                                 # expected behavior; validator rejects modified input
                                 return False
 
-                    # we found file we could modify, and all validators
+                    # we found a file we could modify, and all validators
                     # accepted the modifications
                     return True
 
