@@ -703,7 +703,7 @@ def _build_junk_modifier(desc, pattern, repl):
 
 _JUNK_MODIFICATIONS = [
     _build_junk_modifier('spaces added where there already is whitespace', r'\s', lambda m: m.group(0) + ' ' * random.randint(0, 5)),
-    _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n' * random.randint(1, 5)),
+    _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n' * random.randint(2, 5)),
     _build_junk_modifier('leading zeros added to integers', r'(^|[^.]\b)([0-9]+)\b', r'\g<1>0000000000\g<2>'),
     _build_junk_modifier('trailing zeros added to real number decimal portion', r'\.[0-9]+\b', r'\g<0>0000000000'),
     ('random junk added to the end of the file', lambda f: True, lambda f: f + ''.join(random.choice(string.printable) for _ in range(200))),
