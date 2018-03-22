@@ -408,7 +408,7 @@ class TestCaseGroup(ProblemAspect):
             (res.verdict, score) = self._problem.graders.grade(sub_results, self, shadow_result)
             if self._problem.config.get('type') == 'scoring':
                 res.score = score
-            res.testcase = sub_results[-1].testcase
+            res.testcase = sub_results[-1].testcase if sub_results else None
         return res
 
 
@@ -697,6 +697,17 @@ _JUNK_CASES = [
     ('a random text file with printable characters', ''.join(random.choice(string.printable) for _ in range(200))),
 ]
 
+def _build_junk_modifier(desc, pattern, repl):
+    p = re.compile(pattern)
+    return (desc, p.search, lambda text: p.sub(repl, text))
+
+_JUNK_MODIFICATIONS = [
+    _build_junk_modifier('spaces added where there already is whitespace', r'\s', lambda m: m.group(0) + ' ' * random.randint(1, 5)),
+    _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n' * random.randint(2, 5)),
+    _build_junk_modifier('leading zeros added to integers', r'(^|[^.]\b)([0-9]+)\b', r'\g<1>0000000000\g<2>'),
+    _build_junk_modifier('trailing zeros added to real number decimal portion', r'\.[0-9]+\b', r'\g<0>0000000000'),
+    ('random junk added to the end of the file', lambda f: True, lambda f: f + ''.join(random.choice(string.printable) for _ in range(200))),
+]
 
 class InputFormatValidators(ProblemAspect):
 
@@ -752,6 +763,36 @@ class InputFormatValidators(ProblemAspect):
                             break
                     else:
                         self.warning('No validator rejects %s with flags "%s"' % (desc, ' '.join(flags)))
+
+            def modified_input_validates(applicable, modifier):
+                for testcase in self._problem.testdata.get_all_testcases():
+                    with open(testcase.infile) as infile:
+                        infile = infile.read()
+                    if not applicable(infile):
+                        continue
+
+                    with open(file_name, "wb") as f:
+                        f.write(modifier(infile))
+
+                    for flags in all_flags:
+                        flags = flags.split()
+                        for val in self._validators:
+                            status, _ = val.run(file_name, args=flags)
+                            if os.WEXITSTATUS(status) != 42:
+                                # expected behavior; validator rejects modified input
+                                return False
+
+                    # we found a file we could modify, and all validators
+                    # accepted the modifications
+                    return True
+
+                # no files were modifiable
+                return False
+
+            for (desc, applicable, modifier) in _JUNK_MODIFICATIONS:
+                if modified_input_validates(applicable, modifier):
+                    self.warning('No validator rejects %s' % (desc,))
+
             os.unlink(file_name)
 
         return self._check_res
