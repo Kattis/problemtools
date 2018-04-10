@@ -167,7 +167,7 @@ class TestCase(ProblemAspect):
             res2.runtime = runtime
         if sys.stdout.isatty():
             sys.stdout.write('%s' % '\b' * (len(msg)))
-        if res2.runtime <= timelim_low:
+        if res2.runtime <= timelim_low or res2.runtime > timelim_high:
             res1 = res2
         else:
             res1 = SubmissionResult('TLE', score=self.testcasegroup.config['reject_score'])
@@ -993,7 +993,7 @@ class OutputValidators(ProblemAspect):
 
 
     def validate_interactive(self, testcase, submission, timelim, errorhandler):
-        interactive_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+'
+        interactive_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+ (validator|submission)'
         res = SubmissionResult('JE')
         interactive = run.get_tool('interactive')
         if interactive is None:
@@ -1023,12 +1023,13 @@ class OutputValidators(ProblemAspect):
                     if not re.match(interactive_output_re, interactive_output):
                         errorhandler.error('Output from interactive does not follow expected format, got output "%s"' % interactive_output)
                     else:
-                        val_status, _, sub_status, sub_runtime = interactive_output.split()
+                        val_status, _, sub_status, sub_runtime, first = interactive_output.split()
                         sub_status = int(sub_status)
                         sub_runtime = float(sub_runtime)
                         val_status = int(val_status)
-
-                        if is_TLE(sub_status, True):
+                        if first == 'validator' and os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43:
+                            res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
+                        elif is_TLE(sub_status, True):
                             res = SubmissionResult('TLE', score=testcase.testcasegroup.config['reject_score'])
                         elif is_RTE(sub_status):
                             res = SubmissionResult('RTE', score=testcase.testcasegroup.config['reject_score'])
