@@ -23,48 +23,48 @@ static rusage val_ru;
 double runtime(rusage *ru) {
 	if(ru == NULL) return 0;
 
-    struct timeval tv;
-    tv.tv_sec = ru->ru_utime.tv_sec + ru->ru_stime.tv_sec;
-    tv.tv_usec = ru->ru_utime.tv_usec + ru->ru_stime.tv_usec;
-    return tv.tv_sec + tv.tv_usec / 1000000.0;
+	struct timeval tv;
+	tv.tv_sec = ru->ru_utime.tv_sec + ru->ru_stime.tv_sec;
+	tv.tv_usec = ru->ru_utime.tv_usec + ru->ru_stime.tv_usec;
+	return tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
 void report(int val_status, double val_time, int user_status, double user_time) {
 	FILE * fp = fdopen(report_fd, "w");
-    fprintf(fp, "%d %.6lf %d %.6lf", val_status, val_time, user_status, user_time);
+	fprintf(fp, "%d %.6lf %d %.6lf", val_status, val_time, user_status, user_time);
 	fclose(fp);
 }
 
 void walltime_handler(int a) {
-    int u_stat = user_status, v_stat = val_status;
-    double u_time = 0;
+	int u_stat = user_status, v_stat = val_status;
+	double u_time = 0;
 
-    // Check if validator has already quit while we were waiting for submission
-    if (val_pid != -1 && wait4(val_pid, &v_stat, WNOHANG, &val_ru) != val_pid)  {
-        kill(val_pid, SIGTERM);
-    } 
+	// Check if validator has already quit while we were waiting for submission
+	if (val_pid != -1 && wait4(val_pid, &v_stat, WNOHANG, &val_ru) != val_pid)  {
+		kill(val_pid, SIGTERM);
+	} 
 
-    // Check submission resource usage and then kill it
-    if (user_pid != -1 && wait4(user_pid, &u_stat, WNOHANG, &user_ru) != user_pid)
-        kill(user_pid, SIGKILL);
-    u_time = runtime(&user_ru);
+	// Check submission resource usage and then kill it
+	if (user_pid != -1 && wait4(user_pid, &u_stat, WNOHANG, &user_ru) != user_pid)
+		kill(user_pid, SIGKILL);
+	u_time = runtime(&user_ru);
 
-    if (u_stat == -1) {
-        // If validator already quit with WA but submission timed out
-        // on wall-time, don't tag submission as TLE but let validator
-        // decide.  (If validator quit with AC but submission kept
-        // running, tag submission as TLE.)
-        if (v_stat == (43 << 8)) u_stat = 0;
-        else {
-            u_stat = SIGUSR1;
-            u_time = walltimelimit;
-        }
-    } 
+	if (u_stat == -1) {
+		// If validator already quit with WA but submission timed out
+		// on wall-time, don't tag submission as TLE but let validator
+		// decide.  (If validator quit with AC but submission kept
+		// running, tag submission as TLE.)
+		if (v_stat == (43 << 8)) u_stat = 0;
+		else {
+			u_stat = SIGUSR1;
+			u_time = walltimelimit;
+		}
+	} 
 
-    // If validator didn't yet give us something, assume WA
-    if (v_stat == -1) v_stat = 43 << 8;
-    
-    report(v_stat, runtime(&val_ru), u_stat, u_time);
+	// If validator didn't yet give us something, assume WA
+	if (v_stat == -1) v_stat = 43 << 8;
+
+	report(v_stat, runtime(&val_ru), u_stat, u_time);
 	exit(0);
 }
 
@@ -157,8 +157,8 @@ int execute(char **args, int fdin, int fdout) {
 		}
 
 		if(execvp(args[0], args) == -1) {
-		   perror("execvp failed");
-		   exit(EXIT_FAILURE);
+			perror("execvp failed");
+			exit(EXIT_FAILURE);
 		}
 	} else if(pid < 0) {
 		perror("fork failed");
@@ -210,16 +210,16 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
-    char **val_argv = new char*[argc], **user_argv = new char*[argc];
-    int val_argc = 0, user_argc = 0;
+	char **val_argv = new char*[argc], **user_argv = new char*[argc];
+	int val_argc = 0, user_argc = 0;
 	for(int i = 3; i < argc && strcmp(argv[i], ";") != 0; ++i)
-        val_argv[val_argc++] = argv[i];
-    val_argv[val_argc] = NULL;
+		val_argv[val_argc++] = argv[i];
+	val_argv[val_argc] = NULL;
 
 	for(int i = 3 + val_argc + 1; i < argc; ++i) {
-        user_argv[user_argc++] = argv[i];
+		user_argv[user_argc++] = argv[i];
 	}
-    user_argv[user_argc] = NULL;
+	user_argv[user_argc] = NULL;
 
 	if(val_argc == 0 || user_argc == 0) {
 		fprintf(stderr, "Empty validator or user argument list\n");
@@ -236,9 +236,9 @@ int main(int argc, char **argv) {
 	val_pid = execute(val_argv, fromuser[0], fromval[1]);
 	user_pid = execute(user_argv, fromval[0], fromuser[1]);
 	if(walltimelimit) {
-        signal(SIGALRM, walltime_handler);
+		signal(SIGALRM, walltime_handler);
 		alarm(walltimelimit);
-    }
+	}
 	close(fromval[0]);
 	close(fromval[1]);
 	close(fromuser[0]);
@@ -249,19 +249,19 @@ int main(int argc, char **argv) {
 		perror("wait failed");
 		exit(1);
 	}
-    user_pid = -1;
+	user_pid = -1;
 
-    // In case of broken pipes, let validator decide
-    if(!WIFEXITED(user_status) && WTERMSIG(user_status) == SIGPIPE) {
-        user_status = 0;
-    }
+	// In case of broken pipes, let validator decide
+	if(!WIFEXITED(user_status) && WTERMSIG(user_status) == SIGPIPE) {
+		user_status = 0;
+	}
 
 	if(wait4(val_pid, &val_status, 0, &val_ru) == -1) {
 		perror("wait failed");
 		exit(1);
 	}
-    val_pid = -1;
+	val_pid = -1;
 
-    report(val_status, runtime(&val_ru), user_status, runtime(&user_ru));
+	report(val_status, runtime(&val_ru), user_status, runtime(&user_ru));
 	return 0;
 }
