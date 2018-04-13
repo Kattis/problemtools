@@ -243,14 +243,30 @@ int main(int argc, char **argv) {
 		alarm(walltimelimit);
 	}
 
-	close(fromval[0]);
-	close(fromuser[0]);
 	/*
-	 * We intentionally wait with closing the write ends of the pipes until
-	 * the process that owns them stops, to be more sure about which process
-	 * terminates first. If we didn't, SIGPIPEs might make both processes
-	 * die almost simultaneously.
+	 * We intentionally wait with closing the write ends of the fromuser/
+	 * fromval pipes until the process that owns them stops, to be more sure
+	 * about which process terminates first. If we don't, and process A exits
+	 * while process B is (erroneously) trying to read, process B might read
+	 * EOF and crash/terminate almost simultaneously as A, and wait(2) might
+	 * then return process B's PID instead of A's.
+	 *
+	 * (We do eventually want B to EOF/crash/terminate rather than waiting
+	 * for the wall-time limit, just to finish things earlier, we just don't
+	 * want it race with the other process. This holds doubly if B is the
+	 * grader, which is expected to deal nicely with EOFs.)
+	 *
+	 * We never close the read end of the validator -> user channel -- it only
+	 * serves to give the grader Judge Error if it doesn't setup up a signal
+	 * handler for SIGPIPE, and we do want submissions that exit early to be
+	 * accepted.
+	 *
+	 * The read end of the user -> validator channel we do close, to trigger
+	 * SIGPIPEs when the user writes to a validator which has exited.
+	 * (Currently we treat that the same as exiting with code 0, though it
+	 * would also make sense to make it an error.)
 	 */
+	close(fromuser[0]);
 
 	int remaining = 2;
 	while (remaining > 0) {
