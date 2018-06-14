@@ -198,8 +198,9 @@ class TestCaseGroup(ProblemAspect):
                        'on_reject': 'break',
                        'accept_score': 1.0,
                        'reject_score': 0.0,
-                       'range': '-inf +inf'
-   }
+                       'range': '-inf +inf',
+                       'subgroups': 'hidden'
+    }
 
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
@@ -306,8 +307,11 @@ class TestCaseGroup(ProblemAspect):
                 if self.config.get(key) is not None:
                     self.error("Key '%s' is only applicable for scoring problems, this is a pass-fail problem" % key)
 
-        if not self.config['on_reject'] in ['break', 'continue']:
+        if self.config['on_reject'] not in ['break', 'continue']:
             self.error("Invalid value '%s' for on_reject policy" % self.config['on_reject'])
+
+        if self.config['subgroups'] not in ['visible', 'hidden']:
+            self.error("Invalid value '%s' for subgroups visibility" % self.config['subgroups'])
 
         if self._problem.config.get('type') == 'scoring':
             # Check grading
