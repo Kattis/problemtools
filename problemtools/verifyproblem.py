@@ -307,7 +307,7 @@ class TestCaseGroup(ProblemAspect):
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning("Unknown key '%s' in '%s'" % (field, os.path.join(self._datadir, 'testdata.yaml')))
 
-        if self._problem.config.get('type') == 'pass-fail':
+        if not self._problem.is_scoring:
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if self.config.get(key) is not None:
                     self.error("Key '%s' is only applicable for scoring problems, this is a pass-fail problem" % key)
@@ -315,7 +315,7 @@ class TestCaseGroup(ProblemAspect):
         if not self.config['on_reject'] in ['break', 'continue']:
             self.error("Invalid value '%s' for on_reject policy" % self.config['on_reject'])
 
-        if self._problem.config.get('type') == 'scoring':
+        if self._problem.is_scoring:
             # Check grading
             try:
                 score_range = self.config['range']
@@ -412,9 +412,9 @@ class TestCaseGroup(ProblemAspect):
             res.testcase = judge_error.testcase
         else:
             (res.verdict, score) = self._problem.graders.grade(sub_results, self, shadow_result)
-            if self._problem.config.get('type') == 'scoring':
-                res.score = score
             res.testcase = sub_results[-1].testcase if sub_results else None
+            if self._problem.is_scoring:
+                res.score = score
         return res
 
 
@@ -1187,6 +1187,7 @@ class Problem(ProblemAspect):
         self.attachments = Attachments(self)
         self.config = ProblemConfig(self)
         self.is_interactive = 'interactive' in self.config.get('validation-params')
+        self.is_scoring = (self.config.get('type') == 'scoring')
         self.input_format_validators = InputFormatValidators(self)
         self.output_validators = OutputValidators(self)
         self.graders = Graders(self)
