@@ -625,6 +625,9 @@ class ProblemConfig(ProblemAspect):
             if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
                 self.error("Invalid value '%s' for on_reject policy" % self._data['grading']['on_reject'])
 
+        if self._data['grading']['objective'] not in ['min', 'max']:
+            self.error("Invalid value '%s' for objective" % self._data['grading']['objective'])
+
         for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
             if deprecated_grading_key in self._data['grading']:
                 self.warning("Grading key '%s' is deprecated in problem.yaml, use '%s' in testdata.yaml instead" % (deprecated_grading_key, deprecated_grading_key))
