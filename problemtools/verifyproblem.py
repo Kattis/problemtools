@@ -1216,12 +1216,14 @@ class OutputValidators(ProblemAspect):
 
 class Submissions(ProblemAspect):
     _SUB_REGEXP = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$')
+    # (verdict, directory, required)
     _VERDICTS = [
         ['AC', 'accepted', True],
+        ['PAC', 'partially_accepted', False],
         ['WA', 'wrong_answer', False],
         ['RTE', 'run_time_error', False],
         ['TLE', 'time_limit_exceeded', False],
-        ]
+    ]
 
     def __init__(self, problem):
         self._submissions = {}
@@ -1239,22 +1241,37 @@ class Submissions(ProblemAspect):
     def __str__(self):
         return 'submissions'
 
-    def check_submission(self, sub, args, expected_verdict, timelim_low, timelim_high):
+    def check_submission(self, sub, args, expected_verdict, timelim, timelim_low, timelim_high):
         desc = '%s submission %s' % (expected_verdict, sub)
-        (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
+        partial = False
+        if expected_verdict == 'PAC':
+            # For partially accepted solutions, use the low timelim instead of the real one,
+            # to make sure we have margin in both directions.
+            expected_verdict = 'AC'
+            partial = True
+            timelim = timelim_low
 
-        if result1.verdict != result2.verdict:
-            r1, r2 = result1.verdict, result2.verdict
-            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim_low, r1, timelim_high, r2))
+        (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim, timelim_high)
 
-        if result1.verdict == expected_verdict:
+        if result1.verdict != result2.verdict or result1.score != result2.score:
+            r1, r2 = result1, result2 if result1.verdict == result2.verdict else result1.verdict, result2.verdict
+            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim, r1, timelim_high, r2))
+
+        if partial and self.fully_accepted(result1):
+            self.warning('%s got %s' % (desc, result1))
+        elif result1.verdict == expected_verdict:
             self.msg('   %s OK: %s' % (desc, result1))
-        elif result2.verdict == expected_verdict:
+        elif result2.verdict == expected_verdict and not (partial and self.fully_accepted(result2)):
             self.msg('   %s OK with extra time: %s' % (desc, result2))
         else:
             self.error('%s got %s' % (desc, result1), result2.additional_info)
 
         return result1
+
+    def fully_accepted(self, result):
+        min_score, max_score = self._problem.testdata.get_score_range()
+        best_score = min_score if self._problem.config.get('grading')['objective'] == 'min' else max_score
+        return result.verdict == 'AC' and (not self._problem.is_scoring or result.score == best_score)
 
     def check(self, args):
         if self._check_res is not None:
@@ -1262,14 +1279,18 @@ class Submissions(ProblemAspect):
         self._check_res = True
 
         limits = self._problem.config.get('limits')
+        time_multiplier = limits['time_multiplier']
+        safety_margin = limits['time_safety_margin']
 
-        timelim_margin = 300  # 5 minutes
+        timelim_margin_lo = 300  # 5 minutes
+        timelim_margin = 300
         timelim = 300
+
         if 'time_for_AC_submissions' in limits:
             timelim = timelim_margin = limits['time_for_AC_submissions']
         if args.fixed_timelim is not None:
             timelim = args.fixed_timelim
-            timelim_margin = timelim * limits['time_safety_margin']
+            timelim_margin = int(round(timelim * safety_margin))
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -1292,23 +1313,24 @@ class Submissions(ProblemAspect):
                         self.error('Compile error for %s submission %s' % (acr, sub), msg)
                         continue
 
-                    res = self.check_submission(sub, args, acr, timelim, timelim_margin)
+                    res = self.check_submission(sub, args, acr, timelim, timelim_margin_lo, timelim_margin)
                     runtimes.append(res.runtime)
 
             if acr == 'AC':
                 if len(runtimes) > 0:
                     max_runtime = max(runtimes)
-                    exact_timelim = max_runtime * limits['time_multiplier']
+                    exact_timelim = max_runtime * time_multiplier
                     max_runtime = '%.3f' % max_runtime
                     timelim = max(1, int(0.5 + exact_timelim))
+                    timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
                     timelim_margin = max(timelim + 1,
-                                         int(0.5 + exact_timelim * limits['time_safety_margin']))
+                                         int(0.5 + exact_timelim * safety_margin))
                 else:
                     max_runtime = None
                 if args.fixed_timelim is not None and args.fixed_timelim != timelim:
                     self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
                     timelim = args.fixed_timelim
-                    timelim_margin = timelim * limits['time_safety_margin']
+                    timelim_margin = timelim * safety_margin
 
                 self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
             limits['time'] = timelim
