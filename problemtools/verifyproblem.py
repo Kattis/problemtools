@@ -273,21 +273,21 @@ class TestCaseGroup(ProblemAspect):
 
     def get_all_testcases(self):
         res = []
-        for subdata in self._items:
-            res += subdata.get_all_testcases()
+        for child in self._items:
+            res += child.get_all_testcases()
         return res
 
 
     def get_testcases(self):
-        return [sub for sub in self._items if isinstance(sub, TestCase)]
+        return [child for child in self._items if isinstance(child, TestCase)]
 
 
     def get_subgroups(self):
-        return [sub for sub in self._items if isinstance(sub, TestCaseGroup)]
+        return [child for child in self._items if isinstance(child, TestCaseGroup)]
 
 
     def get_subgroup(self, name):
-        return next((sub for sub in self._items if isinstance(sub, TestCaseGroup) and os.path.basename(sub._datadir) == name), None)
+        return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
 
 
     def check(self, args):
@@ -371,9 +371,9 @@ class TestCaseGroup(ProblemAspect):
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
 
-        for subdata in self._items:
-            if subdata.matches_filter(args.data_filter):
-                subdata.check(args)
+        for child in self._items:
+            if child.matches_filter(args.data_filter):
+                child.check(args)
 
         return self._check_res
 
@@ -383,10 +383,10 @@ class TestCaseGroup(ProblemAspect):
         subres1 = []
         subres2 = []
         on_reject = self.config['on_reject']
-        for subdata in self._items:
-            if not subdata.matches_filter(args.data_filter):
+        for child in self._items:
+            if not child.matches_filter(args.data_filter):
                 continue
-            (r1, r2) = subdata.run_submission(sub, args, timelim_low, timelim_high)
+            (r1, r2) = child.run_submission(sub, args, timelim_low, timelim_high)
             subres1.append(r1)
             subres2.append(r2)
             if on_reject == 'break' and r2.verdict != 'AC':
@@ -420,8 +420,8 @@ class TestCaseGroup(ProblemAspect):
 
     def all_datasets(self):
         res = []
-        for subdata in self._items:
-            res += subdata.all_datasets()
+        for child in self._items:
+            res += child.all_datasets()
         return res
 
 
