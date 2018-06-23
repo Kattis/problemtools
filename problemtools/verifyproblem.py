@@ -182,7 +182,7 @@ class TestCase(ProblemAspect):
             return False
         return True
 
-    def run_submission(self, sub, args, timelim_low=1000, timelim_high=1000):
+    def run_submission(self, sub, args, timelim_low, timelim_high):
         res1, res2, reused = self._run_submission_real(sub, args, timelim_low, timelim_high)
         res1 = self._init_result_for_testcase(res1)
         res2 = self._init_result_for_testcase(res2)
@@ -270,6 +270,7 @@ class TestCaseGroup(ProblemAspect):
         self._parent = parent
         self._problem = problem
         self._datadir = datadir
+        self._seen_oob_scores = False
         self.debug('  Loading test data group %s' % datadir)
         configfile = os.path.join(self._datadir, 'testdata.yaml')
         if os.path.isfile(configfile):
@@ -352,6 +353,15 @@ class TestCaseGroup(ProblemAspect):
 
     def get_subgroup(self, name):
         return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
+
+
+    def get_score_range(self):
+        try:
+            score_range = self.config['range']
+            (min_score, max_score) = map(float, score_range.split())
+            return (min_score, max_score)
+        except:
+            return (-float('inf'), float('inf'))
 
 
     def check(self, args):
@@ -455,10 +465,10 @@ class TestCaseGroup(ProblemAspect):
             subres2.append(r2)
             if on_reject == 'break' and r2.verdict != 'AC':
                 break
-        return (self.aggregate_results(subres1),
-                self.aggregate_results(subres2, shadow_result=True))
+        return (self.aggregate_results(sub, subres1),
+                self.aggregate_results(sub, subres2, shadow_result=True))
 
-    def aggregate_results(self, sub_results, shadow_result=False):
+    def aggregate_results(self, sub, sub_results, shadow_result=False):
         res = SubmissionResult(None)
 
         for r in sub_results:
@@ -479,6 +489,13 @@ class TestCaseGroup(ProblemAspect):
             res.testcase = sub_results[-1].testcase if sub_results else None
             if self._problem.is_scoring:
                 res.score = score
+                min_score, max_score = self.get_score_range()
+                if not (min_score <= score <= max_score) and not self._seen_oob_scores:
+                    # Don't warn twice on the same subgroup, since every submission is likely
+                    # to have the same error.
+                    self._seen_oob_scores = True
+                    groupname = os.path.relpath(self._datadir, self._problem.probdir)
+                    self.error('submission %s got %s on group %s, which is outside of expected score range [%s, %s]' % (sub, res, groupname, min_score, max_score))
         return res
 
 
@@ -1166,17 +1183,20 @@ class Submissions(ProblemAspect):
         return 'submissions'
 
     def check_submission(self, sub, args, expected_verdict, timelim_low, timelim_high):
+        desc = '%s submission %s' % (expected_verdict, sub)
         (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
 
         if result1.verdict != result2.verdict:
-            self.warning('%s submission %s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (expected_verdict, sub, timelim_low, result1.verdict, timelim_high, result2.verdict))
+            r1, r2 = result1.verdict, result2.verdict
+            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim_low, r1, timelim_high, r2))
 
         if result1.verdict == expected_verdict:
-            self.msg('   %s submission %s OK: %s' % (expected_verdict, sub, result1))
+            self.msg('   %s OK: %s' % (desc, result1))
         elif result2.verdict == expected_verdict:
-            self.msg('   %s submission %s OK with extra time: %s' % (expected_verdict, sub, result2))
+            self.msg('   %s OK with extra time: %s' % (desc, result2))
         else:
-            self.error('%s submission %s got %s' % (expected_verdict, sub, result1))
+            self.error('%s got %s' % (desc, result1))
+
         return result1
 
     def check(self, args):
