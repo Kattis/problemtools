@@ -1261,12 +1261,24 @@ class Submissions(ProblemAspect):
             self.warning('%s got %s' % (desc, result1))
         elif result1.verdict == expected_verdict:
             self.msg('   %s OK: %s' % (desc, result1))
+            if (expected_verdict == 'AC' and not partial
+                    and not self.fully_accepted(result1)
+                    and self.full_score_finite()):
+                # For some heuristic problems, this is expected. Thus, only warn.
+                self.warning('%s did not attain full score (consider moving it to partially_accepted)' % desc)
         elif result2.verdict == expected_verdict and not (partial and self.fully_accepted(result2)):
             self.msg('   %s OK with extra time: %s' % (desc, result2))
         else:
             self.error('%s got %s' % (desc, result1), result2.additional_info)
 
         return result1
+
+    def full_score_finite(self):
+        min_score, max_score = self._problem.testdata.get_score_range()
+        if self._problem.config.get('grading')['objective'] == 'min':
+            return min_score != -float('inf')
+        else:
+            return max_score != float('inf')
 
     def fully_accepted(self, result):
         min_score, max_score = self._problem.testdata.get_score_range()
