@@ -1274,7 +1274,9 @@ def main():
     print 'Loading problem %s' % os.path.basename(os.path.realpath(args.problemdir))
     with Problem(args.problemdir) as prob:
         [errors, warnings] = prob.check(args)
-        print "%s tested: %d errors, %d warnings" % (prob.shortname, errors, warnings)
+        def p(x):
+            return '' if x == 1 else 's'
+        print "%s tested: %d error%s, %d warning%s" % (prob.shortname, errors, p(errors), warnings, p(warnings))
 
     sys.exit(1 if errors > 0 else 0)
 
