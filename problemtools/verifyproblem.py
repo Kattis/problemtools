@@ -167,7 +167,7 @@ class TestCase(ProblemAspect):
                 res2 = self._problem.output_validators.validate(self, outfile)
             res2.runtime = runtime
         if sys.stdout.isatty():
-            sys.stdout.write('%s' % '\b' * (len(msg)))
+            sys.stdout.write('%s' % '\b \b' * (len(msg)))
         if res2.runtime <= timelim_low:
             res1 = res2
         elif res2.validator_first and res2.verdict == 'WA':
