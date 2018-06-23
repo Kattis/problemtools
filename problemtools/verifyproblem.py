@@ -46,6 +46,7 @@ class SubmissionResult:
         self.ac_runtime = -1.0
         self.ac_runtime_testcase = None
         self.validator_first = False
+        self.sample_failures = []
 
     def set_ac_runtime(self):
         if self.verdict == 'AC':
@@ -143,6 +144,9 @@ class TestCase(ProblemAspect):
     def strip_path_prefix(self, path):
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
 
+    def is_in_sample_group(self):
+        return self.strip_path_prefix(self.infile).startswith('sample')
+
     def check(self, args):
         if self._check_res is not None:
             return self._check_res
@@ -159,7 +163,7 @@ class TestCase(ProblemAspect):
         if not self._problem.is_interactive:
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
-                if self.strip_path_prefix(self.infile)[0:6] == 'sample':
+                if self.is_in_sample_group():
                     self.error('judge answer file got %s' % val_res)
                 else:
                     self.warning('judge answer file got %s' % val_res)
@@ -205,6 +209,9 @@ class TestCase(ProblemAspect):
         res2 = self._init_result_for_testcase(res2)
         msg = "Reused test file result" if reused else "Test file result"
         self.info('%s: %s' % (msg, res1))
+        if res1.verdict != 'AC' and self.is_in_sample_group():
+            res1.sample_failures.append(res1)
+
         return (res1, res2)
 
     def _run_submission_real(self, sub, args, timelim_low, timelim_high):
@@ -499,6 +506,7 @@ class TestCaseGroup(ProblemAspect):
 
         return self._check_res
 
+
     def run_submission(self, sub, args, timelim_low, timelim_high):
         self.info('Running on %s' % self)
         subres1 = []
@@ -512,8 +520,10 @@ class TestCaseGroup(ProblemAspect):
             subres2.append(r2)
             if on_reject == 'break' and r2.verdict != 'AC':
                 break
+
         return (self.aggregate_results(sub, subres1),
                 self.aggregate_results(sub, subres2, shadow_result=True))
+
 
     def aggregate_results(self, sub, sub_results, shadow_result=False):
         res = SubmissionResult(None)
@@ -525,6 +535,7 @@ class TestCaseGroup(ProblemAspect):
             if r.ac_runtime > res.ac_runtime:
                 res.ac_runtime = r.ac_runtime
                 res.ac_runtime_testcase = r.ac_runtime_testcase
+            res.sample_failures.extend(r.sample_failures)
 
         judge_error = next((r for r in sub_results if r.verdict == 'JE'), None)
         if judge_error:
@@ -1252,6 +1263,10 @@ class Submissions(ProblemAspect):
             timelim = timelim_low
 
         (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim, timelim_high)
+
+        if result1.verdict == 'AC' and expected_verdict == 'AC' and not partial and result1.sample_failures:
+            res = result1.sample_failures[0]
+            self.warning('%s got %s on sample: %s' % (desc, res.verdict, res))
 
         if result1.verdict != result2.verdict or result1.score != result2.score:
             r1, r2 = result1, result2 if result1.verdict == result2.verdict else result1.verdict, result2.verdict
