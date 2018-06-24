@@ -203,6 +203,7 @@ class TestCaseGroup(ProblemAspect):
     }
 
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
+    _PUBLIC_SUBGROUP_REGEXP = r'^[0-9]+(\.[0-9]+)*[a-zA-Z]?$'
 
     def __init__(self, problem, datadir, parent=None):
         self._parent = parent
@@ -361,6 +362,13 @@ class TestCaseGroup(ProblemAspect):
             for _, files in hashes.iteritems():
                 if len(files) > 1:
                     self.warning("Identical input files: '%s'" % str(files))
+
+        if self._parent is not None and self.config['subgroups'] == 'visible':
+            for item in self._items:
+                if isinstance(item, TestCaseGroup):
+                    name = os.path.basename(item._datadir)
+                    if not re.match(TestCaseGroup._PUBLIC_SUBGROUP_REGEXP, name):
+                        self.error("Visible testgroup '%s' must have numeric name (matching '%s')" % (name, TestCaseGroup._PUBLIC_SUBGROUP_REGEXP))
 
         for f in infiles:
             if not f[:-3] + '.ans' in ansfiles:
