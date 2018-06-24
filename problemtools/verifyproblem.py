@@ -314,8 +314,8 @@ class TestCaseGroup(ProblemAspect):
             try:
                 score_range = self.config['range']
                 (min_score, max_score) = map(float, score_range.split())
-                if min_score >= max_score:
-                    self.error("Invalid score range '%s': minimum score must be smaller than maximum score" % score_range)
+                if min_score > max_score:
+                    self.error("Invalid score range '%s': minimum score cannot be greater than maximum score" % score_range)
             except VerifyError:
                 raise
             except:
