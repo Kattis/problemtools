@@ -209,6 +209,8 @@ class TestCaseGroup(ProblemAspect):
         self._parent = parent
         self._problem = problem
         self._datadir = datadir
+        self._full_name = os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
+        self._name = os.path.basename(self._datadir)
         self.debug('  Loading test data group %s' % datadir)
         configfile = os.path.join(self._datadir, 'testdata.yaml')
         if os.path.isfile(configfile):
@@ -260,7 +262,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def __str__(self):
-        return 'test case group %s' % os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
+        return 'test case group %s' % self._full_name
 
 
     def matches_filter(self, filter_re):
@@ -283,7 +285,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def get_subgroup(self, name):
-        return next((sub for sub in self._items if isinstance(sub, TestCaseGroup) and os.path.basename(sub._datadir) == name), None)
+        return next((sub for sub in self._items if isinstance(sub, TestCaseGroup) and sub._name == name), None)
 
 
     def check(self, args):
@@ -336,10 +338,9 @@ class TestCaseGroup(ProblemAspect):
                 if not isinstance(item, TestCaseGroup):
                     self.error("Can't have individual test data files at top level")
                 else:
-                    name = os.path.basename(item._datadir)
-                    if name == 'secret':
+                    if item._name == 'secret':
                         seen_secret = True
-                    elif name == 'sample':
+                    elif item._name == 'sample':
                         seen_sample = True
                     else:
                         self.error("Test data at top level can only have the groups sample and secret")
@@ -364,11 +365,12 @@ class TestCaseGroup(ProblemAspect):
                     self.warning("Identical input files: '%s'" % str(files))
 
         if self._parent is not None and self.config['subgroups'] == 'visible':
+            if self._parent._parent is not None and self._parent.config['subgroups'] == 'hidden':
+                self.error("Testgroup '%s' has visible subgroups, but is hidden" % self._full_name)
             for item in self._items:
                 if isinstance(item, TestCaseGroup):
-                    name = os.path.basename(item._datadir)
-                    if not re.match(TestCaseGroup._PUBLIC_SUBGROUP_REGEXP, name):
-                        self.error("Visible testgroup '%s' must have numeric name (matching '%s')" % (name, TestCaseGroup._PUBLIC_SUBGROUP_REGEXP))
+                    if not re.match(TestCaseGroup._PUBLIC_SUBGROUP_REGEXP, item._name):
+                        self.error("Visible testgroup '%s' must have numeric name (matching '%s')" % (item._full_name, TestCaseGroup._PUBLIC_SUBGROUP_REGEXP))
 
         for f in infiles:
             if not f[:-3] + '.ans' in ansfiles:
