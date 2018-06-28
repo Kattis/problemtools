@@ -179,11 +179,11 @@ python3:
     run: '/usr/bin/python3 "{mainfile}"'
 
 python2:
-    name: 'Python 2'
+    name: 'Python 2 w/Pypy'
     priority: 850
     files: '*.py'
     compile: '/usr/bin/python2 -m py_compile {files}'
-    run: '/usr/bin/python2 "{mainfile}"'
+    run: '/usr/bin/pypy "{mainfile}"'
 
 ruby:
     name: 'Ruby'
