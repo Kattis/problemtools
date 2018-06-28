@@ -180,7 +180,7 @@ class TestCase(ProblemAspect):
         if res2.verdict == 'AC':
             res2.ac_runtime = res2.runtime
             res2.ac_runtime_testcase = res2.runtime_testcase
-        self.info('Test file result: %s)' % (res1))
+        self.info('Test file result: %s' % (res1))
         return (res1, res2)
 
     def get_all_testcases(self):
