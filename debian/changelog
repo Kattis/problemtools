@@ -1,3 +1,23 @@
+kattis-problemtools (1.20180426) artful; urgency=medium
+
+  [ Per Austrin ]
+  * fix verifyproblem bug causing crash on empty problem groups
+
+  [ Greg Hamerly ]
+  * Add several tests on input validators.
+  * Fixes based on Per's feedback
+  * Remove duplication of pattern matching regexes
+  * Fix bug where we don't actually add more newlines
+  * Always add at least one space
+
+  [ Simon Lindholm ]
+  * Use C++14
+
+  [ Per Austrin ]
+  * add missing dependency to debian control file
+
+ -- Per Austrin <austrin@kattis.com>  Thu, 26 Apr 2018 19:19:15 +0200
+
 kattis-problemtools (1.20170420) xenial; urgency=medium
 
   [ Johan Sannemo ]

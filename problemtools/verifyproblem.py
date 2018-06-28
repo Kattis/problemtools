@@ -180,7 +180,7 @@ class TestCase(ProblemAspect):
         if res2.verdict == 'AC':
             res2.ac_runtime = res2.runtime
             res2.ac_runtime_testcase = res2.runtime_testcase
-        self.info('Test file result: %s)' % (res1))
+        self.info('Test file result: %s' % (res1))
         return (res1, res2)
 
     def get_all_testcases(self):
@@ -314,8 +314,8 @@ class TestCaseGroup(ProblemAspect):
             try:
                 score_range = self.config['range']
                 (min_score, max_score) = map(float, score_range.split())
-                if min_score >= max_score:
-                    self.error("Invalid score range '%s': minimum score must be smaller than maximum score" % score_range)
+                if min_score > max_score:
+                    self.error("Invalid score range '%s': minimum score cannot be greater than maximum score" % score_range)
             except VerifyError:
                 raise
             except:
