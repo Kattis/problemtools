@@ -562,10 +562,11 @@ class ProblemConfig(ProblemAspect):
         'validator_flags': '',
         'grading': {
             'objective': 'max',
+            'show_test_data_groups': False,
         },
         'libraries': '',
         'languages': ''
-        }
+    }
     _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
 
     def __init__(self, problem):
@@ -668,6 +669,11 @@ class ProblemConfig(ProblemAspect):
             self.error("Invalid value for license: %s.\n  Valid licenses are %s" % (self._data['license'], ProblemConfig._VALID_LICENSES))
         elif self._data['license'] == 'unknown':
             self.warning("License is 'unknown'")
+
+        if self._data['grading']['show_test_data_groups'] not in [True, False]:
+            self.error("Invalid value for grading.show_test_data_groups: %s" % self._data['grading']['show_test_data_groups'])
+        elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
+            self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
 
         if 'on_reject' in self._data['grading']:
             if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
