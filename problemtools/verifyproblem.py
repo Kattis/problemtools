@@ -323,6 +323,7 @@ class TestCaseGroup(ProblemAspect):
 
         infiles = glob.glob(os.path.join(self._datadir, '*.in'))
         ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
+        wafiles = glob.glob(os.path.join(self._datadir, '*.ans.wrong-*'))
 
         if self._parent is None:
             seen_secret = False
@@ -358,12 +359,20 @@ class TestCaseGroup(ProblemAspect):
                 if len(files) > 1:
                     self.warning("Identical input files: '%s'" % str(files))
 
+        wafiles_with_input = []
+
         for f in infiles:
             if not f[:-3] + '.ans' in ansfiles:
                 self.error("No matching answer file for input '%s'" % f)
+            wafiles_with_input.extend(glob.glob(OutputValidators.WA_GLOB % (f[:-3] + '.ans')))
+
         for f in ansfiles:
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
+
+        for f in wafiles:
+            if f not in wafiles_with_input:
+                self.error("No matching input file for wrong answer '%s'" % f)
 
         for subdata in self._items:
             if subdata.matches_filter(args.data_filter):
@@ -930,6 +939,8 @@ class Graders(ProblemAspect):
 class OutputValidators(ProblemAspect):
     _default_validator = run.get_tool('default_validator')
 
+    WA_GLOB = "%s.wrong-*"  # %s is the answerfile to a test case, i.e. 1.ans
+
 
     def __init__(self, problem):
         self._problem = problem
@@ -983,8 +994,47 @@ class OutputValidators(ProblemAspect):
                     self.warning('%s gets AC' % (desc))
             os.unlink(file_name)
 
+        self._verify_invalid_outputs()
+
         return self._check_res
 
+    def _verify_invalid_outputs(self):
+        """Check that output validators decline invalid answer files"""
+
+        val_timelim = self._problem.config.get('limits')['validation_time']
+        val_memlim = self._problem.config.get('limits')['validation_memory']
+        flags = self._problem.config.get('validator_flags').split()
+
+        for testcase in self._problem.testdata.get_all_testcases():
+            if not os.path.exists(testcase.infile):
+                # .in-file doesn't exist, already reported by testcase-check, so 'ignore' here
+                continue
+
+            wrong_answers = glob.glob(OutputValidators.WA_GLOB % testcase.ansfile)
+            if wrong_answers:
+                if self._problem.is_interactive:
+                    self.warning('Output validator check with wrong answers for interactive problems is currently not supported (skipping)')
+                    return
+
+                if self._problem.config.get('validation') == 'default':
+                    self.warning('Output validator check with wrong answers and default validator is unnecessary (skipping)')
+                    return
+
+            for wafile in wrong_answers:
+                for val in self._validators:
+                    feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
+                    status, runtime = val.run(wafile,
+                                              args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
+                                              timelim=val_timelim, memlim=val_memlim)
+                    res = self._parse_validator_results(val, status, feedbackdir, testcase)
+                    shutil.rmtree(feedbackdir)
+                    if res.verdict != 'AC':
+                        # One output validator declined this wrong answer, so stop validating
+                        break
+                else:
+                    # Will only be executed if loop wasn't ended by break
+                    # No output validator declined wrong answer, this is an error.
+                    self.error("Wrong answer file %s was not declined by output validators" % wafile)
 
     def _parse_validator_results(self, val, status, feedbackdir, testcase):
         custom_score = self._problem.config.get('grading')['custom_scoring']
