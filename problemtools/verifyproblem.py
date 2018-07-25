@@ -795,8 +795,44 @@ class InputFormatValidators(ProblemAspect):
 
             os.unlink(file_name)
 
+        self._verify_invalid_inputs()
+
         return self._check_res
 
+    def _verify_invalid_inputs(self):
+        """Check that input format validators decline invalid input files
+           given in input_format_validators/bad_inputs
+        """
+
+        path_to_invalid_inputs = os.path.join(self._problem.probdir, 'input_format_validators', 'bad_inputs')
+
+        # verify only if invalid inputs are given, otherwise nothing to check in this function
+        if not os.path.exists(path_to_invalid_inputs):
+            return
+
+        # verify that invalid inputs are given in a directory, not a file
+        if not os.path.isdir(path_to_invalid_inputs):
+            self.error("%s should be a directory containing invalid inputs, not a file" % path_to_invalid_inputs)
+            return
+
+        for invalid_input_filename in os.listdir(path_to_invalid_inputs):
+            invalid_infile = os.path.join(path_to_invalid_inputs, invalid_input_filename)
+            if not invalid_infile.endswith('.in'):
+                self.warning('Input file %s is not an input file' % invalid_input_filename)
+                continue
+
+            for val in self._validators:
+                status, _ = val.run(invalid_infile, args=None)
+                if not os.WIFEXITED(status):
+                    self.error('Input format validator %s crashed on input %s' % (val, invalid_infile))
+
+                # If an input validator declines the input file, everything is fine and we break.
+                if os.WEXITSTATUS(status) == 42:
+                    break
+            else:
+                # Will only be executed if loop wasn't ended by break.
+                # No input validator declined the invalid input file, this is an error.
+                self.error('Input format validators accepted invalid input %s' % invalid_infile)
 
     def validate(self, testcase):
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
