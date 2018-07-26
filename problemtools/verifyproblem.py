@@ -836,7 +836,7 @@ class InputFormatValidators(ProblemAspect):
                     self.error('Input format validator %s crashed on input %s' % (val, invalid_infile))
 
                 # If an input validator declines the input file, everything is fine and we break.
-                if os.WEXITSTATUS(status) == 42:
+                if os.WEXITSTATUS(status) == 43:
                     break
             else:
                 # Will only be executed if loop wasn't ended by break.
