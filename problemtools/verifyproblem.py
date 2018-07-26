@@ -731,7 +731,7 @@ class InputFormatValidators(ProblemAspect):
         if len(self._validators) == 0:
             self.error('No input format validators found')
 
-        for val in self._validators:
+        for val in self._validators[:]:
             try:
                 if not val.compile():
                     self.error('Compile error for %s' % val)
