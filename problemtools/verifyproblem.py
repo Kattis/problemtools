@@ -1013,12 +1013,8 @@ class OutputValidators(ProblemAspect):
                     self.warning('Output validator check with wrong answers for interactive problems is currently not supported (skipping)')
                     return
 
-                if self._problem.config.get('validation') == 'default':
-                    self.warning('Output validator check with wrong answers and default validator is unnecessary (skipping)')
-                    return
-
             for wafile in wrong_answers:
-                for val in self._validators:
+                for val in self._actual_validators():
                     feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                     status, runtime = val.run(wafile,
                                               args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
