@@ -359,19 +359,16 @@ class TestCaseGroup(ProblemAspect):
                 if len(files) > 1:
                     self.warning("Identical input files: '%s'" % str(files))
 
-        wafiles_with_input = []
-
         for f in infiles:
             if not f[:-3] + '.ans' in ansfiles:
                 self.error("No matching answer file for input '%s'" % f)
-            wafiles_with_input.extend(glob.glob(OutputValidators.WA_GLOB % (f[:-3] + '.ans')))
 
         for f in ansfiles:
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
 
         for f in wafiles:
-            if f not in wafiles_with_input:
+            if f.split('.ans.wrong-')[0] + '.in' not in infiles:
                 self.error("No matching input file for wrong answer '%s'" % f)
 
         for subdata in self._items:
