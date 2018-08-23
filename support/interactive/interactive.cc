@@ -254,7 +254,9 @@ int main(int argc, char **argv) {
 	 * (We do eventually want B to EOF/crash/terminate rather than waiting
 	 * for the wall-time limit, just to finish things earlier, we just don't
 	 * want it race with the other process. This holds doubly if B is the
-	 * grader, which is expected to deal nicely with EOFs.)
+	 * grader, which is expected to deal nicely with EOFs. Unfortunately,
+	 * we can't just kill B, because it might run with higher privileges than
+	 * us -- this happens with isolate.)
 	 *
 	 * We never close the read end of the validator -> user channel -- it only
 	 * serves to give the grader Judge Error if it doesn't setup up a signal
@@ -272,7 +274,7 @@ int main(int argc, char **argv) {
 	while (remaining > 0) {
 		int status;
 		struct rusage ru;
-		int r = wait4(-1, &status, 0, &ru);
+		int r = wait3(&status, 0, &ru);
 		if (r == -1) {
 			perror("wait failed");
 			exit(1);
@@ -289,7 +291,7 @@ int main(int argc, char **argv) {
 		if (r == user_pid) {
 			// In case of broken pipes, let validator decide
 			user_status = (WIFSIGNALED(status) && WTERMSIG(status) == SIGPIPE ? 0 : status);
-			memcpy((void*)&val_ru, &ru, sizeof(rusage));
+			memcpy((void*)&user_ru, &ru, sizeof(rusage));
 			user_pid = -1;
 			remaining--;
 			close(fromuser[1]);
