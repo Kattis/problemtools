@@ -42,6 +42,7 @@ class SubmissionResult:
         self.runtime_testcase = None
         self.ac_runtime = -1.0
         self.ac_runtime_testcase = None
+        self.validator_first = False
 
     def __str__(self):
         verdict = self.verdict
@@ -167,8 +168,13 @@ class TestCase(ProblemAspect):
             res2.runtime = runtime
         if sys.stdout.isatty():
             sys.stdout.write('%s' % '\b' * (len(msg)))
-        if res2.runtime <= timelim_low or res2.runtime > timelim_high:
+        if res2.runtime <= timelim_low:
             res1 = res2
+        elif res2.validator_first and res2.verdict == 'WA':
+            # WA can override TLE for interactive problems (see comment in validate_interactive).
+            res1 = SubmissionResult('WA', score=res2.score)
+            res1.validator_first = True
+            res1.runtime = timelim_low
         else:
             res1 = SubmissionResult('TLE', score=self.testcasegroup.config['reject_score'])
         res1.testcase = res2.testcase = self
@@ -1025,6 +1031,10 @@ class OutputValidators(ProblemAspect):
                         sub_runtime = float(sub_runtime)
                         val_status = int(val_status)
                         if first == 'validator' and os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43:
+                            # If the validator exited first with WA, always give WA, even if that
+                            # early exit caused the submission to behave erratically and time out.
+                            if sub_runtime > timelim:
+                                sub_runtime = timelim
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
                         elif is_TLE(sub_status, True):
                             res = SubmissionResult('TLE', score=testcase.testcasegroup.config['reject_score'])
@@ -1034,6 +1044,7 @@ class OutputValidators(ProblemAspect):
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
 
                         res.runtime = sub_runtime
+                        res.validator_first = (first == 'validator')
 
                 os.unlink(interactive_out)
                 shutil.rmtree(feedbackdir)
