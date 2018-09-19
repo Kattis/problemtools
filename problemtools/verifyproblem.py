@@ -329,6 +329,7 @@ class TestCaseGroup(ProblemAspect):
 
         infiles = glob.glob(os.path.join(self._datadir, '*.in'))
         ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
+        wafiles = glob.glob(os.path.join(self._datadir, '*.ans.wrong-*'))
 
         if self._parent is None:
             seen_secret = False
@@ -367,9 +368,14 @@ class TestCaseGroup(ProblemAspect):
         for f in infiles:
             if not f[:-3] + '.ans' in ansfiles:
                 self.error("No matching answer file for input '%s'" % f)
+
         for f in ansfiles:
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
+
+        for f in wafiles:
+            if f.split('.ans.wrong-')[0] + '.in' not in infiles:
+                self.error("No matching input file for wrong answer '%s'" % f)
 
         for subdata in self._items:
             if subdata.matches_filter(args.data_filter):
@@ -801,8 +807,44 @@ class InputFormatValidators(ProblemAspect):
 
             os.unlink(file_name)
 
+        self._verify_invalid_inputs()
+
         return self._check_res
 
+    def _verify_invalid_inputs(self):
+        """Check that input format validators decline invalid input files
+           given in input_format_validators/bad_inputs
+        """
+
+        path_to_invalid_inputs = os.path.join(self._problem.probdir, 'input_format_validators', 'bad_inputs')
+
+        # verify only if invalid inputs are given, otherwise nothing to check in this function
+        if not os.path.exists(path_to_invalid_inputs):
+            return
+
+        # verify that invalid inputs are given in a directory, not a file
+        if not os.path.isdir(path_to_invalid_inputs):
+            self.error("%s should be a directory containing invalid inputs, not a file" % path_to_invalid_inputs)
+            return
+
+        for invalid_input_filename in os.listdir(path_to_invalid_inputs):
+            invalid_infile = os.path.join(path_to_invalid_inputs, invalid_input_filename)
+            if not invalid_infile.endswith('.in'):
+                self.warning('Input file %s is not an input file' % invalid_input_filename)
+                continue
+
+            for val in self._validators:
+                status, _ = val.run(invalid_infile, args=None)
+                if not os.WIFEXITED(status):
+                    self.error('Input format validator %s crashed on input %s' % (val, invalid_infile))
+
+                # If an input validator declines the input file, everything is fine and we break.
+                if os.WEXITSTATUS(status) == 43:
+                    break
+            else:
+                # Will only be executed if loop wasn't ended by break.
+                # No input validator declined the invalid input file, this is an error.
+                self.error('Input format validators accepted invalid input %s' % invalid_infile)
 
     def validate(self, testcase):
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
@@ -900,6 +942,8 @@ class Graders(ProblemAspect):
 class OutputValidators(ProblemAspect):
     _default_validator = run.get_tool('default_validator')
 
+    WA_GLOB = "%s.wrong-*"  # %s is the answerfile to a test case, i.e. 1.ans
+
 
     def __init__(self, problem):
         self._problem = problem
@@ -956,8 +1000,43 @@ class OutputValidators(ProblemAspect):
                     self.warning('%s gets AC' % (desc))
             os.unlink(file_name)
 
+        self._verify_invalid_outputs()
+
         return self._check_res
 
+    def _verify_invalid_outputs(self):
+        """Check that output validators decline invalid answer files"""
+
+        val_timelim = self._problem.config.get('limits')['validation_time']
+        val_memlim = self._problem.config.get('limits')['validation_memory']
+        flags = self._problem.config.get('validator_flags').split()
+
+        for testcase in self._problem.testdata.get_all_testcases():
+            if not os.path.exists(testcase.infile):
+                # .in-file doesn't exist, already reported by testcase-check, so 'ignore' here
+                continue
+
+            wrong_answers = glob.glob(OutputValidators.WA_GLOB % testcase.ansfile)
+            if wrong_answers:
+                if self._problem.is_interactive:
+                    self.warning('Output validator check with wrong answers for interactive problems is currently not supported (skipping)')
+                    return
+
+            for wafile in wrong_answers:
+                for val in self._actual_validators():
+                    feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
+                    status, runtime = val.run(wafile,
+                                              args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
+                                              timelim=val_timelim, memlim=val_memlim)
+                    res = self._parse_validator_results(val, status, feedbackdir, testcase)
+                    shutil.rmtree(feedbackdir)
+                    if res.verdict != 'AC':
+                        # One output validator declined this wrong answer, so stop validating
+                        break
+                else:
+                    # Will only be executed if loop wasn't ended by break
+                    # No output validator declined wrong answer, this is an error.
+                    self.error("Wrong answer file %s was not declined by output validators" % wafile)
 
     def _parse_validator_results(self, val, status, feedbackdir, testcase):
         custom_score = self._problem.config.get('grading')['custom_scoring']
