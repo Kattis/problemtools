@@ -32,7 +32,6 @@ def is_TLE(status, may_signal_with_usr1=False):
 def is_RTE(status):
     return not os.WIFEXITED(status) or os.WEXITSTATUS(status)
 
-
 class SubmissionResult:
     def __init__(self, verdict, score=None, testcase=None, reason=None):
         self.verdict = verdict
@@ -44,6 +43,11 @@ class SubmissionResult:
         self.ac_runtime = -1.0
         self.ac_runtime_testcase = None
         self.validator_first = False
+
+    def set_ac_runtime(self):
+        if self.verdict == 'AC':
+            self.ac_runtime = self.runtime
+            self.ac_runtime_testcase = self.runtime_testcase
 
     def __str__(self):
         verdict = self.verdict
@@ -106,6 +110,9 @@ class TestCase(ProblemAspect):
         self.ansfile = base + '.ans'
         self._problem = problem
         self.testcasegroup = testcasegroup
+        self.reuse_result_from = None
+        self._result_cache = (None, None)
+        problem.testcase_by_infile[self.infile] = self
 
     def check_newlines(self, filename):
         with open(filename, 'r') as f:
@@ -139,6 +146,7 @@ class TestCase(ProblemAspect):
                     self.error('judge answer file got %s' % val_res)
                 else:
                     self.warning('judge answer file got %s' % val_res)
+        self._check_symlinks()
         return self._check_res
 
     def __str__(self):
@@ -147,7 +155,50 @@ class TestCase(ProblemAspect):
     def matches_filter(self, filter_re):
         return filter_re.search(self.strip_path_prefix(self._base)) is not None
 
+    def set_symlinks(self):
+        if not os.path.islink(self.infile):
+            return
+        target = os.path.realpath(self.infile)
+        if target in self._problem.testcase_by_infile:
+            self.reuse_result_from = self._problem.testcase_by_infile[target]
+
+    def _check_symlinks(self):
+        if not os.path.islink(self.infile):
+            return True
+        nicepath = os.path.relpath(self.infile, self._problem.probdir)
+        in_target = os.path.realpath(self.infile)
+        ans_target = os.path.realpath(self.ansfile)
+        if not in_target.endswith('.in'):
+            self.error("Symbolic link does not point to a .in file for input '%s'" % nicepath)
+            return False
+        if ans_target != in_target[:-3] + '.ans':
+            self.error("Symbolic link '%s' must have a corresponding link for answer file" % nicepath)
+            return False
+        if self.reuse_result_from is None:
+            self.error("Symbolic link points outside data/ directory for file '%s'" % nicepath)
+            return False
+        if self.testcasegroup.config['output_validator_flags'] != self.reuse_result_from.testcasegroup.config['output_validator_flags']:
+            self.error("Symbolic link '%s' points to test case with different output validator flags" % nicepath)
+            return False
+        return True
+
     def run_submission(self, sub, args, timelim_low=1000, timelim_high=1000):
+        res1, res2, reused = self._run_submission_real(sub, args, timelim_low, timelim_high)
+        res1 = self._init_result_for_testcase(res1)
+        res2 = self._init_result_for_testcase(res2)
+        msg = "Reused test file result" if reused else "Test file result"
+        self.info('%s: %s' % (msg, res1))
+        return (res1, res2)
+
+    def _run_submission_real(self, sub, args, timelim_low, timelim_high):
+        if self.reuse_result_from is not None:
+            return self.reuse_result_from._run_submission_real(sub, args, timelim_low, timelim_high)
+
+        cache_key = (sub, args, timelim_low, timelim_high)
+        if self._result_cache[0] == cache_key:
+            res1, res2 = self._result_cache[1]
+            return (res1, res2, True)
+
         outfile = os.path.join(self._problem.tmpdir, 'output')
         if sys.stdout.isatty():
             msg = 'Running %s on %s...' % (sub, self)
@@ -161,9 +212,9 @@ class TestCase(ProblemAspect):
                                       timelim=timelim_high+1,
                                       memlim=self._problem.config.get('limits')['memory'])
             if is_TLE(status) or runtime > timelim_high:
-                res2 = SubmissionResult('TLE', score=self.testcasegroup.config['reject_score'])
+                res2 = SubmissionResult('TLE')
             elif is_RTE(status):
-                res2 = SubmissionResult('RTE', score=self.testcasegroup.config['reject_score'])
+                res2 = SubmissionResult('RTE')
             else:
                 res2 = self._problem.output_validators.validate(self, outfile)
             res2.runtime = runtime
@@ -177,18 +228,23 @@ class TestCase(ProblemAspect):
             res1.validator_first = True
             res1.runtime = timelim_low
         else:
-            res1 = SubmissionResult('TLE', score=self.testcasegroup.config['reject_score'])
-        res1.testcase = res2.testcase = self
-        res1.runtime_testcase = res2.runtime_testcase = self
+            res1 = SubmissionResult('TLE')
         res1.runtime = res2.runtime
-        if res1.verdict == 'AC':
-            res1.ac_runtime = res1.runtime
-            res1.ac_runtime_testcase = res1.runtime_testcase
-        if res2.verdict == 'AC':
-            res2.ac_runtime = res2.runtime
-            res2.ac_runtime_testcase = res2.runtime_testcase
-        self.info('Test file result: %s' % (res1))
-        return (res1, res2)
+        res1.set_ac_runtime()
+        res2.set_ac_runtime()
+        self._result_cache = (cache_key, (res1, res2))
+        return (res1, res2, False)
+
+    def _init_result_for_testcase(self, res):
+        res = copy.copy(res)
+        res.testcase = self
+        res.runtime_testcase = self
+        if res.score is None:
+            if res.verdict == 'AC':
+                res.score = self.testcasegroup.config['accept_score']
+            else:
+                res.score = self.testcasegroup.config['reject_score']
+        return res
 
     def get_all_testcases(self):
         return [self]
@@ -263,9 +319,16 @@ class TestCaseGroup(ProblemAspect):
                     if ext == '.ans' and os.path.isfile(base + '.in'):
                         self._items.append(TestCase(problem, base, self))
 
+        if not parent:
+            self.set_symlinks()
+
 
     def __str__(self):
         return 'test case group %s' % os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
+
+    def set_symlinks(self):
+        for sub in self._items:
+            sub.set_symlinks()
 
 
     def matches_filter(self, filter_re):
@@ -328,9 +391,6 @@ class TestCaseGroup(ProblemAspect):
             except:
                 self.error("Invalid format '%s' for range: must be exactly two floats" % score_range)
 
-        infiles = glob.glob(os.path.join(self._datadir, '*.in'))
-        ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
-
         if self._parent is None:
             seen_secret = False
             seen_sample = False
@@ -350,20 +410,24 @@ class TestCaseGroup(ProblemAspect):
                 self.error("No secret data provided")
             if not seen_sample:
                 self.warning("No sample data provided")
+
             hashes = collections.defaultdict(list)
             for root, dirs, files in os.walk(self._datadir):
                 for filename in files:
-                    if filename[-3:] == ".in":
+                    filepath = os.path.join(root, filename)
+                    if filepath.endswith('.in') and not os.path.islink(filepath):
                         md5 = hashlib.md5()
-                        with open(os.path.join(root, filename), 'rb') as f:
+                        with open(filepath, 'rb') as f:
                             for buf in iter(lambda: f.read(1024), b''):
                                 md5.update(buf)
                         filehash = md5.digest()
-                        filepath = os.path.join(root, filename)
                         hashes[filehash].append(os.path.relpath(filepath, self._problem.probdir))
             for _, files in hashes.iteritems():
                 if len(files) > 1:
                     self.warning("Identical input files: '%s'" % str(files))
+
+        infiles = glob.glob(os.path.join(self._datadir, '*.in'))
+        ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
 
         for f in infiles:
             if not f[:-3] + '.ans' in ansfiles:
@@ -377,7 +441,6 @@ class TestCaseGroup(ProblemAspect):
                 child.check(args)
 
         return self._check_res
-
 
     def run_submission(self, sub, args, timelim_low, timelim_high):
         self.info('Running on %s' % self)
@@ -984,11 +1047,7 @@ class OutputValidators(ProblemAspect):
             return SubmissionResult('JE', reason='exit code %d for output validator %s' % (ret, val))
 
         if ret == 43:
-            if score is None:
-                score = testcase.testcasegroup.config['reject_score']
             return SubmissionResult('WA', score=score)
-        if score is None:
-            score = testcase.testcasegroup.config['accept_score']
         return SubmissionResult('AC', score=score)
 
 
@@ -1041,9 +1100,9 @@ class OutputValidators(ProblemAspect):
                                 sub_runtime = timelim
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
                         elif is_TLE(sub_status, True):
-                            res = SubmissionResult('TLE', score=testcase.testcasegroup.config['reject_score'])
+                            res = SubmissionResult('TLE')
                         elif is_RTE(sub_status):
-                            res = SubmissionResult('RTE', score=testcase.testcasegroup.config['reject_score'])
+                            res = SubmissionResult('RTE')
                         else:
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
 
@@ -1192,6 +1251,7 @@ class Problem(ProblemAspect):
         self.input_format_validators = InputFormatValidators(self)
         self.output_validators = OutputValidators(self)
         self.graders = Graders(self)
+        self.testcase_by_infile = {}
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.submissions = Submissions(self)
         return self
