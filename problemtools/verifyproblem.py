@@ -226,7 +226,7 @@ class TestCase(ProblemAspect):
             # WA can override TLE for interactive problems (see comment in validate_interactive).
             res1 = SubmissionResult('WA', score=res2.score)
             res1.validator_first = True
-            res1.runtime = timelim_low
+            res2.runtime = timelim_low
         else:
             res1 = SubmissionResult('TLE')
         res1.runtime = res2.runtime
