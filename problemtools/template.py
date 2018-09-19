@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import re
 import os.path
@@ -60,7 +61,7 @@ class Template:
         timelim = 1  # Legacy for compatibility with v0.1
         version = detect_version(problemdir, problemtex)
         if version != '':
-            print 'Note: problem is in an old version (%s) of problem format, you should consider updating it' % version
+            print('Note: problem is in an old version (%s) of problem format, you should consider updating it' % version)
             templatefile = 'template_%s.tex' % version
             clsfile = 'problemset_%s.cls' % version
 
@@ -82,7 +83,7 @@ class Template:
         self.problemset_cls = os.path.join(basedir, 'problemset.cls')
 
         if os.path.isfile(self.problemset_cls) and not force_copy_cls:
-            print '%s exists, will not copy it -- in case of weirdness this is likely culprit' % self.problemset_cls
+            print('%s exists, will not copy it -- in case of weirdness this is likely culprit' % self.problemset_cls)
             self.copy_cls = False
 
         if self.copy_cls:

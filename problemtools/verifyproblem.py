@@ -1,5 +1,6 @@
 #! /usr/bin/env python2
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import glob
 import string
 import hashlib
@@ -89,7 +90,7 @@ class ProblemAspect:
         logging.warning('in %s: %s', self, msg)
 
     def msg(self, msg):
-        print msg
+        print(msg)
 
     def info(self, msg):
         logging.info(': %s', msg)
@@ -1272,12 +1273,12 @@ def main():
                         format=fmt,
                         level=eval("logging." + args.loglevel.upper()))
 
-    print 'Loading problem %s' % os.path.basename(os.path.realpath(args.problemdir))
+    print('Loading problem %s' % os.path.basename(os.path.realpath(args.problemdir)))
     with Problem(args.problemdir) as prob:
         [errors, warnings] = prob.check(args)
         def p(x):
             return '' if x == 1 else 's'
-        print "%s tested: %d error%s, %d warning%s" % (prob.shortname, errors, p(errors), warnings, p(warnings))
+        print("%s tested: %d error%s, %d warning%s" % (prob.shortname, errors, p(errors), warnings, p(warnings)))
 
     sys.exit(1 if errors > 0 else 0)
 

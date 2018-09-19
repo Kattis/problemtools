@@ -1,5 +1,6 @@
 #! /usr/bin/env python2
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import re
 import os.path
 import sys
@@ -54,7 +55,7 @@ def convert(problem, options=None):
     renderer = ProblemRenderer()
 
     if not options.quiet:
-        print 'Parsing TeX source...'
+        print('Parsing TeX source...')
     doc = tex.parse()
 
     # Go to destdir
@@ -65,7 +66,7 @@ def convert(problem, options=None):
 
     try:
         if not options.quiet:
-            print 'Rendering!'
+            print('Rendering!')
         renderer.render(doc)
 
         # Annoying: I have not figured out any way of stopping the plasTeX
