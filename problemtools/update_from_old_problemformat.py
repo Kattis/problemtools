@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 from optparse import OptionParser
 import glob
 import os
@@ -17,12 +18,12 @@ def update(problemdir):
     yaml_changed = False
 
     if 'name' in config:
-        print 'Move problem name "%s" to these problem statement files: %s' % (config['name'], stmts)
+        print('Move problem name "%s" to these problem statement files: %s' % (config['name'], stmts))
         
         for f in stmts:
             stmt = open(f, 'r').read()
             if stmt.find('\\problemname{') != -1:
-                print '   Statement %s already has a problemname, skipping' % f
+                print('   Statement %s already has a problemname, skipping' % f)
                 continue
             newstmt = '\problemname{%s}\n\n%s' % (config['name'], stmt)
             open(f, 'w').write(newstmt)
@@ -36,7 +37,7 @@ def update(problemdir):
             validation = 'custom'
             validator_flags = validator_flags[1:]
         validator_flags = ' '.join(validator_flags)
-        print 'Old validator option exists, moving to validation: %s, validator_flags: %s' % (validation, validator_flags)
+        print('Old validator option exists, moving to validation: %s, validator_flags: %s' % (validation, validator_flags))
         config['validation'] = validation
         if validator_flags != '':
             config['validator_flags'] = validator_flags
@@ -55,8 +56,8 @@ if __name__ == '__main__':
         
     for dir in args:
         try:
-            print 'Updating %s' % dir
+            print('Updating %s' % dir)
             update(dir)
         except Exception as e:
-            print 'Update FAILED: %s' % e
+            print('Update FAILED: %s' % e)
 

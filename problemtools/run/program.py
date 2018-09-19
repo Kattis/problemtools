@@ -1,5 +1,6 @@
 """Abstract base class for programs.
 """
+from __future__ import print_function
 import os
 import limit
 import resource
@@ -82,8 +83,8 @@ class Program(object):
                                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
                 os.execvp(argv[0], argv)
             except Exception as exc:
-                print "Oops. Fatal error in child process:"
-                print exc
+                print("Oops. Fatal error in child process:")
+                print(exc)
                 os.kill(os.getpid(), signal.SIGTERM)
             # Unreachable
             logging.error("Unreachable part of run_wait reached")
