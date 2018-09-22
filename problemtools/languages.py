@@ -23,7 +23,7 @@ class Language(object):
     """
 
     __KEYS = ['name', 'priority', 'files', 'shebang', 'compile', 'run']
-    __VARIABLES = ['path', 'files', 'binary', 'mainfile', 'mainclass', 'memlim']
+    __VARIABLES = ['path', 'files', 'binary', 'mainfile', 'mainclass', 'Mainclass', 'memlim']
 
     def __init__(self, lang_id, lang_spec):
         """Construct language object
@@ -130,7 +130,7 @@ class Language(object):
                 % (unknown, self.lang_id))
 
         # Check for uniquely defined entry point
-        entry = variables & set(['binary', 'mainfile', 'mainclass'])
+        entry = variables & set(['binary', 'mainfile', 'mainclass', 'Mainclass'])
         if len(entry) == 0:
             raise LanguageConfigError(
                 'No entry point variable used for language %s' % self.lang_id)

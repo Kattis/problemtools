@@ -71,8 +71,7 @@ class SourceCode(Program):
             self.mainfile = self.src[0]
 
         self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
-        if self.language.name == 'Kotlin':
-          self.mainclass = self.mainclass.capitalize() + 'Kt'
+        self.Mainclass = self.mainclass.capitalize()
 
         self.binary = os.path.join(self.path, 'run')
 
@@ -142,5 +141,6 @@ class SourceCode(Program):
             'memlim': memlim,
             'mainfile': self.mainfile,
             'mainclass': self.mainclass,
+            'Mainclass': self.Mainclass,
             'binary': self.binary
         }

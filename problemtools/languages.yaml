@@ -87,6 +87,8 @@
 #
 # {mainclass}: equals {mainfile} without filename extension.
 #
+# {Mainclass}: equals {mainclass}, but first letter capitalized.
+#
 # {memlim}: memory limit
 #
 
@@ -132,7 +134,7 @@ java:
     priority: 800
     files: '*.java'
     compile: '/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}'
-    run: '/usr/bin/java -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
+    run: '/usr/bin/java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
 
 javascript:
     name: 'JavaScript'
@@ -144,9 +146,9 @@ javascript:
 kotlin:
     name: 'Kotlin'
     priority: 250
-    files: '*.kt *.ktm *.kts'
-    compile: '/usr/bin/kotlinc -jvm-target 1.8 -d {path}/ -- {files}'
-    run: '/usr/bin/kotlin -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {mainclass}'
+    files: '*.kt'
+    compile: '/usr/bin/kotlinc -d {path}/ -- {files}'
+    run: '/usr/bin/kotlin -Dfile.encoding=UTF-8 -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {Mainclass}Kt'
 
 objectivec:
     name: 'Objective C'
