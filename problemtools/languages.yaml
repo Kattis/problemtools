@@ -58,9 +58,9 @@
 #            languages such as Scala.
 #
 # The entry point type of a language is implicitly specified by using
-# one of the three meta-variables {binary}, {mainfile}, {mainclass}
-# defined below.  A language specification *must* use exactly one of
-# these three metavariables.
+# one of the four meta-variables {binary}, {mainfile}, {mainclass},
+# {Mainclass} defined below.  A language specification *must* use
+# exactly one of these four metavariables.
 #
 #
 # Metavariables
