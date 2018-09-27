@@ -75,7 +75,7 @@ def convert(problem, options=None):
             os.remove('.paux')
 
         if options.tidy:
-            os.system('tidy -utf8 -i -q -m %s 2> /dev/null' % destfile)
+            os.system('tidy -utf8 -q -m %s 2> /dev/null' % destfile)
 
         if options.bodyonly:
             content = open(destfile).read()
