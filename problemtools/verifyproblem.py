@@ -446,6 +446,39 @@ class TestCaseGroup(ProblemAspect):
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
 
+        # Check whether a <= b according to a natural sorting where numeric components
+        # are compactified, so that e.g. "a" < "a1" < "a2" < "a10" = "a010" < "a10a".
+        def natural_sort_le(a, b):
+            a += '\0'
+            b += '\0'
+            i = j = 0
+            def parse_num(s, i):
+                ret = 0
+                while ord('0') <= ord(s[i]) <= ord('9'):
+                    ret = ret * 10 + ord(s[i]) - ord('0')
+                    i += 1
+                return ret, i
+            while i < len(a) and j < len(b):
+                if ord('0') <= ord(a[i]) <= ord('9') and ord('0') <= ord(b[i]) <= ord('9'):
+                    anum,i = parse_num(a, i)
+                    bnum,j = parse_num(b, j)
+                    if anum == bnum:
+                        continue
+                    return anum < bnum
+                if a[i] == b[j]:
+                    i += 1
+                    j += 1
+                    continue
+                return a[i] < b[j]
+            return True
+
+        last_testgroup_name = ''
+        for group in self.get_subgroups():
+            name = os.path.relpath(group._datadir, self._problem.probdir)
+            if natural_sort_le(name, last_testgroup_name):
+                self.warning("Test data group '%s' will be ordered before '%s'; consider zero-padding" % (last_testgroup_name, name))
+            last_testgroup_name = name
+
         for child in self._items:
             if child.matches_filter(args.data_filter):
                 child.check(args)
@@ -529,10 +562,11 @@ class ProblemConfig(ProblemAspect):
         'validator_flags': '',
         'grading': {
             'objective': 'max',
+            'show_test_data_groups': False,
         },
         'libraries': '',
         'languages': ''
-        }
+    }
     _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
 
     def __init__(self, problem):
@@ -635,6 +669,11 @@ class ProblemConfig(ProblemAspect):
             self.error("Invalid value for license: %s.\n  Valid licenses are %s" % (self._data['license'], ProblemConfig._VALID_LICENSES))
         elif self._data['license'] == 'unknown':
             self.warning("License is 'unknown'")
+
+        if self._data['grading']['show_test_data_groups'] not in [True, False]:
+            self.error("Invalid value for grading.show_test_data_groups: %s" % self._data['grading']['show_test_data_groups'])
+        elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
+            self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
 
         if 'on_reject' in self._data['grading']:
             if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
