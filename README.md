@@ -105,6 +105,14 @@ and a LaTeX installation.  In Ubuntu, the precise dependencies are as follows:
 
     libboost-regex1.54.0, libc6 (>= 2.14), libgcc1 (>= 1:4.1.1), automake, libgmp-dev, libgmp10, libgmpxx4ldbl, libstdc++6 (>= 4.4.0), python (>= 2.7), python (<< 2.8), python:any (>= 2.7.1-0ubuntu2), python-yaml, python-plastex, texlive-latex-recommended, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript
 
+On Fedora, these dependencies can be installed with:
+
+    sudo dnf install boost-regex gcc gmp-devel gmp-c++ python2 python2-pyyaml texlive-latex texlive-collection-fontsrecommended texlive-fancyhdr texlive-subfigure texlive-wrapfig texlive-import texlive-ulem texlive-xifthen texlive-overpic texlive-pbox tidy ghostscript
+
+Followed by:
+
+    pip2 install --user plastex
+
 The problem tools have not been tested on other platforms.  If you do
 test on another platform, we'd be happy to hear what worked and what
 did not work, so that we can write proper instructions (and try to
