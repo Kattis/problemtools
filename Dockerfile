@@ -1,18 +1,9 @@
-# Download ubuntu image with python and pip
-FROM nitincypher/docker-ubuntu-python-pip
+FROM ubuntu:18.04
 
-RUN apt-get update && \
-    apt-get install -y sudo && \
-    apt-get install -y git && \
-    apt-get install -y automake && \
-    apt-get install -y tidy && \
-    apt-get install -y libboost-all-dev && \
-    apt-get install -y libgmp-dev libgmp10 libgmpxx4ldbl && \
-    apt-get install -y python-plastex && \
-    apt-get install -y texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra texlive-lang-cyrillic && \
-    apt-get install -y python-yaml && \
-    apt-get install -y vim && \
-    apt-get install -y openjdk-8-jdk && \
-    apt-get install -y g++ && \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && \
+    apt-get install -y sudo git curl automake tidy libboost-all-dev libgmp-dev libgmp10 libgmpxx4ldbl python-plastex texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra texlive-lang-cyrillic python-yaml vim python-minimal openjdk-8-jdk g++ && \
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    python get-pip.py && \
     pip2 install --upgrade pip && \
     pip install git+https://github.com/kattis/problemtools
