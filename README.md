@@ -98,6 +98,30 @@ This installs the three provided programs in your path and they should
 now be ready to use.
 
 
+### Method 4: Use Docker
+
+This method allows you to run the Kattis problemtools inside a docker container. This method is supported on **macOS**, **Windows 10** and several linux distros. The true advantage to this approach is that docker installs all the required dependencies for the Kattis problemtools and places the correct programs on your `$PATH`.
+
+To get started, install the [Docker CLI](https://docs.docker.com/install) and build the Kattis problemtools docker image using the Dockerfile in the top directory of this project. This will download the correct Ubuntu image and install all the Kattis problemtools.
+
+    problemtools$ docker build . kattis_problemtools_image
+
+Once the image has finished installing, you can check it exists on your system using `docker images`. To launch an interactive container and play around with *verifyproblem*, *problem2pdf*, and *problem2html* run:
+
+    docker run -it kattis_problemtools_image
+
+**WARNING:** By default, docker containers to _NOT_ persist storage between runs, so any files you create or modify will be lost when the container stops running. 
+
+There are several way of getting around this:
+
+1) Persist any changes you want to keep to a remote file system/source control (e.g Github)
+
+2) Another way to save any work you do in a docker container is to use a [docker volume](https://docs.docker.com/storage/volumes). A docker volume acts as a special directory which is persisted and shared between containers. Below we create a docker volume and mount the volume to our image as the directory `/kattis_work_dir`
+
+    docker volume create kattis-work-volume
+    docker run -it -v kattis-work-volume:/kattis_work_dir kattis_problemtools_image
+
+
 ## Requirements and compatibility
 
 To run the tools, you need Python 2 with the YAML and PlasTeX libraries,
