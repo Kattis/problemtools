@@ -1,7 +1,29 @@
 FROM ubuntu:18.04
 
-RUN export DEBIAN_FRONTEND=noninteractive; \
-    apt-get update && \
-    apt-get install -y sudo git python-pip automake tidy libboost-all-dev libgmp-dev libgmp10 libgmpxx4ldbl python-plastex texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra texlive-lang-cyrillic python-yaml vim python-minimal openjdk-8-jdk g++; \
-    pip2 install --upgrade pip; \
-    pip install git+https://github.com/kattis/problemtools
+MAINTAINER austrin@kattis.com
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y \
+            automake \
+            g++ \
+            git \
+            libboost-all-dev \
+            libgmp-dev \
+            libgmp10 \
+            libgmpxx4ldbl \
+            openjdk-8-jdk \
+            python-minimal \
+            python-pip \
+            python-plastex \
+            python-yaml \
+            sudo \
+            texlive-fonts-recommended \
+            texlive-lang-cyrillic \
+            texlive-latex-extra \
+            texlive-latex-recommended \
+            tidy \
+            vim
+
+RUN pip install git+https://github.com/kattis/problemtools
