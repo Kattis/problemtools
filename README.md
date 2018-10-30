@@ -107,7 +107,7 @@ To get started, install the [Docker CLI](https://docs.docker.com/install) and bu
 
     problemtools$ docker build -t kattis_problemtools_image .
 
-(On some systems you may need to run the above command as a superuser.  Building the image takes a while so  )
+(On some systems you may need to run the above command as a superuser.  Building the image takes a while.)
 
 Once the image has finished installing, you can check it exists on your system using `docker images`. To launch an interactive container and play around with *verifyproblem*, *problem2pdf*, and *problem2html* run:
 
