@@ -1380,7 +1380,7 @@ def argparser():
     parser.add_argument("-b", "--bail_on_error", help="bail verification on first error", action='store_true')
     parser.add_argument("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
     parser.add_argument("-e", "--werror", help="consider warnings as errors", action='store_true')
-    parser.add_argument('problemdir')
+    parser.add_argument('problemdir', nargs='+')
     return parser
 
 
@@ -1390,17 +1390,19 @@ def default_args():
 
 def main():
     args = argparser().parse_args()
+
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
                         level=eval("logging." + args.loglevel.upper()))
 
-    print('Loading problem %s' % os.path.basename(os.path.realpath(args.problemdir)))
-    with Problem(args.problemdir) as prob:
-        [errors, warnings] = prob.check(args)
-        def p(x):
-            return '' if x == 1 else 's'
-        print("%s tested: %d error%s, %d warning%s" % (prob.shortname, errors, p(errors), warnings, p(warnings)))
+    for problemdir in args.problemdir:
+        print('Loading problem %s' % os.path.basename(os.path.realpath(problemdir)))
+        with Problem(problemdir) as prob:
+            [errors, warnings] = prob.check(args)
+            def p(x):
+                return '' if x == 1 else 's'
+            print("%s tested: %d error%s, %d warning%s" % (prob.shortname, errors, p(errors), warnings, p(warnings)))
 
     sys.exit(1 if errors > 0 else 0)
 
