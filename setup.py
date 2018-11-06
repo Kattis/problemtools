@@ -51,7 +51,7 @@ def get_version():
     __version__ = None
     try:
         update_script = os.path.join(base_dir, 'admin', 'update_version.py.sh')
-        __version__ = subprocess.check_output([update_script])
+        __version__ = subprocess.check_output([update_script]).strip()
     except:
         pass
 

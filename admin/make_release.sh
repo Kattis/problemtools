@@ -30,3 +30,6 @@ git add $ROOT/problemtools/_version.py $ROOT/debian/changelog
 git commit -m "Release of version $VERSION: bump version in problemtools/_version.py and debian/changelog"
 
 git flow release finish --showcommands --message "Release $VERSION" $VERSION
+
+echo "After pushing changes to GitHub, please run"
+echo "  $ROOT/admin/update_docker.sh $VERSION"
