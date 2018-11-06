@@ -50,9 +50,8 @@ def get_version():
 
     __version__ = None
     try:
-        __version__ = subprocess.check_output(['git', 'describe']).strip()
         update_script = os.path.join(base_dir, 'admin', 'update_version.py.sh')
-        subprocess.check_call([update_script])
+        __version__ = subprocess.check_output([update_script])
     except:
         pass
 
