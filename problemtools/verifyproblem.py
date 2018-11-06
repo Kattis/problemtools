@@ -79,19 +79,32 @@ class ProblemAspect:
     bail_on_error = False
     _check_res = None
 
-    def error(self, msg):
+    @staticmethod
+    def __append_additional_info(msg, additional_info):
+        if additional_info is None:
+            return msg
+        lines = additional_info.rstrip().split('\n')
+        if len(lines) == 1:
+            return '%s (%s)' % (msg, lines[0])
+        if len(lines) > 15:
+            lines = lines[:15] + ['[.....truncated to 15 lines.....]']
+        return '%s:\n%s' % (msg, '\n'.join(' '*8 + line for line in lines))
+
+    def error(self, msg, additional_info=None):
         self._check_res = False
         ProblemAspect.errors += 1
-        logging.error('in %s: %s', self, msg)
+        logging.error('in %s: %s',
+                      self, ProblemAspect.__append_additional_info(msg, additional_info))
         if ProblemAspect.bail_on_error:
             raise VerifyError(msg)
 
-    def warning(self, msg):
+    def warning(self, msg, additional_info=None):
         if ProblemAspect.consider_warnings_errors:
             self.error(msg)
             return
         ProblemAspect.warnings += 1
-        logging.warning('in %s: %s', self, msg)
+        logging.warning('in %s: %s',
+                        self, ProblemAspect.__append_additional_info(msg, additional_info))
 
     def msg(self, msg):
         print(msg)
@@ -862,8 +875,9 @@ class InputFormatValidators(ProblemAspect):
 
         for val in self._validators[:]:
             try:
-                if not val.compile():
-                    self.error('Compile error for %s' % val)
+                (success, msg) = val.compile()
+                if not success:
+                    self.error('Compile error for %s' % val, msg)
                     self._validators.remove(val)
             except run.ProgramError as e:
                 self.error(e)
@@ -959,8 +973,9 @@ class Graders(ProblemAspect):
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
-            if not grader.compile():
-                self.error('Compile error for %s' % grader)
+            (success, msg) = grader.compile()
+            if not success:
+                self.error('Compile error for %s' % grader, msg)
         return self._check_res
 
     def grade(self, sub_results, testcasegroup, shadow_result=False):
@@ -980,7 +995,7 @@ class Graders(ProblemAspect):
         self.debug('Grader flags: %s' % grader_flags)
 
         for grader in graders:
-            if grader is not None and grader.compile():
+            if grader is not None and grader.compile()[0]:
                 fd, infile = tempfile.mkstemp()
                 os.close(fd)
                 fd, outfile = tempfile.mkstemp()
@@ -1051,9 +1066,9 @@ class OutputValidators(ProblemAspect):
 
         for val in self._validators[:]:
             try:
-                if not val.compile():
-                    self.error('Compile error for output validator %s' % val)
-                    self._validators.remove(val)
+                (success, msg) = val.compile()
+                if not success:
+                    self.error('Compile error for output validator %s' % val, msg)
             except run.ProgramError as e:
                 self.error(e)
 
@@ -1132,7 +1147,7 @@ class OutputValidators(ProblemAspect):
         val_timelim = self._problem.config.get('limits')['validation_time']
         val_memlim = self._problem.config.get('limits')['validation_memory']
         for val in self._actual_validators():
-            if val is not None and val.compile():
+            if val is not None and val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 validator_args[2] = feedbackdir + os.sep
                 f = tempfile.NamedTemporaryFile(delete=False)
@@ -1182,7 +1197,7 @@ class OutputValidators(ProblemAspect):
         val_memlim = self._problem.config.get('limits')['validation_memory']
         flags = self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split()
         for val in self._actual_validators():
-            if val is not None and val.compile():
+            if val is not None and val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 status, runtime = val.run(submission_output,
                                           args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
@@ -1262,8 +1277,9 @@ class Submissions(ProblemAspect):
                 if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
                     self.info('Check %s submission %s' % (acr, sub))
 
-                    if not sub.compile():
-                        self.error('Compile error for %s submission %s' % (acr, sub))
+                    (success, msg) = sub.compile()
+                    if not success:
+                        self.error('Compile error for %s submission %s' % (acr, sub), msg)
                         continue
 
                     res = self.check_submission(sub, args, acr, timelim, timelim_margin)

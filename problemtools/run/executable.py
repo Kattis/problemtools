@@ -29,7 +29,7 @@ class Executable(Program):
     def compile(self):
         """Dummy implementation of the compile method -- nothing to check!
         """
-        return True
+        return (True, None)
 
     def get_runcmd(self, cwd=None, memlim=None):
         """Command to run the program.

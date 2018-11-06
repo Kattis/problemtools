@@ -36,13 +36,12 @@ class Checktestdata(Executable):
         """Syntax-check the Checktestdata script
 
         Returns:
-            False if the Checktestdata script has syntax errors and
-            True otherwise
+            (False, None) if the Checktestdata script has syntax errors and
+            (True, None) otherwise
         """
         if self._compile_result is None:
             (status, _) = super(Checktestdata, self).run()
-            self._compile_result = (os.WIFEXITED(status) and
-                                    os.WEXITSTATUS(status) in [0, 1])
+            self._compile_result = ((os.WIFEXITED(status) and os.WEXITSTATUS(status) in [0, 1]), None)
         return self._compile_result
 
 

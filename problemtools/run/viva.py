@@ -36,12 +36,11 @@ class Viva(Executable):
         """Syntax-check the VIVA script
 
         Returns:
-            False if the VIVA script has syntax errors and True otherwise
+            (False, None) if the VIVA script has syntax errors and (True, None) otherwise
         """
         if self._compile_result is None:
             (status, _) = super(Viva, self).run()
-            self._compile_result = (os.WIFEXITED(status) and
-                                    os.WEXITSTATUS(status) == 0)
+            self._compile_result = ((os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0), None)
         return self._compile_result
 
 
