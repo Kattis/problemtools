@@ -16,9 +16,11 @@ import sys
 import copy
 import random
 from argparse import ArgumentParser, ArgumentTypeError
+
 import problem2pdf
 import problem2html
 
+import config
 import languages
 import run
 
@@ -267,16 +269,7 @@ class TestCase(ProblemAspect):
 
 
 class TestCaseGroup(ProblemAspect):
-    _DEFAULT_CONFIG = {'grading': 'default',
-                       'grader_flags': '',
-                       'input_validator_flags': '',
-                       'output_validator_flags': '',
-                       'on_reject': 'break',
-                       'accept_score': 1.0,
-                       'reject_score': 0.0,
-                       'range': '-inf +inf'
-   }
-
+    _DEFAULT_CONFIG = config.load_config('testdata.yaml')
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
     def __init__(self, problem, datadir, parent=None):
@@ -554,32 +547,7 @@ class TestCaseGroup(ProblemAspect):
 
 class ProblemConfig(ProblemAspect):
     _MANDATORY_CONFIG = ['name']
-    _OPTIONAL_CONFIG = {
-        'uuid': '',
-        'type': 'pass-fail',
-        'author': '',
-        'source': '',
-        'source_url': '',
-        'license': 'unknown',
-        'rights_owner': '',
-        'keywords': '',
-        'limits': {'time_multiplier': 5,
-                   'time_safety_margin': 2,
-                   'memory': 1024,
-                   'output': 8,
-                   'compilation_time': 60,
-                   'validation_time': 60,
-                   'validation_memory': 1024,
-                   'validation_output': 8},
-        'validation': 'default',
-        'validator_flags': '',
-        'grading': {
-            'objective': 'max',
-            'show_test_data_groups': False,
-        },
-        'libraries': '',
-        'languages': ''
-    }
+    _OPTIONAL_CONFIG = config.load_config('problem.yaml')
     _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
 
     def __init__(self, problem):

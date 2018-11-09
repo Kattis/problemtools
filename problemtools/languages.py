@@ -269,4 +269,5 @@ def load_language_config_default_paths():
         default config files.
     """
     return load_language_config([os.path.join(os.path.dirname(__file__),
+                                              'config',
                                               'languages.yaml')])
