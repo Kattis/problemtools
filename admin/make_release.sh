@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#
+# Uses git flow and gbp tools (available through Ubuntu packages
+# git-flow, git-buildpackage)
 
 set -e
 
