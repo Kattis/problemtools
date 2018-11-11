@@ -58,9 +58,9 @@
 #            languages such as Scala.
 #
 # The entry point type of a language is implicitly specified by using
-# one of the three meta-variables {binary}, {mainfile}, {mainclass}
-# defined below.  A language specification *must* use exactly one of
-# these three metavariables.
+# one of the four meta-variables {binary}, {mainfile}, {mainclass},
+# {Mainclass} defined below.  A language specification *must* use
+# exactly one of these four metavariables.
 #
 #
 # Metavariables
@@ -86,6 +86,8 @@
 #               smallest source file name
 #
 # {mainclass}: equals {mainfile} without filename extension.
+#
+# {Mainclass}: equals {mainclass}, but first letter capitalized.
 #
 # {memlim}: memory limit
 #
@@ -132,7 +134,7 @@ java:
     priority: 800
     files: '*.java'
     compile: '/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}'
-    run: '/usr/bin/java -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
+    run: '/usr/bin/java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
 
 javascript:
     name: 'JavaScript'
@@ -140,6 +142,13 @@ javascript:
     files: '*.js'
     compile: '/usr/bin/js24 -c {files}'
     run: '/usr/bin/js24 "{mainfile}"'
+
+kotlin:
+    name: 'Kotlin'
+    priority: 250
+    files: '*.kt'
+    compile: '/usr/bin/kotlinc -d {path}/ -- {files}'
+    run: '/usr/bin/kotlin -Dfile.encoding=UTF-8 -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {Mainclass}Kt'
 
 objectivec:
     name: 'Objective C'

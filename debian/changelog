@@ -1,3 +1,90 @@
+kattis-problemtools (1.20181111) bionic; urgency=medium
+
+  [ Greg Hamerly ]
+  * Remove extra parenthesis in info message
+
+  [ Simon Lindholm ]
+  * Allow min_score = max_score
+
+  [ Per Austrin ]
+  * add missing dependencies to README.md as reported by @thuvh
+
+  [ Stefan Kraus ]
+  * Don't skip input format validator checks with non-compiling validators
+  * Modify output validator check to match input validator check
+
+  [ Simon Lindholm ]
+  * Extend .gitignore
+  * Reindent interactive.cc
+  * State the condition for the output limit warning
+  * Use validator output if it exits first, for interactive problems
+  * Avoid validator->submission SIGPIPEs
+  * Set runtime = min(runtime, timelim) when validator exits first
+  * Address review comments
+  * Don't leave traces behind when printing \b's
+  * Don't pluralize "1 errors"
+  * Rename sub -> child for testgroups
+  * Add Problem.is_scoring
+  * Use Python3 print syntax
+
+  [ Robin Lee ]
+  * Stub support for kotlin (jvm) target
+
+  [ Per Austrin ]
+  * Adjustments to the way Kotlin is handled
+  * update documentation of languages.yaml format
+
+  [ Simon Lindholm ]
+  * Support test case reuse using symbolic links
+  * Fix setting runtime = timelim
+  * Add a test for the TLE -> WA behavior
+  * Validate grading.objective key
+  * Check that testgroup scores obey 'range'
+  * Warn if subgroups come in surprising order
+  * Add grading.show_test_data_groups flag
+
+  [ Stefan Kraus ]
+  * problem2html.py: Print warning if 'tidy' is not installed.
+
+  [ Greg Hamerly ]
+  * update to VIVA 2.1
+
+  [ Fredrik Niemelä ]
+  * Fix print syntax error
+
+  [ Alexander Scheel ]
+  * Add dependencies on Fedora to README.md
+
+  [ Johan Sannemo ]
+  * Disable pybuild proxy for github.com
+
+  [ william-fiset ]
+  * Added Docker functionality to Kattis problemtools
+  * Updated Dockerfile
+  * Updated Dockerfile removing &&s
+  * install python pip using apt-get
+
+  [ Per Austrin ]
+  * A little cleanup (but no substantive changes) of the Dockerfile and documentation
+  * revert pypy change in languages.yaml that accidentally snuck into the repo
+  * add a Scala solution
+  * fix runoff sentence in documentation
+  * update deb package build dependency from libgmp3-dev to libgmp-dev
+
+  [ Ragnar Groot Koerkamp ]
+  * Add support for Input and Output section in latex statement.
+
+  [ Ludo Pulles ]
+  * Let verifyproblem.sh accept 1 or more problemdirs
+
+  [ Per Austrin ]
+  * update versioning script to produce PEP440-compliant version numbers also for non-release versions
+  * Add mechanism for providing more detailed feedback on obvious errors such as Compile Error
+  * when running verifyproblem on more than one problem package, exit with code 0 only if all packages validate without error
+  * add note to release script about tools used
+
+ -- Per Austrin <austrin@kattis.com>  Sun, 11 Nov 2018 18:56:26 +0100
+
 kattis-problemtools (1.20180426) artful; urgency=medium
 
   [ Per Austrin ]

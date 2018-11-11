@@ -6,6 +6,7 @@ import os
 import shlex
 import tempfile
 import logging
+import subprocess
 
 from .errors import ProgramError
 from .program import Program
@@ -69,7 +70,10 @@ class SourceCode(Program):
                                           re.IGNORECASE)), None)
         if self.mainfile is None:
             self.mainfile = self.src[0]
+
         self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
+        self.Mainclass = self.mainclass.capitalize()
+
         self.binary = os.path.join(self.path, 'run')
 
 
@@ -79,27 +83,36 @@ class SourceCode(Program):
     def compile(self):
         """Compile the source code.
 
-        Returns:
-            True if compilation succeeded, False otherwise
+        Returns tuple:
+            (True, None) if compilation succeeded
+            (False, errmsg) otherwise
         """
         if self._compile_result is not None:
             return self._compile_result
 
         if self.language.compile is None:
-            self._compile_result = True
-            return True
+            self._compile_result = (True, None)
+            return (True, None)
 
-        command = self.language.compile.format(**self.__get_substitution())
+        command = self.get_compilecmd()
+        compiler = command[0]
+
+        if not os.path.isfile(compiler) or not os.access(compiler, os.X_OK):
+            return (False, '%s does not seem to be installed, expected to find compiler at %s' % (self.language.name, compiler))
 
         logging.debug('compile command: %s', command)
-        status = os.system(command + ' > /dev/null 2> /dev/null')
 
-        if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
-            logging.info('Compiler failed (status %d) when compiling %s\n        Command used:\n%s', status, self.name, command)
-            self._compile_result = False
-        else:
-            self._compile_result = True
+        try:
+            subprocess.check_output(command, stderr=subprocess.STDOUT)
+            self._compile_result = (True, None)
+        except subprocess.CalledProcessError as err:
+            self._compile_result = (False, err.output)
+
         return self._compile_result
+
+
+    def get_compilecmd(self):
+        return shlex.split(self.language.compile.format(**self.__get_substitution()))
 
 
     def get_runcmd(self, cwd=None, memlim=1024):
@@ -123,7 +136,7 @@ class SourceCode(Program):
 
     def should_skip_memory_rlimit(self):
         """Ugly hack (see program.py for details)."""
-        return self.language.name in ['Java', 'Scala']
+        return self.language.name in ['Java', 'Scala', 'Kotlin']
 
 
     def __str__(self):
@@ -138,5 +151,6 @@ class SourceCode(Program):
             'memlim': memlim,
             'mainfile': self.mainfile,
             'mainclass': self.mainclass,
+            'Mainclass': self.Mainclass,
             'binary': self.binary
         }

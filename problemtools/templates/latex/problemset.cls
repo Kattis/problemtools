@@ -92,6 +92,8 @@
                                    {-3ex}%
                                    {1ex}%
                                    {\normalfont\large\sf\bfseries}}
+\newenvironment{Input}{\section*{Input}}{}
+\newenvironment{Output}{\section*{Output}}{}
 
 \renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
                                      {-3.55ex}%

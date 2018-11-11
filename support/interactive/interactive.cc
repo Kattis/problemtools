@@ -15,56 +15,60 @@
 
 int report_fd, walltimelimit;
 
-int val_pid = -1, user_pid = -1;
-int user_status = -1, val_status = -1;
-static rusage user_ru;
-static rusage val_ru;
+volatile bool validator_first = false;
+volatile int val_pid = -1, user_pid = -1;
+volatile int user_status = -1, val_status = -1;
+volatile static rusage user_ru;
+volatile static rusage val_ru;
 
-double runtime(rusage *ru) {
+double runtime(volatile rusage *ru) {
 	if(ru == NULL) return 0;
 
-    struct timeval tv;
-    tv.tv_sec = ru->ru_utime.tv_sec + ru->ru_stime.tv_sec;
-    tv.tv_usec = ru->ru_utime.tv_usec + ru->ru_stime.tv_usec;
-    return tv.tv_sec + tv.tv_usec / 1000000.0;
+	struct timeval tv;
+	tv.tv_sec = ru->ru_utime.tv_sec + ru->ru_stime.tv_sec;
+	tv.tv_usec = ru->ru_utime.tv_usec + ru->ru_stime.tv_usec;
+	return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
 }
 
 void report(int val_status, double val_time, int user_status, double user_time) {
 	FILE * fp = fdopen(report_fd, "w");
-    fprintf(fp, "%d %.6lf %d %.6lf", val_status, val_time, user_status, user_time);
+	fprintf(fp, "%d %.6lf %d %.6lf %s", val_status, val_time, user_status, user_time,
+			validator_first ? "validator" : "submission");
 	fclose(fp);
 }
 
-void walltime_handler(int a) {
-    int u_stat = user_status, v_stat = val_status;
-    double u_time = 0;
+void walltime_handler(int) {
+	// TODO: make this race-free and signal safe. Right now there's a race
+	// between wait returning in main and the pid variables being set to -1,
+	// and we call non-signal safe functions...
+	// This is likely fine for problemtools, but not for real contest systems.
+	// The easiest way to fix this would probably be to kill(-1, SIGKILL) in
+	// this handler, set some sig_atomic_t variable, and let main() deal with
+	// the aftermath.
 
-    // Check if validator has already quit while we were waiting for submission
-    if (val_pid != -1 && wait4(val_pid, &v_stat, WNOHANG, &val_ru) != val_pid)  {
-        kill(val_pid, SIGTERM);
-    } 
+	int u_stat = user_status, v_stat = val_status;
+	double u_time = 0;
 
-    // Check submission resource usage and then kill it
-    if (user_pid != -1 && wait4(user_pid, &u_stat, WNOHANG, &user_ru) != user_pid)
-        kill(user_pid, SIGKILL);
-    u_time = runtime(&user_ru);
+	// Check if validator has already quit while we were waiting for submission
+	if (val_pid != -1 && wait4(val_pid, &v_stat, WNOHANG, (rusage*)&val_ru) != val_pid)  {
+		kill(val_pid, SIGTERM);
+	}
 
-    if (u_stat == -1) {
-        // If validator already quit with WA but submission timed out
-        // on wall-time, don't tag submission as TLE but let validator
-        // decide.  (If validator quit with AC but submission kept
-        // running, tag submission as TLE.)
-        if (v_stat == (43 << 8)) u_stat = 0;
-        else {
-            u_stat = SIGUSR1;
-            u_time = walltimelimit;
-        }
-    } 
+	// Check submission resource usage and then kill it
+	if (user_pid != -1 && wait4(user_pid, &u_stat, WNOHANG, (rusage*)&user_ru) != user_pid) {
+		kill(user_pid, SIGKILL);
+	}
+	u_time = runtime(&user_ru);
 
-    // If validator didn't yet give us something, assume WA
-    if (v_stat == -1) v_stat = 43 << 8;
-    
-    report(v_stat, runtime(&val_ru), u_stat, u_time);
+	if (u_stat == -1) {
+		u_stat = SIGUSR1;
+		u_time = walltimelimit;
+	}
+
+	// If validator didn't yet give us something, assume WA
+	if (v_stat == -1) v_stat = 43 << 8;
+
+	report(v_stat, runtime(&val_ru), u_stat, u_time);
 	exit(0);
 }
 
@@ -157,8 +161,8 @@ int execute(char **args, int fdin, int fdout) {
 		}
 
 		if(execvp(args[0], args) == -1) {
-		   perror("execvp failed");
-		   exit(EXIT_FAILURE);
+			perror("execvp failed");
+			exit(EXIT_FAILURE);
 		}
 	} else if(pid < 0) {
 		perror("fork failed");
@@ -206,26 +210,25 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 	if(argc < 3 || sscanf(argv[2], "%d", &walltimelimit) != 1 || walltimelimit < 0) {
-		fprintf(stderr, "Bad second argument, expected wall time limit\n");
+		fprintf(stderr, "Bad second argument, expected wall time limit (0 to disable)\n");
 		exit(EXIT_FAILURE);
 	}
 
-    char **val_argv = new char*[argc], **user_argv = new char*[argc];
-    int val_argc = 0, user_argc = 0;
+	char **val_argv = new char*[argc], **user_argv = new char*[argc];
+	int val_argc = 0, user_argc = 0;
 	for(int i = 3; i < argc && strcmp(argv[i], ";") != 0; ++i)
-        val_argv[val_argc++] = argv[i];
-    val_argv[val_argc] = NULL;
+		val_argv[val_argc++] = argv[i];
+	val_argv[val_argc] = NULL;
 
 	for(int i = 3 + val_argc + 1; i < argc; ++i) {
-        user_argv[user_argc++] = argv[i];
+		user_argv[user_argc++] = argv[i];
 	}
-    user_argv[user_argc] = NULL;
+	user_argv[user_argc] = NULL;
 
 	if(val_argc == 0 || user_argc == 0) {
 		fprintf(stderr, "Empty validator or user argument list\n");
 		exit(EXIT_FAILURE);
 	}
-
 
 	int fromval[2], fromuser[2];
 	makepipe(fromval);
@@ -236,32 +239,65 @@ int main(int argc, char **argv) {
 	val_pid = execute(val_argv, fromuser[0], fromval[1]);
 	user_pid = execute(user_argv, fromval[0], fromuser[1]);
 	if(walltimelimit) {
-        signal(SIGALRM, walltime_handler);
+		signal(SIGALRM, walltime_handler);
 		alarm(walltimelimit);
-    }
-	close(fromval[0]);
-	close(fromval[1]);
+	}
+
+	/*
+	 * We intentionally wait with closing the write ends of the fromuser/
+	 * fromval pipes until the process that owns them stops, to be more sure
+	 * about which process terminates first. If we don't, and process A exits
+	 * while process B is (erroneously) trying to read, process B might read
+	 * EOF and crash/terminate almost simultaneously as A, and wait(2) might
+	 * then return process B's PID instead of A's.
+	 *
+	 * (We do eventually want B to EOF/crash/terminate rather than waiting
+	 * for the wall-time limit, just to finish things earlier, we just don't
+	 * want it race with the other process. This holds doubly if B is the
+	 * grader, which is expected to deal nicely with EOFs. Unfortunately,
+	 * we can't just kill B, because it might run with higher privileges than
+	 * us -- this happens with isolate.)
+	 *
+	 * We never close the read end of the validator -> user channel -- it only
+	 * serves to give the grader Judge Error if it doesn't setup up a signal
+	 * handler for SIGPIPE, and we do want submissions that exit early to be
+	 * accepted.
+	 *
+	 * The read end of the user -> validator channel we do close, to trigger
+	 * SIGPIPEs when the user writes to a validator which has exited.
+	 * (Currently we treat that the same as exiting with code 0, though it
+	 * would also make sense to make it an error.)
+	 */
 	close(fromuser[0]);
-	close(fromuser[1]);
 
-
-	if(wait4(user_pid, &user_status, 0, &user_ru) == -1) {
-		perror("wait failed");
-		exit(1);
+	int remaining = 2;
+	while (remaining > 0) {
+		int status;
+		struct rusage ru;
+		int r = wait3(&status, 0, &ru);
+		if (r == -1) {
+			perror("wait failed");
+			exit(1);
+		}
+		if (r == val_pid) {
+			if (remaining == 2)
+				validator_first = true;
+			val_status = status;
+			memcpy((void*)&val_ru, &ru, sizeof(rusage));
+			val_pid = -1;
+			remaining--;
+			close(fromval[1]);
+		}
+		if (r == user_pid) {
+			// In case of broken pipes, let validator decide
+			user_status = (WIFSIGNALED(status) && WTERMSIG(status) == SIGPIPE ? 0 : status);
+			memcpy((void*)&user_ru, &ru, sizeof(rusage));
+			user_pid = -1;
+			remaining--;
+			close(fromuser[1]);
+		}
 	}
-    user_pid = -1;
 
-    // In case of broken pipes, let validator decide
-    if(!WIFEXITED(user_status) && WTERMSIG(user_status) == SIGPIPE) {
-        user_status = 0;
-    }
-
-	if(wait4(val_pid, &val_status, 0, &val_ru) == -1) {
-		perror("wait failed");
-		exit(1);
-	}
-    val_pid = -1;
-
-    report(val_status, runtime(&val_ru), user_status, runtime(&user_ru));
+	report(val_status, runtime(&val_ru), user_status, runtime(&user_ru));
 	return 0;
 }
