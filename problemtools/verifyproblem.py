@@ -1412,6 +1412,7 @@ def main():
                         format=fmt,
                         level=eval("logging." + args.loglevel.upper()))
 
+    total_errors = 0
     for problemdir in args.problemdir:
         print('Loading problem %s' % os.path.basename(os.path.realpath(problemdir)))
         with Problem(problemdir) as prob:
@@ -1419,8 +1420,9 @@ def main():
             def p(x):
                 return '' if x == 1 else 's'
             print("%s tested: %d error%s, %d warning%s" % (prob.shortname, errors, p(errors), warnings, p(warnings)))
+            total_errors += errors
 
-    sys.exit(1 if errors > 0 else 0)
+    sys.exit(1 if total_errors > 0 else 0)
 
 if __name__ == '__main__':
     main()
