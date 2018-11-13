@@ -26,7 +26,7 @@ documentation on what arguments they accept.
 A few examples of problem packages can be found in [examples](examples).
 
 
-## Installing and using problemtools
+## Installing problemtools
 
 There are four recommended ways of installing and running problemtools.
 (For non-Linux users, "Method 2" below, to use Docker, is probably the least painful.)
@@ -143,6 +143,58 @@ The package can then be installed using (replace `<version>` as appropriate):
 
 This installs the three provided programs in your path and they should
 now be ready to use.
+
+
+## Configuration
+
+(**NOTE**: this feature so far only exists on the `develop` branch and
+not in any release, and therefore does not yet exist in the
+problemtools Docker images.)
+
+System-wide problemtools configuration files are placed in
+`/etc/problemtools/`, and user-specific configuration files are placed
+in `$HOME/.problemtools/`.  The following files can be used to change
+problemtools' configuration:
+
+1. `languages.yaml`.  Use it to override problemtools' default
+   programming language configuration.  For instance, while the
+   problemtools default is to use the CPython `/usr/bin/python2`
+   interpreter for Python 2, many contests, as well as the Kattis
+   online judge, use Pypy as the interpreter for Python 2.  To change
+   this on your machine, you can simply place a file
+   `/etc/problemtools/languages.yaml` (or
+   `~/.problemtools/languages.yaml` if you only want to make the
+   change for your user) containing the following:
+
+   ```yaml
+   python2:
+      name: 'Python 2 w/Pypy'
+      run: '/usr/bin/pypy "{mainfile}"'
+   ```
+   Here, overriding the name of the language is not strictly
+   necessary, but it is often helpful to clearly indicate that Pypy is
+   being used.
+
+   For more details on the format of the language specifications and
+   what the default settings are, see the [default version of
+   languages.yaml](problemtools/config/languages.yaml)
+
+2. `problem.yaml`.  Use it to override the default values used for
+   [metadata of a problem](http://www.problemarchive.org/wiki/index.php/Problem_Format#Problem_Metadata),
+   in particular for problem limits.  For instance, while the
+   problemtools default is to give problems a memory limit of 1 GiB,
+   you may be working with a contest where the default memory limits
+   will be something else, and to change this you can place a file
+   `~/.problemtools/problem.yaml` containing:
+
+   ```yaml
+   limits:
+       memory: 2048 # (unit is MiB)
+   ```
+
+   In theory it is possible to override the defaults of all values in
+   the problem.yaml metadata files this way, but it is not recommended
+   to use it for anything except the limits.
 
 
 ## Requirements and compatibility
