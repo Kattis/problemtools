@@ -1280,7 +1280,7 @@ class Problem(ProblemAspect):
     def __init__(self, probdir):
         self.probdir = os.path.realpath(probdir)
         self.shortname = os.path.basename(self.probdir)
-        self.language_config = languages.load_language_config_default_paths()
+        self.language_config = languages.load_language_config()
 
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp(prefix='verify-%s-'%self.shortname)

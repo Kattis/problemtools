@@ -9,6 +9,7 @@ import string
 import types
 import yaml.parser
 
+import config
 
 class LanguageConfigError(Exception):
     """Exception class for errors in language configuration."""
@@ -164,9 +165,17 @@ class Language(object):
 class Languages(object):
     """A set of languages."""
 
-    def __init__(self):
-        """Create an empty set of languages."""
+    def __init__(self, data=None):
+        """Create a set of languages from a dict.
+
+        Args:
+            data (dict): dictonary containing configuration.
+                If None, resulting set of languages is empty.
+                See documentation of update() method below for details.
+        """
         self.languages = {}
+        if data is not None:
+            self.update(data)
 
 
     def detect_language(self, file_list):
@@ -191,39 +200,30 @@ class Languages(object):
         return result
 
 
-    def update(self, config_file):
-        """Update the set with language configuration data from a file.
+    def update(self, data):
+        """Update the set with language configuration data from a dict.
 
         Args:
-            config_file (str): name of file containing configuration.
-                If this file contains (possibly partial) configuration
+            data (dict): dictionary containing configuration.
+                If this dictionary contains (possibly partial) configuration
                 for a language already in the set, the configuration
                 for that language will be overridden and updated.
         """
-        try:
-            with open(config_file, 'r') as config:
-                data = yaml.safe_load(config.read())
-                if data is None:
-                    data = {}
-        except yaml.parser.ParserError, err:
-            raise LanguageConfigError(
-                'Config file %s: failed to parse: %s' % (config_file, err))
-
         if type(data) is not types.DictType:
             raise LanguageConfigError(
-                'Config file %s: content must be a dictionary, but is %s.'
-                % (config_file, type(data)))
+                'Config file error: content must be a dictionary, but is %s.'
+                % (type(data)))
 
         for (lang_id, lang_spec) in data.iteritems():
             if type(lang_id) is not types.StringType:
                 raise LanguageConfigError(
-                    'Config file %s: language IDs must be strings, but %s is %s.'
-                    % (config_file, lang_id, type(lang_id)))
+                    'Config file error: language IDs must be strings, but %s is %s.'
+                    % (lang_id, type(lang_id)))
 
             if type(lang_spec) is not types.DictType:
                 raise LanguageConfigError(
-                    'Config file %s: language spec must be a dictionary, but spec of language %s is %s.'
-                    % (config_file, lang_id, type(lang_spec)))
+                    'Config file error: language spec must be a dictionary, but spec of language %s is %s.'
+                    % (lang_id, type(lang_spec)))
 
             if lang_id not in self.languages:
                 self.languages[lang_id] = Language(lang_id, lang_spec)
@@ -239,35 +239,10 @@ class Languages(object):
             priorities[lang.priority] = lang_id
 
 
-
-def load_language_config(paths):
-    """Load language configuration from a list of possible files.
-
-    Args:
-        paths (list of str): list of file names, paths to
-            configuration files.  Files in the list that do not exist
-            will be silently ignored.  If the same language is defined
-            in more than one file, the one appearing last in the list
-            takes precedence.
+def load_language_config():
+    """Load language configuration.
 
     Returns:
-        Languages object for the set of languages in the given config
-        files.
+        Languages object for the set of languages.
     """
-    res = Languages()
-    for path in paths:
-        if os.path.isfile(path):
-            res.update(path)
-    return res
-
-
-def load_language_config_default_paths():
-    """Load language configuration from the problemtools default locations.
-
-    Returns:
-        Languages object for the set of languages defined by the
-        default config files.
-    """
-    return load_language_config([os.path.join(os.path.dirname(__file__),
-                                              'config',
-                                              'languages.yaml')])
+    return Languages(config.load_config('languages.yaml'))
