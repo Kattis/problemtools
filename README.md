@@ -75,9 +75,9 @@ Once the image has finished downloading, you can check that it exists on your sy
 By default, docker containers do _NOT_ persist storage between runs, so any files you create or modify will be lost when the container stops running.  Two common ways of dealing with this are:
 
 1) Use a [bind mount](https://docs.docker.com/storage/bind-mounts/) to mount a directory on your machine into the docker container.  This can be done as follows (see Docker documentation for further details):
-
+    ```
     docker run --rm -it -v ${FULL_PATH_TO_MOUNT}:/kattis_work_dir problemtools/icpc
-
+    ```
 2) Persist any changes you want to keep to a remote file system/source control (e.g. a remote Git repository, note however that you would first need to install Git in the image).
 
 #### Building your own images
