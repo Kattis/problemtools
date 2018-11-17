@@ -1,4 +1,4 @@
+recursive-include problemtools/config *
 recursive-include problemtools/templates *
 recursive-include problemtools/tests *
 recursive-include support *
-include problemtools/languages.yaml
