@@ -179,22 +179,24 @@ problemtools' configuration:
    what the default settings are, see the [default version of
    languages.yaml](problemtools/config/languages.yaml)
 
-2. `problem.yaml`.  Use it to override the default values used for
-   [metadata of a problem](http://www.problemarchive.org/wiki/index.php/Problem_Format#Problem_Metadata),
-   in particular for problem limits.  For instance, while the
-   problemtools default is to give problems a memory limit of 1 GiB,
-   you may be working with a contest where the default memory limits
-   will be something else, and to change this you can place a file
-   `~/.config/problemtools/problem.yaml` containing:
+2. `problem.yaml`.  For most users, this should not be edited.  If you
+   are not sure whether you should use it, then you probably shouldn't.
+   This file can be used to specify the system defaults for those
+   problem limits which are not given a fixed default value in the
+   [problem format specification](http://www.problemarchive.org/wiki/index.php/Problem_Format#limits).
+   The system defaults assumed by problemtools can be found in
+   (problemtools/config/problem.yaml).  For instance, if you are
+   primarily working against a system with a default memory limit of 2 GiB,
+   you can place a file `~/.config/problemtools/problem.yaml` containing:
 
    ```yaml
    limits:
        memory: 2048 # (unit is MiB)
    ```
 
-   In theory it is possible to override the defaults of all values in
-   the problem.yaml metadata files this way, but it is not recommended
-   to use it for anything except the limits.
+   (In principle it is possible to override the defaults of other values than the
+   system-dependent defaults in the problem.yaml metadata files this way, but such
+   usage is very strongly discouraged.)
 
 
 ## Requirements and compatibility
