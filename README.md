@@ -153,7 +153,7 @@ problemtools Docker images.)
 
 System-wide problemtools configuration files are placed in
 `/etc/problemtools/`, and user-specific configuration files are placed
-in `$HOME/.problemtools/`.  The following files can be used to change
+in `$HOME/.config/problemtools/` (or in `$XDG_CONFIG_HOME` if this is defined).  The following files can be used to change
 problemtools' configuration:
 
 1. `languages.yaml`.  Use it to override problemtools' default
@@ -163,7 +163,7 @@ problemtools' configuration:
    online judge, use Pypy as the interpreter for Python 2.  To change
    this on your machine, you can simply place a file
    `/etc/problemtools/languages.yaml` (or
-   `~/.problemtools/languages.yaml` if you only want to make the
+   `~/.config/problemtools/languages.yaml` if you only want to make the
    change for your user) containing the following:
 
    ```yaml
@@ -185,7 +185,7 @@ problemtools' configuration:
    problemtools default is to give problems a memory limit of 1 GiB,
    you may be working with a contest where the default memory limits
    will be something else, and to change this you can place a file
-   `~/.problemtools/problem.yaml` containing:
+   `~/.config/problemtools/problem.yaml` containing:
 
    ```yaml
    limits:

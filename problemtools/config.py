@@ -45,7 +45,10 @@ def __config_file_paths():
     """
     return [os.path.join(os.path.dirname(__file__), 'config'),
             os.path.join('/etc', 'kattis', 'problemtools'),
-            os.path.join(os.path.expanduser('~'), '.problemtools')]
+            os.path.join(os.environ.get('XDG_CONFIG_HOME',
+                                        os.path.join(os.path.expanduser('~'), '.config')),
+                         'problemtools')]
+
 
 def __update_dict(orig, update):
     """Deep update of a dictionary
