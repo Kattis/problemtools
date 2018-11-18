@@ -1226,13 +1226,15 @@ class Submissions(ProblemAspect):
             return self._check_res
         self._check_res = True
 
+        limits = self._problem.config.get('limits')
+
         timelim_margin = 300  # 5 minutes
         timelim = 300
-        if 'time_for_AC_submissions' in self._problem.config.get('limits'):
-            timelim = timelim_margin = self._problem.config.get('limits')['time_for_AC_submissions']
+        if 'time_for_AC_submissions' in limits:
+            timelim = timelim_margin = limits['time_for_AC_submissions']
         if args.fixed_timelim is not None:
             timelim = args.fixed_timelim
-            timelim_margin = timelim * self._problem.config.get('limits')['time_safety_margin']
+            timelim_margin = timelim * limits['time_safety_margin']
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -1245,6 +1247,11 @@ class Submissions(ProblemAspect):
                 if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
                     self.info('Check %s submission %s' % (acr, sub))
 
+                    if sub.code_size() > 1024*limits['code']:
+                        self.error('%s submission %s has size %.1f kiB, exceeds code size limit of %d kiB' %
+                                   (acr, sub, sub.code_size() / 1024.0, limits['code']))
+                        continue
+
                     (success, msg) = sub.compile()
                     if not success:
                         self.error('Compile error for %s submission %s' % (acr, sub), msg)
@@ -1256,20 +1263,20 @@ class Submissions(ProblemAspect):
             if acr == 'AC':
                 if len(runtimes) > 0:
                     max_runtime = max(runtimes)
-                    exact_timelim = max_runtime * self._problem.config.get('limits')['time_multiplier']
+                    exact_timelim = max_runtime * limits['time_multiplier']
                     max_runtime = '%.3f' % max_runtime
                     timelim = max(1, int(0.5 + exact_timelim))
                     timelim_margin = max(timelim + 1,
-                                         int(0.5 + exact_timelim * self._problem.config.get('limits')['time_safety_margin']))
+                                         int(0.5 + exact_timelim * limits['time_safety_margin']))
                 else:
                     max_runtime = None
                 if args.fixed_timelim is not None and args.fixed_timelim != timelim:
                     self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
                     timelim = args.fixed_timelim
-                    timelim_margin = timelim * self._problem.config.get('limits')['time_safety_margin']
+                    timelim_margin = timelim * limits['time_safety_margin']
 
                 self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
-            self._problem.config.get('limits')['time'] = timelim
+            limits['time'] = timelim
 
         return self._check_res
 

@@ -77,8 +77,11 @@ class SourceCode(Program):
         self.binary = os.path.join(self.path, 'run')
 
 
-    _compile_result = None
+    def code_size(self):
+        return sum(os.path.getsize(x) for x in self.src)
 
+
+    _compile_result = None
 
     def compile(self):
         """Compile the source code.

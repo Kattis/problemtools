@@ -13,6 +13,7 @@ limits:
    time_safety_margin: 2
    memory: 1024
    output: 8
+   code: 128
    compilation_time: 60
    validation_time: 60
    validation_memory: 1024
