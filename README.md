@@ -44,7 +44,7 @@ pip install --user git+https://github.com/kattis/problemtools
 ```
 With this second option, in order to get the command line scripts, you need
 to make sure that the local user bin path used (e.g., on Linux,
-`$HOME/.local/usr/local/bin`) is in your `$PATH`.
+`$HOME/.local/bin`) is in your `$PATH`.
 
 In order for problemtools to build and run properly, you also need to have LaTeX
 and various LaTeX packages installed.  See [Requirements and
