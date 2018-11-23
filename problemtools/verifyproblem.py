@@ -724,7 +724,6 @@ class ProblemStatement(ProblemAspect):
         for lang in self.languages:
             pdfopt.language = lang
             htmlopt.language = lang
-            pdf_ok = True
             try:
                 if not problem2pdf.convert(self._problem.probdir, pdfopt):
                     langparam = ''
@@ -733,8 +732,6 @@ class ProblemStatement(ProblemAspect):
                     self.error('Could not compile problem statement for language "%s".  Run problem2pdf %s on the problem to diagnose.' % (lang, langparam))
             except Exception as e:
                 self.error('Error raised when checking problem statement for language %s:\n%s' % (lang, e))
-            if not pdf_ok:
-                continue
             try:
                 problem2html.convert(self._problem.probdir, htmlopt)
             except Exception as e:
