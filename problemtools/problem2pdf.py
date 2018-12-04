@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import re
 import os.path
+import shutil
 import sys
 import string
 from string import Template
@@ -43,7 +44,7 @@ def convert(problem, options=None):
     os.chdir(origcwd)
 
     if not options.nopdf:
-        os.rename(os.path.splitext(texfile)[0] + '.pdf', destfile)
+        shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
     if templ != None:
         templ.cleanup()
