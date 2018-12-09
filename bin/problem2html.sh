@@ -5,5 +5,6 @@
 # installing problemtools on the system properly, this script should
 # not be used.
 
-export PYTHONPATH=$(readlink -f $(dirname $0)/..):$PYTHONPATH
-exec python2 -m problemtools.problem2html $@
+export PYTHONPATH
+PYTHONPATH="$(dirname "$(dirname "$(readlink -f "$0")")"):$PYTHONPATH"
+exec python2 -m problemtools.problem2html "$@"
