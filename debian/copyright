@@ -3,7 +3,7 @@ Upstream-Name: kattis-problemtools
 Source: https://github.com/Kattis/problemtools
 
 Files: *
-Copyright: 2010-2018 Kattis and all respective contributors
+Copyright: 2010-2019 Kattis and all respective contributors
 License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a
  copy of this software and associated documentation files (the "Software"),
