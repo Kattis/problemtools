@@ -35,11 +35,12 @@ def is_RTE(status):
     return not os.WIFEXITED(status) or os.WEXITSTATUS(status)
 
 class SubmissionResult:
-    def __init__(self, verdict, score=None, testcase=None, reason=None):
+    def __init__(self, verdict, score=None, testcase=None, reason=None, additional_info=None):
         self.verdict = verdict
         self.score = score
         self.testcase = testcase
         self.reason = reason
+        self.additional_info = additional_info
         self.runtime = -1.0
         self.runtime_testcase = None
         self.ac_runtime = -1.0
@@ -522,10 +523,13 @@ class TestCaseGroup(ProblemAspect):
         if judge_error:
             res.verdict = judge_error.verdict
             res.reason = judge_error.reason
+            res.additional_info = judge_error.additional_info
             res.testcase = judge_error.testcase
         else:
             (res.verdict, score) = self._problem.graders.grade(sub_results, self, shadow_result)
-            res.testcase = sub_results[-1].testcase if sub_results else None
+            if sub_results:
+                res.testcase = sub_results[-1].testcase
+                res.additional_info = sub_results[-1].additional_info
             if self._problem.is_scoring:
                 res.score = score
                 min_score, max_score = self.get_score_range()
@@ -1061,6 +1065,24 @@ class OutputValidators(ProblemAspect):
 
         return self._check_res
 
+    @staticmethod
+    def __get_feedback(feedback_dir):
+        all_feedback = []
+        for feedback_file in os.listdir(feedback_dir):
+            feedback_path = os.path.join(feedback_dir, feedback_file)
+            if os.path.getsize(feedback_path) == 0:
+                continue
+            all_feedback.append('=== %s: ===' % feedback_file)
+            # FIXME handle feedback files containing non-text
+            with open(feedback_path, 'r') as feedback:
+                # Cap amount of feedback per file at some high-ish
+                # size, so that a buggy validator spewing out lots of
+                # data doesn't kill us.
+                all_feedback.append(feedback.read(128*1024))
+        if all_feedback:
+            return '\n'.join(all_feedback)
+        return None
+    
 
     def _parse_validator_results(self, val, status, feedbackdir, testcase):
         custom_score = self._problem.config.get('grading')['custom_scoring']
@@ -1080,13 +1102,18 @@ class OutputValidators(ProblemAspect):
                 return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
         if not os.WIFEXITED(status):
-            return SubmissionResult('JE', reason='output validator %s crashed, status %d' % (val, status))
+            return SubmissionResult('JE',
+                                    reason='output validator %s crashed, status %d' % (val, status),
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
         ret = os.WEXITSTATUS(status)
         if ret not in [42, 43]:
-            return SubmissionResult('JE', reason='exit code %d for output validator %s' % (ret, val))
+            return SubmissionResult('JE',
+                                    reason='output validator %s exited with status %d' % (val, ret),
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
 
         if ret == 43:
-            return SubmissionResult('WA', score=score)
+            return SubmissionResult('WA', score=score,
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
         return SubmissionResult('AC', score=score)
 
 
@@ -1214,7 +1241,7 @@ class Submissions(ProblemAspect):
         elif result2.verdict == expected_verdict:
             self.msg('   %s OK with extra time: %s' % (desc, result2))
         else:
-            self.error('%s got %s' % (desc, result1))
+            self.error('%s got %s' % (desc, result1), result2.additional_info)
 
         return result1
 
@@ -1374,6 +1401,7 @@ def argparser():
 
 def default_args():
     return argparser().parse_args([None])
+
 
 
 def main():
