@@ -1388,15 +1388,30 @@ def part_argument(s):
 
 
 def argparser():
-    parser = ArgumentParser(description="Validate a problem package in the Kattis problem format.")
-    parser.add_argument("-s", "--submission_filter", metavar='SUBMISSIONS', help="run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. 'accepted/hello.java' (for a single file submission) or 'wrong_answer/hello' (for a directory submission)", type=re_argument, default=re.compile('.*'))
-    parser.add_argument("-d", "--data_filter", metavar='DATA', help="use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. 'sample/hello' for a sample data file", type=re_argument, default=re.compile('.*'))
-    parser.add_argument("-t", "--fixed_timelim", help="use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)", type=int)
-    parser.add_argument("-p", "--parts", help="only test the indicated parts of the problem.  Each PROBLEM_PART can be one of %s." % PROBLEM_PARTS, metavar='PROBLEM_PART', type=part_argument, nargs='+', default=PROBLEM_PARTS)
-    parser.add_argument("-b", "--bail_on_error", help="bail verification on first error", action='store_true')
-    parser.add_argument("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
-    parser.add_argument("-e", "--werror", help="consider warnings as errors", action='store_true')
-    parser.add_argument('--max_additional_info', type=int, default=15,
+    parser = ArgumentParser(description='Validate a problem package in the Kattis problem format.')
+    parser.add_argument('-s', '--submission_filter', metavar='SUBMISSIONS',
+                        type=re_argument, default=re.compile('.*'),
+                        help='run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. "accepted/hello.java" (for a single file submission) or "wrong_answer/hello" (for a directory submission)')
+    parser.add_argument('-d', '--data_filter', metavar='DATA',
+                        type=re_argument, default=re.compile('.*'),
+                        help='use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. "sample/hello" for a sample data file')
+    parser.add_argument('-t', '--fixed_timelim',
+                        type=int,
+                        help='use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)')
+    parser.add_argument('-p', '--parts', metavar='PROBLEM_PART',
+                        type=part_argument, nargs='+', default=PROBLEM_PARTS,
+                        help='only test the indicated parts of the problem.  Each PROBLEM_PART can be one of %s.' % PROBLEM_PARTS, )
+    parser.add_argument('-b', '--bail_on_error',
+                        action='store_true',
+                        help='bail verification on first error')
+    parser.add_argument('-l', '--log_level',
+                        default='warning',
+                        help='set log level (debug, info, warning, error, critical)')
+    parser.add_argument('-e', '--werror',
+                        action='store_true',
+                        help='consider warnings as errors')
+    parser.add_argument('--max_additional_info',
+                        type=int, default=15,
                         help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
     parser.add_argument('problemdir', nargs='+')
     return parser
@@ -1415,7 +1430,7 @@ def main():
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
-                        level=eval("logging." + args.loglevel.upper()))
+                        level=eval("logging." + args.log_level.upper()))
 
     total_errors = 0
     for problemdir in args.problemdir:
