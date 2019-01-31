@@ -77,6 +77,7 @@ class VerifyError(Exception):
 
 
 class ProblemAspect:
+    max_additional_info = 15
     errors = 0
     warnings = 0
     bail_on_error = False
@@ -84,13 +85,13 @@ class ProblemAspect:
 
     @staticmethod
     def __append_additional_info(msg, additional_info):
-        if additional_info is None:
+        if additional_info is None or ProblemAspect.max_additional_info <= 0:
             return msg
         lines = additional_info.rstrip().split('\n')
         if len(lines) == 1:
             return '%s (%s)' % (msg, lines[0])
-        if len(lines) > 15:
-            lines = lines[:15] + ['[.....truncated to 15 lines.....]']
+        if len(lines) > ProblemAspect.max_additional_info:
+            lines = lines[:ProblemAspect.max_additional_info] + ['[.....truncated to %d lines.....]' % ProblemAspect.max_additional_info]
         return '%s:\n%s' % (msg, '\n'.join(' '*8 + line for line in lines))
 
     def error(self, msg, additional_info=None):
@@ -1395,6 +1396,8 @@ def argparser():
     parser.add_argument("-b", "--bail_on_error", help="bail verification on first error", action='store_true')
     parser.add_argument("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
     parser.add_argument("-e", "--werror", help="consider warnings as errors", action='store_true')
+    parser.add_argument('--max_additional_info', type=int, default=15,
+                        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
     parser.add_argument('problemdir', nargs='+')
     return parser
 
@@ -1407,6 +1410,8 @@ def default_args():
 def main():
     args = argparser().parse_args()
 
+    ProblemAspect.max_additional_info = args.max_additional_info
+    
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
