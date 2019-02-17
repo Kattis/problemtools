@@ -1160,9 +1160,13 @@ class OutputValidators(ProblemAspect):
                         sub_status = int(sub_status)
                         sub_runtime = float(sub_runtime)
                         val_status = int(val_status)
-                        if first == 'validator' and os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43:
-                            # If the validator exited first with WA, always give WA, even if that
-                            # early exit caused the submission to behave erratically and time out.
+                        val_JE = not os.WIFEXITED(val_status) or os.WEXITSTATUS(val_status) not in [42, 43]
+                        val_WA = os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43
+                        if val_JE or (val_WA and first == 'validator'):
+                            # If the validator crashed, or exited first with WA,
+                            # always follow validator verdict, even if that early
+                            # exit caused the submission to behave erratically and
+                            # time out.
                             if sub_runtime > timelim:
                                 sub_runtime = timelim
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
