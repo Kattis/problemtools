@@ -83,6 +83,7 @@ setup(name='problemtools',
           'PyYAML',
           'plasTeX',
       ],
+      python_requires='<3',
 #      Temporarily disabled, see setup.cfg
 #      For now tests can be run manually with pytest
 #      setup_requires=['pytest-runner'],
