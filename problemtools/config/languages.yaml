@@ -218,6 +218,13 @@ ruby:
     compile: '/usr/bin/ruby -c "{mainfile}"'
     run: '/usr/bin/ruby "{mainfile}"'
 
+rust:
+    name: 'Rust'
+    priority: 575
+    files: '*.rs'
+    compile: '/usr/bin/rustc -o{binary} -O --crate-type bin {files}'
+    run: '{binary}'
+
 scala:
     name: 'Scala'
     priority: 550
