@@ -19,4 +19,7 @@ RUN apt-get update && \
             php-cli \
             swi-prolog \
             scala \
+            sbcl \
+            ocaml-nox \
+            rustc \
    ;
