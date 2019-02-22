@@ -1,3 +1,56 @@
+kattis-problemtools (1.20190222) bionic; urgency=medium
+
+  [ Per Austrin ]
+  * add a few problemtools Dockerfiles and update release scripts to build+push them
+  * update installation instructions to describe the new official Docker images, and upgrade Docker to second recommended method of running
+  * belated LICENSE update, happy new years
+  * add a config module for enabling more configurability of problemtools
+  * use the new config module to handle programming language config as well
+  * add some basic tests for the config module
+  * add documentation about the new problemtools configuration options
+  * fix old tests of languages module after introduction of separate config module
+
+  [ austrin ]
+  * Fix markdown formatting of docker command
+
+  [ Per Austrin ]
+  * fix python packaging after introduction of config module
+  * follow XDG base dir spec for config file locations
+  * clarify intended usage of problem.yaml configuration
+  * add support for code size limit from problem format spec
+
+  [ Tobias Werth ]
+  * Fix local installation path in README.
+
+  [ Greg Hamerly ]
+  * remove dead code checking for pdf_ok
+
+  [ Per Austrin ]
+  * problem2pdf: replace os.rename by shutil.move so that cross-filesystem moves work Fixes #107
+
+  [ Vaclav Blazej ]
+  * fix bash run scripts
+
+  [ Tobias Werth ]
+  * Add more submissions for the interactive example problem.
+
+  [ Per Austrin ]
+  * display output validator feedback on Judge Error and erroneous Wrong Answers
+  * add command line flag to give control over the cap on the number of additional info lines shown
+  * code formatting cleanup of argparser
+  * Happy new January
+  * if an interactive validator gives JE, always give JE even if the solution also TLE:d/RTE:d
+  * interactive runner: increase size of pipes to 1 MB (see #113)
+  * make setup.py not crash in Python 3 (related to #111)
+  * add a python_requires to setup.py to indicate that we don't support Python 3
+  * add support for Common Lisp
+  * add support for OCaml
+  * add support for Rust
+  * add example submissions for different in Lisp, OCaml and Rust
+  * add Lisp, OCaml and Rust to the languages installed in the 'problemtools/full' Docker image
+
+ -- Per Austrin <austrin@kattis.com>  Fri, 22 Feb 2019 21:53:51 +0100
+
 kattis-problemtools (1.20181111) bionic; urgency=medium
 
   [ Greg Hamerly ]
