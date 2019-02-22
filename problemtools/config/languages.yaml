@@ -157,6 +157,13 @@ lisp:
     compile: '/usr/bin/sbcl --noinform --noprint --non-interactive --eval ''(if (equal (compile-file "{mainfile}") NIL) (sb-ext:exit :code 43) ())'' '
     run: '/usr/bin/sbcl --noinform --non-interactive --load "{mainfile}"'
 
+ocaml:
+    name: 'OCaml'
+    priority: 375
+    files: '*.ml'
+    compile: '/usr/bin/ocamlopt -o {binary} unix.cmxa str.cmxa bigarray.cmxa {files}'
+    run: '{binary}'
+
 objectivec:
     name: 'Objective C'
     priority: 300
