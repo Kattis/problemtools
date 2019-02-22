@@ -16,9 +16,11 @@ import sys
 import copy
 import random
 from argparse import ArgumentParser, ArgumentTypeError
+
 import problem2pdf
 import problem2html
 
+import config
 import languages
 import run
 
@@ -33,11 +35,12 @@ def is_RTE(status):
     return not os.WIFEXITED(status) or os.WEXITSTATUS(status)
 
 class SubmissionResult:
-    def __init__(self, verdict, score=None, testcase=None, reason=None):
+    def __init__(self, verdict, score=None, testcase=None, reason=None, additional_info=None):
         self.verdict = verdict
         self.score = score
         self.testcase = testcase
         self.reason = reason
+        self.additional_info = additional_info
         self.runtime = -1.0
         self.runtime_testcase = None
         self.ac_runtime = -1.0
@@ -74,6 +77,7 @@ class VerifyError(Exception):
 
 
 class ProblemAspect:
+    max_additional_info = 15
     errors = 0
     warnings = 0
     bail_on_error = False
@@ -81,13 +85,13 @@ class ProblemAspect:
 
     @staticmethod
     def __append_additional_info(msg, additional_info):
-        if additional_info is None:
+        if additional_info is None or ProblemAspect.max_additional_info <= 0:
             return msg
         lines = additional_info.rstrip().split('\n')
         if len(lines) == 1:
             return '%s (%s)' % (msg, lines[0])
-        if len(lines) > 15:
-            lines = lines[:15] + ['[.....truncated to 15 lines.....]']
+        if len(lines) > ProblemAspect.max_additional_info:
+            lines = lines[:ProblemAspect.max_additional_info] + ['[.....truncated to %d lines.....]' % ProblemAspect.max_additional_info]
         return '%s:\n%s' % (msg, '\n'.join(' '*8 + line for line in lines))
 
     def error(self, msg, additional_info=None):
@@ -267,16 +271,7 @@ class TestCase(ProblemAspect):
 
 
 class TestCaseGroup(ProblemAspect):
-    _DEFAULT_CONFIG = {'grading': 'default',
-                       'grader_flags': '',
-                       'input_validator_flags': '',
-                       'output_validator_flags': '',
-                       'on_reject': 'break',
-                       'accept_score': 1.0,
-                       'reject_score': 0.0,
-                       'range': '-inf +inf'
-   }
-
+    _DEFAULT_CONFIG = config.load_config('testdata.yaml')
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
     def __init__(self, problem, datadir, parent=None):
@@ -529,10 +524,13 @@ class TestCaseGroup(ProblemAspect):
         if judge_error:
             res.verdict = judge_error.verdict
             res.reason = judge_error.reason
+            res.additional_info = judge_error.additional_info
             res.testcase = judge_error.testcase
         else:
             (res.verdict, score) = self._problem.graders.grade(sub_results, self, shadow_result)
-            res.testcase = sub_results[-1].testcase if sub_results else None
+            if sub_results:
+                res.testcase = sub_results[-1].testcase
+                res.additional_info = sub_results[-1].additional_info
             if self._problem.is_scoring:
                 res.score = score
                 min_score, max_score = self.get_score_range()
@@ -554,32 +552,7 @@ class TestCaseGroup(ProblemAspect):
 
 class ProblemConfig(ProblemAspect):
     _MANDATORY_CONFIG = ['name']
-    _OPTIONAL_CONFIG = {
-        'uuid': '',
-        'type': 'pass-fail',
-        'author': '',
-        'source': '',
-        'source_url': '',
-        'license': 'unknown',
-        'rights_owner': '',
-        'keywords': '',
-        'limits': {'time_multiplier': 5,
-                   'time_safety_margin': 2,
-                   'memory': 1024,
-                   'output': 8,
-                   'compilation_time': 60,
-                   'validation_time': 60,
-                   'validation_memory': 1024,
-                   'validation_output': 8},
-        'validation': 'default',
-        'validator_flags': '',
-        'grading': {
-            'objective': 'max',
-            'show_test_data_groups': False,
-        },
-        'libraries': '',
-        'languages': ''
-    }
+    _OPTIONAL_CONFIG = config.load_config('problem.yaml')
     _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
 
     def __init__(self, problem):
@@ -756,7 +729,6 @@ class ProblemStatement(ProblemAspect):
         for lang in self.languages:
             pdfopt.language = lang
             htmlopt.language = lang
-            pdf_ok = True
             try:
                 if not problem2pdf.convert(self._problem.probdir, pdfopt):
                     langparam = ''
@@ -765,8 +737,6 @@ class ProblemStatement(ProblemAspect):
                     self.error('Could not compile problem statement for language "%s".  Run problem2pdf %s on the problem to diagnose.' % (lang, langparam))
             except Exception as e:
                 self.error('Error raised when checking problem statement for language %s:\n%s' % (lang, e))
-            if not pdf_ok:
-                continue
             try:
                 problem2html.convert(self._problem.probdir, htmlopt)
             except Exception as e:
@@ -1096,6 +1066,24 @@ class OutputValidators(ProblemAspect):
 
         return self._check_res
 
+    @staticmethod
+    def __get_feedback(feedback_dir):
+        all_feedback = []
+        for feedback_file in os.listdir(feedback_dir):
+            feedback_path = os.path.join(feedback_dir, feedback_file)
+            if os.path.getsize(feedback_path) == 0:
+                continue
+            all_feedback.append('=== %s: ===' % feedback_file)
+            # FIXME handle feedback files containing non-text
+            with open(feedback_path, 'r') as feedback:
+                # Cap amount of feedback per file at some high-ish
+                # size, so that a buggy validator spewing out lots of
+                # data doesn't kill us.
+                all_feedback.append(feedback.read(128*1024))
+        if all_feedback:
+            return '\n'.join(all_feedback)
+        return None
+    
 
     def _parse_validator_results(self, val, status, feedbackdir, testcase):
         custom_score = self._problem.config.get('grading')['custom_scoring']
@@ -1115,13 +1103,18 @@ class OutputValidators(ProblemAspect):
                 return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
         if not os.WIFEXITED(status):
-            return SubmissionResult('JE', reason='output validator %s crashed, status %d' % (val, status))
+            return SubmissionResult('JE',
+                                    reason='output validator %s crashed, status %d' % (val, status),
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
         ret = os.WEXITSTATUS(status)
         if ret not in [42, 43]:
-            return SubmissionResult('JE', reason='exit code %d for output validator %s' % (ret, val))
+            return SubmissionResult('JE',
+                                    reason='output validator %s exited with status %d' % (val, ret),
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
 
         if ret == 43:
-            return SubmissionResult('WA', score=score)
+            return SubmissionResult('WA', score=score,
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
         return SubmissionResult('AC', score=score)
 
 
@@ -1167,9 +1160,13 @@ class OutputValidators(ProblemAspect):
                         sub_status = int(sub_status)
                         sub_runtime = float(sub_runtime)
                         val_status = int(val_status)
-                        if first == 'validator' and os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43:
-                            # If the validator exited first with WA, always give WA, even if that
-                            # early exit caused the submission to behave erratically and time out.
+                        val_JE = not os.WIFEXITED(val_status) or os.WEXITSTATUS(val_status) not in [42, 43]
+                        val_WA = os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43
+                        if val_JE or (val_WA and first == 'validator'):
+                            # If the validator crashed, or exited first with WA,
+                            # always follow validator verdict, even if that early
+                            # exit caused the submission to behave erratically and
+                            # time out.
                             if sub_runtime > timelim:
                                 sub_runtime = timelim
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
@@ -1249,7 +1246,7 @@ class Submissions(ProblemAspect):
         elif result2.verdict == expected_verdict:
             self.msg('   %s OK with extra time: %s' % (desc, result2))
         else:
-            self.error('%s got %s' % (desc, result1))
+            self.error('%s got %s' % (desc, result1), result2.additional_info)
 
         return result1
 
@@ -1258,13 +1255,15 @@ class Submissions(ProblemAspect):
             return self._check_res
         self._check_res = True
 
+        limits = self._problem.config.get('limits')
+
         timelim_margin = 300  # 5 minutes
         timelim = 300
-        if 'time_for_AC_submissions' in self._problem.config.get('limits'):
-            timelim = timelim_margin = self._problem.config.get('limits')['time_for_AC_submissions']
+        if 'time_for_AC_submissions' in limits:
+            timelim = timelim_margin = limits['time_for_AC_submissions']
         if args.fixed_timelim is not None:
             timelim = args.fixed_timelim
-            timelim_margin = timelim * self._problem.config.get('limits')['time_safety_margin']
+            timelim_margin = timelim * limits['time_safety_margin']
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -1277,6 +1276,11 @@ class Submissions(ProblemAspect):
                 if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
                     self.info('Check %s submission %s' % (acr, sub))
 
+                    if sub.code_size() > 1024*limits['code']:
+                        self.error('%s submission %s has size %.1f kiB, exceeds code size limit of %d kiB' %
+                                   (acr, sub, sub.code_size() / 1024.0, limits['code']))
+                        continue
+
                     (success, msg) = sub.compile()
                     if not success:
                         self.error('Compile error for %s submission %s' % (acr, sub), msg)
@@ -1288,20 +1292,20 @@ class Submissions(ProblemAspect):
             if acr == 'AC':
                 if len(runtimes) > 0:
                     max_runtime = max(runtimes)
-                    exact_timelim = max_runtime * self._problem.config.get('limits')['time_multiplier']
+                    exact_timelim = max_runtime * limits['time_multiplier']
                     max_runtime = '%.3f' % max_runtime
                     timelim = max(1, int(0.5 + exact_timelim))
                     timelim_margin = max(timelim + 1,
-                                         int(0.5 + exact_timelim * self._problem.config.get('limits')['time_safety_margin']))
+                                         int(0.5 + exact_timelim * limits['time_safety_margin']))
                 else:
                     max_runtime = None
                 if args.fixed_timelim is not None and args.fixed_timelim != timelim:
                     self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
                     timelim = args.fixed_timelim
-                    timelim_margin = timelim * self._problem.config.get('limits')['time_safety_margin']
+                    timelim_margin = timelim * limits['time_safety_margin']
 
                 self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
-            self._problem.config.get('limits')['time'] = timelim
+            limits['time'] = timelim
 
         return self._check_res
 
@@ -1312,7 +1316,7 @@ class Problem(ProblemAspect):
     def __init__(self, probdir):
         self.probdir = os.path.realpath(probdir)
         self.shortname = os.path.basename(self.probdir)
-        self.language_config = languages.load_language_config_default_paths()
+        self.language_config = languages.load_language_config()
 
     def __enter__(self):
         self.tmpdir = tempfile.mkdtemp(prefix='verify-%s-'%self.shortname)
@@ -1388,14 +1392,31 @@ def part_argument(s):
 
 
 def argparser():
-    parser = ArgumentParser(description="Validate a problem package in the Kattis problem format.")
-    parser.add_argument("-s", "--submission_filter", metavar='SUBMISSIONS', help="run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. 'accepted/hello.java' (for a single file submission) or 'wrong_answer/hello' (for a directory submission)", type=re_argument, default=re.compile('.*'))
-    parser.add_argument("-d", "--data_filter", metavar='DATA', help="use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. 'sample/hello' for a sample data file", type=re_argument, default=re.compile('.*'))
-    parser.add_argument("-t", "--fixed_timelim", help="use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)", type=int)
-    parser.add_argument("-p", "--parts", help="only test the indicated parts of the problem.  Each PROBLEM_PART can be one of %s." % PROBLEM_PARTS, metavar='PROBLEM_PART', type=part_argument, nargs='+', default=PROBLEM_PARTS)
-    parser.add_argument("-b", "--bail_on_error", help="bail verification on first error", action='store_true')
-    parser.add_argument("-l", "--log-level", dest="loglevel", help="set log level (debug, info, warning, error, critical)", default="warning")
-    parser.add_argument("-e", "--werror", help="consider warnings as errors", action='store_true')
+    parser = ArgumentParser(description='Validate a problem package in the Kattis problem format.')
+    parser.add_argument('-s', '--submission_filter', metavar='SUBMISSIONS',
+                        type=re_argument, default=re.compile('.*'),
+                        help='run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. "accepted/hello.java" (for a single file submission) or "wrong_answer/hello" (for a directory submission)')
+    parser.add_argument('-d', '--data_filter', metavar='DATA',
+                        type=re_argument, default=re.compile('.*'),
+                        help='use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. "sample/hello" for a sample data file')
+    parser.add_argument('-t', '--fixed_timelim',
+                        type=int,
+                        help='use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)')
+    parser.add_argument('-p', '--parts', metavar='PROBLEM_PART',
+                        type=part_argument, nargs='+', default=PROBLEM_PARTS,
+                        help='only test the indicated parts of the problem.  Each PROBLEM_PART can be one of %s.' % PROBLEM_PARTS, )
+    parser.add_argument('-b', '--bail_on_error',
+                        action='store_true',
+                        help='bail verification on first error')
+    parser.add_argument('-l', '--log_level',
+                        default='warning',
+                        help='set log level (debug, info, warning, error, critical)')
+    parser.add_argument('-e', '--werror',
+                        action='store_true',
+                        help='consider warnings as errors')
+    parser.add_argument('--max_additional_info',
+                        type=int, default=15,
+                        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
     parser.add_argument('problemdir', nargs='+')
     return parser
 
@@ -1404,13 +1425,16 @@ def default_args():
     return argparser().parse_args([None])
 
 
+
 def main():
     args = argparser().parse_args()
 
+    ProblemAspect.max_additional_info = args.max_additional_info
+    
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
-                        level=eval("logging." + args.loglevel.upper()))
+                        level=eval("logging." + args.log_level.upper()))
 
     total_errors = 0
     for problemdir in args.problemdir:

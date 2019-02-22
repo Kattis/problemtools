@@ -1,0 +1,4 @@
+prop2: 23
+prop3:
+  - hello
+  - world

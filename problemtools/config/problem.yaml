@@ -1,0 +1,30 @@
+type: pass-fail
+author: ''
+source: ''
+source_url: ''
+license: unknown
+rights_owner: ''
+
+validation: default
+validator_flags: ''
+
+limits:
+   time_multiplier: 5
+   time_safety_margin: 2
+   memory: 1024
+   output: 8
+   code: 128
+   compilation_time: 60
+   validation_time: 60
+   validation_memory: 1024
+   validation_output: 8
+
+keywords: ''
+
+grading:
+   objective: max
+   show_test_data_groups: False
+
+# These are in the spec but currently unsupported
+libraries: ''
+languages: ''

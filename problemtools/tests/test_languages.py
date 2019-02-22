@@ -202,38 +202,72 @@ class Languages_test(TestCase):
             ['foo.cpp', 'foo.c', 'foo.py','foo.java']) is None
 
 
-    def test_empty_file(self):
-        lang = languages.Languages()
-        lang.update(examples_path('emptyfile.yaml'))
-        assert lang.languages == {}
-
-
     def test_duplicate_prio(self):
         lang = languages.Languages()
+        config = {'c': {'name': "C",
+                        'priority': 42,
+                        'files': "*.c",
+                        'compile': "/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm",
+                        'run': "{binary}"},
+                  'cpp': {'name': "C++",
+                          'priority': 42,
+                          'files': "*.cc *.C *.cpp *.cxx *.c++",
+                          'compile': "/usr/bin/g++ -g -O2 -std=gnu++11 -static -o {binary} {files}",
+                          'run': "{binary}"}}
+
         with pytest.raises(languages.LanguageConfigError):
-            lang.update(examples_path('duplicate_prios.yaml'))
+            lang.update(config)
 
 
     def test_invalid_format(self):
         lang = languages.Languages()
+        # Dict of strings instead of dict of dict
+        conf1 = {'c': 'C'}
+        # List instead of dict
+        conf2 = [{'name': "C",
+                  'priority': 1,
+                  'files': "*.c",
+                  'compile': "/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm",
+                  'run': "{binary}"},
+                 {'name': "C++",
+                  'priority': 2,
+                  'files': "*.cc *.C *.cpp *.cxx *.c++",
+                  'compile': "/usr/bin/g++ -g -O2 -std=gnu++11 -static -o {binary} {files}",
+                  'run': "{binary}"}]
+        conf3 = None
         with pytest.raises(languages.LanguageConfigError):
-            lang.update(examples_path('invalid_format1.yaml'))
+            lang.update(conf1)
         with pytest.raises(languages.LanguageConfigError):
-            lang.update(examples_path('invalid_format2.yaml'))
+            lang.update(conf2)
         with pytest.raises(languages.LanguageConfigError):
-            lang.update(examples_path('invalid_format3.yaml'))
+            lang.update(conf3)
 
 
-    def test_load(self):
-        lang = languages.load_language_config(['NONEXISTENT_FILE',
-                                               examples_path('empty.yaml'),
-                                               'NONEXISTENT_FILE2'])
+    def test_empty(self):
+        lang = languages.Languages()
+        lang.update({})
         assert lang.languages == {}
 
 
     def test_zoo(self):
         langs = languages.Languages()
-        langs.update(examples_path('zoo.yaml'))
+
+        zoo = {'zoo': {'name': "Zoo",
+                       'priority': 10,
+                       'files': "*.zoo",
+                       'run': "{binary}"},
+               'zoork': {'name': "Zoork",
+                         'priority': 20,
+                         'files': "*.zoo",
+                         'shebang': ">.*Zoork",
+                         'run': "{binary}"},
+               'zoopp': {'name': "Zoo++",
+                         'priority': 0,
+                         'files': "*.zoo *.zpp",
+                         'run': "{binary}"}
+               }
+
+        langs.update(zoo)
 
         lang = langs.detect_language(map(lambda x: examples_path(x),
                                          ['src1.zoo']))

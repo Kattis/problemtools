@@ -77,8 +77,11 @@ class SourceCode(Program):
         self.binary = os.path.join(self.path, 'run')
 
 
-    _compile_result = None
+    def code_size(self):
+        return sum(os.path.getsize(x) for x in self.src)
 
+
+    _compile_result = None
 
     def compile(self):
         """Compile the source code.
@@ -136,7 +139,7 @@ class SourceCode(Program):
 
     def should_skip_memory_rlimit(self):
         """Ugly hack (see program.py for details)."""
-        return self.language.name in ['Java', 'Scala', 'Kotlin']
+        return self.language.name in ['Java', 'Scala', 'Kotlin', 'Common Lisp']
 
 
     def __str__(self):

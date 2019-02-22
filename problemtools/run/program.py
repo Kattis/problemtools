@@ -59,6 +59,8 @@ class Program(object):
         be) a Java program need to override this method and return
         True (which will cause the memory rlimit to not be applied).
 
+        2019-02-22: Turns out sbcl for Common Lisp also wants to roam
+        free and becomes sad when reined in by a memory rlimit.
         """
         return False
 

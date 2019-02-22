@@ -51,7 +51,7 @@ def get_version():
     __version__ = None
     try:
         update_script = os.path.join(base_dir, 'admin', 'update_version.py.sh')
-        __version__ = subprocess.check_output([update_script])
+        __version__ = subprocess.check_output([update_script]).decode('utf-8').strip()
     except:
         pass
 
@@ -83,6 +83,7 @@ setup(name='problemtools',
           'PyYAML',
           'plasTeX',
       ],
+      python_requires='<3',
 #      Temporarily disabled, see setup.cfg
 #      For now tests can be run manually with pytest
 #      setup_requires=['pytest-runner'],

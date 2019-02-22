@@ -150,6 +150,20 @@ kotlin:
     compile: '/usr/bin/kotlinc -d {path}/ -- {files}'
     run: '/usr/bin/kotlin -Dfile.encoding=UTF-8 -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {Mainclass}Kt'
 
+lisp:
+    name: 'Common Lisp'
+    priority: 200
+    files: '*.lisp *.cl'
+    compile: '/usr/bin/sbcl --noinform --noprint --non-interactive --eval ''(if (equal (compile-file "{mainfile}") NIL) (sb-ext:exit :code 43) ())'' '
+    run: '/usr/bin/sbcl --noinform --non-interactive --load "{mainfile}"'
+
+ocaml:
+    name: 'OCaml'
+    priority: 375
+    files: '*.ml'
+    compile: '/usr/bin/ocamlopt -o {binary} unix.cmxa str.cmxa bigarray.cmxa {files}'
+    run: '{binary}'
+
 objectivec:
     name: 'Objective C'
     priority: 300
@@ -203,6 +217,13 @@ ruby:
     # syntax-check multiple files.
     compile: '/usr/bin/ruby -c "{mainfile}"'
     run: '/usr/bin/ruby "{mainfile}"'
+
+rust:
+    name: 'Rust'
+    priority: 575
+    files: '*.rs'
+    compile: '/usr/bin/rustc -o{binary} -O --crate-type bin {files}'
+    run: '{binary}'
 
 scala:
     name: 'Scala'
