@@ -150,6 +150,13 @@ kotlin:
     compile: '/usr/bin/kotlinc -d {path}/ -- {files}'
     run: '/usr/bin/kotlin -Dfile.encoding=UTF-8 -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {Mainclass}Kt'
 
+lisp:
+    name: 'Common Lisp'
+    priority: 200
+    files: '*.lisp *.cl'
+    compile: '/usr/bin/sbcl --noinform --noprint --non-interactive --eval ''(if (equal (compile-file "{mainfile}") NIL) (sb-ext:exit :code 43) ())'' '
+    run: '/usr/bin/sbcl --noinform --non-interactive --load "{mainfile}"'
+
 objectivec:
     name: 'Objective C'
     priority: 300
