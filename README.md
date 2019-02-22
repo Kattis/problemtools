@@ -147,12 +147,8 @@ now be ready to use.
 
 ## Configuration
 
-(**NOTE**: this feature so far only exists on the `develop` branch and
-not in any release, and therefore does not yet exist in the
-problemtools Docker images.)
-
 System-wide problemtools configuration files are placed in
-`/etc/problemtools/`, and user-specific configuration files are placed
+`/etc/kattis/problemtools/`, and user-specific configuration files are placed
 in `$HOME/.config/problemtools/` (or in `$XDG_CONFIG_HOME` if this is defined).  The following files can be used to change
 problemtools' configuration:
 
@@ -162,7 +158,7 @@ problemtools' configuration:
    interpreter for Python 2, many contests, as well as the Kattis
    online judge, use Pypy as the interpreter for Python 2.  To change
    this on your machine, you can simply place a file
-   `/etc/problemtools/languages.yaml` (or
+   `/etc/kattis/problemtools/languages.yaml` (or
    `~/.config/problemtools/languages.yaml` if you only want to make the
    change for your user) containing the following:
 

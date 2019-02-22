@@ -29,9 +29,14 @@ RUN ln -s /usr/local/kotlinc/bin/* bin/
 # Reconfigure problemtools:
 # - Use PyPy for Python 2
 # - Use /usr/local/bin rather than /usr/bin for Kotlin
-RUN sed -i -E "s/Python 2/Python 2 w\/PyPy/g" /usr/lib/python2.7/dist-packages/problemtools/languages.yaml
-RUN sed -i -E "s/(run.*)python2/\1pypy/g" /usr/lib/python2.7/dist-packages/problemtools/languages.yaml
-RUN sed -i -E "s/\/usr\/bin\/kotlinc/\/usr\/local\/bin\/kotlinc/g" /usr/lib/python2.7/dist-packages/problemtools/languages.yaml
-RUN sed -i -E "s/\/usr\/bin\/kotlin/\/usr\/local\/bin\/kotlin/g" /usr/lib/python2.7/dist-packages/problemtools/languages.yaml
+RUN mkdir -p /etc/kattis/problemtools
+RUN echo " \n\
+python2: \n\
+    name: 'Python 2 w/PyPy'\n\
+    run: '/usr/bin/pypy \"{mainfile}\"'\n\
+ \n\
+kotlin: \n\
+    compile: '/usr/local/bin/kotlinc -d {path}/ -- {files}' \n\
+    run: '/usr/local/bin/kotlin -Dfile.encoding=UTF-8 -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {Mainclass}Kt' " > /etc/kattis/problemtools/languages.yaml
 
 WORKDIR /
