@@ -13,6 +13,8 @@
 
 #define NOFD -1
 
+const int PIPE_SIZE = 1<<20; // 1 MiB (the default max value for an unprivileged user)
+
 int report_fd, walltimelimit;
 
 volatile bool validator_first = false;
@@ -79,7 +81,6 @@ void walltime_handler(int) {
 void set_cloexec(int fd, int cloexec) {
 	int flags;
 
-	/* Clear the FD_CLOEXEC flag on stdin */
 	flags = fcntl(fd, F_GETFD, 0);
 	if(flags < 0) {
 		perror("fcntl failed");
@@ -178,28 +179,26 @@ int execute(char **args, int fdin, int fdout) {
 
 /* makepipe
  *
- * Creates a pipe and assigns the filedescriptors to fd[0] and fd[1] and then
- * sets close-on-exec on both ends of the pipe.
+ * Creates a pipe and assigns the filedescriptors to fd[0] and fd[1].
+ * Sets close-on-exec on both ends of the pipe, and attempts to adjust
+ * the size of the pipes to the PIPE_SIZE constant defined at the top
+ * of this file.
  *
- * NB: will exit() on failure.
+ * NB: will exit() on failure to create the pipe.  (But will ignore
+ * failure to set the pipe size and just print a warning on stderr
+ * about it.)
  */
 
 void makepipe(int fd[2]) {
 	int i;
 
-	if(pipe(fd)) {
+	if(pipe2(fd, O_CLOEXEC)) {
 		perror("pipe failed");
 		exit(EXIT_FAILURE);
 	}
 
-	/*
-	 * It's extremely unlikely by now, but just in case someone is crazy enough
-	 * to extend GET_FD and SET_FD with more flags it's good to handle it. A bit
-	 * more sloppy would be to just do F_SETFD with FD_CLOEXEC but that could
-	 * potentially clear some new flag.
-	 */
-	for(i = 0; i < 2; i++) {
-		set_cloexec(fd[i], 1);
+	if (fcntl(fd[0], F_SETPIPE_SZ, PIPE_SIZE) == -1) {
+		perror("failed to set pipe size");
 	}
 }
 
