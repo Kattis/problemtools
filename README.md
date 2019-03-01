@@ -131,11 +131,10 @@ build the package.  It will be found as kattis-problemtools_X.Y.deb in
 the directory containing problemtools (i.e., one level up from the
 root of the repository).
 
-To see which packages are required in order to be able to do this, see
-the "Build-Depends" line of the file debian/control. *Note that the
-dependencies needed to build the Debian package are not the same as
-the depencies listed below, which are the dependencies for __running__
-problemtools.*
+Apart from the build dependencies listed [below](#ubuntu), building
+the Debian package requires that the following tools are installed:
+
+    debhelper dh-python dpkg-dev
 
 The package can then be installed using (replace `<version>` as appropriate):
 
@@ -202,9 +201,13 @@ and a LaTeX installation.
 
 ### Ubuntu
 
-In Ubuntu, the precise dependencies are as follows:
+The dependencies needed to *build/install* problemtools can be installed with:
 
-    libboost-regex1.54.0, libc6 (>= 2.14), libgcc1 (>= 1:4.1.1), automake, libgmp-dev, libgmp10, libgmpxx4ldbl, libstdc++6 (>= 4.4.0), python (>= 2.7), python (<< 2.8), python:any (>= 2.7.1-0ubuntu2), python-yaml, python-plastex, texlive-latex-recommended, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript
+    sudo apt install automake g++ make libboost-regex-dev libgmp-dev libgmp10 libgmpxx4ldbl python python-pytest python-setuptools python-yaml
+
+And the dependencies needed to *run* problemtools can be installed with:
+
+    sudo apt install ghostscript libgmpxx4ldbl python-minimal python-pkg-resources python-plastex python-yaml texlive-fonts-recommended texlive-generic-recommended texlive-lang-cyrillic texlive-latex-extra texlive-latex-recommended tidy
 
 ### Fedora
 
