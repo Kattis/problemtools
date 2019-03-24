@@ -51,6 +51,7 @@
 \RequirePackage[normalem]{ulem}   % \sout
 \RequirePackage[colorlinks=true,implicit=false]{hyperref}
 \ifplastex\else
+\RequirePackage{xstring}
 \RequirePackage{pgffor}
 \fi
 
@@ -169,7 +170,10 @@
   \foreach \SampleNum in {1,...,9} {
     \IfFileExists{\@problemid/data/sample/\SampleNum.in}{
       \displaysample{\@problemid/data/sample/\SampleNum}
-    }
+    }{}
+    \IfFileExists{\@problemid/data/sample/\SampleNum.interaction}{
+      \displaysampleinteraction{\@problemid/data/sample/\SampleNum}
+    }{}
   }
   \fi
   \fi
@@ -192,6 +196,7 @@
   #1\ifdim#1in=1in second \else seconds \fi
 }
 
+\newread\ps@timelimitfile
 \newcommand{\problemheader}[2]{
   \begin{center}
     \textsf{
@@ -199,10 +204,10 @@
       {\LARGE #1}
       \if@problemids {\\[2mm]{\Large Problem ID: #2}} \fi
       \IfFileExists{#2/.timelimit}{
-        \newread\ps@timelimitfile
         \openin\ps@timelimitfile=#2/.timelimit
         \read\ps@timelimitfile to\ps@timelimit
         \\[2mm]{\Large Time limit:\ps@formattime{\ps@timelimit}}
+        \closein\ps@timelimitfile
       }{}
       \\[5mm]
     }
@@ -216,6 +221,11 @@
 
 \newcommand{\sampleinputname}{Sample Input}
 \newcommand{\sampleoutputname}{Sample Output}
+\newcommand{\sampleinteractname}{Sample Interaction}
+\newcommand{\sampleinteractreadname}{Read}
+\newcommand{\sampleinteractwritename}{Write}
+
+\newcommand{\formatsampleheader}[1]{\textsf{\textbf{#1}}}
 
 %% Sample counter
 \newcounter{samplenum}
@@ -224,7 +234,16 @@
 %% Define the command used to give sample data
 %% Takes filename as parameter
 \newcommand{\includesample}[1]{
-  \displaysample{\@problemid/data/sample/#1}
+  \IfFileExists{\@problemid/data/sample/#1.in}{
+    \displaysample{\@problemid/data/sample/#1}
+  }{
+    \IfFileExists{\@problemid/data/sample/#1.interaction}{
+      \displaysampleinteraction{\@problemid/data/sample/#1}
+    }{
+      \ClassError{problemset}{Can't find any sample named #1}{}
+    }
+  }
+    
 }
 
 \newcommand{\displaysample}[1]{
@@ -235,6 +254,16 @@
   \sampletable
       {\sampleinputname{} \if@samplenumbers\sampleid\fi}{#1.in}
       {\sampleoutputname{} \if@samplenumbers\sampleid\fi}{#1.ans}
+}
+
+\newcommand{\displaysampleinteraction}[1]{
+  \IfFileExists{#1.interaction}{}{\ClassError{problemset}{Can't find file '#1.interaction'}{}}
+  \refstepcounter{samplenum}
+  \vspace{0.4cm}
+  \sampletableinteractive{\sampleinteractname{} \if@samplenumbers\sampleid\fi}
+                         {\sampleinteractreadname}
+                         {\sampleinteractwritename}
+                         {#1.interaction}
 }
 
 \newlength{\PS@sampleidealwidth}
@@ -258,7 +287,7 @@
     \par
     \noindent
     \begin{tabular}{|l|}
-      \multicolumn{1}{l}{\textsf{\textbf{#1}}}\\
+      \multicolumn{1}{l}{\formatsampleheader{#1}}\\
       \hline
       \parbox[t]{0.968\textwidth}{\vspace{-0.3cm}\usebox{\PS@sampleinbox}}\\
       \hline
@@ -267,7 +296,7 @@
     \vspace{0.25cm}
     \noindent
     \begin{tabular}{|l|}
-      \multicolumn{1}{l}{\textsf{\textbf{#3}}}\\
+      \multicolumn{1}{l}{\formatsampleheader{#3}}\\
       \hline
       \parbox[t]{0.968\textwidth}{\vspace{-0.3cm}\usebox{\PS@sampleoutbox}}\\
       \hline
@@ -289,8 +318,8 @@
     \par
     \noindent
     \begin{tabular}{|l|l|}
-      \multicolumn{1}{l}{\textsf{\textbf{#1}}} &
-      \multicolumn{1}{l}{\textsf{\textbf{#3}}} \\
+      \multicolumn{1}{l}{\formatsampleheader{#1}} &
+      \multicolumn{1}{l}{\formatsampleheader{#3}} \\
       \hline
       \parbox[t]{\PS@sampleinwidth}{\vspace{-0.3cm}\usebox{\PS@sampleinbox}}
       &
@@ -301,6 +330,60 @@
   \fi
   \par
 }
+
+\newread\ps@sampleinteraction
+\newwrite\ps@sampleinteractionmsg
+\newcommand{\sampletableinteractive}[4]{
+  \noindent
+  \begin{tabular}{p{0.306\textwidth}p{0.306\textwidth}p{0.306\textwidth}}
+    \formatsampleheader{#2} \hfill &
+    \centering\formatsampleheader{#1} &
+    \hfill \formatsampleheader{#3} \\
+  \end{tabular}
+  \begingroup
+  \openin\ps@sampleinteraction=#4
+  \def\curmode{x}
+  \def\showmessage{
+    \if x\curmode\else
+      \immediate\closeout\ps@sampleinteractionmsg
+      \vspace{-\parskip}
+      \vspace{0.05cm}
+      \par\noindent
+      \if w\curmode\hfill\fi    
+      \begin{tabular}{|l|}
+        \hline
+        \parbox[t]{0.55\textwidth}{
+          \vspace{-0.49cm}
+          \lstinputlisting[inputencoding=utf8/latin1,basicstyle=\ttfamily]{#4.pstmp}
+          \vspace{-0.21cm}
+        }\\
+        \hline
+      \end{tabular}
+      \par
+    \fi
+  }
+  \@whilesw\unless\ifeof\ps@sampleinteraction\fi{
+    \endlinechar=-1
+    \readline\ps@sampleinteraction to\ps@interactionline
+    \endlinechar=13
+    \def\mode{x}
+    \IfBeginWith{\ps@interactionline}{>}{\def\mode{w}}{}
+    \IfBeginWith{\ps@interactionline}{<}{\def\mode{r}}{}
+    \if x\mode\else
+      \if \mode\curmode\else
+        \showmessage
+        \immediate\openout\ps@sampleinteractionmsg=#4.pstmp
+        \edef\curmode{\mode}
+      \fi
+      \StrGobbleLeft{\ps@interactionline}{1}[\ps@interactionline]
+      \immediate\write\ps@sampleinteractionmsg{\ps@interactionline}
+    \fi
+  }
+  \showmessage
+  \closein\ps@sampleinteraction
+  \endgroup
+}
+
 
 % Remaining part of file is headers and toc, not tested with plasTeX
 % and should not be used in plastex mode
