@@ -72,7 +72,10 @@ class Template:
 
         self.basedir = os.path.dirname(problemdir)
         self.shortname = os.path.basename(problemdir)
-        self.samples = [os.path.splitext(os.path.basename(f))[0] for f in sorted(glob.glob(os.path.join(problemdir, 'data', 'sample', '*.in')))]
+        sample_dir = os.path.join(problemdir, 'data', 'sample')
+        self.samples = sorted(set([os.path.splitext(os.path.basename(f))[0]
+                                   for f in (glob.glob(os.path.join(sample_dir, '*.in')) +
+                                             glob.glob(os.path.join(sample_dir, '*.interaction')))]))
         self.problemset_cls = os.path.join(self.basedir, 'problemset.cls')
 
         self.copy_cls = True
