@@ -79,7 +79,11 @@ class Template:
 
         basedir = os.path.dirname(problemdir)
         shortname = os.path.basename(problemdir)
-        samples = [os.path.splitext(os.path.basename(f))[0] for f in sorted(glob.glob(os.path.join(problemdir, 'data', 'sample', '*.in')))]
+        sample_dir = os.path.join(problemdir, 'data', 'sample')
+        samples = ([os.path.splitext(os.path.basename(f))[0]
+                    for f in sorted(glob.glob(os.path.join(sample_dir, '*.in')))] +
+                   [os.path.splitext(os.path.basename(f))[0]
+                    for f in sorted(glob.glob(os.path.join(sample_dir, '*.interaction')))])
         self.problemset_cls = os.path.join(basedir, 'problemset.cls')
 
         if os.path.isfile(self.problemset_cls) and not force_copy_cls:
