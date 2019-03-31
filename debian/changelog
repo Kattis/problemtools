@@ -1,3 +1,20 @@
+kattis-problemtools (1.20190331) bionic; urgency=medium
+
+  [ Per Austrin ]
+  * update docker scripts and docs about config
+  * Use active MathJax CDN in default HTML template. Fixes #117
+
+  [ austrin ]
+  * Update documentation on dependencies in README.md
+
+  [ Per Austrin ]
+  * bugfix to document class: number subfigure references correctly
+
+  [ Simon Lindholm ]
+  * Fix SIGPIPE-related race for interactive problems
+
+ -- Per Austrin <austrin@kattis.com>  Sun, 31 Mar 2019 14:25:09 +0100
+
 kattis-problemtools (1.20190222) bionic; urgency=medium
 
   [ Per Austrin ]
