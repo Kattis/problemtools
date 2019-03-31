@@ -32,4 +32,4 @@ git commit -m "Release of version $VERSION: bump version in problemtools/_versio
 git flow release finish --showcommands --message "Release $VERSION" $VERSION
 
 echo "After pushing changes to GitHub, please run"
-echo "  $ROOT/admin/update_docker.sh $VERSION"
+echo "  $ROOT/admin/update_docker.sh v$VERSION"

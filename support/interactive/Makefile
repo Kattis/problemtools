@@ -5,4 +5,4 @@ clean:
 	rm -f $(PROGRAM)
 
 %: %.cc
-	g++ -O3 -o $@ $<
+	g++ -O3 -Wall -o $@ $<

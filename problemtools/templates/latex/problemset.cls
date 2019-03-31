@@ -151,6 +151,7 @@
 \ifplastex\else
 \if@problemnumbers
 \renewcommand{\thefigure}{\problemnumber.\arabic{figure}}
+\let\p@subfigure=\thefigure
 \fi
 \fi
 

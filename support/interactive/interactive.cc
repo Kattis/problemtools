@@ -13,6 +13,7 @@
 
 #define NOFD -1
 
+const int EXITCODE_AC = 42;
 const int PIPE_SIZE = 1<<20; // 1 MiB (the default max value for an unprivileged user)
 
 int report_fd, walltimelimit;
@@ -190,8 +191,6 @@ int execute(char **args, int fdin, int fdout) {
  */
 
 void makepipe(int fd[2]) {
-	int i;
-
 	if(pipe2(fd, O_CLOEXEC)) {
 		perror("pipe failed");
 		exit(EXIT_FAILURE);
@@ -243,6 +242,10 @@ int main(int argc, char **argv) {
 	}
 
 	/*
+	 * Here we would normally close the pipes we have opened and passed to
+	 * the child processes, since we will not be reading from/writing to them.
+	 * However, the story is more complicated than that.
+	 *
 	 * We intentionally wait with closing the write ends of the fromuser/
 	 * fromval pipes until the process that owns them stops, to be more sure
 	 * about which process terminates first. If we don't, and process A exits
@@ -253,21 +256,25 @@ int main(int argc, char **argv) {
 	 * (We do eventually want B to EOF/crash/terminate rather than waiting
 	 * for the wall-time limit, just to finish things earlier, we just don't
 	 * want it race with the other process. This holds doubly if B is the
-	 * grader, which is expected to deal nicely with EOFs. Unfortunately,
+	 * validator, which is expected to deal nicely with EOFs. Unfortunately,
 	 * we can't just kill B, because it might run with higher privileges than
 	 * us -- this happens with isolate.)
 	 *
+	 * For the read end of the user -> validator channel the story is similar.
+	 * If we close it immediately, it means that if the validator decides to
+	 * exit with AC (so that we use the submission's verdict), it's a race
+	 * whether a submission that writes during validator exit will get SIGPIPE
+	 * or not. Thus, we must wait until the validator has exited with non-AC
+	 * to close this pipe end, or we will get unpredictable verdicts.
+	 *
+	 * (This can also be worked around on the validator side, by making sure to
+	 * read EOF before exiting with AC. Not all validators do that, however.)
+	 *
 	 * We never close the read end of the validator -> user channel -- it only
-	 * serves to give the grader Judge Error if it doesn't setup up a signal
+	 * serves to give the validator Judge Error if it doesn't setup up a signal
 	 * handler for SIGPIPE, and we do want submissions that exit early to be
 	 * accepted.
-	 *
-	 * The read end of the user -> validator channel we do close, to trigger
-	 * SIGPIPEs when the user writes to a validator which has exited.
-	 * (Currently we treat that the same as exiting with code 0, though it
-	 * would also make sense to make it an error.)
 	 */
-	close(fromuser[0]);
 
 	int remaining = 2;
 	while (remaining > 0) {
@@ -279,8 +286,13 @@ int main(int argc, char **argv) {
 			exit(1);
 		}
 		if (r == val_pid) {
-			if (remaining == 2)
+			if (remaining == 2) {
 				validator_first = true;
+				if (!(WIFEXITED(status) && WEXITSTATUS(status) == EXITCODE_AC)) {
+					// See comment above.
+					close(fromuser[0]);
+				}
+			}
 			val_status = status;
 			memcpy((void*)&val_ru, &ru, sizeof(rusage));
 			val_pid = -1;
@@ -288,8 +300,7 @@ int main(int argc, char **argv) {
 			close(fromval[1]);
 		}
 		if (r == user_pid) {
-			// In case of broken pipes, let validator decide
-			user_status = (WIFSIGNALED(status) && WTERMSIG(status) == SIGPIPE ? 0 : status);
+			user_status = status;
 			memcpy((void*)&user_ru, &ru, sizeof(rusage));
 			user_pid = -1;
 			remaining--;
