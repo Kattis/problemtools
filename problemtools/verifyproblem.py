@@ -385,6 +385,12 @@ class TestCaseGroup(ProblemAspect):
         if self.config['grading'] == 'default' and Graders._default_grader is None:
             self._problem.graders.error('%s has default grading but I could not find default grader' % self)
 
+        if self.config['grading'] == 'default' and 'ignore_sample' in self.config['grader_flags'].split():
+            if self._parent is not None:
+                self.error("'grader_flags: ignore_sample' is specified, but that flag is only allowed at top level")
+            elif self.config['on_reject'] == 'break':
+                self.error("'grader_flags: ignore_sample' is specified, but 'on_reject: break' may cause secret data not to be judged")
+
         for field in self.config.keys():
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning("Unknown key '%s' in '%s'" % (field, os.path.join(self._datadir, 'testdata.yaml')))
@@ -394,7 +400,7 @@ class TestCaseGroup(ProblemAspect):
                 if self.config.get(key) is not None:
                     self.error("Key '%s' is only applicable for scoring problems, this is a pass-fail problem" % key)
 
-        if not self.config['on_reject'] in ['break', 'continue']:
+        if self.config['on_reject'] not in ['break', 'continue']:
             self.error("Invalid value '%s' for on_reject policy" % self.config['on_reject'])
 
         if self._problem.is_scoring:
