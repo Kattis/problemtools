@@ -956,7 +956,7 @@ class Graders(ProblemAspect):
             graders = self._graders
 
         grader_input = ''.join(['%s %s\n' % (r.verdict, 0 if r.score is None else r.score) for r in sub_results])
-        grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE))\s+[0-9.]+\s*$'
+        grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE)|(JE))\s+[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
 
