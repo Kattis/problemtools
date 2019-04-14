@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-KOTLIN_VERSION=1.2.70
+KOTLIN_VERSION=1.2.71
 
 
 TAG=develop
@@ -20,6 +20,7 @@ set -x
 sudo docker build \
      -f Dockerfile.build \
      -t problemtools/build:${TAG} \
+     --no-cache \
      --build-arg PROBLEMTOOLS_VERSION="${TAG}" \
      .
 mkdir -p artifacts
