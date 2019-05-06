@@ -4,6 +4,7 @@ Implementation of programs provided by a directory with build/run scripts.
 
 import os
 import tempfile
+import subprocess
 
 import logging
 
@@ -59,8 +60,8 @@ class BuildRun(Program):
         if self._compile_result is not None:
             return self._compile_result
 
-        command = 'cd "%s" && ./build > /dev/null 2> /dev/null' % self.path
-        status = os.system(command)
+        with open(os.devnull, 'w') as devnull:
+            status = subprocess.call(['build'], stdout=devnull, stderr=devnull, cwd=self.path)
         run = os.path.join(self.path, 'run')
 
         if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:

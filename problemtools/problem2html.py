@@ -12,6 +12,7 @@ from ProblemPlasTeX import ProblemsetMacros
 from plasTeX.TeX import TeX
 from plasTeX.Logging import getLogger, disableLogging
 import logging
+import subprocess
 import template
 
 
@@ -75,9 +76,11 @@ def convert(problem, options=None):
             os.remove('.paux')
 
         if options.tidy:
-            tidy_exitcode = os.system('tidy -utf8 -i -q -m %s 2> /dev/null' % destfile)
-            if not options.quiet and os.WEXITSTATUS(tidy_exitcode) == 127:
-                print("Warning: Command 'tidy' not found. Install tidy or run with --messy")
+            with open(os.devnull, 'w') as devnull:
+                try:
+                    tidy_exitcode = subprocess.call(['tidy', '-utf8', '-i', '-q', '-m', destfile], stderr=devnull)
+                except OSError:
+                    print("Warning: Command 'tidy' not found. Install tidy or run with --messy")
 
         if options.bodyonly:
             content = open(destfile).read()

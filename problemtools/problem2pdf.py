@@ -8,6 +8,7 @@ import string
 from string import Template
 from optparse import OptionParser
 import logging
+import subprocess
 import template
 
 
@@ -30,16 +31,21 @@ def convert(problem, options=None):
     origcwd = os.getcwd()
 
     os.chdir(os.path.dirname(texfile))
-    redirect = ''
-    params = '-interaction=nonstopmode'
+    params = ['pdflatex', '-interaction=nonstopmode']
+    output = None
     if options.quiet:
-        redirect = '> /dev/null'
+        output = open(os.devnull, 'w')
     if options.nopdf:
-        params = params + ' -draftmode'
+        params.append('-draftmode')
 
-    status = os.system('pdflatex %s %s %s' % (params, texfile, redirect))
+    params.append(texfile)
+
+    status = subprocess.call(params, stdout=output)
     if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
-        status = os.system('pdflatex %s %s %s' % (params, texfile, redirect))
+        status = subprocess.call(params, stdout=output)
+
+    if output is not None:
+        output.close()
 
     os.chdir(origcwd)
 
