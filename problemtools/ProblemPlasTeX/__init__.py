@@ -58,7 +58,7 @@ class ImageConverter(object):
                 path = os.path.splitext(path)[0]+newext
                 cmd = self.imageConversion[oldext][1] + [path, name]
                 status = subprocess.call(cmd)
-                if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+                if status:
                     log.warning('Failed to convert %s image "%s to %s', oldext, name, newext)
             else:
                 # Just copy it

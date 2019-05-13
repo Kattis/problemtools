@@ -78,9 +78,10 @@ def convert(problem, options=None):
         if options.tidy:
             with open(os.devnull, 'w') as devnull:
                 try:
-                    tidy_exitcode = subprocess.call(['tidy', '-utf8', '-i', '-q', '-m', destfile], stderr=devnull)
+                    subprocess.call(['tidy', '-utf8', '-i', '-q', '-m', destfile], stderr=devnull)
                 except OSError:
-                    print("Warning: Command 'tidy' not found. Install tidy or run with --messy")
+                    if not options.quiet:
+                        print("Warning: Command 'tidy' not found. Install tidy or run with --messy")
 
         if options.bodyonly:
             content = open(destfile).read()

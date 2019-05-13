@@ -41,7 +41,7 @@ def convert(problem, options=None):
     params.append(texfile)
 
     status = subprocess.call(params, stdout=output)
-    if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
+    if status == 0:
         status = subprocess.call(params, stdout=output)
 
     if output is not None:
@@ -55,7 +55,7 @@ def convert(problem, options=None):
     if templ != None:
         templ.cleanup()
 
-    return os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+    return status == 0
 
 
 class ConvertOptions:

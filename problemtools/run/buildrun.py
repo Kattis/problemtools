@@ -64,7 +64,7 @@ class BuildRun(Program):
             status = subprocess.call(['build'], stdout=devnull, stderr=devnull, cwd=self.path)
         run = os.path.join(self.path, 'run')
 
-        if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+        if status:
             logging.debug('Build script failed (status %d) when compiling %s\n        Command used:\n%s', status, self.name, command)
             self._compile_result = (False, 'build script failed with exit code %d' % (status))
         elif not os.path.isfile(run) or not os.access(run, os.X_OK):
