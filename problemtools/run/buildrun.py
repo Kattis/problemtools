@@ -61,7 +61,7 @@ class BuildRun(Program):
             return self._compile_result
 
         with open(os.devnull, 'w') as devnull:
-            status = subprocess.call(['build'], stdout=devnull, stderr=devnull, cwd=self.path)
+            status = subprocess.call(['./build'], stdout=devnull, stderr=devnull, cwd=self.path)
         run = os.path.join(self.path, 'run')
 
         if status:
