@@ -72,7 +72,7 @@ class SourceCode(Program):
             self.mainfile = self.src[0]
 
         self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
-        self.Mainclass = self.mainclass.capitalize()
+        self.Mainclass = self.mainclass[0].upper() + self.mainclass[1:]
 
         self.binary = os.path.join(self.path, 'run')
 
