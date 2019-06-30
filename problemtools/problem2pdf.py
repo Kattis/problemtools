@@ -9,7 +9,7 @@ from string import Template
 from optparse import OptionParser
 import logging
 import subprocess
-import template
+from . import template
 
 
 def convert(problem, options=None):

@@ -33,7 +33,7 @@ def add_files(src, dstdir):
                     shutil.copytree(srcfile, destfile)
                 else:
                     shutil.copy(srcfile, destfile)
-    except IOError, exc:
+    except IOError as exc:
         # FIXME why is this specific error special-cased
         if exc.errno == errno.ENOENT:
             raise ProgramError(

@@ -7,13 +7,13 @@ import sys
 import string
 from string import Template
 from optparse import OptionParser
-from ProblemPlasTeX import ProblemRenderer
-from ProblemPlasTeX import ProblemsetMacros
+from .ProblemPlasTeX import ProblemRenderer
+from .ProblemPlasTeX import ProblemsetMacros
 from plasTeX.TeX import TeX
 from plasTeX.Logging import getLogger, disableLogging
 import logging
 import subprocess
-import template
+from . import template
 
 
 def convert(problem, options=None):

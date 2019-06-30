@@ -269,14 +269,11 @@ class Languages_test(TestCase):
 
         langs.update(zoo)
 
-        lang = langs.detect_language(map(lambda x: examples_path(x),
-                                         ['src1.zoo']))
+        lang = langs.detect_language([examples_path(x) for x in ['src1.zoo']])
         assert lang.lang_id == 'zoo'
 
-        lang = langs.detect_language(map(lambda x: examples_path(x),
-                                         ['src2.zoo']))
+        lang = langs.detect_language([examples_path(x) for x in ['src2.zoo']])
         assert lang.lang_id == 'zoork'
 
-        lang = langs.detect_language(map(lambda x: examples_path(x),
-                                         ['src2.zoo', 'src3.zpp']))
+        lang = langs.detect_language([examples_path(x) for x in ['src2.zoo', 'src3.zpp']])
         assert lang.lang_id == 'zoopp'
