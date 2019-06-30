@@ -52,7 +52,7 @@ class ImageConverter(object):
             directory = os.path.dirname(path)
             if directory and not os.path.isdir(directory):
                 os.makedirs(directory)
-            if self.imageConversion.has_key(oldext):
+            if oldext in self.imageConversion:
                 # Need to convert image
                 newext = self.imageConversion[oldext][0]
                 path = os.path.splitext(path)[0]+newext
@@ -68,7 +68,7 @@ class ImageConverter(object):
             self.staticimages[name] = img
             return img
 
-        except Exception, msg:
+        except Exception as msg:
             log.warning('%s in image "%s".' % (msg, name))
             pass
         return None

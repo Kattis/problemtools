@@ -26,7 +26,7 @@ def clean_width(width):
     nodes = width.childNodes
     if len(nodes) != 2 or nodes[1].nodeName != 'textwidth':
         return width
-    return u'%.2f%%' % (100*float(nodes[0]))
+    return '%.2f%%' % (100*float(nodes[0]))
 
 
 # \problemheader
@@ -113,7 +113,7 @@ class illustration(_graphics_command):
 
     def invoke(self, tex):
         res = _graphics_command.invoke(self, tex)
-        self.style['width'] = u'%.2f%%' % (100*self.attributes['width'])
+        self.style['width'] = '%.2f%%' % (100*self.attributes['width'])
         return res
 
 # Dummy for \fontencoding to suppress warnings
