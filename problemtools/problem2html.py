@@ -32,38 +32,36 @@ def convert(problem, options=None):
 
     texfile = problem
     # Set up template if necessary
-    templ = None
-    if os.path.isdir(problem):
-        templ = template.Template(problem, language=options.language, title=options.title)
+    with template.Template(problem, language=options.language, title=options.title) as templ:
         texfile = open(templ.get_file_name(), 'r')
 
-    origcwd = os.getcwd()
+        origcwd = os.getcwd()
 
-    # Setup parser and renderer etc
+        # Setup parser and renderer etc
 
-    # Python 2 compatibility: the second keyword argument for th TeX
-    # class changed name from file to myfile in Python 3 version.  When
-    # Python 2 compatibility is dropped, change this to "tex =
-    # TeX(myfile=texfile)".
-    tex = TeX(None, texfile)
+        # Python 2 compatibility: the second keyword argument for th TeX
+        # class changed name from file to myfile in Python 3 version.  When
+        # Python 2 compatibility is dropped, change this to "tex =
+        # TeX(myfile=texfile)".
+        tex = TeX(None, texfile)
 
-    ProblemsetMacros.init(tex)
+        ProblemsetMacros.init(tex)
 
-    tex.ownerDocument.config['general']['copy-theme-extras'] = options.css
-    if not options.headers:
-        tex.ownerDocument.userdata['noheaders'] = True
-    tex.ownerDocument.config['files']['filename'] = destfile
-    tex.ownerDocument.config['images']['filenames'] = 'img-$num(4)'
-    tex.ownerDocument.config['images']['enabled'] = False
-    tex.ownerDocument.config['images']['imager'] = 'none'
-    tex.ownerDocument.config['images']['base-url'] = imgbasedir
+        tex.ownerDocument.config['general']['copy-theme-extras'] = options.css
+        if not options.headers:
+            tex.ownerDocument.userdata['noheaders'] = True
+        tex.ownerDocument.config['files']['filename'] = destfile
+        tex.ownerDocument.config['images']['filenames'] = 'img-$num(4)'
+        tex.ownerDocument.config['images']['enabled'] = False
+        tex.ownerDocument.config['images']['imager'] = 'none'
+        tex.ownerDocument.config['images']['base-url'] = imgbasedir
 
-    renderer = ProblemRenderer()
+        renderer = ProblemRenderer()
 
-    if not options.quiet:
-        print('Parsing TeX source...')
-    doc = tex.parse()
-    texfile.close()
+        if not options.quiet:
+            print('Parsing TeX source...')
+        doc = tex.parse()
+        texfile.close()
 
     # Go to destdir
     if destdir:
@@ -97,8 +95,6 @@ def convert(problem, options=None):
     finally:
         # restore cwd
         os.chdir(origcwd)
-        if templ:
-            templ.cleanup()
 
     return True
 
