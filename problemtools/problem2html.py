@@ -40,7 +40,12 @@ def convert(problem, options=None):
     origcwd = os.getcwd()
 
     # Setup parser and renderer etc
-    tex = TeX(file=texfile)
+
+    # Python 2 compatibility: the second keyword argument for th TeX
+    # class changed name from file to myfile in Python 3 version.  When
+    # Python 2 compatibility is dropped, change this to "tex =
+    # TeX(myfile=texfile)".
+    tex = TeX(None, texfile)
 
     ProblemsetMacros.init(tex)
 
