@@ -35,7 +35,7 @@ def convert(problem, options=None):
     templ = None
     if os.path.isdir(problem):
         templ = template.Template(problem, language=options.language, title=options.title)
-        texfile = templ.get_file_name()
+        texfile = open(templ.get_file_name(), 'r')
 
     origcwd = os.getcwd()
 
@@ -63,6 +63,7 @@ def convert(problem, options=None):
     if not options.quiet:
         print('Parsing TeX source...')
     doc = tex.parse()
+    texfile.close()
 
     # Go to destdir
     if destdir:
