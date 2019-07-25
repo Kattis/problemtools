@@ -89,18 +89,19 @@ class Template:
         if self.copy_cls:
             shutil.copyfile(os.path.join(templatepath, clsfile), self.problemset_cls)
 
-        (templout, self.filename) = tempfile.mkstemp(suffix='.tex', dir=basedir)
+        (templfd, self.filename) = tempfile.mkstemp(suffix='.tex', dir=basedir)
+        templout = os.fdopen(templfd, 'w')
         templin = open(os.path.join(templatepath, templatefile))
         for line in templin:
             try:
                 out = line % locals()
-                os.write(templout, out)
+                templout.write(out)
             except:
                 # This is a bit ugly I guess
                 for sample in samples:
                     out = line % locals()
-                    os.write(templout, out)
-        os.close(templout)
+                    templout.write(out)
+        templout.close()
         templin.close()
 
     def get_file_name(self):
