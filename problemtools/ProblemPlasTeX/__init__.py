@@ -1,6 +1,7 @@
 import re
 import os
 import shutil
+import subprocess
 import plasTeX.Renderers
 from plasTeX.Renderers.PageTemplate import Renderer
 from plasTeX.Filenames import Filenames
@@ -16,10 +17,8 @@ class ImageConverter(object):
     imageUnits = ''
 
     imageTypes = ['.png', '.jpg', '.jpeg', '.gif'] #, '.svg']
-#    imageConversion = {'.pdf': ['.png','convert -density 150 %(src)s %(dst)s']}
     imageConversion = {'.pdf': ['.png',
-                                'gs -dUseCropBox -sDEVICE=pngalpha -r300 -o %(dst)s %(src)s']}
-#    imageConversion = {'.pdf': ['.svg','pdf2svg %(src)s %(dst)s']}
+                                ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o']]}
 
     def __init__(self, document):
         self.config = document.config
@@ -57,10 +56,9 @@ class ImageConverter(object):
                 # Need to convert image
                 newext = self.imageConversion[oldext][0]
                 path = os.path.splitext(path)[0]+newext
-                args = {'src': name, 'dst': path}
-                cmd = self.imageConversion[oldext][1] % args
-                status = os.system(cmd)
-                if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+                cmd = self.imageConversion[oldext][1] + [path, name]
+                status = subprocess.call(cmd)
+                if status:
                     log.warning('Failed to convert %s image "%s to %s', oldext, name, newext)
             else:
                 # Just copy it

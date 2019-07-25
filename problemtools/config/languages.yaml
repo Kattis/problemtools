@@ -222,7 +222,7 @@ rust:
     name: 'Rust'
     priority: 575
     files: '*.rs'
-    compile: '/usr/bin/rustc -o{binary} -O --crate-type bin {files}'
+    compile: '/usr/bin/rustc -o{binary} -O --crate-type bin --edition=2018 {files}'
     run: '{binary}'
 
 scala:

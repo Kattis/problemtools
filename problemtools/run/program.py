@@ -48,6 +48,10 @@ class Program(object):
 
         return status, runtime
 
+    def code_size(self):
+        """Subclasses should override this method with the total size of the
+        source code."""
+        return 0
 
     def should_skip_memory_rlimit(self):
         """Ugly workaround to accommodate Java -- the JVM will crash and burn

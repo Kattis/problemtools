@@ -46,6 +46,7 @@ class SubmissionResult:
         self.ac_runtime = -1.0
         self.ac_runtime_testcase = None
         self.validator_first = False
+        self.sample_failures = []
 
     def set_ac_runtime(self):
         if self.verdict == 'AC':
@@ -143,6 +144,9 @@ class TestCase(ProblemAspect):
     def strip_path_prefix(self, path):
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
 
+    def is_in_sample_group(self):
+        return self.strip_path_prefix(self.infile).startswith('sample')
+
     def check(self, args):
         if self._check_res is not None:
             return self._check_res
@@ -159,7 +163,7 @@ class TestCase(ProblemAspect):
         if not self._problem.is_interactive:
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
-                if self.strip_path_prefix(self.infile)[0:6] == 'sample':
+                if self.is_in_sample_group():
                     self.error('judge answer file got %s' % val_res)
                 else:
                     self.warning('judge answer file got %s' % val_res)
@@ -205,6 +209,9 @@ class TestCase(ProblemAspect):
         res2 = self._init_result_for_testcase(res2)
         msg = "Reused test file result" if reused else "Test file result"
         self.info('%s: %s' % (msg, res1))
+        if res1.verdict != 'AC' and self.is_in_sample_group():
+            res1.sample_failures.append(res1)
+
         return (res1, res2)
 
     def _run_submission_real(self, sub, args, timelim_low, timelim_high):
@@ -385,6 +392,12 @@ class TestCaseGroup(ProblemAspect):
         if self.config['grading'] == 'default' and Graders._default_grader is None:
             self._problem.graders.error('%s has default grading but I could not find default grader' % self)
 
+        if self.config['grading'] == 'default' and 'ignore_sample' in self.config['grader_flags'].split():
+            if self._parent is not None:
+                self.error("'grader_flags: ignore_sample' is specified, but that flag is only allowed at top level")
+            elif self.config['on_reject'] == 'break':
+                self.error("'grader_flags: ignore_sample' is specified, but 'on_reject: break' may cause secret data not to be judged")
+
         for field in self.config.keys():
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning("Unknown key '%s' in '%s'" % (field, os.path.join(self._datadir, 'testdata.yaml')))
@@ -394,7 +407,7 @@ class TestCaseGroup(ProblemAspect):
                 if self.config.get(key) is not None:
                     self.error("Key '%s' is only applicable for scoring problems, this is a pass-fail problem" % key)
 
-        if not self.config['on_reject'] in ['break', 'continue']:
+        if self.config['on_reject'] not in ['break', 'continue']:
             self.error("Invalid value '%s' for on_reject policy" % self.config['on_reject'])
 
         if self._problem.is_scoring:
@@ -493,6 +506,7 @@ class TestCaseGroup(ProblemAspect):
 
         return self._check_res
 
+
     def run_submission(self, sub, args, timelim_low, timelim_high):
         self.info('Running on %s' % self)
         subres1 = []
@@ -506,8 +520,10 @@ class TestCaseGroup(ProblemAspect):
             subres2.append(r2)
             if on_reject == 'break' and r2.verdict != 'AC':
                 break
+
         return (self.aggregate_results(sub, subres1),
                 self.aggregate_results(sub, subres2, shadow_result=True))
+
 
     def aggregate_results(self, sub, sub_results, shadow_result=False):
         res = SubmissionResult(None)
@@ -519,6 +535,7 @@ class TestCaseGroup(ProblemAspect):
             if r.ac_runtime > res.ac_runtime:
                 res.ac_runtime = r.ac_runtime
                 res.ac_runtime_testcase = r.ac_runtime_testcase
+            res.sample_failures.extend(r.sample_failures)
 
         judge_error = next((r for r in sub_results if r.verdict == 'JE'), None)
         if judge_error:
@@ -956,7 +973,7 @@ class Graders(ProblemAspect):
             graders = self._graders
 
         grader_input = ''.join(['%s %s\n' % (r.verdict, 0 if r.score is None else r.score) for r in sub_results])
-        grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE))\s+[0-9.]+\s*$'
+        grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE)|(JE))\s+[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
 
@@ -1210,12 +1227,14 @@ class OutputValidators(ProblemAspect):
 
 class Submissions(ProblemAspect):
     _SUB_REGEXP = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$')
+    # (verdict, directory, required)
     _VERDICTS = [
         ['AC', 'accepted', True],
+        ['PAC', 'partially_accepted', False],
         ['WA', 'wrong_answer', False],
         ['RTE', 'run_time_error', False],
         ['TLE', 'time_limit_exceeded', False],
-        ]
+    ]
 
     def __init__(self, problem):
         self._submissions = {}
@@ -1233,22 +1252,53 @@ class Submissions(ProblemAspect):
     def __str__(self):
         return 'submissions'
 
-    def check_submission(self, sub, args, expected_verdict, timelim_low, timelim_high):
+    def check_submission(self, sub, args, expected_verdict, timelim, timelim_low, timelim_high):
         desc = '%s submission %s' % (expected_verdict, sub)
-        (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim_low, timelim_high)
+        partial = False
+        if expected_verdict == 'PAC':
+            # For partially accepted solutions, use the low timelim instead of the real one,
+            # to make sure we have margin in both directions.
+            expected_verdict = 'AC'
+            partial = True
+            timelim = timelim_low
 
-        if result1.verdict != result2.verdict:
-            r1, r2 = result1.verdict, result2.verdict
-            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim_low, r1, timelim_high, r2))
+        (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim, timelim_high)
 
-        if result1.verdict == expected_verdict:
+        if result1.verdict == 'AC' and expected_verdict == 'AC' and not partial and result1.sample_failures:
+            res = result1.sample_failures[0]
+            self.warning('%s got %s on sample: %s' % (desc, res.verdict, res))
+
+        if result1.verdict != result2.verdict or result1.score != result2.score:
+            r1, r2 = result1, result2 if result1.verdict == result2.verdict else result1.verdict, result2.verdict
+            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim, r1, timelim_high, r2))
+
+        if partial and self.fully_accepted(result1):
+            self.warning('%s got %s' % (desc, result1))
+        elif result1.verdict == expected_verdict:
             self.msg('   %s OK: %s' % (desc, result1))
-        elif result2.verdict == expected_verdict:
+            if (expected_verdict == 'AC' and not partial
+                    and not self.fully_accepted(result1)
+                    and self.full_score_finite()):
+                # For some heuristic problems, this is expected. Thus, only warn.
+                self.warning('%s did not attain full score (consider moving it to partially_accepted)' % desc)
+        elif result2.verdict == expected_verdict and not (partial and self.fully_accepted(result2)):
             self.msg('   %s OK with extra time: %s' % (desc, result2))
         else:
             self.error('%s got %s' % (desc, result1), result2.additional_info)
 
         return result1
+
+    def full_score_finite(self):
+        min_score, max_score = self._problem.testdata.get_score_range()
+        if self._problem.config.get('grading')['objective'] == 'min':
+            return min_score != -float('inf')
+        else:
+            return max_score != float('inf')
+
+    def fully_accepted(self, result):
+        min_score, max_score = self._problem.testdata.get_score_range()
+        best_score = min_score if self._problem.config.get('grading')['objective'] == 'min' else max_score
+        return result.verdict == 'AC' and (not self._problem.is_scoring or result.score == best_score)
 
     def check(self, args):
         if self._check_res is not None:
@@ -1256,14 +1306,18 @@ class Submissions(ProblemAspect):
         self._check_res = True
 
         limits = self._problem.config.get('limits')
+        time_multiplier = limits['time_multiplier']
+        safety_margin = limits['time_safety_margin']
 
-        timelim_margin = 300  # 5 minutes
+        timelim_margin_lo = 300  # 5 minutes
+        timelim_margin = 300
         timelim = 300
+
         if 'time_for_AC_submissions' in limits:
             timelim = timelim_margin = limits['time_for_AC_submissions']
         if args.fixed_timelim is not None:
             timelim = args.fixed_timelim
-            timelim_margin = timelim * limits['time_safety_margin']
+            timelim_margin = int(round(timelim * safety_margin))
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -1286,23 +1340,24 @@ class Submissions(ProblemAspect):
                         self.error('Compile error for %s submission %s' % (acr, sub), msg)
                         continue
 
-                    res = self.check_submission(sub, args, acr, timelim, timelim_margin)
+                    res = self.check_submission(sub, args, acr, timelim, timelim_margin_lo, timelim_margin)
                     runtimes.append(res.runtime)
 
             if acr == 'AC':
                 if len(runtimes) > 0:
                     max_runtime = max(runtimes)
-                    exact_timelim = max_runtime * limits['time_multiplier']
+                    exact_timelim = max_runtime * time_multiplier
                     max_runtime = '%.3f' % max_runtime
                     timelim = max(1, int(0.5 + exact_timelim))
+                    timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
                     timelim_margin = max(timelim + 1,
-                                         int(0.5 + exact_timelim * limits['time_safety_margin']))
+                                         int(0.5 + exact_timelim * safety_margin))
                 else:
                     max_runtime = None
                 if args.fixed_timelim is not None and args.fixed_timelim != timelim:
                     self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
                     timelim = args.fixed_timelim
-                    timelim_margin = timelim * limits['time_safety_margin']
+                    timelim_margin = timelim * safety_margin
 
                 self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
             limits['time'] = timelim
