@@ -1,3 +1,33 @@
+kattis-problemtools (1.20190725) bionic; urgency=medium
+
+  [ Per Austrin ]
+  * minor updates to Docker build command, small bump of Kotlin version and don't use previous cached image when building
+
+  [ Simon Lindholm ]
+  * Specify Python 2.7 in .travis.yml
+  * Allow JE in grader output
+  * Update default grader with first_error, worst_error, ignore_sample, accept_if_any_accepted
+  * Validate sanity of grader_flags: ignore_sample
+
+  [ mpsijm ]
+  * Correctly capitalize Mainclass, only change first letter
+
+  [ Simon Lindholm ]
+  * Add partially_accepted directory
+  * Warn when accepted solutions don't get full score
+  * Check that AC solutions get AC on sample
+
+  [ Pehr Söderman ]
+  * Use edition 2018 of rust for compilation
+
+  [ Greg Hamerly ]
+  * replace all os.system calls with subprocess.call
+  * add code_size() to Program class
+  * check return status of subprocess.call properly
+  * specify local directory for build script
+
+ -- Per Austrin <austrin@kattis.com>  Thu, 25 Jul 2019 10:44:42 +0200
+
 kattis-problemtools (1.20190331) bionic; urgency=medium
 
   [ Per Austrin ]
