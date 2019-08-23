@@ -1269,7 +1269,7 @@ class Submissions(ProblemAspect):
             self.warning('%s got %s on sample: %s' % (desc, res.verdict, res))
 
         if result1.verdict != result2.verdict or result1.score != result2.score:
-            r1, r2 = result1, result2 if result1.verdict == result2.verdict else result1.verdict, result2.verdict
+            r1, r2 = (result1, result2) if result1.verdict == result2.verdict else (result1.verdict, result2.verdict)
             self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim, r1, timelim_high, r2))
 
         if partial and self.fully_accepted(result1):
