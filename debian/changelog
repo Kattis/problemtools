@@ -1,3 +1,21 @@
+kattis-problemtools (1.20190901) bionic; urgency=medium
+
+  [ Greg Hamerly ]
+  * Parenthesize if/else tuples to avoid a crash
+
+  [ Per Austrin ]
+  * a few Python2-compatible Python3 compatibility fixes
+  * Fixes to adapt to interface changes between old and new versions of PlasTeX.
+  * python3 compatiblity: write tex template using Python file objects instead of low-level writes to file descriptor
+  * python3 compat: work around new plastex issue by passing open file object instead of file name to tex parser
+  * remove flawed Template class destructor by making Template a context manager
+  * updates to document class for typesetting sample data for interactive problems
+  * add support for sample interactions in html generation
+  * add sample interactions to guess
+  * fix two small template-related bugs introduced in bdd588e5
+
+ -- Per Austrin <austrin@kattis.com>  Sun, 01 Sep 2019 09:20:18 +0200
+
 kattis-problemtools (1.20190725) bionic; urgency=medium
 
   [ Per Austrin ]
