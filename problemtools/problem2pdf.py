@@ -47,7 +47,7 @@ def convert(problem, options=None):
 
         os.chdir(origcwd)
 
-        if not options.nopdf:
+        if status == 0 and not options.nopdf:
             shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
     return status == 0

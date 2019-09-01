@@ -101,7 +101,8 @@ class Template:
                 for sample in self.samples:
                     data['sample'] = sample
                     templout.write(line % data)
-                del data['sample']
+                if self.samples:
+                    del data['sample']
         templout.close()
         templin.close()
         return self
