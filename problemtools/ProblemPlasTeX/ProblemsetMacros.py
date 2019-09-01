@@ -26,7 +26,7 @@ def clean_width(width):
     nodes = width.childNodes
     if len(nodes) != 2 or nodes[1].nodeName != 'textwidth':
         return width
-    return u'%.2f%%' % (100*float(nodes[0]))
+    return '%.2f%%' % (100*float(nodes[0]))
 
 
 # \problemheader
@@ -41,7 +41,7 @@ class problemheader(Command):
             self.attributes['timelim'] = open(timelimfile, 'r').read()
 
 
-# \sampleheader
+# \sampletable
 class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
@@ -63,6 +63,43 @@ class sampletable(Command):
             status.info(') ')
         except (OSError, IOError):
             log.warning('\nProblem opening files "%s" and "%s"', file1, file2)
+
+
+# \sampletableinteractive
+class sampletableinteractive(Command):
+    args = 'header read write file:str'
+
+    def read_sample_interaction(self, filename):
+        data = open(filename, 'r').read().decode('utf8')
+        messages = []
+        cur_msg = []
+        cur_mode = None
+        for line in data.split('\n'):
+            if not line: continue
+            if line[0] == '<': mode = 'read'
+            elif line[0] == '>': mode = 'write'
+            else: continue
+            line = line[1:]
+            if mode != cur_mode:
+                if cur_mode: messages.append({'mode': cur_mode,
+                                              'data': cgi.escape('\n'.join(cur_msg))})
+                cur_msg = []
+            cur_msg.append(line)
+            cur_mode = mode
+        if cur_mode: messages.append({'mode': cur_mode,
+                                      'data': cgi.escape('\n'.join(cur_msg))})
+        return messages
+
+    def invoke(self, tex):
+        res = Command.invoke(self, tex)
+        dir = os.path.dirname(tex.filename)
+        file = os.path.join(dir, self.attributes['file'])
+        try:
+            status.info(' ( sampletableinteractive %s ' % file)
+            self.attributes['messages'] = self.read_sample_interaction(file)
+            status.info(') ')
+        except (OSError, IOError):
+            log.warning('\nProblem opening file "%s"', file)
 
 
 # Any command including a picture, such as \illustration and our
@@ -113,7 +150,7 @@ class illustration(_graphics_command):
 
     def invoke(self, tex):
         res = _graphics_command.invoke(self, tex)
-        self.style['width'] = u'%.2f%%' % (100*self.attributes['width'])
+        self.style['width'] = '%.2f%%' % (100*self.attributes['width'])
         return res
 
 # Dummy for \fontencoding to suppress warnings

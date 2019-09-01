@@ -9,7 +9,7 @@ import string
 import types
 import yaml.parser
 
-import config
+from . import config
 
 class LanguageConfigError(Exception):
     """Exception class for errors in language configuration."""
@@ -74,15 +74,15 @@ class Language(object):
                 'Unknown key "%s" specified for language %s'
                 % (unknown, self.lang_id))
 
-        for (key, value) in values.iteritems():
+        for (key, value) in values.items():
             # Check type
             if key == 'priority':
-                if type(value) != types.IntType:
+                if type(value) != int:
                     raise LanguageConfigError(
                         'Language %s: priority must be integer but is %s.'
                         % (self.lang_id, type(value)))
             else:
-                if type(value) != types.StringType:
+                if type(value) != bytes:
                     raise LanguageConfigError(
                         'Language %s: %s must be string but is %s.'
                         % (self.lang_id, key, type(value)))
@@ -209,18 +209,18 @@ class Languages(object):
                 for a language already in the set, the configuration
                 for that language will be overridden and updated.
         """
-        if type(data) is not types.DictType:
+        if type(data) is not dict:
             raise LanguageConfigError(
                 'Config file error: content must be a dictionary, but is %s.'
                 % (type(data)))
 
-        for (lang_id, lang_spec) in data.iteritems():
-            if type(lang_id) is not types.StringType:
+        for (lang_id, lang_spec) in data.items():
+            if type(lang_id) is not bytes:
                 raise LanguageConfigError(
                     'Config file error: language IDs must be strings, but %s is %s.'
                     % (lang_id, type(lang_id)))
 
-            if type(lang_spec) is not types.DictType:
+            if type(lang_spec) is not dict:
                 raise LanguageConfigError(
                     'Config file error: language spec must be a dictionary, but spec of language %s is %s.'
                     % (lang_id, type(lang_spec)))
@@ -231,7 +231,7 @@ class Languages(object):
                 self.languages[lang_id].update(lang_spec)
 
         priorities = {}
-        for (lang_id, lang) in self.languages.iteritems():
+        for (lang_id, lang) in self.languages.items():
             if lang.priority in priorities:
                 raise LanguageConfigError(
                     'Languages %s and %s both have priority %d.'

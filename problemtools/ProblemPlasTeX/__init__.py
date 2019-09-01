@@ -5,12 +5,12 @@ import subprocess
 import plasTeX.Renderers
 from plasTeX.Renderers.PageTemplate import Renderer
 from plasTeX.Filenames import Filenames
-from plasTeX.dictutils import ordereddict
 from plasTeX.Imagers import Image
 from plasTeX.Logging import getLogger
 
 log = getLogger()
 
+# Adapted from plasTeX.Imagers.Imager class
 class ImageConverter(object):
     fileExtension = '.png'
     imageAttrs = ''
@@ -24,13 +24,21 @@ class ImageConverter(object):
         self.config = document.config
         self.ownerDocument = document
 
-        # Images that are simply copied from the source directory
-        self.staticimages = ordereddict()
+        # Cache of already seen images
+        self.staticimages = {}
 
         # Filename generator
+        
+        # Python 2 compatibility: the second keyword argument for the Filenames
+        # class changed name from vars to variables in Python 3 version.  When
+        # Python 2 compatibility is dropped, change the following command to
+        # self.newFilename = Filenames(self.config['images'].get('filenames', raw=True),
+        #                              variables={'jobname': document.userdata.get('jobname', '')},
+        #                              extension=self.fileExtension, invalid={})
         self.newFilename = Filenames(self.config['images'].get('filenames', raw=True),
-                           vars={'jobname': document.userdata.get('jobname', '')},
-                           extension=self.fileExtension, invalid={})
+                                     None,
+                                     {'jobname': document.userdata.get('jobname', '')},
+                                     extension=self.fileExtension, invalid={})
 
 
     def close(self):
@@ -52,7 +60,7 @@ class ImageConverter(object):
             directory = os.path.dirname(path)
             if directory and not os.path.isdir(directory):
                 os.makedirs(directory)
-            if self.imageConversion.has_key(oldext):
+            if oldext in self.imageConversion:
                 # Need to convert image
                 newext = self.imageConversion[oldext][0]
                 path = os.path.splitext(path)[0]+newext
@@ -68,7 +76,7 @@ class ImageConverter(object):
             self.staticimages[name] = img
             return img
 
-        except Exception, msg:
+        except Exception as msg:
             log.warning('%s in image "%s".' % (msg, name))
             pass
         return None

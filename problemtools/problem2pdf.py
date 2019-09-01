@@ -9,7 +9,7 @@ from string import Template
 from optparse import OptionParser
 import logging
 import subprocess
-import template
+from . import template
 
 
 def convert(problem, options=None):
@@ -22,38 +22,33 @@ def convert(problem, options=None):
 
     texfile = problem
     # Set up template if necessary
-    templ = None
-    if os.path.isdir(problem):
-        templ = template.Template(problem, language=options.language,
-                                  title=options.title)
+    with template.Template(problem, language=options.language,
+                           title=options.title) as templ:
         texfile = templ.get_file_name()
 
-    origcwd = os.getcwd()
+        origcwd = os.getcwd()
 
-    os.chdir(os.path.dirname(texfile))
-    params = ['pdflatex', '-interaction=nonstopmode']
-    output = None
-    if options.quiet:
-        output = open(os.devnull, 'w')
-    if options.nopdf:
-        params.append('-draftmode')
+        os.chdir(os.path.dirname(texfile))
+        params = ['pdflatex', '-interaction=nonstopmode']
+        output = None
+        if options.quiet:
+            output = open(os.devnull, 'w')
+        if options.nopdf:
+            params.append('-draftmode')
 
-    params.append(texfile)
+        params.append(texfile)
 
-    status = subprocess.call(params, stdout=output)
-    if status == 0:
         status = subprocess.call(params, stdout=output)
+        if status == 0:
+            status = subprocess.call(params, stdout=output)
 
-    if output is not None:
-        output.close()
+        if output is not None:
+            output.close()
 
-    os.chdir(origcwd)
+        os.chdir(origcwd)
 
-    if not options.nopdf:
-        shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
-
-    if templ != None:
-        templ.cleanup()
+        if status == 0 and not options.nopdf:
+            shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
     return status == 0
 

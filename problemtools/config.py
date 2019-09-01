@@ -24,7 +24,7 @@ def load_config(configuration_file):
             try:
                 with open(path, 'r') as config:
                     new_config = yaml.safe_load(config.read())
-            except (yaml.parser.ParserError, yaml.parser.ScannerError), err:
+            except (yaml.parser.ParserError, yaml.parser.ScannerError) as err:
                 raise ConfigError('Config file %s: failed to parse: %s' % (path, err))
         if res is None:
             if new_config is None:
@@ -58,7 +58,7 @@ def __update_dict(orig, update):
 
     For all other entries (k, v), orig[k] is set to v.
     """
-    for (key, value) in update.iteritems():
+    for (key, value) in update.items():
         if (key in orig and
             isinstance(value, collections.Mapping) and
             isinstance(orig[key], collections.Mapping)):

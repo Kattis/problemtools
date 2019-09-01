@@ -66,3 +66,25 @@ table.sample th {
 table.sample td {
     border: 1px solid black;
 }
+
+div.sampleinteractionread {
+    border: 1px solid black;
+    width: 60%;
+    float: left;
+    margin: 3px 0px 3px 0px;
+}
+
+.sampleinteractionread pre {
+    margin: 1px 5px 1px 5px;
+}
+
+div.sampleinteractionwrite {
+    border: 1px solid black;
+    width: 60%;
+    float: right;
+    margin: 3px 0px 3px 0px;
+}
+
+.sampleinteractionwrite pre {
+    margin: 1px 5px 1px 5px;
+}

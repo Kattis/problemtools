@@ -2,7 +2,7 @@
 """
 from __future__ import print_function
 import os
-import limit
+from . import limit
 import resource
 import signal
 import logging
