@@ -115,6 +115,13 @@ csharp:
     compile: '/usr/bin/mcs -out:{binary}.exe -optimize+ -r:System.Numerics {files}'
     run: '/usr/bin/mono {binary}.exe'
 
+cobol:
+    name: 'Cobol'
+    priority: 50
+    files: '*.cob'
+    compile: '/usr/bin/cobc -o {binary} -g -O2 -std=default -free -x -static {files}'
+    run: '{binary}'
+
 go:
     name: 'Go'
     priority: 400
