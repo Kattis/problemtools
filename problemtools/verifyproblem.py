@@ -88,7 +88,10 @@ class ProblemAspect:
     def __append_additional_info(msg, additional_info):
         if additional_info is None or ProblemAspect.max_additional_info <= 0:
             return msg
-        lines = additional_info.rstrip().split('\n')
+        additional_info = additional_info.rstrip()
+        if not additional_info:
+            return msg
+        lines = additional_info.split('\n')
         if len(lines) == 1:
             return '%s (%s)' % (msg, lines[0])
         if len(lines) > ProblemAspect.max_additional_info:
@@ -373,7 +376,7 @@ class TestCaseGroup(ProblemAspect):
     def get_score_range(self):
         try:
             score_range = self.config['range']
-            (min_score, max_score) = list(map(float, score_range.split()))
+            min_score, max_score = list(map(float, score_range.split()))
             return (min_score, max_score)
         except:
             return (-float('inf'), float('inf'))
@@ -414,7 +417,7 @@ class TestCaseGroup(ProblemAspect):
             # Check grading
             try:
                 score_range = self.config['range']
-                (min_score, max_score) = list(map(float, score_range.split()))
+                min_score, max_score = list(map(float, score_range.split()))
                 if min_score > max_score:
                     self.error("Invalid score range '%s': minimum score cannot be greater than maximum score" % score_range)
             except VerifyError:
@@ -515,7 +518,7 @@ class TestCaseGroup(ProblemAspect):
         for child in self._items:
             if not child.matches_filter(args.data_filter):
                 continue
-            (r1, r2) = child.run_submission(sub, args, timelim_low, timelim_high)
+            r1, r2 = child.run_submission(sub, args, timelim_low, timelim_high)
             subres1.append(r1)
             subres2.append(r2)
             if on_reject == 'break' and r2.verdict != 'AC':
@@ -544,7 +547,7 @@ class TestCaseGroup(ProblemAspect):
             res.additional_info = judge_error.additional_info
             res.testcase = judge_error.testcase
         else:
-            (res.verdict, score) = self._problem.graders.grade(sub_results, self, shadow_result)
+            res.verdict, score = self._problem.graders.grade(sub_results, self, shadow_result)
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
@@ -862,7 +865,7 @@ class InputFormatValidators(ProblemAspect):
 
         for val in self._validators[:]:
             try:
-                (success, msg) = val.compile()
+                success, msg = val.compile()
                 if not success:
                     self.error('Compile error for %s' % val, msg)
                     self._validators.remove(val)
@@ -932,11 +935,19 @@ class InputFormatValidators(ProblemAspect):
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
         self.check(None)
         for val in self._validators:
-            status, _ = val.run(testcase.infile, args=flags)
-            if not os.WIFEXITED(status):
-                testcase.error('Input format validator %s crashed on input %s' % (val, testcase.infile))
-            if os.WEXITSTATUS(status) != 42:
-                testcase.error('Input format validator %s did not accept input %s, exit code: %d' % (val, testcase.infile, os.WEXITSTATUS(status)))
+            with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
+                status, _ = val.run(testcase.infile, outfile.name, errfile.name, args=flags)
+                if not os.WIFEXITED(status):
+                    emsg = 'Input format validator %s crashed on input %s' % (val, testcase.infile)
+                elif os.WEXITSTATUS(status) != 42:
+                    emsg = 'Input format validator %s did not accept input %s, exit code: %d' % (val, testcase.infile, os.WEXITSTATUS(status))
+                else:
+                    continue
+                validator_stdout = outfile.read().decode('utf-8', 'replace')
+                validator_stderr = errfile.read().decode('utf-8', 'replace')
+                validator_output = "\n".join(
+                    out for out in [validator_stdout, validator_stderr] if out)
+                testcase.error(emsg, validator_output)
 
 
 class Graders(ProblemAspect):
@@ -960,7 +971,7 @@ class Graders(ProblemAspect):
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
-            (success, msg) = grader.compile()
+            success, msg = grader.compile()
             if not success:
                 self.error('Compile error for %s' % grader, msg)
         return self._check_res
@@ -1053,7 +1064,7 @@ class OutputValidators(ProblemAspect):
 
         for val in self._validators[:]:
             try:
-                (success, msg) = val.compile()
+                success, msg = val.compile()
                 if not success:
                     self.error('Compile error for output validator %s' % val, msg)
             except run.ProgramError as e:
@@ -1262,7 +1273,7 @@ class Submissions(ProblemAspect):
             partial = True
             timelim = timelim_low
 
-        (result1, result2) = self._problem.testdata.run_submission(sub, args, timelim, timelim_high)
+        result1, result2 = self._problem.testdata.run_submission(sub, args, timelim, timelim_high)
 
         if result1.verdict == 'AC' and expected_verdict == 'AC' and not partial and result1.sample_failures:
             res = result1.sample_failures[0]
@@ -1335,7 +1346,7 @@ class Submissions(ProblemAspect):
                                    (acr, sub, sub.code_size() / 1024.0, limits['code']))
                         continue
 
-                    (success, msg) = sub.compile()
+                    success, msg = sub.compile()
                     if not success:
                         self.error('Compile error for %s submission %s' % (acr, sub), msg)
                         continue
