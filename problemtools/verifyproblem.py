@@ -1000,11 +1000,11 @@ class Graders(ProblemAspect):
                     self.error('Judge error: %s crashed' % grader)
                     self.debug('Grader input:\n%s' % grader_input)
                     return ('JE', 0.0)
-#                ret = os.WEXITSTATUS(status)
-#                if ret != 42:
-#                    self.error('Judge error: exit code %d for grader %s' % (ret, grader))
-#                    self.debug('Grader input: %s\n' % grader_input)
-#                    return SubmissionResult('JE', 0.0)
+                ret = os.WEXITSTATUS(status)
+                if ret != 0:
+                    self.error('Judge error: exit code %d for grader %s, expected 0' % (ret, grader))
+                    self.debug('Grader input: %s\n' % grader_input)
+                    return SubmissionResult('JE', 0.0)
 
                 if not re.match(grader_output_re, grader_output):
                     self.error('Judge error: invalid format of grader output')
