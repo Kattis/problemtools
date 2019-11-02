@@ -83,6 +83,7 @@ class ProblemAspect:
     warnings = 0
     bail_on_error = False
     _check_res = None
+    basename_regex = re.compile('^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9]$')
 
     @staticmethod
     def __append_additional_info(msg, additional_info):
@@ -123,6 +124,10 @@ class ProblemAspect:
     def debug(self, msg):
         logging.debug(': %s', msg)
 
+    def check_basename(self, path):
+        basename = os.path.basename(path)
+        if not self.basename_regex.match(basename):
+            self.error("Invalid name '%s' (should match '%s')" % (basename, self.basename_regex.pattern))
 
 class TestCase(ProblemAspect):
     def __init__(self, problem, base, testcasegroup):
@@ -154,6 +159,8 @@ class TestCase(ProblemAspect):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
+        self.check_basename(self.infile)
+        self.check_basename(self.ansfile)
         self.check_newlines(self.infile)
         self.check_newlines(self.ansfile)
         self._problem.input_format_validators.validate(self)
@@ -386,6 +393,8 @@ class TestCaseGroup(ProblemAspect):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
+
+        self.check_basename(self._datadir)
 
         if self.config['grading'] not in ['default', 'custom']:
             self.error("Invalid grading policy in testdata.yaml")
@@ -1374,7 +1383,6 @@ class Submissions(ProblemAspect):
             limits['time'] = timelim
 
         return self._check_res
-
 
 PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
 
