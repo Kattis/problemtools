@@ -14,7 +14,9 @@
 #define NOFD -1
 
 const int EXITCODE_AC = 42;
+#ifdef __linux__
 const int PIPE_SIZE = 1<<20; // 1 MiB (the default max value for an unprivileged user)
+#endif
 
 int report_fd, walltimelimit;
 
@@ -191,6 +193,7 @@ int execute(char **args, int fdin, int fdout) {
  */
 
 void makepipe(int fd[2]) {
+#ifdef __linux__
 	if(pipe2(fd, O_CLOEXEC)) {
 		perror("pipe failed");
 		exit(EXIT_FAILURE);
@@ -199,6 +202,15 @@ void makepipe(int fd[2]) {
 	if (fcntl(fd[0], F_SETPIPE_SZ, PIPE_SIZE) == -1) {
 		perror("failed to set pipe size");
 	}
+#else
+	if(pipe(fd)) {
+		perror("pipe failed");
+		exit(EXIT_FAILURE);
+	}
+	for(int i = 0; i < 2; i++) {
+		set_cloexec(fd[i], 1);
+	}
+#endif
 }
 
 
