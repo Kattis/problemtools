@@ -613,13 +613,13 @@ class ProblemConfig(ProblemAspect):
             self._data['license'] = self._data['license'].lower()
 
         # Ugly backwards compatibility hack
-        if 'name' in self._data and not type(self._data['name']) is dict:
+        if 'name' in self._data and not isinstance(self._data['name'], dict):
             self._data['name'] = {'': self._data['name']}
 
         for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).items():
             if not field in self._data:
                 self._data[field] = default
-            elif type(default) is dict and type(self._data[field]) is dict:
+            elif isinstance(default, dict) and isinstance(self._data[field], dict):
                 self._data[field] = dict(list(default.items()) + list(self._data[field].items()))
 
         self._origdata = copy.deepcopy(self._data)
@@ -715,7 +715,7 @@ class ProblemConfig(ProblemAspect):
                     self.error("Invalid parameter '%s' for custom validation" % param)
 
         # Check limits
-        if type(self._data['limits']) is not dict:
+        if not isinstance(self._data['limits'], dict):
             self.error('Limits key in problem.yaml must specify a dict')
             self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
 
