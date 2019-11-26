@@ -1,3 +1,10 @@
+kattis-problemtools (1.20191126-rev1) bionic; urgency=medium
+
+  * fixes to packaging and Docker images for Python 3
+  * various fixes to packaging after py3 was added
+
+ -- Per Austrin <austrin@kattis.com>  Tue, 26 Nov 2019 23:39:08 +0100
+
 kattis-problemtools (1.20191126) bionic; urgency=medium
 
   [ Per Austrin ]
