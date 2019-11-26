@@ -81,7 +81,7 @@ setup(name='problemtools',
       include_package_data=True,
       install_requires=[
           'PyYAML',
-          'plasTeX==1.0;python_version<"3"',
+          'plasTeX<=1.0;python_version<"3"',
           'plasTeX>=2.0;python_version>="3"'
       ],
 #      Temporarily disabled, see setup.cfg
