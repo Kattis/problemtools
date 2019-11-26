@@ -10,7 +10,7 @@
 #    PROBLEMTOOLS_VERSION but this is not checked.)
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM ubuntu:18.04
+FROM ubuntu:19.04
 
 LABEL maintainer="austrin@kattis.com"
 
@@ -24,6 +24,8 @@ RUN apt update && \
         python-pkg-resources \
         python-plastex \
         python-yaml \
+        python3-minimal \
+        python3-yaml \
         texlive-fonts-recommended \
         texlive-generic-recommended \
         texlive-lang-cyrillic \

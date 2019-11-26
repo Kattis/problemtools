@@ -5,7 +5,7 @@
 # version of problemtools to be built (default is latest version of
 # develop branch on GitHub)
 
-FROM ubuntu:18.04
+FROM ubuntu:19.04
 
 LABEL maintainer="austrin@kattis.com"
 
@@ -25,6 +25,10 @@ RUN apt update && \
         libgmp-dev \
         libgmp10 \
         libgmpxx4ldbl \
+        python3 \
+        python3-pytest \
+        python3-setuptools \
+        python3-yaml \
         python \
         python-pytest \
         python-setuptools \
