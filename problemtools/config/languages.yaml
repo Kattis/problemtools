@@ -122,6 +122,13 @@ cobol:
     compile: '/usr/bin/cobc -o {binary} -g -O2 -std=default -free -x -static {files}'
     run: '{binary}'
 
+fsharp:
+    name: 'F#'
+    priority: 675
+    files: '*.fs'
+    compile: '/usr/bin/fsharpc --out:{binary}.exe --optimize+ -r:System.Numerics {files}'
+    run: '/usr/bin/mono {binary}.exe'
+
 go:
     name: 'Go'
     priority: 400
