@@ -25,6 +25,10 @@ RUN apt update && \
         libgmp-dev \
         libgmp10 \
         libgmpxx4ldbl \
+        python3 \
+        python3-pytest \
+        python3-setuptools \
+        python3-yaml \
         python \
         python-pytest \
         python-setuptools \

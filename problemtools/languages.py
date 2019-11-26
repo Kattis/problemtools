@@ -5,7 +5,6 @@ of programming languages.
 import fnmatch
 import re
 import string
-from six import string_types
 
 from . import config
 
@@ -80,7 +79,7 @@ class Language(object):
                         'Language %s: priority must be integer but is %s.'
                         % (self.lang_id, type(value)))
             else:
-                if not isinstance(value, string_types):
+                if not isinstance(value, str):
                     raise LanguageConfigError(
                         'Language %s: %s must be string but is %s.'
                         % (self.lang_id, key, type(value)))
@@ -213,7 +212,7 @@ class Languages(object):
                 % (type(data)))
 
         for (lang_id, lang_spec) in data.items():
-            if not isinstance(lang_id, string_types):
+            if not isinstance(lang_id, str):
                 raise LanguageConfigError(
                     'Config file error: language IDs must be strings, but %s is %s.'
                     % (lang_id, type(lang_id)))

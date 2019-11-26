@@ -24,6 +24,8 @@ RUN apt update && \
         python-pkg-resources \
         python-plastex \
         python-yaml \
+        python3-minimal \
+        python3-yaml \
         texlive-fonts-recommended \
         texlive-generic-recommended \
         texlive-lang-cyrillic \
