@@ -1,2 +1,2 @@
 # Auto-generated from git changelog, do not edit!
-__version__ = '1.20190901'
+__version__ = '1.20191126'
