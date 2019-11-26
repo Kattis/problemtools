@@ -1,3 +1,44 @@
+kattis-problemtools (1.20191126) bionic; urgency=medium
+
+  [ Per Austrin ]
+  * Add Cobol to default language config
+
+  [ Greg Hamerly ]
+  * This would make problemtools consistent with Kattis.
+
+  [ Simon Lindholm ]
+  * Show input validator output on failure
+  * Require that graders exit with return code 0
+
+  [ Greg Hamerly ]
+  * require plasTeX version 1.0 for python2 compatibility
+
+  [ Simon Lindholm ]
+  * Reset signal dispositions before running exec
+
+  [ Thore Husfeldt ]
+  * Work around pipe2 on non-linux
+
+  [ Greg Hamerly ]
+  * verifyproblem.py: check for invalid characters in data (directories and filenames)
+
+  [ Per Austrin ]
+  * Reenable Python3 in the setup script
+
+  [ Pehr Söderman ]
+  * Build debian for python3
+  * Fixing type checks to use issinstance and be both python2 and python3 compatible.
+  * Removed a type check for long (it will fail on python3, where a separate  long does not exist). Added in a type check for string types instead.
+  * Require python 3.7
+  * Make travis run tests for python 3.7 as well.
+  * Add fsharp to languages.yaml
+
+  [ Per Austrin ]
+  * [latex document class] don't litter sample directory with .pstmp files (fixes #136)
+  * [docker] bump Kotlin version in images to the one currently used in ICPC
+
+ -- Per Austrin <austrin@kattis.com>  Tue, 26 Nov 2019 21:05:14 +0100
+
 kattis-problemtools (1.20190901) bionic; urgency=medium
 
   [ Greg Hamerly ]
