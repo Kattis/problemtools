@@ -105,7 +105,7 @@ cpp:
     name: 'C++'
     priority: 1000
     files: '*.cc *.C *.cpp *.cxx *.c++'
-    compile: '/usr/bin/g++ -g -O2 -std=gnu++14 -static -o {binary} {files}'
+    compile: '/usr/bin/g++ -g -O2 -std=gnu++17 -static -o {binary} {files}'
     run: '{binary}'
 
 csharp:
@@ -113,6 +113,20 @@ csharp:
     priority: 700
     files: '*.cs'
     compile: '/usr/bin/mcs -out:{binary}.exe -optimize+ -r:System.Numerics {files}'
+    run: '/usr/bin/mono {binary}.exe'
+
+cobol:
+    name: 'Cobol'
+    priority: 50
+    files: '*.cob'
+    compile: '/usr/bin/cobc -o {binary} -g -O2 -std=default -free -x -static {files}'
+    run: '{binary}'
+
+fsharp:
+    name: 'F#'
+    priority: 675
+    files: '*.fs'
+    compile: '/usr/bin/fsharpc --out:{binary}.exe --optimize+ -r:System.Numerics {files}'
     run: '/usr/bin/mono {binary}.exe'
 
 go:

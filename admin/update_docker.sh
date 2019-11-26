@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-KOTLIN_VERSION=1.2.71
+KOTLIN_VERSION=1.3.50
 
 
 TAG=develop

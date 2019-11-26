@@ -4,10 +4,8 @@ of programming languages.
 """
 import fnmatch
 import re
-import os
 import string
-import types
-import yaml.parser
+from six import string_types
 
 from . import config
 
@@ -77,12 +75,12 @@ class Language(object):
         for (key, value) in values.items():
             # Check type
             if key == 'priority':
-                if type(value) != int:
+                if not isinstance(value, int):
                     raise LanguageConfigError(
                         'Language %s: priority must be integer but is %s.'
                         % (self.lang_id, type(value)))
             else:
-                if type(value) != bytes:
+                if not isinstance(value, string_types):
                     raise LanguageConfigError(
                         'Language %s: %s must be string but is %s.'
                         % (self.lang_id, key, type(value)))
@@ -209,18 +207,18 @@ class Languages(object):
                 for a language already in the set, the configuration
                 for that language will be overridden and updated.
         """
-        if type(data) is not dict:
+        if not isinstance(data, dict):
             raise LanguageConfigError(
                 'Config file error: content must be a dictionary, but is %s.'
                 % (type(data)))
 
         for (lang_id, lang_spec) in data.items():
-            if type(lang_id) is not bytes:
+            if not isinstance(lang_id, string_types):
                 raise LanguageConfigError(
                     'Config file error: language IDs must be strings, but %s is %s.'
                     % (lang_id, type(lang_id)))
 
-            if type(lang_spec) is not dict:
+            if not isinstance(lang_spec, dict):
                 raise LanguageConfigError(
                     'Config file error: language spec must be a dictionary, but spec of language %s is %s.'
                     % (lang_id, type(lang_spec)))
