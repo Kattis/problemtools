@@ -27,7 +27,6 @@ RUN apt update && \
         python3-minimal \
         python3-yaml \
         texlive-fonts-recommended \
-        texlive-generic-recommended \
         texlive-lang-cyrillic \
         texlive-latex-extra \
         texlive-plain-generic \
