@@ -30,7 +30,7 @@ RUN apt update && \
         texlive-generic-recommended \
         texlive-lang-cyrillic \
         texlive-latex-extra \
-        texlive-latex-recommended \
+        texlive-plain-generic \
         tidy
 
 RUN mkdir -p /usr/local/artifacts
