@@ -46,7 +46,7 @@ class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
     def read_sample_file(self, filename):
-        data = open(filename, 'r').read().decode('utf8')
+        data = open(filename, 'rb').read().decode('utf8')
         data = cgi.escape(data)
         return data
 
@@ -70,7 +70,7 @@ class sampletableinteractive(Command):
     args = 'header read write file:str'
 
     def read_sample_interaction(self, filename):
-        data = open(filename, 'r').read().decode('utf8')
+        data = open(filename, 'rb').read().decode('utf8')
         messages = []
         cur_msg = []
         cur_mode = None

@@ -592,7 +592,8 @@ class ProblemConfig(ProblemAspect):
 
         if os.path.isfile(self.configfile):
             try:
-                self._data = yaml.safe_load(file(self.configfile))
+                with open(self.configfile) as f:
+                    self._data = yaml.safe_load(f)
                 # Loading empty yaml yields None, for no apparent reason...
                 if self._data is None:
                     self._data = {}
@@ -783,7 +784,7 @@ class ProblemStatement(ProblemAspect):
         for lang in self.languages:
             filename = ('problem.%s.tex' % lang) if lang != '' else 'problem.tex'
             stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
-            patterns = [('\\problemname{(.*)}', 'name'),
+            patterns = [(r'\\problemname{(.*)}', 'name'),
                         (r'^%%\s*plainproblemname:(.*)$', 'name')
                         ]
             for tup in patterns:
@@ -832,10 +833,10 @@ class Attachments(ProblemAspect):
 
 
 _JUNK_CASES = [
-    ('an empty file', ''),
-    ('a binary file with byte values 0 up to 256', ''.join(chr(x) for x in range(256))),
-    ('a text file with the ascii characters 32 up to 127', ''.join(chr(x) for x in range(32, 127))),
-    ('a random text file with printable characters', ''.join(random.choice(string.printable) for _ in range(200))),
+    ('an empty file', b''),
+    ('a binary file with byte values 0 up to 256', bytearray(x for x in range(256))),
+    ('a text file with the ASCII characters 32 up to 127', bytearray(x for x in range(32, 127))),
+    ('a random text file with printable ASCII characters', bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200))),
 ]
 
 def _build_junk_modifier(desc, pattern, repl):
@@ -914,7 +915,7 @@ class InputFormatValidators(ProblemAspect):
                         continue
 
                     with open(file_name, "wb") as f:
-                        f.write(modifier(infile))
+                        f.write(modifier(infile).encode('utf8'))
 
                     for flags in all_flags:
                         flags = flags.split()
