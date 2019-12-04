@@ -22,7 +22,7 @@ RUN apt-get update && \
             texlive-fonts-recommended \
             texlive-lang-cyrillic \
             texlive-latex-extra \
-            texlive-latex-recommended \
+            texlive-plain-generic \
             tidy \
             vim
 
