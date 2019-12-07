@@ -1358,7 +1358,8 @@ class Submissions(ProblemAspect):
 
                     success, msg = sub.compile()
                     if not success:
-                        self.error('Compile error for %s submission %s' % (acr, sub), msg)
+                        self.error('Compile error for %s submission %s' % (acr, sub),
+                                   additional_info=msg)
                         continue
 
                     res = self.check_submission(sub, args, acr, timelim, timelim_margin_lo, timelim_margin)
