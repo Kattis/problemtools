@@ -147,8 +147,8 @@ java:
     name: 'Java'
     priority: 800
     files: '*.java'
-    compile: '/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}'
-    run: '/usr/bin/java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
+    compile: '/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} -cp {path}/* {files}'
+    run: '/usr/bin/java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path}:{path}/* {mainclass}'
 
 javascript:
     name: 'JavaScript'
@@ -212,15 +212,15 @@ python3:
     priority: 900
     files: '*.py'
     shebang: '^#!.*python3\b'
-    compile: '/usr/bin/python3 -m py_compile {files}'
-    run: '/usr/bin/python3 "{mainfile}"'
+    compile: '/usr/bin/pypy3 -m py_compile {files}'
+    run: '/usr/bin/pypy3 "{mainfile}"'
 
 python2:
     name: 'Python 2'
     priority: 850
     files: '*.py'
-    compile: '/usr/bin/python2 -m py_compile {files}'
-    run: '/usr/bin/python2 "{mainfile}"'
+    compile: '/usr/bin/pypy -m py_compile {files}'
+    run: '/usr/bin/pypy "{mainfile}"'
 
 ruby:
     name: 'Ruby'
