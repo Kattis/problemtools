@@ -2,7 +2,6 @@ import sys
 import os
 import os.path
 import codecs
-import cgi
 from plasTeX.DOM import Node
 from plasTeX.Base import Command
 from plasTeX.Base import DimenCommand
@@ -46,9 +45,7 @@ class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
     def read_sample_file(self, filename):
-        data = open(filename, 'rb').read().decode('utf8')
-        data = cgi.escape(data)
-        return data
+        return open(filename, 'rb').read().decode('utf8')
 
     def invoke(self, tex):
         res = Command.invoke(self, tex)
@@ -82,12 +79,12 @@ class sampletableinteractive(Command):
             line = line[1:]
             if mode != cur_mode:
                 if cur_mode: messages.append({'mode': cur_mode,
-                                              'data': cgi.escape('\n'.join(cur_msg))})
+                                              'data': '\n'.join(cur_msg)})
                 cur_msg = []
             cur_msg.append(line)
             cur_mode = mode
         if cur_mode: messages.append({'mode': cur_mode,
-                                      'data': cgi.escape('\n'.join(cur_msg))})
+                                      'data': '\n'.join(cur_msg)})
         return messages
 
     def invoke(self, tex):
