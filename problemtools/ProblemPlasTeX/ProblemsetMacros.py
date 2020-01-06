@@ -1,12 +1,20 @@
 import sys
 import os
 import os.path
-import codecs
+import io
 from plasTeX.DOM import Node
 from plasTeX.Base import Command
 from plasTeX.Base import DimenCommand
 from plasTeX.Logging import getLogger
 import plasTeX.Packages.graphics as graphics
+
+if sys.version_info.major == 2:
+    import cgi
+    def plastex_escape(s):
+        return cgi.escape(s)
+else:
+    def plastex_escape(s):
+        return s
 
 log = getLogger()
 status = getLogger('status')
@@ -45,7 +53,9 @@ class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
     def read_sample_file(self, filename):
-        return open(filename, 'rb').read().decode('utf8')
+        data = io.open(filename, 'r', encoding='utf-8').read()
+        data = plastex_escape(data)
+        return data
 
     def invoke(self, tex):
         res = Command.invoke(self, tex)
@@ -67,7 +77,7 @@ class sampletableinteractive(Command):
     args = 'header read write file:str'
 
     def read_sample_interaction(self, filename):
-        data = open(filename, 'rb').read().decode('utf8')
+        data = io.open(filename, 'r', encoding='utf-8').read()
         messages = []
         cur_msg = []
         cur_mode = None
@@ -79,12 +89,12 @@ class sampletableinteractive(Command):
             line = line[1:]
             if mode != cur_mode:
                 if cur_mode: messages.append({'mode': cur_mode,
-                                              'data': '\n'.join(cur_msg)})
+                                              'data': plastex_escape('\n'.join(cur_msg))})
                 cur_msg = []
             cur_msg.append(line)
             cur_mode = mode
         if cur_mode: messages.append({'mode': cur_mode,
-                                      'data': '\n'.join(cur_msg)})
+                                      'data': plastex_escape('\n'.join(cur_msg))})
         return messages
 
     def invoke(self, tex):
