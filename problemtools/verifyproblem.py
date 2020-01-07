@@ -300,7 +300,8 @@ class TestCaseGroup(ProblemAspect):
         configfile = os.path.join(self._datadir, 'testdata.yaml')
         if os.path.isfile(configfile):
             try:
-                self.config = yaml.safe_load(file(configfile))
+                with open(configfile) as f:
+                    self.config = yaml.safe_load(f)
             except Exception as e:
                 self.error(e)
                 self.config = {}
