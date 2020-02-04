@@ -35,9 +35,10 @@ def is_RTE(status):
     return not os.WIFEXITED(status) or os.WEXITSTATUS(status)
 
 class SubmissionResult:
-    def __init__(self, verdict, score=None, testcase=None, reason=None, additional_info=None):
+    def __init__(self, verdict, score=None, feedback=None, testcase=None, reason=None, additional_info=None):
         self.verdict = verdict
         self.score = score
+        self.feedback = feedback
         self.testcase = testcase
         self.reason = reason
         self.additional_info = additional_info
@@ -47,11 +48,35 @@ class SubmissionResult:
         self.ac_runtime_testcase = None
         self.validator_first = False
         self.sample_failures = []
+        self.standardvalidatorfeedback = re.compile("Wrong answer on line (\d+) of .* line (\d+) in .*\n")
+        self.standardvalidatormismatch = re.compile(".*\nJudge: (.*)\nTeam: (.*)")
 
     def set_ac_runtime(self):
         if self.verdict == 'AC':
             self.ac_runtime = self.runtime
             self.ac_runtime_testcase = self.runtime_testcase
+
+
+    def _shorten_validator_feedback(self, feedback):
+        summary = ""
+        match = self.standardvalidatorfeedback.match(self.feedback)
+        if match is not None: # summarise standard feedback:
+            summary += "%s/%s: " % match.group(1,2)
+            feedback = feedback[len(match.group(0)):] # rest of match
+            match = self.standardvalidatormismatch.match(feedback)
+            if match is not None: # further summarise mismatch:
+                summary += 'judge: %s, team: %s' % (match.group(1,2))
+            else: # cut off at newline, truncate to 30 chars
+                l = 30
+                if '\n' in feedback:
+                    l = min(l, feedback.index('\n'))
+                summary += feedback[:l] + '...'
+        else: # cut off at newline, truncate to 40 chars
+            l = 40
+            if '\n' in feedback:
+                l = min(l, feedback.index('\n'))
+            summary += feedback if len (feedback) < l else feedback[:l] + '...'
+        return summary
 
     def __str__(self):
         verdict = self.verdict
@@ -59,7 +84,8 @@ class SubmissionResult:
 
         if verdict == 'AC' and self.score is not None:
             verdict += ' (%.0f)' % self.score
-
+        if self.feedback is not None and len(self.feedback) > 0:
+            details.append('%s' % self._shorten_validator_feedback(self.feedback))
         if self.reason is not None:
             details.append(self.reason)
         if self.verdict != 'AC' and self.testcase is not None:
@@ -561,6 +587,7 @@ class TestCaseGroup(ProblemAspect):
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
+                res.feedback = sub_results[-1].feedback 
             if self._problem.is_scoring:
                 res.score = score
                 min_score, max_score = self.get_score_range()
@@ -1141,6 +1168,15 @@ class OutputValidators(ProblemAspect):
             else:
                 return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
+        feedback = None
+        for feedback_file_name in ['teammessage.txt', 'judgemessage.txt']: # overwrites message with judgemessage if it exists, else teammessage
+            feedback_file = os.path.join(feedbackdir, feedback_file_name)
+            if os.path.isfile(feedback_file):
+                try:
+                    feedback = open(feedback_file).read().strip()
+                except Exception as e:
+                    return SubmissionResult('JE', reason='failed to parse output validator feedback: %s' % e)
+
         if not os.WIFEXITED(status):
             return SubmissionResult('JE',
                                     reason='output validator %s crashed, status %d' % (val, status),
@@ -1152,9 +1188,9 @@ class OutputValidators(ProblemAspect):
                                     additional_info=OutputValidators.__get_feedback(feedbackdir))
 
         if ret == 43:
-            return SubmissionResult('WA', score=score,
+            return SubmissionResult('WA', score=score, feedback=feedback,
                                     additional_info=OutputValidators.__get_feedback(feedbackdir))
-        return SubmissionResult('AC', score=score)
+        return SubmissionResult('AC', score=score, feedback=feedback)
 
 
     def _actual_validators(self):
