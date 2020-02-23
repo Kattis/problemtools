@@ -258,7 +258,7 @@ class TestCase(ProblemAspect):
             res1 = res2
         elif res2.validator_first and res2.verdict == 'WA':
             # WA can override TLE for interactive problems (see comment in validate_interactive).
-            res1 = SubmissionResult('WA', score=res2.score)
+            res1 = SubmissionResult('WA')
             res1.validator_first = True
             res2.runtime = timelim_low
         else:
@@ -1021,18 +1021,18 @@ class Graders(ProblemAspect):
                 if not os.WIFEXITED(status):
                     self.error('Judge error: %s crashed' % grader)
                     self.debug('Grader input:\n%s' % grader_input)
-                    return ('JE', 0.0)
+                    return ('JE', None)
                 ret = os.WEXITSTATUS(status)
                 if ret != 0:
                     self.error('Judge error: exit code %d for grader %s, expected 0' % (ret, grader))
                     self.debug('Grader input: %s\n' % grader_input)
-                    return SubmissionResult('JE', 0.0)
+                    return ('JE', None)
 
                 if not re.match(grader_output_re, grader_output):
                     self.error('Judge error: invalid format of grader output')
                     self.debug('Output must match: "%s"' % grader_output_re)
                     self.debug('Output was: "%s"' % grader_output)
-                    return ('JE', 0.0)
+                    return ('JE', None)
 
                 verdict, score = grader_output.split()
                 score = float(score)
@@ -1131,15 +1131,6 @@ class OutputValidators(ProblemAspect):
         score_file = os.path.join(feedbackdir, 'score.txt')
         if not custom_score and os.path.isfile(score_file):
             return SubmissionResult('JE', reason='validator produced "score.txt" but problem does not have custom scoring activated')
-        if custom_score:
-            if os.path.isfile(score_file):
-                try:
-                    score_str = open(score_file).read()
-                    score = float(score_str)
-                except Exception as e:
-                    return SubmissionResult('JE', reason='failed to parse validator score: %s' % e)
-            else:
-                return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
         if not os.WIFEXITED(status):
             return SubmissionResult('JE',
@@ -1152,8 +1143,18 @@ class OutputValidators(ProblemAspect):
                                     additional_info=OutputValidators.__get_feedback(feedbackdir))
 
         if ret == 43:
-            return SubmissionResult('WA', score=score,
-                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
+            return SubmissionResult('WA', additional_info=OutputValidators.__get_feedback(feedbackdir))
+
+        if custom_score:
+            if os.path.isfile(score_file):
+                try:
+                    score_str = open(score_file).read()
+                    score = float(score_str)
+                except Exception as e:
+                    return SubmissionResult('JE', reason='failed to parse validator score: %s' % e)
+            else:
+                return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
+
         return SubmissionResult('AC', score=score)
 
 
