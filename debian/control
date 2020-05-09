@@ -8,7 +8,7 @@ Homepage: https://github.com/Kattis/problemtools
 
 Package: kattis-problemtools
 Architecture: any
-Depends: ${shlibs:Depends}, ${python:Depends}, ${python3:Depends}, ${misc:Depends}, python-yaml, python-plastex, python-pkg-resources, texlive-plain-generic, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript
+Depends: ${shlibs:Depends}, ${python:Depends}, ${python3:Depends}, ${misc:Depends}, python-yaml, plastex, python3-plastex, python-pkg-resources, texlive-plain-generic, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript
 Recommends: gcc, g++
 Description: Kattis Problem Tools
  These are tools to manage and verify problem packages in the
