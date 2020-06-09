@@ -145,7 +145,7 @@ class Language_test(TestCase):
 
     def test_invalid_run(self):
         vals = self.__language_dict()
-        vals['run'] = ['python2', '{mainfile}']
+        vals['run'] = ['python3', '{mainfile}']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
         vals['run'] = 'echo {nonexistent}'

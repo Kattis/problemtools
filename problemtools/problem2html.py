@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import re
@@ -39,11 +39,7 @@ def convert(problem, options=None):
 
         # Setup parser and renderer etc
 
-        # Python 2 compatibility: the second keyword argument for th TeX
-        # class changed name from file to myfile in Python 3 version.  When
-        # Python 2 compatibility is dropped, change this to "tex =
-        # TeX(myfile=texfile)".
-        tex = TeX(None, texfile)
+        tex = TeX(myfile=texfile)
 
         ProblemsetMacros.init(tex)
 

@@ -7,4 +7,4 @@
 
 export PYTHONPATH
 PYTHONPATH="$(dirname "$(dirname "$(readlink -f "$0")")"):$PYTHONPATH"
-exec python2 -m problemtools.problem2pdf "$@"
+exec python3 -m problemtools.problem2pdf "$@"

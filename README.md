@@ -35,12 +35,12 @@ There are four recommended ways of installing and running problemtools.
 
 Run
 ```
-pip install git+https://github.com/kattis/problemtools
+pip3 install git+https://github.com/kattis/problemtools
 ```
 
 Or if you don't want a system-wide installation,
 ```
-pip install --user git+https://github.com/kattis/problemtools
+pip3 install --user git+https://github.com/kattis/problemtools
 ```
 With this second option, in order to get the command line scripts, you need
 to make sure that the local user bin path used (e.g., on Linux,
@@ -153,18 +153,18 @@ problemtools' configuration:
 
 1. `languages.yaml`.  Use it to override problemtools' default
    programming language configuration.  For instance, while the
-   problemtools default is to use the CPython `/usr/bin/python2`
-   interpreter for Python 2, many contests, as well as the Kattis
-   online judge, use Pypy as the interpreter for Python 2.  To change
+   problemtools default is to use the CPython `/usr/bin/python3`
+   interpreter for Python 3, many contests, as well as the Kattis
+   online judge, use Pypy as the interpreter for Python 3.  To change
    this on your machine, you can simply place a file
    `/etc/kattis/problemtools/languages.yaml` (or
    `~/.config/problemtools/languages.yaml` if you only want to make the
    change for your user) containing the following:
 
    ```yaml
-   python2:
-      name: 'Python 2 w/Pypy'
-      run: '/usr/bin/pypy "{mainfile}"'
+   python3:
+      name: 'Python 3 w/Pypy'
+      run: '/usr/bin/pypy3 "{mainfile}"'
    ```
    Here, overriding the name of the language is not strictly
    necessary, but it is often helpful to clearly indicate that Pypy is
@@ -196,14 +196,14 @@ problemtools' configuration:
 
 ## Requirements and compatibility
 
-To build and run the tools, you need Python 2 with the YAML and PlasTeX libraries,
+To build and run the tools, you need Python 3 with the YAML and PlasTeX libraries,
 and a LaTeX installation.
 
 ### Ubuntu
 
 The dependencies needed to *build/install* problemtools can be installed with:
 
-    sudo apt install automake g++ make libboost-regex-dev libgmp-dev libgmp10 libgmpxx4ldbl python python-pytest python-setuptools python-yaml
+    sudo apt install automake g++ make libboost-regex-dev libgmp-dev libgmp10 libgmpxx4ldbl python3 python3-pytest python3-setuptools python3-yaml python3-plastex
 
 And the dependencies needed to *run* problemtools can be installed with:
 
@@ -213,11 +213,11 @@ And the dependencies needed to *run* problemtools can be installed with:
 
 On Fedora, these dependencies can be installed with:
 
-    sudo dnf install boost-regex gcc gmp-devel gmp-c++ python2 python2-pyyaml texlive-latex texlive-collection-fontsrecommended texlive-fancyhdr texlive-subfigure texlive-wrapfig texlive-import texlive-ulem texlive-xifthen texlive-overpic texlive-pbox tidy ghostscript
+    sudo dnf install boost-regex gcc gmp-devel gmp-c++ python3 python3-pyyaml texlive-latex texlive-collection-fontsrecommended texlive-fancyhdr texlive-subfigure texlive-wrapfig texlive-import texlive-ulem texlive-xifthen texlive-overpic texlive-pbox tidy ghostscript
 
 Followed by:
 
-    pip2 install --user plastex
+    pip3 install --user plastex
 
 ### Other platforms
 
