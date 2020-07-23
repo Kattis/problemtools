@@ -14,6 +14,7 @@ import sys
 import copy
 import random
 import argparse
+import shlex
 
 import yaml
 
@@ -740,6 +741,299 @@ class ProblemConfig(ProblemAspect):
         return self._check_res
 
 
+class Generators(ProblemAspect):
+    _TESTCASE_OPTIONS = ['input', 'solution', 'visualizer', 'random_salt']
+    _NULLABLE_OPTIONS = ['input', 'solution', 'visualizer']
+    _DATA_DIRECTORIES = {'sample', 'secret'}
+
+    def _count_ordered_cases(self, data):
+        if isinstance(data, dict) and data.get('type', 'testcase') != 'testcase':
+            cases = data.get('data')
+            if isinstance(cases, list):
+                self._ordered_case_count += len(cases)
+            else:
+                cases = [cases]
+            for case in cases:
+                if isinstance(case, dict):
+                    for k, v in case.items():
+                        self._count_ordered_cases(v)
+
+    def _remove_unicode(self, data):
+        if isinstance(data, list):
+            return [ self._remove_unicode(v) for v in data ]
+        if isinstance(data, dict):
+            return { self._remove_unicode(k): self._remove_unicode(v) for k,v in data.items() }
+        if isinstance(data, unicode):
+            return str(data)
+        raise Exception('unknown type %s' % type(data))
+
+    def __init__(self, problem):
+        self.debug('  Loading generators')
+        self._problem = problem
+        self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
+        self._data = None
+        self._testcases = []
+
+        if os.path.isfile(self.configfile):
+            try:
+                self._data = yaml.load(file(self.configfile), Loader=yaml.BaseLoader)
+                print(self._data)
+                # Loading empty yaml yields None, for no apparent reason...
+                if self._data is None:
+                    self._data = {}
+            except Exception as e:
+                self.error(e)
+
+        if isinstance(self._data, dict):
+            if sys.version_info[0] < 3:
+                try:
+                    self._data = self._remove_unicode(self._data)
+                except Exception as e:
+                    self.error('Could not convert unicode strings in generators.yaml', e)
+
+            # The top-level dict always represents a directory, even if there
+            # is no type key
+            self._data['type'] = 'directory'
+
+            # Count the ordered cases and determine the zero-padding length
+            self._ordered_case_count = 0
+            self._count_ordered_cases(self._data)
+            # self._ordered_case_format = '%%0%dd-%%s' % len(str(self._ordered_case_count))
+            self._ordered_case_format = '%%0%dd' % len(str(self._ordered_case_count))
+
+    def __str__(self):
+        return 'generators'
+
+    def _parse_command(self, key, state):
+        command = state[key]
+        name = os.path.basename(state['path'])
+        random_salt = str(state['random_salt'])
+
+        def err():
+            self.error('Invalid %s key for path %s in generators.yaml' % (key, state['path']))
+            return None
+
+        if not isinstance(command, str):
+            return err()
+
+        seed = str(int(hashlib.sha512((random_salt + command).encode('utf-8')).hexdigest(), 16) % (2**31))
+
+        parts = shlex.split(command)
+        if not parts:
+            return err()
+
+        for i in range(len(parts)):
+            new = ''
+            for j, group in enumerate(parts[i].split('{')):
+                if group.count('}') != (0 if j == 0 else 1):
+                    return err()
+                if j == 0:
+                    new += group
+                else:
+                    group, rest = group.split('}')
+                    if group.startswith('seed'):
+                        new += seed
+                    elif group == 'name':
+                        new += name
+                    else:
+                        return err()
+            parts[i] = new
+
+        program, arguments = parts[0], parts[1:]
+        if program not in self._generators:
+            self._generators[program] = program
+
+        return (program, arguments)
+
+    def _parse_testcase(self, data, state):
+        if state['input'] is None:
+            self.error('Path %s in generators.yaml must contain an input key' % state['path'])
+        for key in ['input', 'solution', 'visualizer']:
+            if state[key] is not None:
+                state[key] = self._parse_command(key, state)
+        if state['input'] is not None:
+            self._testcases.append(state)
+
+    def _parse_directory(self, data, state):
+        # TODO: Process includes
+        # TODO: Process testdata.yaml
+
+        cases = data.get('data', {})
+        ordered = True
+        if not isinstance(cases, list):
+            ordered = False
+            cases = [cases]
+
+        for case in cases:
+            if not isinstance(case, dict):
+                self.error('Path %s/data in generators.yaml must contain a dict or a list of dicts' % state['path'])
+                continue
+
+            if ordered:
+                self._case_counter += 1
+                current_case_counter = self._case_counter
+
+            for name, value in sorted(case.items(), key=lambda kv: str(kv[0])):
+                name = str(name)
+                if ordered:
+                    num = self._ordered_case_format % current_case_counter
+                    name = num + ('' if name == '~' else '-' + name)
+
+                next_state = copy.deepcopy(state)
+                next_state['path'] = '%s/%s' % (state['path'], name)
+                self._parse_element(value, next_state)
+
+    def _parse_element(self, data, state):
+        if sys.version_info[0] < 3 and data == '':
+            data = None
+        if data is None:
+            data = '/%s.in' % state['path']
+            state['manual'] = True
+        if isinstance(data, str):
+            data = { 'input': data }
+        if not isinstance(data, dict):
+            self.error("Path %s in generators.yaml must specify a dict" % state['path'])
+            return
+
+        state.update({
+            key: data[key]
+            for key in Generators._TESTCASE_OPTIONS
+            if key in data
+        })
+        if sys.version_info[0] < 3:
+            state.update({
+                key: None
+                for key in Generators._NULLABLE_OPTIONS
+                if key in data and data[key] == ''
+            })
+
+        if data.get('type', 'testcase') == 'testcase':
+            self._parse_testcase(data, state)
+        else:
+            if data['type'] != 'directory':
+                self.error("Type of %s in generators.yaml must be 'directory'" % state['path'])
+            self._parse_directory(data, state)
+
+    def _resolve_path(self, path):
+        base_path = self._problem.probdir
+        if path.startswith('/'):
+            path = path[1:]
+        else:
+            base_path = os.path.join(base_path, 'generators')
+        return os.path.join(*([base_path] + path.split('/')))
+
+    def check(self, args):
+        if self._check_res is not None:
+            return self._check_res
+        self._check_res = True
+
+        if self._data is None:
+            return self._check_res
+        if not isinstance(self._data, dict):
+            self.error('generators.yaml must specify a dict')
+            return self._check_res
+
+        self._generators = self._data.get('generators') or {}
+        if not isinstance(self._generators, dict):
+            self.error('Generators key in generators.yaml must specify a dict')
+            self._generators = {}
+
+        # Check the shape of the top-level data dict
+        self._data_directories = set()
+        if isinstance(self._data.get('data'), list):
+            self.error('Top-level data key in generators.yaml must specify a dict')
+            self._data['data'] = {}
+
+        if isinstance(self._data.get('data'), dict):
+            invalid = []
+            for key, value in self._data['data'].items():
+                valid = False
+                if key not in Generators._DATA_DIRECTORIES:
+                    self.warning("Invalid key '%s' in generators.yaml, expected one of %s" % (key, Generators._DATA_DIRECTORIES))
+                elif not isinstance(value, dict):
+                    self.warning("Key '%s' in generators.yaml must specify a dict" % key)
+                elif value.get('type') != 'directory':
+                    self.warning("Type of %s in generators.yaml must be 'directory'" % key)
+                else:
+                    valid = True
+                    self._data_directories.add(key)
+                if not valid:
+                    invalid.append(key)
+            for key in invalid:
+                del self._data['data'][key]
+
+        # Run a depth-first search through generators.yaml and generate a
+        # flattened list of testcases
+        default_state = { key: None for key in Generators._TESTCASE_OPTIONS }
+        default_state.update({
+            'path': 'data',
+            'manual': False,
+            'random_salt': '',
+        })
+
+        self._case_counter = 0
+        self._parse_element(self._data, default_state)
+
+        if 'compile_generators' not in args or args.compile_generators:
+            for gen, files in list(self._generators.items()):
+                implicit = True
+                manual = False
+                if isinstance(files, str):
+                    if files.endswith('.in'):
+                        manual = True
+                    files = [files]
+                    implicit = False
+                if not isinstance(files, list) or not files:
+                    self.error('Invalid generator %s in generators.yaml' % gen)
+                    continue
+                tmpdir = tempfile.mkdtemp(prefix='generator', dir=self._problem.tmpdir)
+                ok = True
+                for opath in files:
+                    if not isinstance(opath, str) or not opath:
+                        self.error('Invalid generator %s in generators.yaml' % gen)
+                        ok = False
+                        break
+
+                    name = os.path.basename(opath)
+                    fpath = self._resolve_path(opath)
+                    dest = os.path.join(tmpdir, name)
+                    if os.path.exists(dest):
+                        self.error('Duplicate entry for filename %s in generator %s' % (name, gen))
+                        ok = False
+                    elif not os.path.exists(fpath):
+                        self.error('Generator %s does not exist' % opath)
+                        ok = False
+                    else:
+                        try:
+                            if os.path.isdir(fpath):
+                                shutil.copytree(fpath, dest)
+                            else:
+                                shutil.copy2(fpath, dest)
+                        except Exception as e:
+                            self.error(e)
+                            ok = False
+                if ok:
+                    if manual:
+                        self._generators[gen] = dest
+                    else:
+                        prog = run.get_program(tmpdir if implicit else dest,
+                                            language_config=self._problem.language_config,
+                                            work_dir=self._problem.tmpdir)
+                        if prog is None:
+                            self.error('Could not load generator %s' % gen)
+                            ok = False
+                        else:
+                            self._generators[gen] = prog
+                            success, msg = prog.compile()
+                            if not success:
+                                self.error('Compile error for generator %s' % gen, msg)
+                                ok = False
+                if not ok and gen in self._generators:
+                    del self._generators[gen]
+
+        return self._check_res
+
+
 class ProblemStatement(ProblemAspect):
     def __init__(self, problem):
         self.debug('  Loading problem statement')
@@ -1413,7 +1707,7 @@ class Submissions(ProblemAspect):
 
         return self._check_res
 
-PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
+PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'generators', 'data', 'submissions']
 
 class Problem(ProblemAspect):
     def __init__(self, probdir):
@@ -1439,6 +1733,7 @@ class Problem(ProblemAspect):
         self.testcase_by_infile = {}
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.submissions = Submissions(self)
+        self.generators = Generators(self)
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
@@ -1464,7 +1759,8 @@ class Problem(ProblemAspect):
                             'validators': [self.input_format_validators, self.output_validators],
                             'graders': [self.graders],
                             'data': [self.testdata],
-                            'submissions': [self.submissions]}
+                            'submissions': [self.submissions],
+                            'generators': [self.generators]}
 
             if not re.match('^[a-z0-9]+$', self.shortname):
                 self.error("Invalid shortname '%s' (must be [a-z0-9]+)" % self.shortname)
@@ -1494,6 +1790,21 @@ def part_argument(s):
     return s
 
 
+def argparser_basic_arguments(parser):
+    parser.add_argument('-b', '--bail_on_error',
+                        action='store_true',
+                        help='bail verification on first error')
+    parser.add_argument('-l', '--log_level',
+                        default='warning',
+                        help='set log level (debug, info, warning, error, critical)')
+    parser.add_argument('-e', '--werror',
+                        action='store_true',
+                        help='consider warnings as errors')
+    parser.add_argument('--max_additional_info',
+                        type=int, default=15,
+                        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
+
+
 def argparser():
     parser = argparse.ArgumentParser(description='Validate a problem package in the Kattis problem format.')
     parser.add_argument('-s', '--submission_filter', metavar='SUBMISSIONS',
@@ -1508,18 +1819,9 @@ def argparser():
     parser.add_argument('-p', '--parts', metavar='PROBLEM_PART',
                         type=part_argument, nargs='+', default=PROBLEM_PARTS,
                         help='only test the indicated parts of the problem.  Each PROBLEM_PART can be one of %s.' % PROBLEM_PARTS, )
-    parser.add_argument('-b', '--bail_on_error',
-                        action='store_true',
-                        help='bail verification on first error')
-    parser.add_argument('-l', '--log_level',
-                        default='warning',
-                        help='set log level (debug, info, warning, error, critical)')
-    parser.add_argument('-e', '--werror',
-                        action='store_true',
-                        help='consider warnings as errors')
-    parser.add_argument('--max_additional_info',
-                        type=int, default=15,
-                        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
+
+    argparser_basic_arguments(parser)
+
     parser.add_argument('problemdir', nargs='+')
     return parser
 
@@ -1528,16 +1830,19 @@ def default_args():
     return argparser().parse_args([None])
 
 
-
-def main():
-    args = argparser().parse_args()
-
+def initialize_logging(args):
     ProblemAspect.max_additional_info = args.max_additional_info
     
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
                         level=eval("logging." + args.log_level.upper()))
+
+
+def main():
+    args = argparser().parse_args()
+
+    initialize_logging(args)
 
     total_errors = 0
     for problemdir in args.problemdir:

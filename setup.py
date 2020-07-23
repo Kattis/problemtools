@@ -76,6 +76,7 @@ setup(name='problemtools',
               'verifyproblem=problemtools.verifyproblem:main',
               'problem2html=problemtools.problem2html:main',
               'problem2pdf=problemtools.problem2pdf:main',
+              'generatedata=problemtools.generatedata:main',
           ]
       },
       include_package_data=True,
