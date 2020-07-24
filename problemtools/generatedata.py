@@ -38,6 +38,8 @@ def argparser():
 
 
 def clean(prob, args):
+    ProblemAspect.errors = 0
+    ProblemAspect.warnings = 0
     base_path = os.path.join(prob.probdir, 'data')
 
     testcases = {
@@ -99,7 +101,7 @@ def clean(prob, args):
         path = os.path.join(base_path, directory)
         if os.path.isdir(path):
             cases_cleaned += walk('data/%s' % directory, path)[1]
-    return cases_cleaned
+    return cases_cleaned, ProblemAspect.errors, ProblemAspect.warnings
 
 
 class GenerateState:
@@ -107,6 +109,8 @@ class GenerateState:
     args = None
 
 def generate_case(case_idx):
+    ProblemAspect.errors = 0
+    ProblemAspect.warnings = 0
     prob = GenerateState.prob
     args = GenerateState.args
     case = prob.generators._testcases[case_idx]
@@ -182,7 +186,7 @@ def generate_case(case_idx):
                     fpath = os.path.join(staging_dir, fname)
                     if os.path.isfile(fpath) and not args.dry_run:
                         shutil.copyfile(fpath, os.path.join(out_dir, fname))
-        return ok
+        return ok, ProblemAspect.errors, ProblemAspect.warnings
     finally:
         shutil.rmtree(tmp_dir)
 
@@ -209,7 +213,8 @@ def generate(prob, args):
     while not res.ready():
         # Use async polling for better KeyboardInterrupt handling
         res.wait(1)
-    return sum(res.get())
+    res = res.get()
+    return [ sum( r[tp] for r in res ) for tp in range(3) ]
 
 
 def main():
@@ -229,19 +234,24 @@ def main():
         print('Loading problem %s' % os.path.basename(os.path.realpath(problemdir)))
         with Problem(problemdir) as prob:
             prob.check(args)
+            errors = ProblemAspect.errors
+            warnings = ProblemAspect.warnings
 
             def p(x):
                 return '' if x == 1 else 's'
 
             status = ''
             if args.clean:
-                cnt = clean(prob, args)
+                cnt, clean_errors, clean_warnings = clean(prob, args)
                 status += '%d case%s cleaned, ' % (cnt, p(cnt))
+                errors += clean_errors
+                warnings += clean_warnings
             if args.generate:
-                cnt = generate(prob, args)
+                cnt, gen_errors, gen_warnings = generate(prob, args)
                 status += '%d case%s generated, ' % (cnt, p(cnt))
+                errors += gen_errors
+                warnings += gen_warnings
 
-            [errors, warnings] = [ProblemAspect.errors, ProblemAspect.warnings]
             print("%s processed: %s%d error%s, %d warning%s" % (prob.shortname, status, errors, p(errors), warnings, p(warnings)))
             total_errors += errors
 
