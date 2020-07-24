@@ -758,14 +758,14 @@ class Generators(ProblemAspect):
                     for k, v in case.items():
                         self._count_ordered_cases(v)
 
-    def _remove_unicode(self, data):
-        if isinstance(data, list):
-            return [ self._remove_unicode(v) for v in data ]
-        if isinstance(data, dict):
-            return { self._remove_unicode(k): self._remove_unicode(v) for k,v in data.items() }
-        if isinstance(data, unicode):
-            return str(data)
-        raise Exception('unknown type %s' % type(data))
+    # def _remove_unicode(self, data):
+    #     if isinstance(data, list):
+    #         return [ self._remove_unicode(v) for v in data ]
+    #     if isinstance(data, dict):
+    #         return { self._remove_unicode(k): self._remove_unicode(v) for k,v in data.items() }
+    #     if isinstance(data, unicode):
+    #         return str(data)
+    #     raise Exception('unknown type %s' % type(data))
 
     def __init__(self, problem):
         self.debug('  Loading generators')
@@ -776,7 +776,8 @@ class Generators(ProblemAspect):
 
         if os.path.isfile(self.configfile):
             try:
-                self._data = yaml.load(file(self.configfile), Loader=yaml.BaseLoader)
+                with open(self.configfile) as f:
+                    self._data = yaml.safe_load(f)
                 print(self._data)
                 # Loading empty yaml yields None, for no apparent reason...
                 if self._data is None:
@@ -785,11 +786,11 @@ class Generators(ProblemAspect):
                 self.error(e)
 
         if isinstance(self._data, dict):
-            if sys.version_info[0] < 3:
-                try:
-                    self._data = self._remove_unicode(self._data)
-                except Exception as e:
-                    self.error('Could not convert unicode strings in generators.yaml', e)
+            # if sys.version_info[0] < 3:
+            #     try:
+            #         self._data = self._remove_unicode(self._data)
+            #     except Exception as e:
+            #         self.error('Could not convert unicode strings in generators.yaml', e)
 
             # The top-level dict always represents a directory, even if there
             # is no type key
