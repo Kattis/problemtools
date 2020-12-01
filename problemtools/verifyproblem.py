@@ -381,6 +381,10 @@ class TestCaseGroup(ProblemAspect):
         return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
 
 
+    def has_custom_groups(self):
+        return any(group.get_subgroups() for group in self.get_subgroups())
+
+
     def get_score_range(self):
         try:
             score_range = self.config['range']
@@ -618,13 +622,13 @@ class ProblemConfig(ProblemAspect):
         if 'name' in self._data and not isinstance(self._data['name'], dict):
             self._data['name'] = {'': self._data['name']}
 
+        self._origdata = copy.deepcopy(self._data)
+
         for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).items():
             if not field in self._data:
                 self._data[field] = default
             elif isinstance(default, dict) and isinstance(self._data[field], dict):
                 self._data[field] = dict(list(default.items()) + list(self._data[field].items()))
-
-        self._origdata = copy.deepcopy(self._data)
 
         val = self._data['validation'].split()
         self._data['validation-type'] = val[0]
@@ -660,6 +664,8 @@ class ProblemConfig(ProblemAspect):
         for field, value in self._origdata.items():
             if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
                 self.warning("Unknown field '%s' provided in problem.yaml" % field)
+
+        for field, value in self._data.items():
             if value is None:
                 self.error("Field '%s' provided in problem.yaml but is empty" % field)
                 self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
@@ -691,6 +697,8 @@ class ProblemConfig(ProblemAspect):
             self.error("Invalid value for grading.show_test_data_groups: %s" % self._data['grading']['show_test_data_groups'])
         elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
             self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
+        if self._data['type'] != 'pass-fail' and self._problem.testdata.has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
+            self.warning("Problem has custom test case groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
 
         if 'on_reject' in self._data['grading']:
             if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
