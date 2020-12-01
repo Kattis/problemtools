@@ -258,7 +258,7 @@ class TestCase(ProblemAspect):
             res1 = res2
         elif res2.validator_first and res2.verdict == 'WA':
             # WA can override TLE for interactive problems (see comment in validate_interactive).
-            res1 = SubmissionResult('WA', score=res2.score)
+            res1 = SubmissionResult('WA')
             res1.validator_first = True
             res2.runtime = timelim_low
         else:
@@ -300,7 +300,8 @@ class TestCaseGroup(ProblemAspect):
         configfile = os.path.join(self._datadir, 'testdata.yaml')
         if os.path.isfile(configfile):
             try:
-                self.config = yaml.safe_load(file(configfile))
+                with open(configfile) as f:
+                    self.config = yaml.safe_load(f)
             except Exception as e:
                 self.error(e)
                 self.config = {}
@@ -596,7 +597,8 @@ class ProblemConfig(ProblemAspect):
 
         if os.path.isfile(self.configfile):
             try:
-                self._data = yaml.safe_load(file(self.configfile))
+                with open(self.configfile) as f:
+                    self._data = yaml.safe_load(f)
                 # Loading empty yaml yields None, for no apparent reason...
                 if self._data is None:
                     self._data = {}
@@ -791,7 +793,7 @@ class ProblemStatement(ProblemAspect):
         for lang in self.languages:
             filename = ('problem.%s.tex' % lang) if lang != '' else 'problem.tex'
             stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
-            patterns = [('\\problemname{(.*)}', 'name'),
+            patterns = [(r'\\problemname{(.*)}', 'name'),
                         (r'^%%\s*plainproblemname:(.*)$', 'name')
                         ]
             for tup in patterns:
@@ -840,10 +842,10 @@ class Attachments(ProblemAspect):
 
 
 _JUNK_CASES = [
-    ('an empty file', ''),
-    ('a binary file with byte values 0 up to 256', ''.join(chr(x) for x in range(256))),
-    ('a text file with the ascii characters 32 up to 127', ''.join(chr(x) for x in range(32, 127))),
-    ('a random text file with printable characters', ''.join(random.choice(string.printable) for _ in range(200))),
+    ('an empty file', b''),
+    ('a binary file with byte values 0 up to 256', bytearray(x for x in range(256))),
+    ('a text file with the ASCII characters 32 up to 127', bytearray(x for x in range(32, 127))),
+    ('a random text file with printable ASCII characters', bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200))),
 ]
 
 def _build_junk_modifier(desc, pattern, repl):
@@ -922,7 +924,7 @@ class InputFormatValidators(ProblemAspect):
                         continue
 
                     with open(file_name, "wb") as f:
-                        f.write(modifier(infile))
+                        f.write(modifier(infile).encode('utf8'))
 
                     for flags in all_flags:
                         flags = flags.split()
@@ -1027,18 +1029,18 @@ class Graders(ProblemAspect):
                 if not os.WIFEXITED(status):
                     self.error('Judge error: %s crashed' % grader)
                     self.debug('Grader input:\n%s' % grader_input)
-                    return ('JE', 0.0)
+                    return ('JE', None)
                 ret = os.WEXITSTATUS(status)
                 if ret != 0:
                     self.error('Judge error: exit code %d for grader %s, expected 0' % (ret, grader))
                     self.debug('Grader input: %s\n' % grader_input)
-                    return SubmissionResult('JE', 0.0)
+                    return ('JE', None)
 
                 if not re.match(grader_output_re, grader_output):
                     self.error('Judge error: invalid format of grader output')
                     self.debug('Output must match: "%s"' % grader_output_re)
                     self.debug('Output was: "%s"' % grader_output)
-                    return ('JE', 0.0)
+                    return ('JE', None)
 
                 verdict, score = grader_output.split()
                 score = float(score)
@@ -1137,15 +1139,6 @@ class OutputValidators(ProblemAspect):
         score_file = os.path.join(feedbackdir, 'score.txt')
         if not custom_score and os.path.isfile(score_file):
             return SubmissionResult('JE', reason='validator produced "score.txt" but problem does not have custom scoring activated')
-        if custom_score:
-            if os.path.isfile(score_file):
-                try:
-                    score_str = open(score_file).read()
-                    score = float(score_str)
-                except Exception as e:
-                    return SubmissionResult('JE', reason='failed to parse validator score: %s' % e)
-            else:
-                return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
         if not os.WIFEXITED(status):
             return SubmissionResult('JE',
@@ -1158,8 +1151,18 @@ class OutputValidators(ProblemAspect):
                                     additional_info=OutputValidators.__get_feedback(feedbackdir))
 
         if ret == 43:
-            return SubmissionResult('WA', score=score,
-                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
+            return SubmissionResult('WA', additional_info=OutputValidators.__get_feedback(feedbackdir))
+
+        if custom_score:
+            if os.path.isfile(score_file):
+                try:
+                    score_str = open(score_file).read()
+                    score = float(score_str)
+                except Exception as e:
+                    return SubmissionResult('JE', reason='failed to parse validator score: %s' % e)
+            else:
+                return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
+
         return SubmissionResult('AC', score=score)
 
 
@@ -1365,7 +1368,8 @@ class Submissions(ProblemAspect):
 
                     success, msg = sub.compile()
                     if not success:
-                        self.error('Compile error for %s submission %s' % (acr, sub), msg)
+                        self.error('Compile error for %s submission %s' % (acr, sub),
+                                   additional_info=msg)
                         continue
 
                     res = self.check_submission(sub, args, acr, timelim, timelim_margin_lo, timelim_margin)
