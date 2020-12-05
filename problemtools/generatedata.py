@@ -13,6 +13,7 @@ from .verifyproblem import ProblemAspect, Problem, is_RTE, argparser_basic_argum
 
 # TODO: Add first class support for .interaction
 VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
+ALL_EXTENSIONS = ['in', 'ans'] + VISUALIZER_EXTENSIONS
 
 
 def argparser():
@@ -148,8 +149,12 @@ def generate_case(case_idx):
             staging_count = len(os.listdir(staging_dir))
 
             if isinstance(prog, str):
-                if out_ext is not None:
-                    shutil.copyfile(prog, os.path.join(staging_dir, name + out_ext))
+                assert gen_type == 'input'
+                assert prog.endswith('.in')
+                for ext in ALL_EXTENSIONS:
+                    path = prog[:-2] + ext
+                    if os.path.isfile(path):
+                        shutil.copyfile(path, os.path.join(staging_dir, '%s.%s' % (name, ext)))
             else:
                 errfile = os.path.join(tmp_dir, 'error')
                 params = {'args': pargs, 'errfile': errfile}
@@ -185,7 +190,7 @@ def generate_case(case_idx):
                 if '.' not in fname:
                     continue
                 curname, ext = fname.split('.', 1)
-                if curname == name and ext in ['in', 'ans'] + VISUALIZER_EXTENSIONS:
+                if curname == name and ext in ALL_EXTENSIONS:
                     fpath = os.path.join(staging_dir, fname)
                     if os.path.isfile(fpath) and not args.dry_run:
                         shutil.copyfile(fpath, os.path.join(out_dir, fname))

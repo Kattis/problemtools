@@ -981,10 +981,18 @@ class Generators(ProblemAspect):
                 implicit = True
                 manual = False
                 if isinstance(files, str):
-                    if files.endswith('.in'):
-                        manual = True
-                    files = [files]
+                    path = files
+                    files = []
                     implicit = False
+                    if path.endswith('.in'):
+                        manual = True
+                        for ext in ALL_EXTENSIONS:
+                            other_path = path[:-2] + ext
+                            if ext != 'in' and os.path.isfile(self._resolve_path(other_path)):
+                                files.append(other_path)
+                    # Always add original file last, to ensure it is chosen as
+                    # the representative file
+                    files.append(path)
                 if not isinstance(files, list) or not files:
                     self.error('Invalid generator %s in generators.yaml' % gen)
                     continue
