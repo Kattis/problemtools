@@ -860,10 +860,11 @@ class Generators(ProblemAspect):
                 current_case_counter = self._case_counter
 
             for name, value in sorted(case.items(), key=lambda kv: str(kv[0])):
-                name = str(name)
                 if ordered:
                     num = self._ordered_case_format % current_case_counter
-                    name = num + ('' if name == '~' else '-' + name)
+                    name = num + ('' if name is None else '-' + str(name))
+                else:
+                    name = str(name)
 
                 next_state = copy.deepcopy(state)
                 next_state['path'] = '%s/%s' % (state['path'], name)
