@@ -146,8 +146,6 @@ def generate_case(case_idx):
             if gen_type == 'input':
                 prob.generators.msg('Generating %s' % case['path'].replace('data/', '', 1))
 
-            staging_count = len(os.listdir(staging_dir))
-
             if isinstance(prog, str):
                 assert gen_type == 'input'
                 assert prog.endswith('.in')
@@ -181,10 +179,6 @@ def generate_case(case_idx):
                     dest = os.path.join(staging_dir, name + out_ext)
                     if not os.path.isfile(dest):
                         shutil.copyfile(outfile, dest)
-
-            if len(os.listdir(staging_dir)) == staging_count:
-                prob.generators.warning('Generator of type %s generated no files' % gen_type)
-
         if ok:
             for fname in os.listdir(staging_dir):
                 if '.' not in fname:
