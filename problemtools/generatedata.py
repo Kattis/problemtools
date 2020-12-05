@@ -159,8 +159,10 @@ def generate_case(case_idx):
                     outfile = os.path.join(tmp_dir, 'output')
                     params['outfile'] = outfile
 
-                # TODO: Change working directory
+                oldwd = os.getcwd()
+                os.chdir(staging_dir)
                 status, _ = prog.run(**params)
+                os.chdir(oldwd)
                 if is_RTE(status):
                     ok = not mandatory
                     stderr = None
