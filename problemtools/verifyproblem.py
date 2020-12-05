@@ -838,6 +838,7 @@ class Generators(ProblemAspect):
                         new += name
                     else:
                         return err()
+                    new += rest
             parts[i] = new
 
         program, arguments = parts[0], parts[1:]
