@@ -11,7 +11,8 @@ from multiprocessing import Pool, cpu_count
 
 from .verifyproblem import ProblemAspect, Problem, is_RTE, argparser_basic_arguments, initialize_logging
 
-VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg']
+# TODO: Add first class support for .interaction
+VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
 
 
 def argparser():
