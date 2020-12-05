@@ -758,15 +758,6 @@ class Generators(ProblemAspect):
                     for k, v in case.items():
                         self._count_ordered_cases(v)
 
-    # def _remove_unicode(self, data):
-    #     if isinstance(data, list):
-    #         return [ self._remove_unicode(v) for v in data ]
-    #     if isinstance(data, dict):
-    #         return { self._remove_unicode(k): self._remove_unicode(v) for k,v in data.items() }
-    #     if isinstance(data, unicode):
-    #         return str(data)
-    #     raise Exception('unknown type %s' % type(data))
-
     def __init__(self, problem):
         self.debug('  Loading generators')
         self._problem = problem
@@ -779,7 +770,6 @@ class Generators(ProblemAspect):
             try:
                 with open(self.configfile) as f:
                     self._data = yaml.safe_load(f)
-                print(self._data)
                 # Loading empty yaml yields None, for no apparent reason...
                 if self._data is None:
                     self._data = {}
@@ -787,12 +777,6 @@ class Generators(ProblemAspect):
                 self.error(e)
 
         if isinstance(self._data, dict):
-            # if sys.version_info[0] < 3:
-            #     try:
-            #         self._data = self._remove_unicode(self._data)
-            #     except Exception as e:
-            #         self.error('Could not convert unicode strings in generators.yaml', e)
-
             # The top-level dict always represents a directory, even if there
             # is no type key
             self._data['type'] = 'directory'
@@ -800,7 +784,6 @@ class Generators(ProblemAspect):
             # Count the ordered cases and determine the zero-padding length
             self._ordered_case_count = 0
             self._count_ordered_cases(self._data)
-            # self._ordered_case_format = '%%0%dd-%%s' % len(str(self._ordered_case_count))
             self._ordered_case_format = '%%0%dd' % len(str(self._ordered_case_count))
 
     def __str__(self):
