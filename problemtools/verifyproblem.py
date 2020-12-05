@@ -989,6 +989,17 @@ class Generators(ProblemAspect):
                         break
 
                     name = os.path.basename(opath)
+                    if implicit and opath == files[0]:
+                        # In implicit generators, the first listed file should
+                        # be the entry point. problemtools usually picks the
+                        # lexicographically smallest filename as the entry
+                        # point, unless there exists a file that starts with
+                        # "main.". Thus the following renames the file that
+                        # should be the entry point to "main.old.extension".
+                        # TODO: Make problemtools support passing a different
+                        # entry point than "main.", and remove this hack.
+                        name = 'main' + os.path.splitext(name)[1]
+
                     fpath = self._resolve_path(opath)
                     dest = os.path.join(tmpdir, name)
                     if os.path.exists(dest):
