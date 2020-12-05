@@ -773,6 +773,7 @@ class Generators(ProblemAspect):
         self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
         self._data = None
         self._testcases = []
+        self._data_directories = set()
 
         if os.path.isfile(self.configfile):
             try:
@@ -941,7 +942,6 @@ class Generators(ProblemAspect):
             self._generators = {}
 
         # Check the shape of the top-level data dict
-        self._data_directories = set()
         if isinstance(self._data.get('data'), list):
             self.error('Top-level data key in generators.yaml must specify a dict')
             self._data['data'] = {}
