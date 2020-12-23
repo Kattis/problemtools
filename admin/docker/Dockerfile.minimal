@@ -20,10 +20,8 @@ RUN apt update && \
     apt install -y \
         ghostscript \
         libgmpxx4ldbl \
-        python-minimal \
-        python-pkg-resources \
-        python-plastex \
-        python-yaml \
+        python3-pkg-resources \
+        python3-plastex \
         python3-minimal \
         python3-yaml \
         texlive-fonts-recommended \

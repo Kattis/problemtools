@@ -26,4 +26,4 @@ RUN apt-get update && \
             tidy \
             vim
 
-RUN pip install git+https://github.com/kattis/problemtools
+RUN pip3 install git+https://github.com/kattis/problemtools
