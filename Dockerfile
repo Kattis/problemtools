@@ -26,4 +26,4 @@ RUN apt-get update && \
             tidy \
             vim
 
-RUN pip3 install git+https://github.com/ghamerly/problemtools@move-to-py3
+RUN pip3 install git+https://github.com/kattis/problemtools

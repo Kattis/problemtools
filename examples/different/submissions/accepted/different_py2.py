@@ -7,4 +7,3 @@ for line in sys.stdin:
     a = int(ab[0])
     b = int(ab[1])
     print abs(a-b)
-

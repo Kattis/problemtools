@@ -1,16 +1,14 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import re
 import os.path
 import sys
 import string
-from string import Template
-from optparse import OptionParser
+import optparse
 from .ProblemPlasTeX import ProblemRenderer
 from .ProblemPlasTeX import ProblemsetMacros
-from plasTeX.TeX import TeX
-from plasTeX.Logging import getLogger, disableLogging
+import plasTeX.TeX
+import plasTeX.Logging
 import logging
 import subprocess
 from . import template
@@ -20,15 +18,15 @@ def convert(problem, options=None):
     problem = os.path.realpath(problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
-    destdir = Template(options.destdir).safe_substitute(problem=problembase)
-    destfile = Template(options.destfile).safe_substitute(problem=problembase)
-    imgbasedir = Template(options.imgbasedir).safe_substitute(problem=problembase)
+    destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
+    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+    imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problembase)
 
     if options.quiet:
-        disableLogging()
+        plasTeX.Logging.disableLogging()
     else:
-        getLogger().setLevel(eval("logging." + options.loglevel.upper()))
-        getLogger('status').setLevel(eval("logging." + options.loglevel.upper()))
+        plasTeX.Logging.getLogger().setLevel(eval("logging." + options.loglevel.upper()))
+        plasTeX.Logging.getLogger('status').setLevel(eval("logging." + options.loglevel.upper()))
 
     texfile = problem
     # Set up template if necessary
@@ -39,7 +37,7 @@ def convert(problem, options=None):
 
         # Setup parser and renderer etc
 
-        tex = TeX(myfile=texfile)
+        tex = plasTeX.TeX.TeX(myfile=texfile)
 
         ProblemsetMacros.init(tex)
 
@@ -135,16 +133,16 @@ class ConvertOptions:
 
 def main():
     options = ConvertOptions()
-    optparse = OptionParser(usage="usage: %prog [options] problem")
+    parser = optparse.OptionParser(usage="usage: %prog [options] problem")
     for (dest, action, short, long, help) in ConvertOptions.available:
         if (action == 'store'):
             help += ' default: "%s"' % options.__dict__[dest]
-        optparse.add_option(short, long, dest=dest, help=help, action=action)
+        parser.add_option(short, long, dest=dest, help=help, action=action)
 
-    (options, args) = optparse.parse_args(values=options)
+    (options, args) = parser.parse_args(values=options)
 
     if len(args) != 1:
-        optparse.print_help()
+        parser.print_help()
         sys.exit(1)
 
     texfile = args[0]

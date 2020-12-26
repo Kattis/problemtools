@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
-from optparse import OptionParser
+import optparse
 import glob
-import os
+import os.path
 import yaml
 
 
@@ -45,11 +44,11 @@ def update(problemdir):
         yaml_changed = True
 
     if yaml_changed:
-        open(probyaml, 'w').write(yaml.dump(config, default_flow_style = False, allow_unicode = True))
+        open(probyaml, 'w').write(yaml.dump(config, default_flow_style=False, allow_unicode=True))
 
 
 if __name__ == '__main__':
-    parser = OptionParser(usage="usage: %prog problems")
+    parser = optparse.OptionParser(usage="usage: %prog problems")
     (options, args) = parser.parse_args()
     if not args:
         parser.print_help()
