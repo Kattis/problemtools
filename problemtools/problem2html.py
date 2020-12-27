@@ -2,15 +2,16 @@
 # -*- coding: utf-8 -*-
 import re
 import os.path
-import sys
 import string
-import optparse
-from .ProblemPlasTeX import ProblemRenderer
-from .ProblemPlasTeX import ProblemsetMacros
-import plasTeX.TeX
-import plasTeX.Logging
+import argparse
 import logging
 import subprocess
+
+import plasTeX.TeX
+import plasTeX.Logging
+
+from .ProblemPlasTeX import ProblemRenderer
+from .ProblemPlasTeX import ProblemsetMacros
 from . import template
 
 
@@ -25,8 +26,8 @@ def convert(problem, options=None):
     if options.quiet:
         plasTeX.Logging.disableLogging()
     else:
-        plasTeX.Logging.getLogger().setLevel(eval("logging." + options.loglevel.upper()))
-        plasTeX.Logging.getLogger('status').setLevel(eval("logging." + options.loglevel.upper()))
+        plasTeX.Logging.getLogger().setLevel(getattr(logging, options.loglevel.upper()))
+        plasTeX.Logging.getLogger('status').setLevel(getattr(logging, options.loglevel.upper()))
 
     texfile = problem
     # Set up template if necessary
@@ -96,57 +97,44 @@ def convert(problem, options=None):
 class ConvertOptions:
     available = [
         ['bodyonly', 'store_true', '-b', '--body-only',
-         'only generate HTML body, no HTML headers.'],
+         'only generate HTML body, no HTML headers', False],
         ['css', 'store_false', '-c', '--no-css',
-         "don't copy CSS file to output directory."],
+         "don't copy CSS file to output directory", True],
         ['headers', 'store_false', '-H', '--headers',
-         "don't generate problem headers (title, problem id, time limit)"],
+         "don't generate problem headers (title, problem id, time limit)", True],
         ['tidy', 'store_false', '-m', '--messy',
-         "don't run tidy to postprocess the HTML"],
+         "don't run tidy to postprocess the HTML", True],
         ['destdir', 'store', '-d', '--dest-dir',
-         "output directory."],
+         "output directory", '${problem}_html'],
         ['destfile', 'store', '-f', '--dest-file',
-         "output file name."],
+         "output file name", 'index.html'],
         ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code).'],
+         'choose alternate language (2-letter code)', ''],
         ['title', 'store', '-T', '--title',
-         'set title (only used when there is no pre-existing template and -h not set).'],
+         'set title (only used when there is no pre-existing template and -h not set)',
+         'Problem Name'],
         ['loglevel', 'store', '-L', '--log-level',
-         'set log level (debug, info, warning, error, critical).'],
+         'set log level (debug, info, warning, error, critical)', 'warning'],
         ['quiet', 'store_true', '-q', '--quiet',
-         "quiet."],
+         "quiet", False],
         ]
 
     def __init__(self):
-        self.bodyonly = False
-        self.css = True
-        self.headers = True
-        self.tidy = True
-        self.destdir = "${problem}_html"
-        self.destfile = "index.html"
-        self.language = ""
-        self.title = "Problem Name"
-        self.loglevel = "warning"
+        for (dest, _, _, _, _, default) in ConvertOptions.available:
+            setattr(self, dest, default)
         self.imgbasedir = ''
-        self.quiet = False
 
 
 def main():
     options = ConvertOptions()
-    parser = optparse.OptionParser(usage="usage: %prog [options] problem")
-    for (dest, action, short, long, help) in ConvertOptions.available:
-        if (action == 'store'):
-            help += ' default: "%s"' % options.__dict__[dest]
-        parser.add_option(short, long, dest=dest, help=help, action=action)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    for (dest, action, short, _long, _help, default) in ConvertOptions.available:
+        parser.add_argument(short, _long, dest=dest, help=_help, action=action, default=default)
+    parser.add_argument('problem', help='the problem to convert')
 
-    (options, args) = parser.parse_args(values=options)
+    options = parser.parse_args(namespace=options)
+    convert(options.problem, options)
 
-    if len(args) != 1:
-        parser.print_help()
-        sys.exit(1)
-
-    texfile = args[0]
-    convert(texfile, options)
 
 if __name__ == '__main__':
     main()
