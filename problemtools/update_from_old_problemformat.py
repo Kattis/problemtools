@@ -52,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('problemdir', nargs='+')
     options = parser.parse_args()
 
-    for problemdir in options:
+    for problemdir in options.problemdir:
         try:
             print('Updating %s' % problemdir)
             update(problemdir)
