@@ -478,9 +478,11 @@ class TestCaseGroup(ProblemAspect):
         ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
 
         for f in infiles:
+            if os.path.isdir(f): continue
             if not f[:-3] + '.ans' in ansfiles:
                 self.error("No matching answer file for input '%s'" % f)
         for f in ansfiles:
+            if os.path.isdir(f): continue
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
 
