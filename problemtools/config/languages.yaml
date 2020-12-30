@@ -154,8 +154,8 @@ javascript:
     name: 'JavaScript'
     priority: 500
     files: '*.js'
-    compile: '/usr/bin/js24 -c {files}'
-    run: '/usr/bin/js24 "{mainfile}"'
+    compile: '/usr/bin/nodejs -c {files}'
+    run: '/usr/bin/nodejs "{mainfile}"'
 
 kotlin:
     name: 'Kotlin'

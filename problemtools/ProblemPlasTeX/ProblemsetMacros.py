@@ -8,14 +8,6 @@ from plasTeX.Base import DimenCommand
 from plasTeX.Logging import getLogger
 import plasTeX.Packages.graphics as graphics
 
-if sys.version_info.major == 2:
-    import cgi
-    def plastex_escape(s):
-        return cgi.escape(s)
-else:
-    def plastex_escape(s):
-        return s
-
 log = getLogger()
 status = getLogger('status')
 
@@ -53,9 +45,7 @@ class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
     def read_sample_file(self, filename):
-        data = io.open(filename, 'r', encoding='utf-8').read()
-        data = plastex_escape(data)
-        return data
+        return io.open(filename, 'r', encoding='utf-8').read()
 
     def invoke(self, tex):
         res = Command.invoke(self, tex)
@@ -89,12 +79,12 @@ class sampletableinteractive(Command):
             line = line[1:]
             if mode != cur_mode:
                 if cur_mode: messages.append({'mode': cur_mode,
-                                              'data': plastex_escape('\n'.join(cur_msg))})
+                                              'data': '\n'.join(cur_msg)})
                 cur_msg = []
             cur_msg.append(line)
             cur_mode = mode
         if cur_mode: messages.append({'mode': cur_mode,
-                                      'data': plastex_escape('\n'.join(cur_msg))})
+                                      'data': '\n'.join(cur_msg)})
         return messages
 
     def invoke(self, tex):

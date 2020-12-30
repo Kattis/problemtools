@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 import sys
 
 for line in sys.stdin:
@@ -5,4 +7,3 @@ for line in sys.stdin:
     a = int(ab[0])
     b = int(ab[1])
     print abs(a-b)
-

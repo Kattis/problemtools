@@ -1,6 +1,5 @@
 """Abstract base class for programs.
 """
-from __future__ import print_function
 import os
 from . import limit
 import resource

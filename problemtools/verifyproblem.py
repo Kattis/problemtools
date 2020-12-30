@@ -1,6 +1,5 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import glob
 import string
 import hashlib
@@ -10,12 +9,13 @@ import signal
 import re
 import shutil
 import logging
-import yaml
 import tempfile
 import sys
 import copy
 import random
-from argparse import ArgumentParser, ArgumentTypeError
+import argparse
+
+import yaml
 
 from . import problem2pdf
 from . import problem2html
@@ -1468,17 +1468,17 @@ def re_argument(s):
         r = re.compile(s)
         return r
     except re.error:
-        raise ArgumentTypeError('%s is not a valid regex' % s)
+        raise argparse.ArgumentTypeError('%s is not a valid regex' % s)
 
 
 def part_argument(s):
     if s not in PROBLEM_PARTS:
-        raise ArgumentTypeError("Invalid problem part specified: %s" % s)
+        raise argparse.ArgumentTypeError("Invalid problem part specified: %s" % s)
     return s
 
 
 def argparser():
-    parser = ArgumentParser(description='Validate a problem package in the Kattis problem format.')
+    parser = argparse.ArgumentParser(description='Validate a problem package in the Kattis problem format.')
     parser.add_argument('-s', '--submission_filter', metavar='SUBMISSIONS',
                         type=re_argument, default=re.compile('.*'),
                         help='run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. "accepted/hello.java" (for a single file submission) or "wrong_answer/hello" (for a directory submission)')

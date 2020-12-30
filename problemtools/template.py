@@ -1,5 +1,3 @@
-from __future__ import print_function
-import os
 import re
 import os.path
 import glob
@@ -10,7 +8,7 @@ import shutil
 # For backwards compatibility, remove in bright and shiny future.
 def detect_version(problemdir, problemtex):
     # Check for 0.1 - lack of \problemname
-    if open(problemtex).read().find('\problemname') < 0:
+    if open(problemtex).read().find(r'\problemname') < 0:
         return '0.1'
     return ''  # Current
 

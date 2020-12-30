@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 MAINTAINER austrin@kattis.com
 
@@ -14,10 +14,10 @@ RUN apt-get update && \
             libgmp10 \
             libgmpxx4ldbl \
             openjdk-8-jdk \
-            python-minimal \
-            python-pip \
-            python-plastex \
-            python-yaml \
+            python3-minimal \
+            python3-pip \
+            python3-plastex \
+            python3-yaml \
             sudo \
             texlive-fonts-recommended \
             texlive-lang-cyrillic \
@@ -26,4 +26,4 @@ RUN apt-get update && \
             tidy \
             vim
 
-RUN pip install git+https://github.com/kattis/problemtools
+RUN pip3 install git+https://github.com/kattis/problemtools
