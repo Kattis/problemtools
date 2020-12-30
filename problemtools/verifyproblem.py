@@ -864,11 +864,15 @@ class InputFormatValidators(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._validators = run.find_programs(os.path.join(problem.probdir,
-                                                          'input_format_validators'),
+        self._validators = (run.find_programs(os.path.join(problem.probdir, 'input_format_validators'),
                                              language_config=problem.language_config,
                                              allow_validation_script=True,
-                                             work_dir=problem.tmpdir)
+                                             work_dir=problem.tmpdir) +
+                            run.find_programs(os.path.join(problem.probdir, 'input_validators'),
+                                             language_config=problem.language_config,
+                                             allow_validation_script=True,
+                                             work_dir=problem.tmpdir))
+
 
 
     def __str__(self):
