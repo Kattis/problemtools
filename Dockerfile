@@ -17,6 +17,7 @@ RUN apt-get update && \
             python3-minimal \
             python3-pip \
             python3-plastex \
+            python3-markdown \
             python3-yaml \
             sudo \
             texlive-fonts-recommended \

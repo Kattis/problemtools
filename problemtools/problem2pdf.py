@@ -8,13 +8,16 @@ import subprocess
 from . import template
 
 
-def convert(problem, options=None):
+def convert(problem, options=None, ignore_markdown=False):
     if options is None:
         options = ConvertOptions()
 
     problem = os.path.realpath(problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+    # We skip PDF check when verifying problems with markdown statements
+    if os.path.isfile(os.path.join(problem, "problem_statement", "problem.%s.md" % options.language)) and ignore_markdown:
+        return True
 
     texfile = problem
     # Set up template if necessary

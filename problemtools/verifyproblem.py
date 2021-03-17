@@ -744,10 +744,14 @@ class ProblemStatement(ProblemAspect):
         self._problem = problem
         self.languages = []
         glob_path = os.path.join(problem.probdir, 'problem_statement', 'problem.')
-        if glob.glob(glob_path + 'tex'):
-            self.languages.append('')
-        for f in glob.glob(glob_path + '[a-z][a-z].tex'):
-            self.languages.append(re.search("problem.([a-z][a-z]).tex$", f).group(1))
+        for extension in problem2html.SUPPORTED_EXTENSIONS:
+            if glob.glob(glob_path + extension):
+                self.languages.append('')
+            for f in glob.glob(glob_path + '[a-z][a-z].%s' % extension):
+                lang = re.search("problem.([a-z][a-z]).%s$" % extension, f).group(1)
+                if lang in self.languages:
+                    self.error('Language %s has several statement formats' % lang)
+                self.languages.append(lang)
 
     def check(self, args):
         if self._check_res is not None:
@@ -755,9 +759,9 @@ class ProblemStatement(ProblemAspect):
         self._check_res = True
 
         if not self.languages:
-            self.error('No problem statements found (expected problem.tex or problem.[a-z][a-z].tex in problem_statement directory)')
+            self.error('No problem statements found (expected problem.{tex,md} or problem.[a-z][a-z].{tex,md} in problem_statement directory)')
         if '' in self.languages and 'en' in self.languages:
-            self.error("Can't supply both problem.tex and problem.en.tex")
+            self.error("Can't supply both problem.{tex,md} and problem.en.{tex,md}")
         pdfopt = problem2pdf.ConvertOptions()
         pdfopt.nopdf = True
         pdfopt.quiet = True
@@ -766,10 +770,10 @@ class ProblemStatement(ProblemAspect):
         htmlopt.quiet = True
 
         for lang in self.languages:
-            pdfopt.language = lang
             htmlopt.language = lang
+            pdfopt.language = lang
             try:
-                if not problem2pdf.convert(self._problem.probdir, pdfopt):
+                if not problem2pdf.convert(self._problem.probdir, pdfopt, ignore_markdown=True):
                     langparam = ''
                     if lang != '':
                         langparam = '-l ' + lang
@@ -791,19 +795,23 @@ class ProblemStatement(ProblemAspect):
     def get_config(self):
         ret = {}
         for lang in self.languages:
-            filename = ('problem.%s.tex' % lang) if lang != '' else 'problem.tex'
-            stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
-            patterns = [(r'\\problemname{(.*)}', 'name'),
-                        (r'^%%\s*plainproblemname:(.*)$', 'name')
-                        ]
-            for tup in patterns:
-                pattern = tup[0]
-                dest = tup[1]
-                hit = re.search(pattern, stmt, re.MULTILINE)
-                if hit:
-                    if not dest in ret:
-                        ret[dest] = {}
-                    ret[dest][lang] = hit.group(1).strip()
+            extless_filename = ('problem.%s.' % lang) if lang != '' else 'problem.'
+            for extension in problem2html.SUPPORTED_EXTENSIONS:
+                filename = extless_filename + extension
+                if not os.path.isfile(filename):
+                    continue
+                stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
+                patterns = [(r'\\problemname{(.*)}', 'name'),
+                            (r'^%%\s*plainproblemname:(.*)$', 'name')
+                            ]
+                for tup in patterns:
+                    pattern = tup[0]
+                    dest = tup[1]
+                    hit = re.search(pattern, stmt, re.MULTILINE)
+                    if hit:
+                        if not dest in ret:
+                            ret[dest] = {}
+                        ret[dest][lang] = hit.group(1).strip()
         return ret
 
 
