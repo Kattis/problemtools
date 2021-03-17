@@ -100,7 +100,6 @@ def convert(problem, options=None):
             sample_input = infile.read()
         with open(outpath, "r", encoding="utf-8") as outfile:
             sample_output = outfile.read()
-            samples.append((sample_input, sample_output))
 
         samples.append(r"""
             <tr>
