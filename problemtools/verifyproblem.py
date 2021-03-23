@@ -864,8 +864,15 @@ class InputFormatValidators(ProblemAspect):
 
     def __init__(self, problem):
         self._problem = problem
-        self._validators = run.find_programs(os.path.join(problem.probdir,
-                                                          'input_format_validators'),
+        input_validators_path = os.path.join(problem.probdir, 'input_format_validators')
+        if os.path.isdir(input_validators_path):
+            self._uses_old_path = True
+        else:
+            self._uses_old_path = False
+            new_input_validators_path = os.path.join(problem.probdir, 'input_validators')
+            if os.path.isdir(new_input_validators_path):
+                input_validatdors_path = new_input_validators_path
+        self._validators = run.find_programs(input_validators_path,
                                              language_config=problem.language_config,
                                              allow_validation_script=True,
                                              work_dir=problem.tmpdir)
@@ -878,6 +885,8 @@ class InputFormatValidators(ProblemAspect):
     def check(self, args):
         if self._check_res is not None:
             return self._check_res
+        if self._uses_old_path:
+            self.warning('input_format_validators is a deprecated name; please use input_validators instead')
         self._check_res = True
         if len(self._validators) == 0:
             self.error('No input format validators found')
