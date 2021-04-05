@@ -14,6 +14,7 @@ import sys
 import copy
 import random
 import argparse
+import traceback
 
 import yaml
 
@@ -671,7 +672,7 @@ class ProblemConfig(ProblemAspect):
                 self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
 
         # Check type
-        if not self._data['type'] in ['pass-fail', 'scoring']:
+        if not self._data['type'] in ['pass-fail', 'scoring', 'pvp']:
             self.error("Invalid value '%s' for type" % self._data['type'])
 
         # Check rights_owner
