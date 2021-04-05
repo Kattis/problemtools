@@ -327,7 +327,7 @@ class TestCaseGroup(ProblemAspect):
         if problem_on_reject == 'grade':
             self.config['on_reject'] = 'continue'
 
-        if self._problem.config.get('type') == 'pass-fail':
+        if not self._problem.config.get('type') == 'scoring':
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if key not in self.config:
                     self.config[key] = None
