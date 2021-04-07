@@ -3,10 +3,10 @@ import sys
 
 board = [["", "", ""], ["", "", ""], ["", "", ""]]
 
-token = readline()
+token = input()
 
 def handle_move():
-    l = readline()
+    l = input()
     if l == "you win" or l == "you lose":
         sys.exit(0)
     x, y = map(int, l.split(" "))
