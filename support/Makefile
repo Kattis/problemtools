@@ -1,6 +1,6 @@
 PACKAGE=problemtools
 CONF=checktestdata/config.mk
-PROGRAMS=checktestdata default_validator interactive
+PROGRAMS=checktestdata default_validator interactive pvp
 
 all: $(CONF)
 	$(foreach prog,$(PROGRAMS),$(MAKE) -C $(prog);)

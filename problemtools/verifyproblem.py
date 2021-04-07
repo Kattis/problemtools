@@ -15,6 +15,7 @@ import copy
 import random
 import argparse
 import traceback
+import itertools
 
 import yaml
 
@@ -171,7 +172,7 @@ class TestCase(ProblemAspect):
             self.error('Answer file (%.1f Mb) is larger than output limit (%d Mb), you need to increase output limit' % (anssize, outputlim))
         elif 2 * anssize > outputlim:
             self.warning('Answer file (%.1f Mb) is within 50%% of output limit (%d Mb), you might want to increase output limit' % (anssize, outputlim))
-        if not self._problem.is_interactive:
+        if not self._problem.is_interactive and self._problem.config.get('type') != 'pvp':
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
@@ -242,6 +243,8 @@ class TestCase(ProblemAspect):
 
         if self._problem.is_interactive:
             res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
+        elif self._problem.config.get('type') == 'pvp':
+            res2 = self._problem.output_validators.validate_pvp(self, sub, timelim_high, self._problem.submissions)
         else:
             status, runtime = sub.run(self.infile, outfile,
                                       timelim=timelim_high+1,
@@ -1175,12 +1178,129 @@ class OutputValidators(ProblemAspect):
 
         return SubmissionResult('AC', score=score)
 
+    def _parse_pvp_validator_results(self, val, status, feedbackdir, testcase):
+        custom_score = self._problem.config.get('grading')['custom_scoring']
+        score = None
+        # TODO: would be good to have some way of displaying the feedback for debugging uses
+        score_file = os.path.join(feedbackdir, 'score.txt')
+        if not custom_score and os.path.isfile(score_file):
+            return SubmissionResult('JE', reason='validator produced "score.txt" but problem does not have custom scoring activated')
+
+        if not os.WIFEXITED(status):
+            return SubmissionResult('JE',
+                                    reason='output validator %s crashed, status %d' % (val, status),
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
+        ret = os.WEXITSTATUS(status)
+        if ret not in [41, 42, 43]:
+            return SubmissionResult('JE',
+                                    reason='output validator %s exited with status %d' % (val, ret),
+                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
+
+        if ret == 43:
+            return SubmissionResult('PAC')
+        elif ret == 42:
+            return SubmissionResult('WA')
+        else:
+            return SubmissionResult('AC')
+        
 
     def _actual_validators(self):
         vals = self._validators
         if self._problem.config.get('validation') == 'default':
             vals = [self._default_validator]
         return vals
+        
+    def validate_pvp(self, testcase, submission, timelim, errorhandler):
+        pvp_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+ \d+ \d+\.\d+'
+        res = SubmissionResult('JE')
+        pvp = run.get_tool('pvp')
+        if pvp is None:
+            errorhandler.error('Could not locate pvp runner')
+            return res
+        
+        initargs = [str(2 * timelim)]
+        validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>', '<p1_output>', '<p1_input>', '<p2_output>', '<p2_input>']
+        new_submission_args = submission.new_submission.get_runcmd(memlim=self._problem.config.get('limits')['memory'])
+        old_submission_args = submission.old_submission.get_runcmd(memlim=self._problem.config.get('limits')['memory'])
+        
+        val_timelim = self._problem.config.get('limits')['validation_time']
+        val_memlim = self._problem.config.get('limits')['validation_memory']
+
+        for val in self._actual_validators():
+            if val is not None and val.compile()[0]:
+                feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
+                validator_args[2] = feedbackdir + os.sep
+                p1_output = os.path.join(self._problem.tmpdir, 'p1_output')
+                p1_input = os.path.join(self._problem.tmpdir, 'p1_input')
+                p2_output = os.path.join(self._problem.tmpdir, 'p2_output')
+                p2_input = os.path.join(self._problem.tmpdir, 'p2_input')
+                os.mkfifo(p1_output)
+                os.mkfifo(p1_input)
+                os.mkfifo(p2_output)
+                os.mkfifo(p2_input)
+                validator_args[3] = p1_output
+                validator_args[4] = p1_input
+                validator_args[5] = p2_output
+                validator_args[6] = p2_input
+
+                f = tempfile.NamedTemporaryFile(delete=False)
+                pvp_out = f.name
+                f.close()
+                i_status, _ = pvp.run(outfile=pvp_out,
+                                              #errfile="/home/eskil/foo",
+                                              args=initargs 
+                                                + val.get_runcmd(memlim=val_memlim) 
+                                                + validator_args 
+                                                + [';'] 
+                                                + new_submission_args
+                                                + [';']
+                                                + old_submission_args)
+                if is_RTE(i_status):
+                    errorhandler.error('PvP crashed, status %d' % i_status)
+                else:
+                    pvp_output = open(pvp_out).read()
+                    errorhandler.debug('PvP output: "%s"' % pvp_output)
+                    if not re.match(pvp_output_re, pvp_output):
+                        errorhandler.error('Output from PvP does not follow expected format, got output "%s"' % pvp_output)
+                    else:
+                        val_status, _, new_sub_status, new_sub_runtime, old_sub_status, old_sub_runtime = pvp_output.split()
+                        new_sub_status = int(new_sub_status)
+                        new_sub_runtime = float(new_sub_runtime)
+                        old_sub_status = int(old_sub_status)
+                        old_sub_runtime = float(old_sub_runtime)
+                        val_status = int(val_status)
+                        # TODO reimplement this behaviour
+                        #val_JE = not os.WIFEXITED(val_status) or os.WEXITSTATUS(val_status) not in [41, 42, 43]
+                        #val_WA = os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43
+                        #if val_JE or (val_WA and first == 'validator'):
+                        #    # If the validator crashed, or exited first with WA,
+                        #    # always follow validator verdict, even if that early
+                        #    # exit caused the submission to behave erratically and
+                        #    # time out.
+                        #    if sub_runtime > timelim:
+                        #        sub_runtime = timelim
+                        #    res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
+                        if \
+                            is_TLE(new_sub_status, True) and is_TLE(old_sub_status, True) \
+                            or is_RTE(new_sub_status) and is_RTE(old_sub_status):
+                            res = SubmissionResult('PAC')
+                        elif is_RTE(new_sub_status) or is_TLE(new_sub_status):
+                            res = SubmissionResult('WA')
+                        elif is_RTE(old_sub_status) or is_TLE(old_sub_status):
+                            res = SubmissionResult('AC')
+                        else:
+                            res = self._parse_pvp_validator_results(val, val_status, feedbackdir, testcase)
+                        
+                        res.runtime = max(new_sub_runtime, old_sub_runtime)
+
+                os.unlink(pvp_out)
+                os.unlink(p1_output)
+                os.unlink(p1_input)
+                os.unlink(p2_output)
+                os.unlink(p2_input)
+                shutil.rmtree(feedbackdir)
+        # TODO: check that all output validators give same result
+        return res
 
 
     def validate_interactive(self, testcase, submission, timelim, errorhandler):
@@ -1294,7 +1414,7 @@ class Submissions(ProblemAspect):
         return 'submissions'
 
     def check_submission(self, sub, args, expected_verdict, timelim, timelim_low, timelim_high):
-        desc = '%s submission %s' % (expected_verdict, sub)
+        desc = '%s submission %s' % (' or '.join(expected_verdict), sub)
         partial = False
         if expected_verdict == 'PAC':
             # For partially accepted solutions, use the low timelim instead of the real one,
@@ -1305,7 +1425,7 @@ class Submissions(ProblemAspect):
 
         result1, result2 = self._problem.testdata.run_submission(sub, args, timelim, timelim_high)
 
-        if result1.verdict == 'AC' and expected_verdict == 'AC' and not partial and result1.sample_failures:
+        if result1.verdict == 'AC' and 'AC' in expected_verdict and not partial and result1.sample_failures:
             res = result1.sample_failures[0]
             self.warning('%s got %s on sample: %s' % (desc, res.verdict, res))
 
@@ -1315,17 +1435,17 @@ class Submissions(ProblemAspect):
 
         if partial and self.fully_accepted(result1):
             self.warning('%s got %s' % (desc, result1))
-        elif result1.verdict == expected_verdict:
+        elif result1.verdict in expected_verdict:
             self.msg('   %s OK: %s' % (desc, result1))
             if (expected_verdict == 'AC' and not partial
                     and not self.fully_accepted(result1)
                     and self.full_score_finite()):
                 # For some heuristic problems, this is expected. Thus, only warn.
                 self.warning('%s did not attain full score (consider moving it to partially_accepted)' % desc)
-        elif result2.verdict == expected_verdict and not (partial and self.fully_accepted(result2)):
+        elif result2.verdict in expected_verdict and not (partial and self.fully_accepted(result2)):
             self.msg('   %s OK with extra time: %s' % (desc, result2))
         else:
-            self.error('%s got %s' % (desc, result1), result2.additional_info)
+            self.error('----%s got %s' % (desc, result1), result2.additional_info)
 
         return result1
 
@@ -1359,52 +1479,135 @@ class Submissions(ProblemAspect):
         if args.fixed_timelim is not None:
             timelim = args.fixed_timelim
             timelim_margin = int(round(timelim * safety_margin))
-
-        for verdict in Submissions._VERDICTS:
-            acr = verdict[0]
-            if verdict[2] and not self._submissions[acr]:
-                self.error('Require at least one "%s" submission' % verdict[1])
-
+        
+        if self._problem.config.get('type') == 'pvp':
+            # TODO: add check for obligatory fields
+            # TODO: add support for filtering CLI argument
+            
+            def keep_compiled(sub): # no multi-expression lambdas :(
+                success, msg = sub[0].compile()
+                if not success:
+                    self.error('Compile error for %s submission %s' % (acr, sub),
+                            additional_info=msg)
+                    return False
+                return True
+                
+                
+            def expected_result(new_expected, old_expected):
+                if new_expected == 'AC' and old_expected == 'AC':
+                    return ['AC', 'PAC', 'WA']
+                elif new_expected == 'AC' and old_expected != 'AC':
+                    return ['AC']
+                elif new_expected != 'AC' and old_expected == 'AC':
+                    return ['WA']
+                return None # There might be a better way that lets us pair up more submissions
+                
+            ac_submissions = \
+                list( \
+                filter(keep_compiled, \
+                    ((submission, 'AC') for submission in self._submissions['AC'])))
+                
+            rest_submissions = \
+                list( \
+                filter(keep_compiled, \
+                itertools.chain.from_iterable( \
+                    ((submission, verdict[0]) for submission in self._submissions[verdict[0]]) for verdict in Submissions._VERDICTS if verdict[0] != 'AC')))
+            
             runtimes = []
+            
+            for new_submission, old_submission in [(i, j) for i in range(len(ac_submissions)) for j in range(len(ac_submissions))]:
+                new_submission, new_category = ac_submissions[new_submission]
+                old_submission, old_category = ac_submissions[old_submission]
+                expected = expected_result(new_category, old_category)
+                if expected is None:
+                    continue
+                
+                res = self.check_submission(PvpSubmission(new_submission, old_submission), args, expected, timelim, timelim_margin_lo, timelim_margin)
+                runtimes.append(res.runtime)
+                
+            if len(runtimes) > 0:
+                max_runtime = max(runtimes)
+                exact_timelim = max_runtime * time_multiplier
+                max_runtime = '%.3f' % max_runtime
+                timelim = max(1, int(0.5 + exact_timelim))
+                timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
+                timelim_margin = max(timelim + 1,
+                                    int(0.5 + exact_timelim * safety_margin))
+            else:
+                max_runtime = None
+            if args.fixed_timelim is not None and args.fixed_timelim != timelim:
+                self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
+                timelim = args.fixed_timelim
+                timelim_margin = timelim * safety_margin
 
-            for sub in self._submissions[acr]:
-                if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
-                    self.info('Check %s submission %s' % (acr, sub))
+            self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
+            
+            for new_submission, old_submission in \
+                [(rest_submissions[i], rest_submissions[j]) for i in range(len(rest_submissions)) for j in range(len(rest_submissions))] \
+                + [(ac_submissions[i], rest_submissions[j]) for i in range(len(ac_submissions)) for j in range(len(rest_submissions))] \
+                + [(rest_submissions[i], ac_submissions[j]) for i in range(len(rest_submissions)) for j in range(len(ac_submissions))]:
+                new_submission, new_category = new_submission
+                old_submission, old_category = old_submission
+                expected = expected_result(new_category, old_category)
+                if expected is None:
+                    continue
+                
+                res = self.check_submission(PvpSubmission(new_submission, old_submission), args, expected, timelim, timelim_margin_lo, timelim_margin)
 
-                    if sub.code_size() > 1024*limits['code']:
-                        self.error('%s submission %s has size %.1f kiB, exceeds code size limit of %d kiB' %
-                                   (acr, sub, sub.code_size() / 1024.0, limits['code']))
-                        continue
+        else:
+            for verdict in Submissions._VERDICTS:
+                acr = verdict[0]
+                if verdict[2] and not self._submissions[acr]:
+                    self.error('Require at least one "%s" submission' % verdict[1])
 
-                    success, msg = sub.compile()
-                    if not success:
-                        self.error('Compile error for %s submission %s' % (acr, sub),
-                                   additional_info=msg)
-                        continue
+                runtimes = []
 
-                    res = self.check_submission(sub, args, acr, timelim, timelim_margin_lo, timelim_margin)
-                    runtimes.append(res.runtime)
+                for sub in self._submissions[acr]:
+                    if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
+                        self.info('Check %s submission %s' % (acr, sub))
 
-            if acr == 'AC':
-                if len(runtimes) > 0:
-                    max_runtime = max(runtimes)
-                    exact_timelim = max_runtime * time_multiplier
-                    max_runtime = '%.3f' % max_runtime
-                    timelim = max(1, int(0.5 + exact_timelim))
-                    timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
-                    timelim_margin = max(timelim + 1,
-                                         int(0.5 + exact_timelim * safety_margin))
-                else:
-                    max_runtime = None
-                if args.fixed_timelim is not None and args.fixed_timelim != timelim:
-                    self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
-                    timelim = args.fixed_timelim
-                    timelim_margin = timelim * safety_margin
+                        if sub.code_size() > 1024*limits['code']:
+                            self.error('%s submission %s has size %.1f kiB, exceeds code size limit of %d kiB' %
+                                    (acr, sub, sub.code_size() / 1024.0, limits['code']))
+                            continue
 
-                self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
-            limits['time'] = timelim
+                        success, msg = sub.compile()
+                        if not success:
+                            self.error('Compile error for %s submission %s' % (acr, sub),
+                                    additional_info=msg)
+                            continue
+
+                        res = self.check_submission(sub, args, [acr], timelim, timelim_margin_lo, timelim_margin)
+                        runtimes.append(res.runtime)
+
+                if acr == 'AC':
+                    if len(runtimes) > 0:
+                        max_runtime = max(runtimes)
+                        exact_timelim = max_runtime * time_multiplier
+                        max_runtime = '%.3f' % max_runtime
+                        timelim = max(1, int(0.5 + exact_timelim))
+                        timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
+                        timelim_margin = max(timelim + 1,
+                                            int(0.5 + exact_timelim * safety_margin))
+                    else:
+                        max_runtime = None
+                    if args.fixed_timelim is not None and args.fixed_timelim != timelim:
+                        self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
+                        timelim = args.fixed_timelim
+                        timelim_margin = timelim * safety_margin
+
+                    self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
+                limits['time'] = timelim
 
         return self._check_res
+
+class PvpSubmission:
+    def __init__(self, new_submission, old_submission):
+        self.new_submission = new_submission
+        self.old_submission = old_submission
+    
+    def __str__(self):
+        return '%s vs %s' % (self.new_submission, self.old_submission)
 
 PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
 
