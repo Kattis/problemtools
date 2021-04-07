@@ -19,7 +19,7 @@ def do_move():
     for x in range(3):
         for y in range(3):
             if board[x][y] == "":
-                print(f"{x} {y}")
+                print(f"{x} {y}", flush=True)
                 board[x][y] = token
                 return
     return
