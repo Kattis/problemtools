@@ -72,6 +72,9 @@ class SubmissionResult:
         if len(details) == 0:
             return verdict
         return '%s [%s]' % (verdict, ', '.join(details))
+    
+    def is_accepted(self, is_pvp):
+        return is_pvp and self.verdict in ['AC', 'PAC', 'WA'] or self.verdict == 'AC'
 
 
 
@@ -539,7 +542,7 @@ class TestCaseGroup(ProblemAspect):
             r1, r2 = child.run_submission(sub, args, timelim_low, timelim_high)
             subres1.append(r1)
             subres2.append(r2)
-            if on_reject == 'break' and r2.verdict != 'AC':
+            if on_reject == 'break' and not r2.is_accepted(self._problem.config.get('type') == 'pvp'):
                 break
 
         return (self.aggregate_results(sub, subres1),
