@@ -4,15 +4,12 @@ import re
 import sys
 
 def draw():
-    print("draw", file=sys.stderr)
     exit(43)
 
 def player1_win():
-    print("player 1", file=sys.stderr)
     exit(41)
 
 def player2_win():
-    print("player 2", file=sys.stderr)
     exit(42)
 
 def invert_turn(player):
@@ -53,8 +50,6 @@ board = [["", "", ""], ["", "", ""], ["", "", ""]]
 
 pos_validator = re.compile("^[012] [012]$")
 
-print("line 52", file=sys.stderr)
-
 def game_over(player_token):
     return (any(all(x[i]==player_token for x in board) for i in range(3))
         or any(all(e==player_token for e in row) for row in board)
@@ -76,16 +71,11 @@ else:
 
 current_turn = starting_player
 
-print("initialized", file=sys.stderr)
-
 while True:
-    print("start of loop", file=sys.stderr)
     if current_turn == "p1":
         move = p1_output.readline()
     else:
         move = p2_output.readline()
-
-    print("got move", file=sys.stderr)
 
     if pos_validator.match(move) is None:
         player_win(invert_turn(current_turn))
@@ -102,13 +92,9 @@ while True:
         else:
             player_win(invert_turn(current_turn))
 
-    print("processed move", file=sys.stderr)
-
     if game_over(tokens[current_turn]):
         player_win(current_turn)
     elif all(all(e != "" for e in row) for row in board):
         draw()
     else:
         current_turn = invert_turn(current_turn)
-
-    print("checked for win", file=sys.stderr)
