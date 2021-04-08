@@ -1250,7 +1250,6 @@ class OutputValidators(ProblemAspect):
                 pvp_out = f.name
                 f.close()
                 i_status, _ = pvp.run(outfile=pvp_out,
-                                              #errfile="/home/eskil/foo",
                                               args=initargs 
                                                 + val.get_runcmd(memlim=val_memlim) 
                                                 + validator_args 
@@ -1284,12 +1283,12 @@ class OutputValidators(ProblemAspect):
                         #        sub_runtime = timelim
                         #    res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
                         if \
-                            is_TLE(new_sub_status, True) and is_TLE(old_sub_status, True) \
-                            or is_RTE(new_sub_status) and is_RTE(old_sub_status):
+                            (is_TLE(new_sub_status, True) or is_RTE(new_sub_status)) \
+                            and (is_TLE(old_sub_status, True) or is_RTE(old_sub_status)):
                             res = SubmissionResult('PAC')
-                        elif is_RTE(new_sub_status) or is_TLE(new_sub_status):
+                        elif is_RTE(new_sub_status) or is_TLE(new_sub_status, True):
                             res = SubmissionResult('WA')
-                        elif is_RTE(old_sub_status) or is_TLE(old_sub_status):
+                        elif is_RTE(old_sub_status) or is_TLE(old_sub_status, True):
                             res = SubmissionResult('AC')
                         else:
                             res = self._parse_pvp_validator_results(val, val_status, feedbackdir, testcase)
