@@ -1,4 +1,4 @@
-use std::{fs::OpenOptions, process::{Command, Stdio}, sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering}};
+use std::{fs::OpenOptions, process::{Command, Stdio}, sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering}, thread};
 
 use libc::{SIGUSR1, rusage, timeval, wait4};
 use nix::{sys::signal::{SigHandler, Signal, kill, signal}, unistd::{Pid, alarm}};
@@ -35,28 +35,43 @@ fn main() {
     VALIDATOR_PID.store(validator.id() as i32, Ordering::Relaxed);
     
     //create struct for running new_submission
-    //TODO: open files on different threads to avoid deadlocks
+    let new_sub_stdout = validator_args[validator_args.len() - 4].clone();
+    let new_sub_stdout = thread::spawn(move || {
+        OpenOptions::new().write(true).open(new_sub_stdout).unwrap()
+    });
+    let new_sub_stdin = validator_args[validator_args.len() - 3].clone();
+    let new_sub_stdin = thread::spawn(move || {
+        OpenOptions::new().read(true).open(new_sub_stdin).unwrap()
+    });
     let mut new_submission = {
         let mut run_cmd = args.by_ref()
             .take_while(|e| e != ";");
             
         let mut run = Command::new(run_cmd.next().unwrap());
         run.args(run_cmd);
-        run.stdout(OpenOptions::new().write(true).open(&validator_args[validator_args.len() - 4]).unwrap());
-        run.stdin(OpenOptions::new().read(true).open(&validator_args[validator_args.len() - 3]).unwrap());
+        run.stdout(new_sub_stdout.join().unwrap());
+        run.stdin(new_sub_stdin.join().unwrap());
         run.stderr(Stdio::null());
         run
     };
 
     //create struct for running old_submission
+    let old_sub_stdout = validator_args[validator_args.len() - 2].clone();
+    let old_sub_stdout = thread::spawn(move || {
+        OpenOptions::new().write(true).open(old_sub_stdout).unwrap()
+    });
+    let old_sub_stdin = validator_args[validator_args.len() - 1].clone();
+    let old_sub_stdin = thread::spawn(move || {
+        OpenOptions::new().read(true).open(old_sub_stdin).unwrap()
+    });
     let mut old_submission = {
         let mut run_cmd = args.by_ref()
             .take_while(|e| e != ";");
             
         let mut run = Command::new(run_cmd.next().unwrap());
         run.args(run_cmd);
-        run.stdout(OpenOptions::new().write(true).open(&validator_args[validator_args.len() - 2]).unwrap());
-        run.stdin(OpenOptions::new().read(true).open(&validator_args[validator_args.len() - 1]).unwrap());
+        run.stdout(old_sub_stdout.join().unwrap());
+        run.stdin(old_sub_stdin.join().unwrap());
         run.stderr(Stdio::null());
         run
     };
