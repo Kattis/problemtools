@@ -1,7 +1,7 @@
 use std::{fs::OpenOptions, process::{Command, Stdio}, sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering}};
 
 use libc::{SIGUSR1, rusage, timeval, wait4};
-use nix::{sys::{signal::{SigHandler, Signal, kill, signal}}, unistd::{Pid, alarm}};
+use nix::{sys::signal::{SigHandler, Signal, kill, signal}, unistd::{Pid, alarm}};
 
 static VALIDATOR_STATUS: AtomicI32 = AtomicI32::new(0);
 static NEW_SUBMISSION_STATUS: AtomicI32 = AtomicI32::new(0);
@@ -19,7 +19,6 @@ fn main() {
     let mut args = std::env::args();
     args.next();
     
-    //TODO: add support for timelim=0 meaning no timelim
     let timelim = args.next().unwrap().parse().unwrap();
     TIMELIM.store(timelim, Ordering::Relaxed);
     
@@ -68,11 +67,13 @@ fn main() {
     let old_submission = old_submission.spawn().unwrap();
     OLD_SUBMISSION_PID.store(old_submission.id() as i32, Ordering::Relaxed);
     
-    unsafe {
-        signal(Signal::SIGALRM, SigHandler::Handler(handler)).unwrap();
+    if timelim != 0 {
+        unsafe {
+            signal(Signal::SIGALRM, SigHandler::Handler(handler)).unwrap();
+        }
+        
+        alarm::set(timelim);
     }
-    
-    alarm::set(timelim);
     
     let mut remaining = 3;
     
