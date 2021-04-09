@@ -113,6 +113,8 @@ fn main() {
 }
 
 extern "C" fn handler(_: i32) {
+    let timelim = TIMELIM.load(Ordering::Relaxed) as f64;
+    
     let val_pid = VALIDATOR_PID.load(Ordering::Relaxed); //This code is probaby racy, could be solved by simply disabling signals?
     let (val_time, mut val_status) = 
         if val_pid != -1 { 
@@ -165,10 +167,14 @@ extern "C" fn handler(_: i32) {
             )
         };
         
-    if new_sub_time > old_sub_time {
-        old_sub_status = 0;
-    } else {
+    //if new_sub didn't get stuck and old_sub did, assume that new_sub terminated normally, to indicate that it should win
+    if new_sub_time < 0.99 * timelim && old_sub_time > 0.99 * timelim {
         new_sub_status = 0;
+    }
+    
+    //same as above
+    if old_sub_time < 0.99 * timelim && new_sub_time > 0.99 * timelim {
+        old_sub_status = 0;
     }
     
     //Assume draw if validator didn't terminate
