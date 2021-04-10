@@ -871,7 +871,7 @@ class InputFormatValidators(ProblemAspect):
             self._uses_old_path = False
             new_input_validators_path = os.path.join(problem.probdir, 'input_validators')
             if os.path.isdir(new_input_validators_path):
-                input_validatdors_path = new_input_validators_path
+                input_validators_path = new_input_validators_path
         self._validators = run.find_programs(input_validators_path,
                                              language_config=problem.language_config,
                                              allow_validation_script=True,
