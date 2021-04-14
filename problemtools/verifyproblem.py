@@ -43,9 +43,9 @@ class SubmissionResult:
         self.testcase = testcase
         self.reason = reason
         self.additional_info = additional_info
-        self.runtime = -1.0
+        self.runtime = (-1.0,)
         self.runtime_testcase = None
-        self.ac_runtime = -1.0
+        self.ac_runtime = (-1.0,)
         self.ac_runtime_testcase = None
         self.validator_first = False
         self.sample_failures = []
@@ -67,7 +67,7 @@ class SubmissionResult:
         if self.verdict != 'AC' and self.testcase is not None:
             details.append('test case: %s' % self.testcase)
         if self.runtime != -1:
-            details.append('CPU: %.2fs @ %s' % (self.runtime, self.runtime_testcase))
+            details.append('CPU: %s @ %s' % (', '.join(map(lambda e: '%.2fs' % (e,), self.runtime)), self.runtime_testcase))
 
         if len(details) == 0:
             return verdict
@@ -261,7 +261,7 @@ class TestCase(ProblemAspect):
             res2.runtime = runtime
         if sys.stdout.isatty():
             sys.stdout.write('%s' % '\b \b' * (len(msg)))
-        if res2.runtime <= timelim_low:
+        if any(r <= timelim_low for r in res2.runtime):
             res1 = res2
         elif res2.validator_first and res2.verdict == 'WA':
             # WA can override TLE for interactive problems (see comment in validate_interactive).
@@ -1292,8 +1292,8 @@ class OutputValidators(ProblemAspect):
                             res = SubmissionResult('AC')
                         else:
                             res = self._parse_pvp_validator_results(val, val_status, feedbackdir, testcase)
-
-                        res.runtime = max(new_sub_runtime, old_sub_runtime)
+                        
+                        res.runtime = (new_sub_runtime, old_sub_runtime)
 
                 os.unlink(pvp_out)
                 os.unlink(p1_output)
@@ -1357,7 +1357,7 @@ class OutputValidators(ProblemAspect):
                         else:
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
 
-                        res.runtime = sub_runtime
+                        res.runtime = (sub_runtime,)
                         res.validator_first = (first == 'validator')
 
                 os.unlink(interactive_out)
@@ -1528,7 +1528,7 @@ class Submissions(ProblemAspect):
                 runtimes.append(res.runtime)
 
             if len(runtimes) > 0:
-                max_runtime = max(runtimes)
+                max_runtime = max(max(runtimes))
                 exact_timelim = max_runtime * time_multiplier
                 max_runtime = '%.3f' % max_runtime
                 timelim = max(1, int(0.5 + exact_timelim))
