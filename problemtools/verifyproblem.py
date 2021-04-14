@@ -72,7 +72,7 @@ class SubmissionResult:
         if len(details) == 0:
             return verdict
         return '%s [%s]' % (verdict, ', '.join(details))
-    
+
     def is_accepted(self, is_pvp):
         return is_pvp and self.verdict in ['AC', 'PAC', 'WA'] or self.verdict == 'AC'
 
@@ -878,7 +878,7 @@ class InputFormatValidators(ProblemAspect):
             self._uses_old_path = False
             new_input_validators_path = os.path.join(problem.probdir, 'input_validators')
             if os.path.isdir(new_input_validators_path):
-                input_validatdors_path = new_input_validators_path
+                input_validators_path = new_input_validators_path
         self._validators = run.find_programs(input_validators_path,
                                              language_config=problem.language_config,
                                              allow_validation_script=True,
@@ -1146,7 +1146,7 @@ class OutputValidators(ProblemAspect):
         if all_feedback:
             return '\n'.join(all_feedback)
         return None
-    
+
 
     def _parse_validator_results(self, val, status, feedbackdir, testcase):
         custom_score = self._problem.config.get('grading')['custom_scoring']
@@ -1205,14 +1205,14 @@ class OutputValidators(ProblemAspect):
             return SubmissionResult('WA')
         else:
             return SubmissionResult('AC')
-        
+
 
     def _actual_validators(self):
         vals = self._validators
         if self._problem.config.get('validation') == 'default':
             vals = [self._default_validator]
         return vals
-        
+
     def validate_pvp(self, testcase, submission, timelim, errorhandler):
         pvp_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+ \d+ \d+\.\d+'
         res = SubmissionResult('JE')
@@ -1220,12 +1220,12 @@ class OutputValidators(ProblemAspect):
         if pvp is None:
             errorhandler.error('Could not locate pvp runner')
             return res
-        
+
         initargs = [str(2 * timelim)]
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>', '<p1_output>', '<p1_input>', '<p2_output>', '<p2_input>']
         new_submission_args = submission.new_submission.get_runcmd(memlim=self._problem.config.get('limits')['memory'])
         old_submission_args = submission.old_submission.get_runcmd(memlim=self._problem.config.get('limits')['memory'])
-        
+
         val_timelim = self._problem.config.get('limits')['validation_time']
         val_memlim = self._problem.config.get('limits')['validation_memory']
 
@@ -1250,10 +1250,10 @@ class OutputValidators(ProblemAspect):
                 pvp_out = f.name
                 f.close()
                 i_status, _ = pvp.run(outfile=pvp_out,
-                                              args=initargs 
-                                                + val.get_runcmd(memlim=val_memlim) 
-                                                + validator_args 
-                                                + [';'] 
+                                              args=initargs
+                                                + val.get_runcmd(memlim=val_memlim)
+                                                + validator_args
+                                                + [';']
                                                 + new_submission_args
                                                 + [';']
                                                 + old_submission_args)
@@ -1292,7 +1292,7 @@ class OutputValidators(ProblemAspect):
                             res = SubmissionResult('AC')
                         else:
                             res = self._parse_pvp_validator_results(val, val_status, feedbackdir, testcase)
-                        
+
                         res.runtime = max(new_sub_runtime, old_sub_runtime)
 
                 os.unlink(pvp_out)
@@ -1481,11 +1481,11 @@ class Submissions(ProblemAspect):
         if args.fixed_timelim is not None:
             timelim = args.fixed_timelim
             timelim_margin = int(round(timelim * safety_margin))
-        
+
         if self._problem.config.get('type') == 'pvp':
             # TODO: add check for obligatory fields
             # TODO: add support for filtering CLI argument
-            
+
             def keep_compiled(sub): # no multi-expression lambdas :(
                 success, msg = sub[0].compile()
                 if not success:
@@ -1493,8 +1493,8 @@ class Submissions(ProblemAspect):
                             additional_info=msg)
                     return False
                 return True
-                
-                
+
+
             def expected_result(new_expected, old_expected):
                 if new_expected == 'AC' and old_expected == 'AC':
                     return ['AC', 'PAC', 'WA']
@@ -1503,30 +1503,30 @@ class Submissions(ProblemAspect):
                 elif new_expected != 'AC' and old_expected == 'AC':
                     return ['WA']
                 return None # There might be a better way that lets us pair up more submissions
-                
+
             ac_submissions = \
                 list( \
                 filter(keep_compiled, \
                     ((submission, 'AC') for submission in self._submissions['AC'])))
-                
+
             rest_submissions = \
                 list( \
                 filter(keep_compiled, \
                 itertools.chain.from_iterable( \
                     ((submission, verdict[0]) for submission in self._submissions[verdict[0]]) for verdict in Submissions._VERDICTS if verdict[0] != 'AC')))
-            
+
             runtimes = []
-            
+
             for new_submission, old_submission in [(i, j) for i in range(len(ac_submissions)) for j in range(len(ac_submissions))]:
                 new_submission, new_category = ac_submissions[new_submission]
                 old_submission, old_category = ac_submissions[old_submission]
                 expected = expected_result(new_category, old_category)
                 if expected is None:
                     continue
-                
+
                 res = self.check_submission(PvpSubmission(new_submission, old_submission), args, expected, timelim, timelim_margin_lo, timelim_margin)
                 runtimes.append(res.runtime)
-                
+
             if len(runtimes) > 0:
                 max_runtime = max(runtimes)
                 exact_timelim = max_runtime * time_multiplier
@@ -1543,7 +1543,7 @@ class Submissions(ProblemAspect):
                 timelim_margin = timelim * safety_margin
 
             self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
-            
+
             for new_submission, old_submission in \
                 [(rest_submissions[i], rest_submissions[j]) for i in range(len(rest_submissions)) for j in range(len(rest_submissions))] \
                 + [(ac_submissions[i], rest_submissions[j]) for i in range(len(ac_submissions)) for j in range(len(rest_submissions))] \
@@ -1553,7 +1553,7 @@ class Submissions(ProblemAspect):
                 expected = expected_result(new_category, old_category)
                 if expected is None:
                     continue
-                
+
                 res = self.check_submission(PvpSubmission(new_submission, old_submission), args, expected, timelim, timelim_margin_lo, timelim_margin)
 
         else:
@@ -1607,7 +1607,7 @@ class PvpSubmission:
     def __init__(self, new_submission, old_submission):
         self.new_submission = new_submission
         self.old_submission = old_submission
-    
+
     def __str__(self):
         return '%s vs %s' % (self.new_submission, self.old_submission)
 
@@ -1731,7 +1731,7 @@ def main():
     args = argparser().parse_args()
 
     ProblemAspect.max_additional_info = args.max_additional_info
-    
+
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
