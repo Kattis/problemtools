@@ -1,3 +1,3 @@
 all:
-	cargo build --release --quiet
+	cargo build --release
 	cp target/release/pvp .
