@@ -12,8 +12,11 @@ LABEL maintainer="austrin@kattis.com"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install C++, Java, PyPy and Python 3
+# Install C++, Java, and PyPy 2/3 via their ppa repository
 RUN apt update && \
+    apt install -y software-properties-common && \
+    add-apt-repository ppa:pypy/ppa && \
+    apt update && \
     apt install -y \
         g++ \
         openjdk-11-jdk \
