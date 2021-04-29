@@ -1293,7 +1293,7 @@ class OutputValidators(ProblemAspect):
                             res = SubmissionResult('AC')
                         else:
                             res = self._parse_pvp_validator_results(val, val_status, feedbackdir, testcase)
-                        
+
                         res.runtime = (new_sub_runtime, old_sub_runtime)
 
                 os.unlink(pvp_out)
@@ -1464,6 +1464,16 @@ class Submissions(ProblemAspect):
         best_score = min_score if self._problem.config.get('grading')['objective'] == 'min' else max_score
         return result.verdict == 'AC' and (not self._problem.is_scoring or result.score == best_score)
 
+    def check_pvp_fields(self):
+        dir = self._problem.probdir
+        ACList = self._submissions["AC"]
+        if len(ACList) == 0:
+            self.error('Require at least one accepted submission')
+            return 1
+
+        # TODO: add check for other obligatory fields
+        return 0
+
     def check(self, args):
         if self._check_res is not None:
             return self._check_res
@@ -1484,7 +1494,8 @@ class Submissions(ProblemAspect):
             timelim_margin = int(round(timelim * safety_margin))
 
         if self._problem.config.get('type') == 'pvp':
-            # TODO: add check for obligatory fields
+            pvp_field_problem = self.check_pvp_fields()
+            # TODO: return if pvp_problem is not 0
             # TODO: add support for filtering CLI argument
 
             def keep_compiled(sub): # no multi-expression lambdas :(
