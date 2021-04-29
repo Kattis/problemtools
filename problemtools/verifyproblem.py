@@ -299,15 +299,15 @@ class TestCaseGroup(ProblemAspect):
         self._seen_oob_scores = False
         self.debug('  Loading test data group %s' % datadir)
         configfile = os.path.join(self._datadir, 'testdata.yaml')
+        self.config = {}
         if os.path.isfile(configfile):
             try:
                 with open(configfile) as f:
                     self.config = yaml.safe_load(f)
             except Exception as e:
                 self.error(e)
+            if self.config is None:
                 self.config = {}
-        else:
-            self.config = {}
 
         # For non-root groups, missing properties are inherited from the parent group
         if parent:
