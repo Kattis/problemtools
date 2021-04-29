@@ -776,7 +776,6 @@ class ProblemStatement(ProblemAspect):
             pdfopt.language = lang
             htmlopt.language = lang
             try:
-                print("problemdir: " + self._problem.probdir)
                 if not problem2pdf.convert(self._problem.probdir, pdfopt):
                     langparam = ''
                     if lang != '':

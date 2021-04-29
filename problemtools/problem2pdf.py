@@ -33,10 +33,8 @@ def convert(problem, options=None):
             params.append('-draftmode')
 
         params.append(texfile)
-        print(params)
 
         status = subprocess.call(params, stdout=output) #gives output 1, causes error
-        print("status: " + str(status))
         if status == 0:
             status = subprocess.call(params, stdout=output)
 
@@ -48,7 +46,6 @@ def convert(problem, options=None):
         if status == 0 and not options.nopdf:
             shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
-    print("status: " + str(status))
     return status == 0
 
 
