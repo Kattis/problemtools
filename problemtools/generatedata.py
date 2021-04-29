@@ -6,6 +6,7 @@ import os
 import glob
 import tempfile
 import shutil
+import yaml
 from argparse import ArgumentParser
 from multiprocessing import Pool, cpu_count
 
@@ -71,8 +72,8 @@ def clean(prob, args):
                 remove = args.clean_all
                 is_case = False
                 if (fname, ext) == ('testdata', 'yaml'):
-                    # TODO: Handle this
-                    remove = False
+                    if curname + '.yaml' in prob.generators._testdata_yaml:
+                        remove = True
                 elif curname in testcases:
                     is_case = True
                     case = testcases[curname]
@@ -203,6 +204,17 @@ def generate(prob, args):
                     os.makedirs(path)
                 except Exception as e:
                     prob.generators.error('Could not create path %s' % path, e)
+
+    # Populate testdata.yaml files
+    for path, content in prob.generators._testdata_yaml.items():
+        prob.generators.msg('Generating %s' % path.replace('data/', '', 1))
+        path = os.path.join(*([prob.probdir] + path.split('/')))
+        if not args.dry_run:
+            try:
+                with open(path, 'w') as f:
+                    yaml.dump(content, f)
+            except Exception as e:
+                prob.generators.error('Could not write %s' % path, e)
 
     # Generate test cases in parallel
     GenerateState.prob = prob

@@ -753,6 +753,7 @@ class Generators(ProblemAspect):
         self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
         self._data = None
         self._testcases = []
+        self._testdata_yaml = {}
         self._data_directories = set()
 
         if os.path.isfile(self.configfile):
@@ -826,7 +827,12 @@ class Generators(ProblemAspect):
 
     def _parse_directory(self, data, state):
         # TODO: Process includes
-        # TODO: Process testdata.yaml
+
+        if 'testdata.yaml' in data:
+            content = data['testdata.yaml']
+            if content is None:
+                content = {}
+            self._testdata_yaml['%s/%s' % (state['path'], 'testdata.yaml')] = content
 
         cases = data.get('data', {})
         ordered = True
