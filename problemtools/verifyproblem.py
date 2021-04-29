@@ -781,7 +781,6 @@ class Generators(ProblemAspect):
 
         def err():
             self.error('Invalid %s key for path %s in generators.yaml' % (key, state['path']))
-            return None
 
         if not isinstance(command, str):
             return err()
@@ -792,9 +791,9 @@ class Generators(ProblemAspect):
         if not parts:
             return err()
 
-        for i in range(len(parts)):
+        for i, part in enumerate(parts):
             new = ''
-            for j, group in enumerate(parts[i].split('{')):
+            for j, group in enumerate(part.split('{')):
                 if group.count('}') != (0 if j == 0 else 1):
                     return err()
                 if j == 0:
@@ -900,6 +899,82 @@ class Generators(ProblemAspect):
             base_path = os.path.join(base_path, 'generators')
         return os.path.join(*([base_path] + path.split('/')))
 
+    def _compile_generators(self):
+        for gen, files in list(self._generators.items()):
+            implicit = True
+            manual = False
+            if isinstance(files, str):
+                path = files
+                files = []
+                implicit = False
+                if path.endswith('.in'):
+                    manual = True
+                    for ext in ['ans'] + Generators._VISUALIZER_EXTENSIONS:
+                        other_path = path[:-2] + ext
+                        if os.path.isfile(self._resolve_path(other_path)):
+                            files.append(other_path)
+                # Always add original file last, to ensure it is chosen as
+                # the representative file
+                files.append(path)
+            if not isinstance(files, list) or not files:
+                self.error('Invalid generator %s in generators.yaml' % gen)
+                continue
+            tmpdir = tempfile.mkdtemp(prefix='generator', dir=self._problem.tmpdir)
+            ok = True
+            for opath in files:
+                if not isinstance(opath, str) or not opath:
+                    self.error('Invalid generator %s in generators.yaml' % gen)
+                    ok = False
+                    break
+
+                name = os.path.basename(opath)
+                if implicit and opath == files[0]:
+                    # In implicit generators, the first listed file should
+                    # be the entry point. problemtools usually picks the
+                    # lexicographically smallest filename as the entry
+                    # point, unless there exists a file that starts with
+                    # "main.". Thus the following renames the file that
+                    # should be the entry point to "main.old.extension".
+                    # TODO: Make problemtools support passing a different
+                    # entry point than "main.", and remove this hack.
+                    name = 'main' + os.path.splitext(name)[1]
+
+                fpath = self._resolve_path(opath)
+                dest = os.path.join(tmpdir, name)
+                if os.path.exists(dest):
+                    self.error('Duplicate entry for filename %s in generator %s' % (name, gen))
+                    ok = False
+                elif not os.path.exists(fpath):
+                    self.error('Generator %s does not exist' % opath)
+                    ok = False
+                else:
+                    try:
+                        if os.path.isdir(fpath):
+                            shutil.copytree(fpath, dest)
+                        else:
+                            shutil.copy2(fpath, dest)
+                    except Exception as e:
+                        self.error(e)
+                        ok = False
+            if ok:
+                if manual:
+                    self._generators[gen] = dest
+                else:
+                    prog = run.get_program(tmpdir if implicit else dest,
+                                        language_config=self._problem.language_config,
+                                        work_dir=self._problem.tmpdir)
+                    if prog is None:
+                        self.error('Could not load generator %s' % gen)
+                        ok = False
+                    else:
+                        self._generators[gen] = prog
+                        success, msg = prog.compile()
+                        if not success:
+                            self.error('Compile error for generator %s' % gen, msg)
+                            ok = False
+            if not ok and gen in self._generators:
+                del self._generators[gen]
+
     def check(self, args):
         if self._check_res is not None:
             return self._check_res
@@ -951,80 +1026,7 @@ class Generators(ProblemAspect):
         self._parse_element(self._data, default_state)
 
         if 'compile_generators' not in args or args.compile_generators:
-            for gen, files in list(self._generators.items()):
-                implicit = True
-                manual = False
-                if isinstance(files, str):
-                    path = files
-                    files = []
-                    implicit = False
-                    if path.endswith('.in'):
-                        manual = True
-                        for ext in ['ans'] + Generators._VISUALIZER_EXTENSIONS:
-                            other_path = path[:-2] + ext
-                            if os.path.isfile(self._resolve_path(other_path)):
-                                files.append(other_path)
-                    # Always add original file last, to ensure it is chosen as
-                    # the representative file
-                    files.append(path)
-                if not isinstance(files, list) or not files:
-                    self.error('Invalid generator %s in generators.yaml' % gen)
-                    continue
-                tmpdir = tempfile.mkdtemp(prefix='generator', dir=self._problem.tmpdir)
-                ok = True
-                for opath in files:
-                    if not isinstance(opath, str) or not opath:
-                        self.error('Invalid generator %s in generators.yaml' % gen)
-                        ok = False
-                        break
-
-                    name = os.path.basename(opath)
-                    if implicit and opath == files[0]:
-                        # In implicit generators, the first listed file should
-                        # be the entry point. problemtools usually picks the
-                        # lexicographically smallest filename as the entry
-                        # point, unless there exists a file that starts with
-                        # "main.". Thus the following renames the file that
-                        # should be the entry point to "main.old.extension".
-                        # TODO: Make problemtools support passing a different
-                        # entry point than "main.", and remove this hack.
-                        name = 'main' + os.path.splitext(name)[1]
-
-                    fpath = self._resolve_path(opath)
-                    dest = os.path.join(tmpdir, name)
-                    if os.path.exists(dest):
-                        self.error('Duplicate entry for filename %s in generator %s' % (name, gen))
-                        ok = False
-                    elif not os.path.exists(fpath):
-                        self.error('Generator %s does not exist' % opath)
-                        ok = False
-                    else:
-                        try:
-                            if os.path.isdir(fpath):
-                                shutil.copytree(fpath, dest)
-                            else:
-                                shutil.copy2(fpath, dest)
-                        except Exception as e:
-                            self.error(e)
-                            ok = False
-                if ok:
-                    if manual:
-                        self._generators[gen] = dest
-                    else:
-                        prog = run.get_program(tmpdir if implicit else dest,
-                                            language_config=self._problem.language_config,
-                                            work_dir=self._problem.tmpdir)
-                        if prog is None:
-                            self.error('Could not load generator %s' % gen)
-                            ok = False
-                        else:
-                            self._generators[gen] = prog
-                            success, msg = prog.compile()
-                            if not success:
-                                self.error('Compile error for generator %s' % gen, msg)
-                                ok = False
-                if not ok and gen in self._generators:
-                    del self._generators[gen]
+            self._compile_generators()
 
         return self._check_res
 
