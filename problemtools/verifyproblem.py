@@ -920,18 +920,19 @@ class InputFormatValidators(ProblemAspect):
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
-            for (desc, case) in _JUNK_CASES:
-                f = open(file_name, "wb")
-                f.write(case)
-                f.close()
-                for flags in all_flags:
-                    flags = flags.split()
-                    for val in self._validators:
-                        status, _ = val.run(file_name, args=flags)
-                        if os.WEXITSTATUS(status) != 42:
-                            break
-                    else:
-                        self.warning('No validator rejects %s with flags "%s"' % (desc, ' '.join(flags)))
+            if (self._problem.config.get('type') != 'pvp'):
+                for (desc, case) in _JUNK_CASES:
+                    f = open(file_name, "wb")
+                    f.write(case)
+                    f.close()
+                    for flags in all_flags:
+                        flags = flags.split()
+                        for val in self._validators:
+                            status, _ = val.run(file_name, args=flags)
+                            if os.WEXITSTATUS(status) != 42:
+                                break
+                        else:
+                            self.warning('No validator rejects %s with flags "%s"' % (desc, ' '.join(flags)))
 
             def modified_input_validates(applicable, modifier):
                 for testcase in self._problem.testdata.get_all_testcases():
@@ -1112,20 +1113,21 @@ class OutputValidators(ProblemAspect):
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
-            for (desc, case) in _JUNK_CASES:
-                f = open(file_name, "wb")
-                f.write(case)
-                f.close()
-                rejected = False
-                for testcase in self._problem.testdata.get_all_testcases():
-                    result = self.validate(testcase, file_name)
-                    if result.verdict != 'AC':
-                        rejected = True
-                    if result.verdict == 'JE':
-                        self.error('%s as output, and output validator flags "%s" gave %s' % (desc, ' '.join(flags), result))
-                        break
-                if not rejected:
-                    self.warning('%s gets AC' % (desc))
+            if (self._problem.config.get('type') != 'pvp'):
+                for (desc, case) in _JUNK_CASES:
+                    f = open(file_name, "wb")
+                    f.write(case)
+                    f.close()
+                    rejected = False
+                    for testcase in self._problem.testdata.get_all_testcases():
+                        result = self.validate(testcase, file_name)
+                        if result.verdict != 'AC':
+                            rejected = True
+                        if result.verdict == 'JE':
+                            self.error('%s as output, and output validator flags "%s" gave %s' % (desc, ' '.join(flags), result))
+                            break
+                    if not rejected:
+                        self.warning('%s gets AC' % (desc))
             os.unlink(file_name)
 
         return self._check_res
