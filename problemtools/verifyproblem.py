@@ -745,6 +745,7 @@ class Generators(ProblemAspect):
     _TESTCASE_OPTIONS = ['input', 'solution', 'visualizer', 'random_salt']
     _NULLABLE_OPTIONS = ['input', 'solution', 'visualizer']
     _DATA_DIRECTORIES = {'sample', 'secret'}
+    _VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
 
     def _count_ordered_cases(self, data):
         if isinstance(data, dict) and data.get('type', 'testcase') != 'testcase':
@@ -970,9 +971,9 @@ class Generators(ProblemAspect):
                     implicit = False
                     if path.endswith('.in'):
                         manual = True
-                        for ext in ALL_EXTENSIONS:
+                        for ext in ['ans'] + Generators._VISUALIZER_EXTENSIONS:
                             other_path = path[:-2] + ext
-                            if ext != 'in' and os.path.isfile(self._resolve_path(other_path)):
+                            if os.path.isfile(self._resolve_path(other_path)):
                                 files.append(other_path)
                     # Always add original file last, to ensure it is chosen as
                     # the representative file

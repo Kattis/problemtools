@@ -9,12 +9,9 @@ import shutil
 from argparse import ArgumentParser
 from multiprocessing import Pool, cpu_count
 
-from .verifyproblem import ProblemAspect, Problem, is_RTE, argparser_basic_arguments, initialize_logging
+from .verifyproblem import Generators, ProblemAspect, Problem, is_RTE, argparser_basic_arguments, initialize_logging
 
-# TODO: Add first class support for .interaction
-VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
-ALL_EXTENSIONS = ['in', 'ans'] + VISUALIZER_EXTENSIONS
-
+ALL_EXTENSIONS = ['in', 'ans'] + Generators._VISUALIZER_EXTENSIONS
 
 def argparser():
     parser = ArgumentParser(description='Generate test data for a problem package in the Kattis problem format.')
@@ -83,7 +80,7 @@ def clean(prob, args):
                         remove = not case['manual']
                     elif ext == 'ans':
                         remove = case['solution'] is not None
-                    elif ext in VISUALIZER_EXTENSIONS:
+                    elif ext in Generators._VISUALIZER_EXTENSIONS:
                         remove = case['visualizer'] is not None
 
                 if remove:
