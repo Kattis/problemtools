@@ -747,18 +747,6 @@ class Generators(ProblemAspect):
     _DATA_DIRECTORIES = {'sample', 'secret'}
     _VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
 
-    def _count_ordered_cases(self, data):
-        if isinstance(data, dict) and data.get('type', 'testcase') != 'testcase':
-            cases = data.get('data')
-            if isinstance(cases, list):
-                self._ordered_case_count += len(cases)
-            else:
-                cases = [cases]
-            for case in cases:
-                if isinstance(case, dict):
-                    for k, v in case.items():
-                        self._count_ordered_cases(v)
-
     def __init__(self, problem):
         self.debug('  Loading generators')
         self._problem = problem
@@ -781,11 +769,6 @@ class Generators(ProblemAspect):
             # The top-level dict always represents a directory, even if there
             # is no type key
             self._data['type'] = 'directory'
-
-            # Count the ordered cases and determine the zero-padding length
-            self._ordered_case_count = 0
-            self._count_ordered_cases(self._data)
-            self._ordered_case_format = '%%0%dd' % len(str(self._ordered_case_count))
 
     def __str__(self):
         return 'generators'
@@ -851,18 +834,19 @@ class Generators(ProblemAspect):
             ordered = False
             cases = [cases]
 
+        case_counter = 0
+        case_format = '%%0%dd' % len(str(len(cases)))
         for case in cases:
             if not isinstance(case, dict):
                 self.error('Path %s/data in generators.yaml must contain a dict or a list of dicts' % state['path'])
                 continue
 
             if ordered:
-                self._case_counter += 1
-                current_case_counter = self._case_counter
+                case_counter += 1
 
             for name, value in sorted(case.items(), key=lambda kv: str(kv[0])):
                 if ordered:
-                    num = self._ordered_case_format % current_case_counter
+                    num = case_format % case_counter
                     name = num + ('' if name is None else '-' + str(name))
                 else:
                     name = str(name)
@@ -958,7 +942,6 @@ class Generators(ProblemAspect):
             'random_salt': '',
         })
 
-        self._case_counter = 0
         self._parse_element(self._data, default_state)
 
         if 'compile_generators' not in args or args.compile_generators:
