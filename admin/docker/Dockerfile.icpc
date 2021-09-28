@@ -12,13 +12,16 @@ LABEL maintainer="austrin@kattis.com"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install C++, Java, PyPy and Python 3
+# Install C++, Java, and PyPy 2/3 via their ppa repository
 RUN apt update && \
+    apt install -y software-properties-common && \
+    add-apt-repository ppa:pypy/ppa && \
+    apt update && \
     apt install -y \
         g++ \
         openjdk-11-jdk \
         pypy \
-        python3
+        pypy3
 
 # Install Kotlin
 WORKDIR /usr/local
@@ -28,12 +31,17 @@ RUN ln -s /usr/local/kotlinc/bin/* bin/
 
 # Reconfigure problemtools:
 # - Use PyPy for Python 2
+# - Use PyPy for Python 3
 # - Use /usr/local/bin rather than /usr/bin for Kotlin
 RUN mkdir -p /etc/kattis/problemtools
 RUN echo " \n\
 python2: \n\
     name: 'Python 2 w/PyPy'\n\
     run: '/usr/bin/pypy \"{mainfile}\"'\n\
+ \n\
+python3: \n\
+    name: 'Python 3 w/PyPy'\n\
+    run: '/usr/bin/pypy3 \"{mainfile}\"'\n\
  \n\
 kotlin: \n\
     compile: '/usr/local/bin/kotlinc -d {path}/ -- {files}' \n\

@@ -45,7 +45,7 @@ bool isfloat(const char *s, double &val) {
 	double v;
 	if (sscanf(s, "%lf%10s", &v, trash) != 1) return false;
 	val = v;
-	return true;
+	return !std::isinf(v) && !std::isnan(v);
 }
 
 template <typename Stream>

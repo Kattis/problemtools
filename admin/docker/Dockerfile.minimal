@@ -1,6 +1,6 @@
 # Minimalistic problemtools docker image, containing only problemtools
 # and its dependencies, no languages (except whichever are
-# dependencies of problemtools, e.g. Python 2)
+# dependencies of problemtools, e.g. Python 3)
 #
 # Build requirements:
 # - The problemtools .deb package must be available from the host file
@@ -10,7 +10,7 @@
 #    PROBLEMTOOLS_VERSION but this is not checked.)
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 LABEL maintainer="austrin@kattis.com"
 
@@ -20,15 +20,14 @@ RUN apt update && \
     apt install -y \
         ghostscript \
         libgmpxx4ldbl \
-        python-minimal \
         python-pkg-resources \
-        python-plastex \
-        python-yaml \
+        python3-minimal \
+        python3-yaml \
+        python3-plastex \
         texlive-fonts-recommended \
-        texlive-generic-recommended \
         texlive-lang-cyrillic \
         texlive-latex-extra \
-        texlive-latex-recommended \
+        texlive-plain-generic \
         tidy
 
 RUN mkdir -p /usr/local/artifacts

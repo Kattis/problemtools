@@ -1,6 +1,5 @@
 """Abstract base class for programs.
 """
-from __future__ import print_function
 import os
 from . import limit
 import resource
@@ -76,17 +75,35 @@ class Program(object):
         pid = os.fork()
         if pid == 0:  # child
             try:
+                # The Python interpreter internally sets some signal dispositions
+                # to SIG_IGN (notably SIGPIPE), and unless we reset them manually
+                # this leaks through to the program we exec. That can has some
+                # funny side effects, like programs not crashing as expected when
+                # trying to write to an interactive validator that has terminated
+                # and closed the read end of a pipe.
+                #
+                # This *shouldn't* cause any verdict changes given the setup for
+                # interactive problems, but reset them anyway, for sanity.
+                if hasattr(signal, "SIGPIPE"):
+                    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+                if hasattr(signal, "SIGXFZ"):
+                    signal.signal(signal.SIGXFZ, signal.SIG_DFL)
+                if hasattr(signal, "SIGXFSZ"):
+                    signal.signal(signal.SIGXFSZ, signal.SIG_DFL)
+
                 if timelim is not None:
                     limit.try_limit(resource.RLIMIT_CPU, timelim, timelim + 1)
                 if memlim is not None:
                     limit.try_limit(resource.RLIMIT_AS, memlim * (1024**2), resource.RLIM_INFINITY)
                 limit.try_limit(resource.RLIMIT_STACK,
                                 resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+
                 Program.__setfd(0, infile, os.O_RDONLY)
                 Program.__setfd(1, outfile,
                                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
                 Program.__setfd(2, errfile,
                                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
+
                 os.execvp(argv[0], argv)
             except Exception as exc:
                 print("Oops. Fatal error in child process:")

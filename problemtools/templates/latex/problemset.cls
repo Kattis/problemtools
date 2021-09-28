@@ -95,6 +95,7 @@
                                    {\normalfont\large\sf\bfseries}}
 \newenvironment{Input}{\section*{Input}}{}
 \newenvironment{Output}{\section*{Output}}{}
+\newenvironment{Interaction}{\section*{Interaction}}{}
 
 \renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
                                      {-3.55ex}%
@@ -354,7 +355,7 @@
         \hline
         \parbox[t]{0.55\textwidth}{
           \vspace{-0.49cm}
-          \lstinputlisting[inputencoding=utf8/latin1,basicstyle=\ttfamily]{#4.pstmp}
+          \lstinputlisting[inputencoding=utf8/latin1,basicstyle=\ttfamily]{\jobname.pstmp}
           \vspace{-0.21cm}
         }\\
         \hline
@@ -372,7 +373,7 @@
     \if x\mode\else
       \if \mode\curmode\else
         \showmessage
-        \immediate\openout\ps@sampleinteractionmsg=#4.pstmp
+        \immediate\openout\ps@sampleinteractionmsg=\jobname.pstmp
         \edef\curmode{\mode}
       \fi
       \StrGobbleLeft{\ps@interactionline}{1}[\ps@interactionline]

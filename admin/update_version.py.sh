@@ -11,7 +11,7 @@ else
     # remove leading 'v' from git tag
     VERSION=${VERSION:1}
     # PEP440 compliance: change "-{#commits}-{last commit ID}" suffix to ".dev{#commits}"
-    VERSION=$(echo $VERSION | sed -r "s/-(.*)-.*$/.dev\1/g")
+    VERSION=$(echo $VERSION | sed -r "s/-([^-]*)-[^-]*$/.dev\1/g")
 fi
 
 cat <<EOF > $ROOT/problemtools/_version.py

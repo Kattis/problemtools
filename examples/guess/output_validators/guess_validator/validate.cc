@@ -62,11 +62,13 @@ void check_case() {
         } else if (diff < 0) {
             cout << "lower\n";
             cout.flush();
-            sol_hi = guess-1;
+            // Update the maximum possible hidden value.
+            sol_hi = min(sol_hi, guess-1);
         } else {
             cout << "higher\n";
             cout.flush();
-            sol_lo = guess+1;
+            // Update the minimum possible hidden value.
+            sol_lo = max(sol_lo, guess+1);
         }
     }
     wrong_answer("Didn't get to correct answer in 10 guesses\n");

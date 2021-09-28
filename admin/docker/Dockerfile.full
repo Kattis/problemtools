@@ -20,6 +20,7 @@ RUN apt-get update && \
             swi-prolog \
             scala \
             sbcl \
+            nodejs \
             ocaml-nox \
             rustc \
    ;
