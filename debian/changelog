@@ -1,3 +1,83 @@
+kattis-problemtools (1.20210928) groovy; urgency=medium
+
+  [ Simon Lindholm ]
+  * Warn on missing show_test_data_groups
+
+  [ Pehr Söderman ]
+  * Replace dependency on texlive-latex-recommended with texlive-plain-generic
+
+  [ Per Austrin ]
+  * fix several python3 compatibility issues
+
+  [ Pehr Söderman ]
+  * Remove texlive-generic-recommended
+
+  [ Per Austrin ]
+  * [py3 compatibility] fix crash caused by non-decoded compiler output
+  * fix update_version script to handle -revX versions better
+
+  [ Simon Lindholm ]
+  * Only warn for scoring problems
+
+  [ Greg Hamerly ]
+  * remove cgi, which seems to be causing problems
+
+  [ Tobias Werth ]
+  * Remove duplicate specification of limits in example problem.yaml.
+
+  [ Greg Hamerly ]
+  * use cgi.escape for python2 (i.e. plastex1) only
+  * change file() to open()
+
+  [ Jean Niklas L'orange ]
+  * Use pypy3 for python3 in Dockerfile.icpc image
+
+  [ Greg Hamerly ]
+  * Only AC submissions should have scores.
+
+  [ Mikael Goldmann ]
+  * Init submodule from root Makefile
+
+  [ Pehr Söderman ]
+  * We should install the Python3 version of plastex, as Python2 is EOL.
+
+  [ Greg Hamerly ]
+  * Remove dependencies on python2, move to python3
+  * remove a hack required for python2 plastex
+
+  [ Ragnar Groot Koerkamp ]
+  * Add Interaction environment for problem statements.
+  * Fix bug in guess output validator
+
+  [ Simon Lindholm ]
+  * Warn on missing show_test_data_groups
+  * Only warn for scoring problems
+
+  [ Greg Hamerly ]
+  * Several minor import updates and revert Dockerfile change
+  * replace deprecated optparse with argparse; clean up imports
+  * Fix bug introduced in update_from_old_problemformat.py
+
+  [ Ragnar Groot Koerkamp ]
+  * Allow x.in and y.ans as test data group names
+
+  [ Johan Sannemo ]
+  * Start allowing input_validators instead of input_format_validators per the spec.
+
+  [ Bergur Snorrason ]
+  * A typo made it so that changing from 'input_format_validator'; to 'input_validtors' gave an error because 'no validators were found'. This fixes it
+
+  [ Ragnar Groot Koerkamp ]
+  * Add broken solution
+  * Add clarifying comment
+  * Fix counterexample to be more explicit
+
+  [ Pehr Söderman ]
+  * Special case inf and nan so they are not treated as numbers in the default validator.
+  * Fix build and correctly break makefile on errors
+
+ -- Pehr Söderman <pehrs@kattis.com>  Tue, 28 Sep 2021 17:44:17 +0200
+
 kattis-problemtools (1.20191126-rev1) bionic; urgency=medium
 
   * fixes to packaging and Docker images for Python 3
