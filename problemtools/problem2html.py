@@ -7,73 +7,29 @@ import argparse
 import logging
 import subprocess
 
-import plasTeX.TeX
-import plasTeX.Logging
+from . import tex2html
+from . import md2html
 
-from .ProblemPlasTeX import ProblemRenderer
-from .ProblemPlasTeX import ProblemsetMacros
-from . import template
+
+SUPPORTED_EXTENSIONS = ("tex", "md")
 
 
 def convert(problem, options=None):
     problem = os.path.realpath(problem)
-
-    problembase = os.path.splitext(os.path.basename(problem))[0]
-    destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
-    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
-    imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problembase)
-
-    if options.quiet:
-        plasTeX.Logging.disableLogging()
-    else:
-        plasTeX.Logging.getLogger().setLevel(getattr(logging, options.loglevel.upper()))
-        plasTeX.Logging.getLogger('status').setLevel(getattr(logging, options.loglevel.upper()))
-
-    texfile = problem
-    # Set up template if necessary
-    with template.Template(problem, language=options.language, title=options.title) as templ:
-        texfile = open(templ.get_file_name(), 'r')
-
-        origcwd = os.getcwd()
-
-        # Setup parser and renderer etc
-
-        tex = plasTeX.TeX.TeX(myfile=texfile)
-
-        ProblemsetMacros.init(tex)
-
-        tex.ownerDocument.config['general']['copy-theme-extras'] = options.css
-        if not options.headers:
-            tex.ownerDocument.userdata['noheaders'] = True
-        tex.ownerDocument.config['files']['filename'] = destfile
-        tex.ownerDocument.config['images']['filenames'] = 'img-$num(4)'
-        tex.ownerDocument.config['images']['enabled'] = False
-        tex.ownerDocument.config['images']['imager'] = 'none'
-        tex.ownerDocument.config['images']['base-url'] = imgbasedir
-
-        renderer = ProblemRenderer()
-
-        if not options.quiet:
-            print('Parsing TeX source...')
-        doc = tex.parse()
-        texfile.close()
-
-    # Go to destdir
-    if destdir:
-        if not os.path.isdir(destdir):
-            os.makedirs(destdir)
-        os.chdir(destdir)
-
+    origcwd = os.getcwd()
     try:
-        if not options.quiet:
-            print('Rendering!')
-        renderer.render(doc)
+        problembase = os.path.splitext(os.path.basename(problem))[0]
+        destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
+        if destdir:
+            if not os.path.isdir(destdir):
+                os.makedirs(destdir)
 
-        # Annoying: I have not figured out any way of stopping the plasTeX
-        # renderer from generating a .paux file
-        if os.path.isfile('.paux'):
-            os.remove('.paux')
+        if md2html.get_markdown_statement(problem, options.language):
+            md2html.convert(problem, options)
+        else:
+            tex2html.convert(problem, options)
 
+        destfile = os.path.join(destdir, string.Template(options.destfile).safe_substitute(problem=problembase))
         if options.tidy:
             with open(os.devnull, 'w') as devnull:
                 try:
@@ -90,7 +46,6 @@ def convert(problem, options=None):
     finally:
         # restore cwd
         os.chdir(origcwd)
-
     return True
 
 

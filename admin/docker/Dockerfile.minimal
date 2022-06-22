@@ -24,6 +24,7 @@ RUN apt update && \
         python3-minimal \
         python3-yaml \
         python3-plastex \
+        python3-markdown \
         texlive-fonts-recommended \
         texlive-lang-cyrillic \
         texlive-latex-extra \

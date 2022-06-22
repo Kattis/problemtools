@@ -8,3 +8,5 @@ validation: custom interactive
 # happy.
 limits:
   time_safety_margin: 4
+name:
+    - sv: Gissa talet
