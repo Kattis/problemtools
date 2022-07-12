@@ -8,6 +8,9 @@ import logging
 
 from .errors import ProgramError
 
+log = logging.getLogger(__name__)
+
+
 class Program(object):
     """Abstract base class for programs.
     """
@@ -70,8 +73,8 @@ class Program(object):
 
     @staticmethod
     def __run_wait(argv, infile, outfile, errfile, timelim, memlim):
-        logging.debug('run "%s < %s > %s 2> %s"',
-                      ' '.join(argv), infile, outfile, errfile)
+        log.debug('run "%s < %s > %s 2> %s"',
+                  ' '.join(argv), infile, outfile, errfile)
         pid = os.fork()
         if pid == 0:  # child
             try:
@@ -110,7 +113,7 @@ class Program(object):
                 print(exc)
                 os.kill(os.getpid(), signal.SIGTERM)
             # Unreachable
-            logging.error("Unreachable part of run_wait reached")
+            log.error("Unreachable part of run_wait reached")
             os.kill(os.getpid(), signal.SIGTERM)
         (pid, status, rusage) = os.wait4(pid, 0)
         return status, rusage.ru_utime + rusage.ru_stime

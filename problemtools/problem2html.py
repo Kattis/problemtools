@@ -7,15 +7,15 @@ import argparse
 import logging
 import subprocess
 
-import plasTeX.TeX
-import plasTeX.Logging
-
-from .ProblemPlasTeX import ProblemRenderer
-from .ProblemPlasTeX import ProblemsetMacros
-from . import template
-
-
 def convert(problem, options=None):
+    import plasTeX.TeX
+    import plasTeX.Logging
+
+    from .ProblemPlasTeX import ProblemRenderer
+    from .ProblemPlasTeX import ProblemsetMacros
+    from . import template
+
+
     problem = os.path.realpath(problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
