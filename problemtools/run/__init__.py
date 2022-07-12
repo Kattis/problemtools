@@ -102,13 +102,18 @@ def get_program(path, language_config=None, work_dir=None, include_dir=None,
         files = [path]
     else:
         build = os.path.join(path, 'build')
-        if os.path.isfile(build) and os.access(path, os.X_OK):
+        if os.path.isfile(build) and os.access(build, os.X_OK):
             return BuildRun(path, work_dir)
         files = rutil.list_files_recursive(path)
 
     if language_config is not None:
         lang = language_config.detect_language(files)
         if lang is not None:
-            return SourceCode(path, lang,
-                              work_dir=work_dir, include_dir=include_dir)
+            if include_dir is not None:
+                lang_dir = os.path.join(include_dir, lang.lang_id)
+                build = os.path.join(lang_dir, 'build')
+                if os.path.isfile(build) and os.access(build, os.X_OK):
+                    return BuildRun(path, work_dir=work_dir, include_dir=lang_dir)
+
+            return SourceCode(path, lang, work_dir=work_dir, include_dir=include_dir)
     return None
