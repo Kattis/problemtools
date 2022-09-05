@@ -40,7 +40,7 @@
 \RequirePackage[utf8]{inputenc}   % UTF-8 support
 \RequirePackage{fancyhdr}         % Headers
 \RequirePackage{graphicx}         % Graphics
-\RequirePackage{subfigure}        % Subfigures
+\RequirePackage{subcaption}        % Subfigures
 \RequirePackage{wrapfig}          % Illustrations
 \RequirePackage{import}           % Proper file inclusion
 \RequirePackage{fancyvrb}         %
