@@ -1,0 +1,7 @@
+license: cc by-sa
+author: Johan Sannemo
+source: Principles of Algorithmic Problem Solving
+type: scoring
+name: Echo
+grading:
+    show_test_data_groups: true
