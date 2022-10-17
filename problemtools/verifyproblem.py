@@ -861,8 +861,6 @@ class Generators(ProblemAspect):
                 self._parse_element(value, next_state)
 
     def _parse_element(self, data, state):
-        if sys.version_info[0] < 3 and data == '':
-            data = None
         if data is None:
             data = '/%s.in' % state['path']
             state['manual'] = True
@@ -877,12 +875,6 @@ class Generators(ProblemAspect):
             for key in Generators._TESTCASE_OPTIONS
             if key in data
         })
-        if sys.version_info[0] < 3:
-            state.update({
-                key: None
-                for key in Generators._NULLABLE_OPTIONS
-                if key in data and data[key] == ''
-            })
 
         if data.get('type', 'testcase') == 'testcase':
             self._parse_testcase(data, state)
