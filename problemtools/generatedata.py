@@ -247,6 +247,10 @@ def main():
             errors = ProblemAspect.errors
             warnings = ProblemAspect.warnings
 
+            if prob.shortname is None:
+                # Skip invalid problem
+                continue
+
             def p(x):
                 return '' if x == 1 else 's'
 
