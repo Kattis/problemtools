@@ -1320,6 +1320,10 @@ class Graders(ProblemAspect):
         verdict = 'AC'
         score = 0
 
+        if not sub_results:
+            self.info('No results on %s, so no graders ran' % (testcasegroup,))
+            return (verdict, score)
+
         grader_flags = testcasegroup.config['grader_flags'].split()
         self.debug('Grading %d results:\n%s' % (len(sub_results), grader_input))
         self.debug('Grader flags: %s' % grader_flags)
