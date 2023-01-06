@@ -38,7 +38,7 @@ def convert(problem, options=None):
 
         # Setup parser and renderer etc
 
-        tex = plasTeX.TeX.TeX(myfile=texfile)
+        tex = plasTeX.TeX.TeX(file=texfile)
 
         ProblemsetMacros.init(tex)
 
