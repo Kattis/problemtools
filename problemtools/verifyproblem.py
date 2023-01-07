@@ -497,6 +497,9 @@ class TestCaseGroup(ProblemAspect):
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
 
+        if not self.get_subgroups() and not self.get_testcases():
+            self.error('Test case group is empty')
+
         # Check whether a <= b according to a natural sorting where numeric components
         # are compactified, so that e.g. "a" < "a1" < "a2" < "a10" = "a010" < "a10a".
         def natural_sort_le(a, b):
