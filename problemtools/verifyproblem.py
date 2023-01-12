@@ -1084,6 +1084,12 @@ class OutputValidators(ProblemAspect):
             return self._check_res
         self._check_res = True
 
+        recommended_output_validator_languages = {'c', 'cpp', 'python3'}
+
+        for v in self._validators:
+            if v.language.lang_id not in recommended_output_validator_languages:
+                self.warning('output validator language %s is not recommended' % v.language.name)
+
         if self._problem.config.get('validation') == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
         elif self._problem.config.get('validation') != 'default' and not self._validators:
