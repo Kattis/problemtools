@@ -38,7 +38,9 @@ def convert(problem, options=None):
 
         # Setup parser and renderer etc
 
-        tex = plasTeX.TeX.TeX(myfile=texfile)
+        # plasTeX version 3 changed the name of this argument
+        argname = 'myfile' if float(plasTeX.__version__) < 3 else 'file'
+        tex = plasTeX.TeX.TeX(**{argname: texfile})
 
         ProblemsetMacros.init(tex)
 
@@ -50,6 +52,8 @@ def convert(problem, options=None):
         tex.ownerDocument.config['images']['enabled'] = False
         tex.ownerDocument.config['images']['imager'] = 'none'
         tex.ownerDocument.config['images']['base-url'] = imgbasedir
+        # tell plasTeX where to search for problemtools' built-in packages
+        tex.ownerDocument.config['general']['packages-dirs'] = [os.path.join(os.path.dirname(__file__), 'ProblemPlasTeX')]
 
         renderer = ProblemRenderer()
 
