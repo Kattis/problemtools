@@ -38,9 +38,13 @@ def convert(problem, options=None):
 
         # Setup parser and renderer etc
 
-        # plasTeX version 3 changed the name of this argument
-        argname = 'myfile' if float(plasTeX.__version__) < 3 else 'file'
-        tex = plasTeX.TeX.TeX(**{argname: texfile})
+        # plasTeX version 3 changed the name of this argument (and guarding against this
+        # by checking plasTeX.__version__ fails on plastex v3.0 which failed to update
+        # __version__)
+        try:
+            tex = plasTeX.TeX.TeX(myfile=texfile)
+        except Exception:
+            tex = plasTeX.TeX.TeX(file=texfile)
 
         ProblemsetMacros.init(tex)
 
