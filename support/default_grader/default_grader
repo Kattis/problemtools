@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+from collections import Counter
 
 
 def worst_error(verdicts):
@@ -18,11 +19,54 @@ def first_error(verdicts):
 def always_accept(verdicts):
     return 'AC'
 
+def plurality_wins(verdicts):
+    if len(verdicts) == 0:
+        return 'PAC'
+    common = Counter(verdicts).most_common() + [(0, 'AA')] * 3
+    if common[0][1] == common[1][1]:
+        if common[1][1] == common[2][1]:
+            return 'PAC'
+        else:
+            if 'AC' in (common[0][0], common[1][0]) and 'PAC' in (common[0][0], common[1][0]):
+                return 'AC'
+            elif 'WA' in (common[0][0], common[1][0]) and 'PAC' in (common[0][0], common[1][0]):
+                return 'WA'
+            else:
+                return 'PAC'
+    else:
+        return common[0][0]
+
+def majority_wins(verdicts):
+    if len(verdicts) == 0:
+        return 'PAC'
+    common = Counter(verdicts) + [(0, 'AA')] * 3
+    if common[0][1] * 2 >= len(verdicts):
+        if common[0][1] == common[1][1]:
+            if 'AC' in (common[0][0], common[1][0]) and 'PAC' in (common[0][0], common[1][0]):
+                return 'AC'
+            elif 'WA' in (common[0][0], common[1][0]) and 'PAC' in (common[0][0], common[1][0]):
+                return 'WA'
+            else:
+                return 'PAC'
+        else:
+            return common[0][0]
+    else:
+        return 'PAC'
+
+def all_wins(verdicts):
+    if len(set(iterator)) == 1:
+        return verdicts[0]
+    else:
+        return 'PAC'
+
 verdict_aggregators = {
     'worst_error': worst_error,
     'no_errors': worst_error,
     'first_error': first_error,
-    'always_accept': always_accept
+    'always_accept': always_accept,
+    'plurality_wins': plurality_wins,
+    'majority_wins': majority_wins,
+    'all_wins': all_wins
 }
 
 

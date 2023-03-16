@@ -15,12 +15,12 @@ def convert(problem, options=None):
     problem = os.path.realpath(problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
-
     texfile = problem
     # Set up template if necessary
     with template.Template(problem, language=options.language,
                            title=options.title) as templ:
         texfile = templ.get_file_name()
+        #texfile = "/home/vicious/Workspace/problemtools/examples/checkers/problem_statement/problem.en.tex"
 
         origcwd = os.getcwd()
 
@@ -34,7 +34,7 @@ def convert(problem, options=None):
 
         params.append(texfile)
 
-        status = subprocess.call(params, stdout=output)
+        status = subprocess.call(params, stdout=output) #gives output 1, causes error
         if status == 0:
             status = subprocess.call(params, stdout=output)
 
