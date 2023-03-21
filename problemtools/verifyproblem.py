@@ -536,7 +536,7 @@ class TestCaseGroup(ProblemAspect):
         return self._check_res
 
 
-    def run_submission(self, sub, args, timelim_low, timelim_high):
+    def run_submission(self, sub, args, timelim, timelim_low, timelim_high):
         self.info('Running on %s' % self)
         subres = []
         subres_low = []
@@ -1614,7 +1614,7 @@ class Submissions(ProblemAspect):
 
         if result_low.verdict != result_high.verdict or result_low.score != result_high.score:
             r1, r2 = (result_low, result_high) if result_low.verdict == result_high.verdict else (result_low.verdict, result_high.verdict)
-            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim, r1, timelim_high, r2))
+            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim_low, r1, timelim_high, r2))
 
         if partial and self.fully_accepted(result):
             self.warning('%s got %s' % (desc, result))
