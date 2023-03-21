@@ -273,6 +273,7 @@ class TestCase(ProblemAspect):
             res = res_low
 
         res.runtime = res_high.runtime
+        res_low.runtime = res_high.runtime
         res.set_ac_runtime()
         res_low.set_ac_runtime()
         res_high.set_ac_runtime()
