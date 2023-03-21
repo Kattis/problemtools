@@ -553,7 +553,7 @@ class TestCaseGroup(ProblemAspect):
                 break
 
         return (self.aggregate_results(sub, subres),
-                self.aggregate_results(sub, subres_low, shadow_result=True)
+                self.aggregate_results(sub, subres_low, shadow_result=True),
                 self.aggregate_results(sub, subres_high, shadow_result=True))
 
 
