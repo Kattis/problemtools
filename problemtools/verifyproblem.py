@@ -214,25 +214,26 @@ class TestCase(ProblemAspect):
             return False
         return True
 
-    def run_submission(self, sub, args, timelim_low, timelim_high):
-        res1, res2, reused = self._run_submission_real(sub, args, timelim_low, timelim_high)
-        res1 = self._init_result_for_testcase(res1)
-        res2 = self._init_result_for_testcase(res2)
+    def run_submission(self, sub, args, timelim, timelim_low, timelim_high):
+        res, res_low, res_high, reused = self._run_submission_real(sub, args, timelim_low, timelim_high)
+        res = self._init_result_for_testcase(res)
+        res_low = self._init_result_for_testcase(res_low)
+        res_high = self._init_result_for_testcase(res_high)
         msg = "Reused test file result" if reused else "Test file result"
-        self.info('%s: %s' % (msg, res1))
-        if res1.verdict != 'AC' and self.is_in_sample_group():
-            res1.sample_failures.append(res1)
+        self.info('%s: %s' % (msg, res))
+        if res.verdict != 'AC' and self.is_in_sample_group():
+            res.sample_failures.append(res)
 
-        return (res1, res2)
+        return (res, res_low, res_high)
 
-    def _run_submission_real(self, sub, args, timelim_low, timelim_high):
+    def _run_submission_real(self, sub, args, timelim, timelim_low, timelim_high):
         if self.reuse_result_from is not None:
-            return self.reuse_result_from._run_submission_real(sub, args, timelim_low, timelim_high)
+            return self.reuse_result_from._run_submission_real(sub, args, timelim, timelim_low, timelim_high)
 
-        cache_key = (sub, args, timelim_low, timelim_high)
+        cache_key = (sub, args, timelim, timelim_low, timelim_high)
         if self._result_cache[0] == cache_key:
-            res1, res2 = self._result_cache[1]
-            return (res1, res2, True)
+            res, res_low, res_high = self._result_cache[1]
+            return (res, res_low, res_high, True)
 
         outfile = os.path.join(self._problem.tmpdir, 'output')
         if sys.stdout.isatty():
@@ -241,34 +242,42 @@ class TestCase(ProblemAspect):
             sys.stdout.flush()
 
         if self._problem.is_interactive:
-            res2 = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
+            res_high = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
             status, runtime = sub.run(self.infile, outfile,
                                       timelim=timelim_high+1,
                                       memlim=self._problem.config.get('limits')['memory'])
             if is_TLE(status) or runtime > timelim_high:
-                res2 = SubmissionResult('TLE')
+                res_high = SubmissionResult('TLE')
             elif is_RTE(status):
-                res2 = SubmissionResult('RTE')
+                res_high = SubmissionResult('RTE')
             else:
-                res2 = self._problem.output_validators.validate(self, outfile)
-            res2.runtime = runtime
+                res_high = self._problem.output_validators.validate(self, outfile)
+            res_high.runtime = runtime
         if sys.stdout.isatty():
             sys.stdout.write('%s' % '\b \b' * (len(msg)))
-        if res2.runtime <= timelim_low:
-            res1 = res2
-        elif res2.validator_first and res2.verdict == 'WA':
+        if res_high.runtime <= timelim_low:
+            res_low = res_high
+            res = res_high
+        elif res_high.runtime <= timelim:
+            res_low = SubmissionResult('TLE')
+            res = res_high
+        elif res_high.validator_first and res_high.verdict == 'WA':
             # WA can override TLE for interactive problems (see comment in validate_interactive).
-            res1 = SubmissionResult('WA')
-            res1.validator_first = True
-            res2.runtime = timelim_low
+            res = SubmissionResult('WA')
+            res.validator_first = True
+            res_low = res
+            res_high.runtime = timelim_low
         else:
-            res1 = SubmissionResult('TLE')
-        res1.runtime = res2.runtime
-        res1.set_ac_runtime()
-        res2.set_ac_runtime()
-        self._result_cache = (cache_key, (res1, res2))
-        return (res1, res2, False)
+            res_low = SubmissionResult('TLE')
+            res = res_low
+
+        res.runtime = res_high.runtime
+        res.set_ac_runtime()
+        res_low.set_ac_runtime()
+        res_high.set_ac_runtime()
+        self._result_cache = (cache_key, (res, res_low, res_high))
+        return (res, res_low, res_high, False)
 
     def _init_result_for_testcase(self, res):
         res = copy.copy(res)
@@ -1591,33 +1600,34 @@ class Submissions(ProblemAspect):
             # to make sure we have margin in both directions.
             expected_verdict = 'AC'
             partial = True
-            timelim = timelim_low
+        else:
+            timelim_low = timelim
 
-        result1, result2 = self._problem.testdata.run_submission(sub, args, timelim, timelim_high)
+        result, result_low, result_high = self._problem.testdata.run_submission(sub, args, timelim, timelim_low, timelim_high)
 
-        if result1.verdict == 'AC' and expected_verdict == 'AC' and not partial and result1.sample_failures:
-            res = result1.sample_failures[0]
+        if result.verdict == 'AC' and expected_verdict == 'AC' and not partial and result.sample_failures:
+            res = result.sample_failures[0]
             self.warning('%s got %s on sample: %s' % (desc, res.verdict, res))
 
-        if result1.verdict != result2.verdict or result1.score != result2.score:
-            r1, r2 = (result1, result2) if result1.verdict == result2.verdict else (result1.verdict, result2.verdict)
+        if result_low.verdict != result_high.verdict or result_low.score != result_high.score:
+            r1, r2 = (result_low, result_high) if result_low.verdict == result_high.verdict else (result_low.verdict, result_high.verdict)
             self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim, r1, timelim_high, r2))
 
-        if partial and self.fully_accepted(result1):
-            self.warning('%s got %s' % (desc, result1))
-        elif result1.verdict == expected_verdict:
-            self.msg('   %s OK: %s' % (desc, result1))
+        if partial and self.fully_accepted(result):
+            self.warning('%s got %s' % (desc, result))
+        elif result.verdict == expected_verdict:
+            self.msg('   %s OK: %s' % (desc, result))
             if (expected_verdict == 'AC' and not partial
-                    and not self.fully_accepted(result1)
+                    and not self.fully_accepted(result)
                     and self.full_score_finite()):
                 # For some heuristic problems, this is expected. Thus, only warn.
                 self.warning('%s did not attain full score (consider moving it to partially_accepted)' % desc)
-        elif result2.verdict == expected_verdict and not (partial and self.fully_accepted(result2)):
-            self.msg('   %s OK with extra time: %s' % (desc, result2))
+        elif result_high.verdict == expected_verdict and not (partial and self.fully_accepted(result_high)):
+            self.msg('   %s OK with extra time: %s' % (desc, result_high))
         else:
-            self.error('%s got %s' % (desc, result1), result2.additional_info)
+            self.error('%s got %s' % (desc, result), result_high.additional_info)
 
-        return result1
+        return result
 
     def full_score_finite(self):
         min_score, max_score = self._problem.testdata.get_score_range()
