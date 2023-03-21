@@ -215,7 +215,7 @@ class TestCase(ProblemAspect):
         return True
 
     def run_submission(self, sub, args, timelim, timelim_low, timelim_high):
-        res, res_low, res_high, reused = self._run_submission_real(sub, args, timelim_low, timelim_high)
+        res, res_low, res_high, reused = self._run_submission_real(sub, args, timelim, timelim_low, timelim_high)
         res = self._init_result_for_testcase(res)
         res_low = self._init_result_for_testcase(res_low)
         res_high = self._init_result_for_testcase(res_high)
@@ -538,20 +538,23 @@ class TestCaseGroup(ProblemAspect):
 
     def run_submission(self, sub, args, timelim_low, timelim_high):
         self.info('Running on %s' % self)
-        subres1 = []
-        subres2 = []
+        subres = []
+        subres_low = []
+        subres_high = []
         on_reject = self.config['on_reject']
         for child in self._items:
             if not child.matches_filter(args.data_filter):
                 continue
-            r1, r2 = child.run_submission(sub, args, timelim_low, timelim_high)
-            subres1.append(r1)
-            subres2.append(r2)
-            if on_reject == 'break' and r2.verdict != 'AC':
+            res, res_low, res_high = child.run_submission(sub, args, timelim, timelim_low, timelim_high)
+            subres.append(res)
+            subres_low.append(res_low)
+            subres_high.append(res_high)
+            if on_reject == 'break' and res_high.verdict != 'AC':
                 break
 
-        return (self.aggregate_results(sub, subres1),
-                self.aggregate_results(sub, subres2, shadow_result=True))
+        return (self.aggregate_results(sub, subres),
+                self.aggregate_results(sub, subres_low, shadow_result=True)
+                self.aggregate_results(sub, subres_high, shadow_result=True))
 
 
     def aggregate_results(self, sub, sub_results, shadow_result=False):
