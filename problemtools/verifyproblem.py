@@ -550,7 +550,7 @@ class TestCaseGroup(ProblemAspect):
             subres.append(res)
             subres_low.append(res_low)
             subres_high.append(res_high)
-            if on_reject == 'break' and res_high.verdict != 'AC':
+            if on_reject == 'break' and res.verdict != 'AC':
                 break
 
         return (self.aggregate_results(sub, subres),
