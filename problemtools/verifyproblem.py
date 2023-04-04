@@ -542,23 +542,21 @@ class TestCaseGroup(ProblemAspect):
         subres = []
         subres_low = []
         subres_high = []
-        active_low, active, active_high = True, True, True
+        active_low, active = True, True
         on_reject = self.config['on_reject']
         for child in self._items:
             if not child.matches_filter(args.data_filter):
                 continue
             res, res_low, res_high = child.run_submission(sub, args, timelim, timelim_low, timelim_high)
-            if active_high:
-                subres_high.append(res_high)
+            subres_high.append(res_high)
             if active:
                 subres.append(res)
             if active_low:
                 subres_low.append(res_low)
             if on_reject == 'break':
-                active_high &= res_high.verdict == 'AC'
+                active_low &= res_low.verdict == 'AC'
                 active &= res.verdict == 'AC'
-                if res_low.verdict != 'AC':
-                    active_low = False
+                if res_high.verdict != 'AC':
                     break
 
         return (self.aggregate_results(sub, subres),
