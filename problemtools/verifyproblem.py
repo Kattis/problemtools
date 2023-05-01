@@ -571,7 +571,7 @@ class TestCaseGroup(ProblemAspect):
             if self._problem.is_scoring:
                 res.score = score
                 min_score, max_score = self.get_score_range()
-                if not (min_score <= score <= max_score) and not self._seen_oob_scores:
+                if score is not None and not (min_score <= score <= max_score) and not self._seen_oob_scores:
                     # Don't warn twice on the same subgroup, since every submission is likely
                     # to have the same error.
                     self._seen_oob_scores = True
