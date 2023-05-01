@@ -28,7 +28,7 @@ A few examples of problem packages can be found in [examples](examples).
 
 ## Installing problemtools
 
-There are four recommended ways of installing and running problemtools.
+There are four supported ways of installing and running problemtools.
 (For non-Linux users, "Method 2" below, to use Docker, is probably the least painful.)
 
 ### Method 1: Install the Python package
