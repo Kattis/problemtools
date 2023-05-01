@@ -90,6 +90,16 @@ def convert(problem, options=None):
                     if not options.quiet:
                         print("Warning: Command 'tidy' not found. Install tidy or run with --messy")
 
+        # identify any large generated files (especially images)
+        if not options.quiet:
+            for path, dirs, files in os.walk('.'):
+                for f in files:
+                    file_size_kib = os.stat(os.path.join(path, f)).st_size // 1024
+                    if file_size_kib > 1024:
+                        print(f"WARNING: FILE {f} HAS SIZE {file_size_kib} KiB; CONSIDER REDUCING IT")
+                    elif file_size_kib > 300:
+                        print(f"Warning: file {f} has size {file_size_kib} KiB; consider reducing it")
+
         if options.bodyonly:
             content = open(destfile).read()
             body = re.search('<body>(.*)</body>', content, re.DOTALL)
