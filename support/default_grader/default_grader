@@ -68,4 +68,4 @@ try:
     score = aggregate_scores(scores)
     print('%s %f' % (verdict, score))
 except:
-    print('JE')
+    print('JE 0')

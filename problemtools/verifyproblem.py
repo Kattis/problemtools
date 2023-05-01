@@ -497,6 +497,9 @@ class TestCaseGroup(ProblemAspect):
             if not f[:-4] + '.in' in infiles:
                 self.error("No matching input file for answer '%s'" % f)
 
+        if not self.get_subgroups() and not self.get_testcases():
+            self.error('Test case group is empty')
+
         # Check whether a <= b according to a natural sorting where numeric components
         # are compactified, so that e.g. "a" < "a1" < "a2" < "a10" = "a010" < "a10a".
         def natural_sort_le(a, b):
@@ -1319,6 +1322,10 @@ class Graders(ProblemAspect):
         grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE)|(JE))\s+-?[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
+
+        if not sub_results:
+            self.info('No results on %s, so no graders ran' % (testcasegroup,))
+            return (verdict, score)
 
         grader_flags = testcasegroup.config['grader_flags'].split()
         self.debug('Grading %d results:\n%s' % (len(sub_results), grader_input))
