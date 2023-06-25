@@ -110,7 +110,6 @@ int main(int argc, char **argv) {
 	judgeans_line = stdin_line = 1;
    
 	std::string judge, team;
-	char trash[20];
 	while (true) {
 		// Space!  Can't live with it, can't live without it...
 		while (isspace(judgeans.peek())) {
