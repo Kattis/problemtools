@@ -666,8 +666,7 @@ class ProblemConfig(ProblemAspect):
             elif param == 'interactive':
                 pass
 
-        if self._data['languages'] != '':
-            self._data['languages'] = self._data['languages'].split()
+        self._data['languages'] = self._data['languages'].split()
 
     def __str__(self):
         return 'problem configuration'
@@ -759,7 +758,7 @@ class ProblemConfig(ProblemAspect):
 
         if self._data['languages'] != '':
             for lang_id in self._data['languages']:
-                if self._problem.language_config.get(lang_id) is None:
+                if lang_id != 'all' and self._problem.language_config.get(lang_id) is None:
                     self.error("Unrecognized language id '%s'" % lang_id)
 
         # Some things not yet implemented
@@ -1748,7 +1747,7 @@ class Problem(ProblemAspect):
         self.attachments = Attachments(self)
         self.config = ProblemConfig(self)
         available_languages = self.config.get('languages')
-        if available_languages != '':
+        if 'all' not in available_languages:
             language_config = languages.Languages()
             for lang_id in available_languages:
                 lang_spec = self.language_config.get(lang_id)
