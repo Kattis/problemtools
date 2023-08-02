@@ -1396,7 +1396,7 @@ class OutputValidators(ProblemAspect):
         recommended_output_validator_languages = {'c', 'cpp', 'python3'}
 
         for v in self._validators:
-            if v.language.lang_id not in recommended_output_validator_languages:
+            if not isinstance(v, run.BuildRun) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
         if self._problem.config.get('validation') == 'default' and self._validators:
