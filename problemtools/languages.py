@@ -196,6 +196,12 @@ class Languages(object):
                 prio = lang.priority
         return result
 
+    def get(self, lang_id):
+        if not isinstance(lang_id, str):
+            raise LanguageConfigError(
+                'Config file error: language IDs must be strings, but %s is %s.'
+                % (lang_id, type(lang_id)))
+        return self.languages.get(lang_id, None)
 
     def update(self, data):
         """Update the set with language configuration data from a dict.
@@ -217,12 +223,15 @@ class Languages(object):
                     'Config file error: language IDs must be strings, but %s is %s.'
                     % (lang_id, type(lang_id)))
 
-            if not isinstance(lang_spec, dict):
+            if not isinstance(lang_spec, (dict, Language)):
                 raise LanguageConfigError(
                     'Config file error: language spec must be a dictionary, but spec of language %s is %s.'
                     % (lang_id, type(lang_spec)))
 
-            if lang_id not in self.languages:
+
+            if isinstance(lang_spec, Language):
+                self.languages[lang_id] = lang_spec
+            elif lang_id not in self.languages:
                 self.languages[lang_id] = Language(lang_id, lang_spec)
             else:
                 self.languages[lang_id].update(lang_spec)

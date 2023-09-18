@@ -25,6 +25,7 @@ grading:
    objective: max
    show_test_data_groups: False
 
+languages: all
+
 # These are in the spec but currently unsupported
 libraries: ''
-languages: ''

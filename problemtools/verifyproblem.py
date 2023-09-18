@@ -666,6 +666,8 @@ class ProblemConfig(ProblemAspect):
             elif param == 'interactive':
                 pass
 
+        self._data['languages'] = self._data['languages'].split()
+
     def __str__(self):
         return 'problem configuration'
 
@@ -754,11 +756,14 @@ class ProblemConfig(ProblemAspect):
             self.error('Limits key in problem.yaml must specify a dict')
             self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
 
+        if self._data['languages'] != '':
+            for lang_id in self._data['languages']:
+                if lang_id != 'all' and self._problem.language_config.get(lang_id) is None:
+                    self.error("Unrecognized language id '%s'" % lang_id)
+
         # Some things not yet implemented
         if self._data['libraries'] != '':
             self.error("Libraries not yet supported")
-        if self._data['languages'] != '':
-            self.error("Languages not yet supported")
 
         return self._check_res
 
@@ -1741,6 +1746,15 @@ class Problem(ProblemAspect):
         self.statement = ProblemStatement(self)
         self.attachments = Attachments(self)
         self.config = ProblemConfig(self)
+        available_languages = self.config.get('languages')
+        if 'all' not in available_languages:
+            language_config = languages.Languages()
+            for lang_id in available_languages:
+                lang_spec = self.language_config.get(lang_id)
+                if lang_spec is not None:
+                    language_config.update({lang_id: self.language_config.get(lang_id)})
+            self.language_config = language_config
+
         self.is_interactive = 'interactive' in self.config.get('validation-params')
         self.is_scoring = (self.config.get('type') == 'scoring')
         self.input_format_validators = InputFormatValidators(self)
