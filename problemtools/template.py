@@ -14,8 +14,7 @@ def detect_version(problemdir, problemtex):
 
 
 class Template:
-    def __init__(self, problemdir, language=None,
-                 title='Problem Title', force_copy_cls=False):
+    def __init__(self, problemdir, language=None, force_copy_cls=False):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
 
