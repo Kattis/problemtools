@@ -48,7 +48,7 @@ class Template:
 
         if not os.path.isfile(problemtex):
             raise Exception('Unable to find problem statement, was looking for "%s"' % problemtex)
-        
+
         self.templatefile = 'template.tex'
         self.clsfile = 'problemset.cls'
         timelim = 1  # Legacy for compatibility with v0.1
