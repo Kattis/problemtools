@@ -35,7 +35,7 @@ class Template:
         # problem.tex if exists)
         if language is None:
             language = langs[0]
-        else:
+        if language != '':
             if len(language) != 2 or not language.isalpha():
                 raise Exception('Invalid language code "%s"' % language)
             if language not in langs:
