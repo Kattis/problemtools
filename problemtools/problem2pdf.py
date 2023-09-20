@@ -59,7 +59,7 @@ class ConvertOptions:
          'set title (only used when there is no pre-existing template and -h not set)',
          'Problem Name'],
         ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code)', ''],
+         'choose alternate language (2-letter code)', None],
         ['nopdf', 'store_true', '-n', '--no-pdf',
          'run pdflatex in -draftmode', False],
         ]
