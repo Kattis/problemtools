@@ -127,7 +127,7 @@ class ConvertOptions:
         ['destfile', 'store', '-f', '--dest-file',
          "output file name", 'index.html'],
         ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code)', ''],
+         'choose alternate language (2-letter code)', None],
         ['title', 'store', '-T', '--title',
          'set title (only used when there is no pre-existing template and -h not set)',
          'Problem Name'],

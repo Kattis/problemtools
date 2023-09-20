@@ -14,7 +14,7 @@ def detect_version(problemdir, problemtex):
 
 
 class Template:
-    def __init__(self, problemdir, language='',
+    def __init__(self, problemdir, language=None,
                  title='Problem Title', force_copy_cls=False):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
@@ -34,9 +34,9 @@ class Template:
         dotlang = ''
         # If language unspec., use first available one (will be
         # problem.tex if exists)
-        if language == '':
+        if language is None:
             language = langs[0]
-        if language != '':
+        else:
             if len(language) != 2 or not language.isalpha():
                 raise Exception('Invalid language code "%s"' % language)
             if language not in langs:
