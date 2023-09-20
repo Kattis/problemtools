@@ -59,18 +59,18 @@ class SubmissionResult:
         details = []
 
         if verdict == 'AC' and self.score is not None:
-            verdict += ' (%.0f)' % self.score
+            verdict += f' ({self.score:.0f})'
 
         if self.reason is not None:
             details.append(self.reason)
         if self.verdict != 'AC' and self.testcase is not None:
-            details.append('test case: %s' % self.testcase)
+            details.append(f'test case: {self.testcase}')
         if self.runtime != -1:
-            details.append('CPU: %.2fs @ %s' % (self.runtime, self.runtime_testcase))
+            details.append(f'CPU: {self.runtime:.2f}s @ {self.runtime_testcase}')
 
         if len(details) == 0:
             return verdict
-        return '%s [%s]' % (verdict, ', '.join(details))
+        return f'{verdict} [{", ".join(details)}]'
 
 
 
@@ -95,16 +95,17 @@ class ProblemAspect:
             return msg
         lines = additional_info.split('\n')
         if len(lines) == 1:
-            return '%s (%s)' % (msg, lines[0])
+            return f'{msg} ({lines[0]})'
         if len(lines) > ProblemAspect.max_additional_info:
-            lines = lines[:ProblemAspect.max_additional_info] + ['[.....truncated to %d lines.....]' % ProblemAspect.max_additional_info]
-        return '%s:\n%s' % (msg, '\n'.join(' '*8 + line for line in lines))
+            lines = lines[:ProblemAspect.max_additional_info] \
+                + [f'[.....truncated to {ProblemAspect.max_additional_info} lines.....]']
+
+        return f'{msg}:\n' + '\n'.join(' '*8 + line for line in lines)
 
     def error(self, msg, additional_info=None):
         self._check_res = False
         ProblemAspect.errors += 1
-        logging.error('in %s: %s',
-                      self, ProblemAspect.__append_additional_info(msg, additional_info))
+        logging.error('in %s: %s', self, ProblemAspect.__append_additional_info(msg, additional_info))
         if ProblemAspect.bail_on_error:
             raise VerifyError(msg)
 
@@ -113,8 +114,7 @@ class ProblemAspect:
             self.error(msg)
             return
         ProblemAspect.warnings += 1
-        logging.warning('in %s: %s',
-                        self, ProblemAspect.__append_additional_info(msg, additional_info))
+        logging.warning('in %s: %s', self, ProblemAspect.__append_additional_info(msg, additional_info))
 
     def msg(self, msg):
         print(msg)
@@ -128,7 +128,7 @@ class ProblemAspect:
     def check_basename(self, path):
         basename = os.path.basename(path)
         if not self.basename_regex.match(basename):
-            self.error("Invalid name '%s' (should match '%s')" % (basename, self.basename_regex.pattern))
+            self.error(f"Invalid name '{basename}' (should match '{self.basename_regex.pattern}')")
 
 class TestCase(ProblemAspect):
     def __init__(self, problem, base, testcasegroup):
@@ -145,10 +145,9 @@ class TestCase(ProblemAspect):
         with open(filename, 'r') as f:
             data = f.read()
         if data.find('\r') != -1:
-            self.warning('The file %s contains non-standard line breaks.'
-                         % filename)
+            self.warning(f'The file {filename} contains non-standard line breaks.')
         if len(data) > 0 and data[-1] != '\n':
-            self.warning("The file %s does not end with '\\n'." % filename)
+            self.warning(f"The file {filename} does not end with '\\n'.")
 
     def strip_path_prefix(self, path):
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
@@ -168,21 +167,21 @@ class TestCase(ProblemAspect):
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
         outputlim = self._problem.config.get('limits')['output']
         if anssize > outputlim:
-            self.error('Answer file (%.1f Mb) is larger than output limit (%d Mb), you need to increase output limit' % (anssize, outputlim))
+            self.error(f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit')
         elif 2 * anssize > outputlim:
-            self.warning('Answer file (%.1f Mb) is within 50%% of output limit (%d Mb), you might want to increase output limit' % (anssize, outputlim))
+            self.warning(f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit')
         if not self._problem.is_interactive:
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
-                    self.error('judge answer file got %s' % val_res)
+                    self.error(f'judge answer file got {val_res}')
                 else:
-                    self.warning('judge answer file got %s' % val_res)
+                    self.warning(f'judge answer file got {val_res}')
         self._check_symlinks()
         return self._check_res
 
     def __str__(self):
-        return 'test case %s' % self.strip_path_prefix(self._base)
+        return 'test case ' + self.strip_path_prefix(self._base)
 
     def matches_filter(self, filter_re):
         return filter_re.search(self.strip_path_prefix(self._base)) is not None
@@ -201,16 +200,16 @@ class TestCase(ProblemAspect):
         in_target = os.path.realpath(self.infile)
         ans_target = os.path.realpath(self.ansfile)
         if not in_target.endswith('.in'):
-            self.error("Symbolic link does not point to a .in file for input '%s'" % nicepath)
+            self.error(f"Symbolic link does not point to a .in file for input '{nicepath}'")
             return False
         if ans_target != in_target[:-3] + '.ans':
-            self.error("Symbolic link '%s' must have a corresponding link for answer file" % nicepath)
+            self.error(f"Symbolic link '{nicepath}' must have a corresponding link for answer file")
             return False
         if self.reuse_result_from is None:
-            self.error("Symbolic link points outside data/ directory for file '%s'" % nicepath)
+            self.error(f"Symbolic link points outside data/ directory for file '{nicepath}'")
             return False
         if self.testcasegroup.config['output_validator_flags'] != self.reuse_result_from.testcasegroup.config['output_validator_flags']:
-            self.error("Symbolic link '%s' points to test case with different output validator flags" % nicepath)
+            self.error(f"Symbolic link '{nicepath}' points to test case with different output validator flags")
             return False
         return True
 
@@ -220,7 +219,7 @@ class TestCase(ProblemAspect):
         res_low = self._init_result_for_testcase(res_low)
         res_high = self._init_result_for_testcase(res_high)
         msg = "Reused test file result" if reused else "Test file result"
-        self.info('%s: %s' % (msg, res))
+        self.info(f'{msg}: {res}')
         if res.verdict != 'AC' and self.is_in_sample_group():
             res.sample_failures.append(res)
 
@@ -237,8 +236,8 @@ class TestCase(ProblemAspect):
 
         outfile = os.path.join(self._problem.tmpdir, 'output')
         if sys.stdout.isatty():
-            msg = 'Running %s on %s...' % (sub, self)
-            sys.stdout.write('%s' % msg)
+            msg = f'Running {sub} on {self}...'
+            sys.stdout.write(msg)
             sys.stdout.flush()
 
         if self._problem.is_interactive:
@@ -255,7 +254,7 @@ class TestCase(ProblemAspect):
                 res_high = self._problem.output_validators.validate(self, outfile)
             res_high.runtime = runtime
         if sys.stdout.isatty():
-            sys.stdout.write('%s' % '\b \b' * (len(msg)))
+            sys.stdout.write('\b \b' * (len(msg)))
         if res_high.runtime <= timelim_low:
             res_low = res_high
             res = res_high
@@ -307,7 +306,7 @@ class TestCaseGroup(ProblemAspect):
         self._problem = problem
         self._datadir = datadir
         self._seen_oob_scores = False
-        self.debug('  Loading test data group %s' % datadir)
+        self.debug(f'  Loading test data group {datadir}')
         configfile = os.path.join(self._datadir, 'testdata.yaml')
         self.config = {}
         if os.path.isfile(configfile):
@@ -362,7 +361,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def __str__(self):
-        return 'test case group %s' % os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
+        return 'test case group ' + os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
 
     def set_symlinks(self):
         for sub in self._items:
@@ -416,9 +415,9 @@ class TestCaseGroup(ProblemAspect):
             self.error("Invalid grading policy in testdata.yaml")
 
         if self.config['grading'] == 'custom' and len(self._problem.graders._graders) == 0:
-            self._problem.graders.error('%s has custom grading but no custom graders provided' % self)
+            self._problem.graders.error(f'{self} has custom grading but no custom graders provided')
         if self.config['grading'] == 'default' and Graders._default_grader is None:
-            self._problem.graders.error('%s has default grading but I could not find default grader' % self)
+            self._problem.graders.error(f'{self} has default grading but I could not find default grader')
 
         if self.config['grading'] == 'default' and 'ignore_sample' in self.config['grader_flags'].split():
             if self._parent is not None:
@@ -428,15 +427,15 @@ class TestCaseGroup(ProblemAspect):
 
         for field in self.config.keys():
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
-                self.warning("Unknown key '%s' in '%s'" % (field, os.path.join(self._datadir, 'testdata.yaml')))
+                self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
 
         if not self._problem.is_scoring:
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if self.config.get(key) is not None:
-                    self.error("Key '%s' is only applicable for scoring problems, this is a pass-fail problem" % key)
+                    self.error(f"Key '{key}' is only applicable for scoring problems, this is a pass-fail problem")
 
         if self.config['on_reject'] not in ['break', 'continue']:
-            self.error("Invalid value '%s' for on_reject policy" % self.config['on_reject'])
+            self.error(f"Invalid value '{self.config['on_reject']}' for on_reject policy")
 
         if self._problem.is_scoring:
             # Check grading
@@ -444,11 +443,11 @@ class TestCaseGroup(ProblemAspect):
                 score_range = self.config['range']
                 min_score, max_score = list(map(float, score_range.split()))
                 if min_score > max_score:
-                    self.error("Invalid score range '%s': minimum score cannot be greater than maximum score" % score_range)
+                    self.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
             except VerifyError:
                 raise
             except:
-                self.error("Invalid format '%s' for range: must be exactly two floats" % score_range)
+                self.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
 
         if self._parent is None:
             seen_secret = False
@@ -483,7 +482,7 @@ class TestCaseGroup(ProblemAspect):
                         hashes[filehash].append(os.path.relpath(filepath, self._problem.probdir))
             for _, files in hashes.items():
                 if len(files) > 1:
-                    self.warning("Identical input files: '%s'" % str(files))
+                    self.warning(f"Identical input files: '{str(filed)}'")
 
         infiles = glob.glob(os.path.join(self._datadir, '*.in'))
         ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
@@ -491,11 +490,11 @@ class TestCaseGroup(ProblemAspect):
         for f in infiles:
             if os.path.isdir(f): continue
             if not f[:-3] + '.ans' in ansfiles:
-                self.error("No matching answer file for input '%s'" % f)
+                self.error(f"No matching answer file for input '{f}'")
         for f in ansfiles:
             if os.path.isdir(f): continue
             if not f[:-4] + '.in' in infiles:
-                self.error("No matching input file for answer '%s'" % f)
+                self.error(f"No matching input file for answer '{f}'")
 
         if not self.get_subgroups() and not self.get_testcases():
             self.error('Test case group is empty')
@@ -530,7 +529,7 @@ class TestCaseGroup(ProblemAspect):
         for group in self.get_subgroups():
             name = os.path.relpath(group._datadir, self._problem.probdir)
             if natural_sort_le(name, last_testgroup_name):
-                self.warning("Test data group '%s' will be ordered before '%s'; consider zero-padding" % (last_testgroup_name, name))
+                self.warning(f"Test data group '{last_testgroup_name}' will be ordered before '{name}'; consider zero-padding")
             last_testgroup_name = name
 
         for child in self._items:
@@ -541,7 +540,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def run_submission(self, sub, args, timelim, timelim_low, timelim_high):
-        self.info('Running on %s' % self)
+        self.info(f'Running on {self}')
         subres = []
         subres_low = []
         subres_high = []
@@ -598,7 +597,7 @@ class TestCaseGroup(ProblemAspect):
                     # to have the same error.
                     self._seen_oob_scores = True
                     groupname = os.path.relpath(self._datadir, self._problem.probdir)
-                    self.error('submission %s got %s on group %s, which is outside of expected score range [%s, %s]' % (sub, res, groupname, min_score, max_score))
+                    self.error(f'submission {sub} got {res} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]')
         return res
 
 
@@ -682,24 +681,24 @@ class ProblemConfig(ProblemAspect):
         self._check_res = True
 
         if not os.path.isfile(self.configfile):
-            self.error("No config file %s found" % self.configfile)
+            self.error(f"No config file {self.configfile} found")
 
         for field in ProblemConfig._MANDATORY_CONFIG:
             if not field in self._data:
-                self.error("Mandatory field '%s' not provided" % field)
+                self.error(f"Mandatory field '{field}' not provided")
 
         for field, value in self._origdata.items():
             if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
-                self.warning("Unknown field '%s' provided in problem.yaml" % field)
+                self.warning(f"Unknown field '{field}' provided in problem.yaml")
 
         for field, value in self._data.items():
             if value is None:
-                self.error("Field '%s' provided in problem.yaml but is empty" % field)
+                self.error(f"Field '{field}' provided in problem.yaml but is empty")
                 self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
 
         # Check type
         if not self._data['type'] in ['pass-fail', 'scoring']:
-            self.error("Invalid value '%s' for type" % self._data['type'])
+            self.error(f"Invalid value '{self._data['type']}' for type")
 
         # Check rights_owner
         if self._data['license'] == 'public domain':
@@ -716,12 +715,12 @@ class ProblemConfig(ProblemAspect):
 
         # Check license
         if not self._data['license'] in ProblemConfig._VALID_LICENSES:
-            self.error("Invalid value for license: %s.\n  Valid licenses are %s" % (self._data['license'], ProblemConfig._VALID_LICENSES))
+            self.error(f"Invalid value for license: {self._data['license']}.\n  Valid licenses are {ProblemConfig._VALID_LICENSES}")
         elif self._data['license'] == 'unknown':
             self.warning("License is 'unknown'")
 
         if self._data['grading']['show_test_data_groups'] not in [True, False]:
-            self.error("Invalid value for grading.show_test_data_groups: %s" % self._data['grading']['show_test_data_groups'])
+            self.error("Invalid value for grading.show_test_data_groups: " + self._data['grading']['show_test_data_groups'])
         elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
             self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
         if self._data['type'] != 'pass-fail' and self._problem.testdata.has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
@@ -729,27 +728,27 @@ class ProblemConfig(ProblemAspect):
 
         if 'on_reject' in self._data['grading']:
             if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
-                self.error("Invalid on_reject policy '%s' for problem type '%s'" % (self._data['grading']['on_reject'], self._data['type']))
+                self.error(f"Invalid on_reject policy '{self._data['grading']['on_reject']}' for problem type '{self._data['type']}'")
             if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
-                self.error("Invalid value '%s' for on_reject policy" % self._data['grading']['on_reject'])
+                self.error(f"Invalid value '{self._data['grading']['on_reject']}' for on_reject policy")
 
         if self._data['grading']['objective'] not in ['min', 'max']:
-            self.error("Invalid value '%s' for objective" % self._data['grading']['objective'])
+            self.error(f"Invalid value '{self._data['grading']['objective']}' for objective")
 
         for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
             if deprecated_grading_key in self._data['grading']:
-                self.warning("Grading key '%s' is deprecated in problem.yaml, use '%s' in testdata.yaml instead" % (deprecated_grading_key, deprecated_grading_key))
+                self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
 
         if not self._data['validation-type'] in ['default', 'custom']:
-            self.error("Invalid value '%s' for validation, first word must be 'default' or 'custom'" % self._data['validation'])
+            self.error(f"Invalid value '{self._data['validation']}' for validation, first word must be 'default' or 'custom'")
 
         if self._data['validation-type'] == 'default' and len(self._data['validation-params']) > 0:
-            self.error("Invalid value '%s' for validation" % (self._data['validation']))
+            self.error(f"Invalid value '{self._data['validation']}' for validation")
 
         if self._data['validation-type'] == 'custom':
             for param in self._data['validation-params']:
                 if param not in['score', 'interactive']:
-                    self.error("Invalid parameter '%s' for custom validation" % param)
+                    self.error(f"Invalid parameter '{param}' for custom validation")
 
         # Check limits
         if not isinstance(self._data['limits'], dict):
@@ -1085,16 +1084,16 @@ class ProblemStatement(ProblemAspect):
                     langparam = ''
                     if lang != '':
                         langparam = '-l ' + lang
-                    self.error('Could not compile problem statement for language "%s".  Run problem2pdf %s on the problem to diagnose.' % (lang, langparam))
+                    self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf {langparam} on the problem to diagnose.')
             except Exception as e:
-                self.error('Error raised when checking problem statement for language %s:\n%s' % (lang, e))
+                self.error(f'Error raised when checking problem statement for language {lang}:\n{e}')
             try:
                 problem2html.convert(self._problem.probdir, htmlopt)
             except Exception as e:
                 langparam = ''
                 if lang != '':
                     langparam = '-l ' + lang
-                self.error('Could not convert problem statement to html for language "%s".  Run problem2html %s on the problem to diagnose.' % (lang, langparam))
+                self.error(f'Could not convert problem statement to html for language "{lang}".  Run problem2html {langparam} on the problem to diagnose.')
         return self._check_res
 
     def __str__(self):
@@ -1103,7 +1102,7 @@ class ProblemStatement(ProblemAspect):
     def get_config(self):
         ret = {}
         for lang in self.languages:
-            filename = ('problem.%s.tex' % lang) if lang != '' else 'problem.tex'
+            filename = f'problem.{lang}.tex' if lang != '' else 'problem.tex'
             stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
             patterns = [(r'\\problemname{(.*)}', 'name'),
                         (r'^%%\s*plainproblemname:(.*)$', 'name')
@@ -1133,7 +1132,7 @@ class Attachments(ProblemAspect):
             self.attachments = [os.path.join(attachments_path, attachment_name) for attachment_name in os.listdir(attachments_path)]
         else:
             self.attachments = []
-        self.debug('Adding attachments %s' % str(self.attachments))
+        self.debug(f'Adding attachments {str(self.attachments)}')
 
     def check(self, args):
         if self._check_res is not None:
@@ -1142,7 +1141,7 @@ class Attachments(ProblemAspect):
 
         for attachment_path in self.attachments:
             if os.path.isdir(attachment_path):
-                self.error('Directories are not allowed as attachments (%s is a directory)' % attachment_path)
+                self.error(f'Directories are not allowed as attachments ({attachment_path} is a directory)')
 
         return self._check_res
 
@@ -1207,7 +1206,7 @@ class InputFormatValidators(ProblemAspect):
             try:
                 success, msg = val.compile()
                 if not success:
-                    self.error('Compile error for %s' % val, msg)
+                    self.error(f'Compile error for {val}', msg)
                     self._validators.remove(val)
             except run.ProgramError as e:
                 self.error(e)
@@ -1235,7 +1234,7 @@ class InputFormatValidators(ProblemAspect):
                         if os.WEXITSTATUS(status) != 42:
                             break
                     else:
-                        self.warning('No validator rejects %s with flags "%s"' % (desc, ' '.join(flags)))
+                        self.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
 
             def modified_input_validates(applicable, modifier):
                 for testcase in self._problem.testdata.get_all_testcases():
@@ -1264,7 +1263,7 @@ class InputFormatValidators(ProblemAspect):
 
             for (desc, applicable, modifier) in _JUNK_MODIFICATIONS:
                 if modified_input_validates(applicable, modifier):
-                    self.warning('No validator rejects %s' % (desc,))
+                    self.warning(f'No validator rejects {desc}')
 
             os.unlink(file_name)
 
@@ -1278,9 +1277,9 @@ class InputFormatValidators(ProblemAspect):
             with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
                 status, _ = val.run(testcase.infile, outfile.name, errfile.name, args=flags)
                 if not os.WIFEXITED(status):
-                    emsg = 'Input format validator %s crashed on input %s' % (val, testcase.infile)
+                    emsg = f'Input format validator {val} crashed on input {testcase.infile}'
                 elif os.WEXITSTATUS(status) != 42:
-                    emsg = 'Input format validator %s did not accept input %s, exit code: %d' % (val, testcase.infile, os.WEXITSTATUS(status))
+                    emsg = f'Input format validator {val} did not accept input {testcase.infile}, exit code: {os.WEXITSTATUS(status)}'
                 else:
                     continue
                 validator_stdout = outfile.read().decode('utf-8', 'replace')
@@ -1313,7 +1312,7 @@ class Graders(ProblemAspect):
         for grader in self._graders:
             success, msg = grader.compile()
             if not success:
-                self.error('Compile error for %s' % grader, msg)
+                self.error(f'Compile error for {grader}', msg)
         return self._check_res
 
     def grade(self, sub_results, testcasegroup, shadow_result=False):
@@ -1323,7 +1322,7 @@ class Graders(ProblemAspect):
         else:
             graders = self._graders
 
-        grader_input = ''.join(['%s %s\n' % (r.verdict, 0 if r.score is None else r.score) for r in sub_results])
+        grader_input = ''.join([f'{r.verdict} {0 if r.score is None else r.score}\n' for r in sub_results])
         grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE)|(JE))\s+-?[0-9.]+\s*$'
         verdict = 'AC'
         score = 0
@@ -1333,8 +1332,8 @@ class Graders(ProblemAspect):
             return (verdict, score)
 
         grader_flags = testcasegroup.config['grader_flags'].split()
-        self.debug('Grading %d results:\n%s' % (len(sub_results), grader_input))
-        self.debug('Grader flags: %s' % grader_flags)
+        self.debug(f'Grading {len(sub_results)} results:\n{grader_input}')
+        self.debug(f'Grader flags: {grader_flags}')
 
         for grader in graders:
             if grader is not None and grader.compile()[0]:
@@ -1352,19 +1351,19 @@ class Graders(ProblemAspect):
                 os.remove(infile)
                 os.remove(outfile)
                 if not os.WIFEXITED(status):
-                    self.error('Judge error: %s crashed' % grader)
-                    self.debug('Grader input:\n%s' % grader_input)
+                    self.error(f'Judge error: {grader} crashed')
+                    self.debug(f'Grader input:\n{grader_input}')
                     return ('JE', None)
                 ret = os.WEXITSTATUS(status)
                 if ret != 0:
-                    self.error('Judge error: exit code %d for grader %s, expected 0' % (ret, grader))
-                    self.debug('Grader input: %s\n' % grader_input)
+                    self.error(f'Judge error: exit code {ret} for grader {grader}, expected 0')
+                    self.debug(f'Grader input: {grader_input}\n')
                     return ('JE', None)
 
                 if not re.match(grader_output_re, grader_output):
                     self.error('Judge error: invalid format of grader output')
-                    self.debug('Output must match: "%s"' % grader_output_re)
-                    self.debug('Output was: "%s"' % grader_output)
+                    self.debug(f'Output must match: "{grader_output_re}"')
+                    self.debug(f'Output was: "{grader_output}"')
                     return ('JE', None)
 
                 verdict, score = grader_output.split()
@@ -1372,7 +1371,7 @@ class Graders(ProblemAspect):
         # TODO: check that all graders give same result
 
         if not shadow_result:
-            self.info('Grade on %s is %s (%s)' % (testcasegroup, verdict, score))
+            self.info(f'Grade on {testcasegroup} is {verdict} ({score})')
 
         return (verdict, score)
 
@@ -1416,7 +1415,7 @@ class OutputValidators(ProblemAspect):
             try:
                 success, msg = val.compile()
                 if not success:
-                    self.error('Compile error for output validator %s' % val, msg)
+                    self.error(f'Compile error for output validator {val}', msg)
             except run.ProgramError as e:
                 self.error(e)
 
@@ -1436,10 +1435,10 @@ class OutputValidators(ProblemAspect):
                     if result.verdict != 'AC':
                         rejected = True
                     if result.verdict == 'JE':
-                        self.error('%s as output, and output validator flags "%s" gave %s' % (desc, ' '.join(flags), result))
+                        self.error(f'{desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
                         break
                 if not rejected:
-                    self.warning('%s gets AC' % (desc))
+                    self.warning(f'{desc} gets AC')
             os.unlink(file_name)
 
         return self._check_res
@@ -1451,7 +1450,7 @@ class OutputValidators(ProblemAspect):
             feedback_path = os.path.join(feedback_dir, feedback_file)
             if os.path.getsize(feedback_path) == 0:
                 continue
-            all_feedback.append('=== %s: ===' % feedback_file)
+            all_feedback.append(f'=== {feedback_file}: ===')
             # FIXME handle feedback files containing non-text
             with open(feedback_path, 'r') as feedback:
                 # Cap amount of feedback per file at some high-ish
@@ -1461,7 +1460,7 @@ class OutputValidators(ProblemAspect):
         if all_feedback:
             return '\n'.join(all_feedback)
         return None
-    
+
 
     def _parse_validator_results(self, val, status, feedbackdir, testcase):
         custom_score = self._problem.config.get('grading')['custom_scoring']
@@ -1473,12 +1472,12 @@ class OutputValidators(ProblemAspect):
 
         if not os.WIFEXITED(status):
             return SubmissionResult('JE',
-                                    reason='output validator %s crashed, status %d' % (val, status),
+                                    reason=f'output validator {val} crashed, status {status}',
                                     additional_info=OutputValidators.__get_feedback(feedbackdir))
         ret = os.WEXITSTATUS(status)
         if ret not in [42, 43]:
             return SubmissionResult('JE',
-                                    reason='output validator %s exited with status %d' % (val, ret),
+                                    reason=f'output validator {val} exited with status {ret}',
                                     additional_info=OutputValidators.__get_feedback(feedbackdir))
 
         if ret == 43:
@@ -1490,7 +1489,7 @@ class OutputValidators(ProblemAspect):
                     score_str = open(score_file).read()
                     score = float(score_str)
                 except Exception as e:
-                    return SubmissionResult('JE', reason='failed to parse validator score: %s' % e)
+                    return SubmissionResult('JE', reason=f'failed to parse validator score: {e}')
             else:
                 return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
@@ -1528,12 +1527,12 @@ class OutputValidators(ProblemAspect):
                 i_status, _ = interactive.run(outfile=interactive_out,
                                               args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args)
                 if is_RTE(i_status):
-                    errorhandler.error('Interactive crashed, status %d' % i_status)
+                    errorhandler.error(f'Interactive crashed, status {i_status}')
                 else:
                     interactive_output = open(interactive_out).read()
-                    errorhandler.debug('Interactive output: "%s"' % interactive_output)
+                    errorhandler.debug(f'Interactive output: "{interactive_output}"')
                     if not re.match(interactive_output_re, interactive_output):
-                        errorhandler.error('Output from interactive does not follow expected format, got output "%s"' % interactive_output)
+                        errorhandler.error(f'Output from interactive does not follow expected format, got output "{interactive_output}"')
                     else:
                         val_status, _, sub_status, sub_runtime, first = interactive_output.split()
                         sub_status = int(sub_status)
@@ -1615,7 +1614,7 @@ class Submissions(ProblemAspect):
         return 'submissions'
 
     def check_submission(self, sub, args, expected_verdict, timelim, timelim_low, timelim_high):
-        desc = '%s submission %s' % (expected_verdict, sub)
+        desc = f'{expected_verdict} submission {sub}'
         partial = False
         if expected_verdict == 'PAC':
             # For partially accepted solutions, use the low timelim instead of the real one,
@@ -1629,25 +1628,25 @@ class Submissions(ProblemAspect):
 
         if result.verdict == 'AC' and expected_verdict == 'AC' and not partial and result.sample_failures:
             res = result.sample_failures[0]
-            self.warning('%s got %s on sample: %s' % (desc, res.verdict, res))
+            self.warning(f'{desc} got {res.verdict} on sample: {res}')
 
         if result_low.verdict != result_high.verdict or result_low.score != result_high.score:
             r1, r2 = (result_low, result_high) if result_low.verdict == result_high.verdict else (result_low.verdict, result_high.verdict)
-            self.warning('%s sensitive to time limit: limit of %s secs -> %s, limit of %s secs -> %s' % (desc, timelim_low, r1, timelim_high, r2))
+            self.warning(f'{desc} sensitive to time limit: limit of {timelim_low} secs -> {r1}, limit of {timelim_high} secs -> {r2}')
 
         if partial and self.fully_accepted(result):
-            self.warning('%s got %s' % (desc, result))
+            self.warning(f'{desc} got {result}')
         elif result.verdict == expected_verdict:
-            self.msg('   %s OK: %s' % (desc, result))
+            self.msg(f'   {desc} OK: {result}')
             if (expected_verdict == 'AC' and not partial
                     and not self.fully_accepted(result)
                     and self.full_score_finite()):
                 # For some heuristic problems, this is expected. Thus, only warn.
-                self.warning('%s did not attain full score (consider moving it to partially_accepted)' % desc)
+                self.warning(f'{desc} did not attain full score (consider moving it to partially_accepted)')
         elif result_high.verdict == expected_verdict and not (partial and self.fully_accepted(result_high)):
-            self.msg('   %s OK with extra time: %s' % (desc, result_high))
+            self.msg(f'   {desc} OK with extra time: {result_high}')
         else:
-            self.error('%s got %s' % (desc, result), result_high.additional_info)
+            self.error(f'{desc} got {result}', result_high.additional_info)
 
         return result
 
@@ -1685,23 +1684,21 @@ class Submissions(ProblemAspect):
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             if verdict[2] and not self._submissions[acr]:
-                self.error('Require at least one "%s" submission' % verdict[1])
+                self.error(f'Require at least one "{verdict[1]}" submission')
 
             runtimes = []
 
             for sub in self._submissions[acr]:
                 if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
-                    self.info('Check %s submission %s' % (acr, sub))
+                    self.info(f'Check {acr} submission {sub}')
 
                     if sub.code_size() > 1024*limits['code']:
-                        self.error('%s submission %s has size %.1f kiB, exceeds code size limit of %d kiB' %
-                                   (acr, sub, sub.code_size() / 1024.0, limits['code']))
+                        self.error(f'{acr} submission {sub} has size {sub.code_size() / 1024.0:.1f} kiB, exceeds code size limit of {limits["code"]} kiB')
                         continue
 
                     success, msg = sub.compile()
                     if not success:
-                        self.error('Compile error for %s submission %s' % (acr, sub),
-                                   additional_info=msg)
+                        self.error(f'Compile error for {acr} submission {sub}', additional_info=msg)
                         continue
 
                     res = self.check_submission(sub, args, acr, timelim, timelim_margin_lo, timelim_margin)
@@ -1711,7 +1708,7 @@ class Submissions(ProblemAspect):
                 if len(runtimes) > 0:
                     max_runtime = max(runtimes)
                     exact_timelim = max_runtime * time_multiplier
-                    max_runtime = '%.3f' % max_runtime
+                    max_runtime = f'{max_runtime:.3f}'
                     timelim = max(1, int(0.5 + exact_timelim))
                     timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
                     timelim_margin = max(timelim + 1,
@@ -1719,11 +1716,11 @@ class Submissions(ProblemAspect):
                 else:
                     max_runtime = None
                 if args.fixed_timelim is not None and args.fixed_timelim != timelim:
-                    self.msg("   Solutions give timelim of %d seconds, but will use provided fixed limit of %d seconds instead" % (timelim, args.fixed_timelim))
+                    self.msg(f"   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {args.fixed_timelim} seconds instead")
                     timelim = args.fixed_timelim
                     timelim_margin = timelim * safety_margin
 
-                self.msg("   Slowest AC runtime: %s, setting timelim to %d secs, safety margin to %d secs" % (max_runtime, timelim, timelim_margin))
+                self.msg(f"   Slowest AC runtime: {max_runtime}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs")
             limits['time'] = timelim
 
         return self._check_res
@@ -1737,9 +1734,9 @@ class Problem(ProblemAspect):
         self.language_config = languages.load_language_config()
 
     def __enter__(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='verify-%s-'%self.shortname)
+        self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
         if not os.path.isdir(self.probdir):
-            self.error("Problem directory '%s' not found" % self.probdir)
+            self.error(f"Problem directory '{self.probdir}' not found")
             self.shortname = None
             return self
 
@@ -1793,12 +1790,12 @@ class Problem(ProblemAspect):
                             'generators': [self.generators]}
 
             if not re.match('^[a-z0-9]+$', self.shortname):
-                self.error("Invalid shortname '%s' (must be [a-z0-9]+)" % self.shortname)
+                self.error(f"Invalid shortname '{self.shortname}' (must be [a-z0-9]+)")
 
             run.limit.check_limit_capabilities(self)
 
             for part in args.parts:
-                self.msg('Checking %s' % part)
+                self.msg(f'Checking {part}')
                 for item in part_mapping[part]:
                     item.check(args)
         except VerifyError:
@@ -1811,12 +1808,12 @@ def re_argument(s):
         r = re.compile(s)
         return r
     except re.error:
-        raise argparse.ArgumentTypeError('%s is not a valid regex' % s)
+        raise argparse.ArgumentTypeError(f'{s} is not a valid regex')
 
 
 def part_argument(s):
     if s not in PROBLEM_PARTS:
-        raise argparse.ArgumentTypeError("Invalid problem part specified: %s" % s)
+        raise argparse.ArgumentTypeError(f"Invalid problem part specified: {s}")
     return s
 
 
@@ -1848,7 +1845,7 @@ def argparser():
                         help='use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)')
     parser.add_argument('-p', '--parts', metavar='PROBLEM_PART',
                         type=part_argument, nargs='+', default=PROBLEM_PARTS,
-                        help='only test the indicated parts of the problem.  Each PROBLEM_PART can be one of %s.' % PROBLEM_PARTS, )
+                        help=f'only test the indicated parts of the problem.  Each PROBLEM_PART can be one of {PROBLEM_PARTS}.')
 
     argparser_basic_arguments(parser)
 
@@ -1862,7 +1859,7 @@ def default_args():
 
 def initialize_logging(args):
     ProblemAspect.max_additional_info = args.max_additional_info
-    
+
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
@@ -1876,12 +1873,11 @@ def main():
 
     total_errors = 0
     for problemdir in args.problemdir:
-        print('Loading problem %s' % os.path.basename(os.path.realpath(problemdir)))
+        print('Loading problem ' + os.path.basename(os.path.realpath(problemdir)))
         with Problem(problemdir) as prob:
             [errors, warnings] = prob.check(args)
-            def p(x):
-                return '' if x == 1 else 's'
-            print("%s tested: %d error%s, %d warning%s" % (prob.shortname, errors, p(errors), warnings, p(warnings)))
+            p = lambda x: '' if x == 1 else 's'
+            print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
             total_errors += errors
 
     sys.exit(1 if total_errors > 0 else 0)
