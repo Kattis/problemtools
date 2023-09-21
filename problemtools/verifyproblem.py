@@ -133,8 +133,8 @@ class ProblemAspect:
 class TestCase(ProblemAspect):
     def __init__(self, problem, base, testcasegroup):
         self._base = base
-        self.infile = base + '.in'
-        self.ansfile = base + '.ans'
+        self.infile = f'{base}.in'
+        self.ansfile = f'{base}.ans'
         self._problem = problem
         self.testcasegroup = testcasegroup
         self.reuse_result_from = None
@@ -181,7 +181,7 @@ class TestCase(ProblemAspect):
         return self._check_res
 
     def __str__(self):
-        return 'test case ' + self.strip_path_prefix(self._base)
+        return f'test case {self.strip_path_prefix(self._base)}'
 
     def matches_filter(self, filter_re):
         return filter_re.search(self.strip_path_prefix(self._base)) is not None
@@ -202,7 +202,7 @@ class TestCase(ProblemAspect):
         if not in_target.endswith('.in'):
             self.error(f"Symbolic link does not point to a .in file for input '{nicepath}'")
             return False
-        if ans_target != in_target[:-3] + '.ans':
+        if ans_target != f'{in_target[:-3]}.ans':
             self.error(f"Symbolic link '{nicepath}' must have a corresponding link for answer file")
             return False
         if self.reuse_result_from is None:
@@ -353,7 +353,7 @@ class TestCaseGroup(ProblemAspect):
                     self._items.append(TestCaseGroup(problem, f, self))
                 else:
                     base, ext = os.path.splitext(f)
-                    if ext == '.ans' and os.path.isfile(base + '.in'):
+                    if ext == '.ans' and os.path.isfile(f'{base}.in'):
                         self._items.append(TestCase(problem, base, self))
 
         if not parent:
@@ -361,7 +361,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def __str__(self):
-        return 'test case group ' + os.path.relpath(self._datadir, os.path.join(self._problem.probdir))
+        return f'test case group {os.path.relpath(self._datadir, os.path.join(self._problem.probdir))}'
 
     def set_symlinks(self):
         for sub in self._items:
@@ -489,11 +489,11 @@ class TestCaseGroup(ProblemAspect):
 
         for f in infiles:
             if os.path.isdir(f): continue
-            if not f[:-3] + '.ans' in ansfiles:
+            if not f'{f[:-3]}.ans' in ansfiles:
                 self.error(f"No matching answer file for input '{f}'")
         for f in ansfiles:
             if os.path.isdir(f): continue
-            if not f[:-4] + '.in' in infiles:
+            if not f'{f[:-4]}.in' in infiles:
                 self.error(f"No matching input file for answer '{f}'")
 
         if not self.get_subgroups() and not self.get_testcases():
@@ -720,7 +720,7 @@ class ProblemConfig(ProblemAspect):
             self.warning("License is 'unknown'")
 
         if self._data['grading']['show_test_data_groups'] not in [True, False]:
-            self.error("Invalid value for grading.show_test_data_groups: " + self._data['grading']['show_test_data_groups'])
+            self.error(f"Invalid value for grading.show_test_data_groups: {self._data['grading']['show_test_data_groups']}")
         elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
             self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
         if self._data['type'] != 'pass-fail' and self._problem.testdata.has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
@@ -1863,7 +1863,7 @@ def initialize_logging(args):
     fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
-                        level=eval("logging." + args.log_level.upper()))
+                        level=eval(f"logging.{args.log_level.upper()}"))
 
 
 def main():
@@ -1873,7 +1873,7 @@ def main():
 
     total_errors = 0
     for problemdir in args.problemdir:
-        print('Loading problem ' + os.path.basename(os.path.realpath(problemdir)))
+        print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))}')
         with Problem(problemdir) as prob:
             [errors, warnings] = prob.check(args)
             p = lambda x: '' if x == 1 else 's'
