@@ -105,7 +105,7 @@ class Template:
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        if self.problemset_cls is not None and self.copy_cls and  os.path.isfile(self.problemset_cls):
+        if self.problemset_cls is not None and self.copy_cls and os.path.isfile(self.problemset_cls):
             os.remove(self.problemset_cls)
         if self.filename is not None:
             for f in glob.glob(os.path.splitext(self.filename)[0] + '.*'):
