@@ -482,7 +482,7 @@ class TestCaseGroup(ProblemAspect):
                         hashes[filehash].append(os.path.relpath(filepath, self._problem.probdir))
             for _, files in hashes.items():
                 if len(files) > 1:
-                    self.warning(f"Identical input files: '{str(filed)}'")
+                    self.warning(f"Identical input files: '{str(files)}'")
 
         infiles = glob.glob(os.path.join(self._datadir, '*.in'))
         ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
