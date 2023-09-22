@@ -246,7 +246,7 @@ class TestCase(ProblemAspect):
         else:
             status, runtime = sub.run(self.infile, outfile,
                                       timelim=timelim_high+1,
-                                      memlim=self._problem.config.get('limits')['memory'])
+                                      memlim=self._problem.config.get('limits')['memory'], set_work_dir=True)
             if is_TLE(status) or runtime > timelim_high:
                 res_high = SubmissionResult('TLE')
             elif is_RTE(status):

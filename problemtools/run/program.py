@@ -14,7 +14,7 @@ class Program(object):
     runtime = 0
 
     def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null',
-            args=None, timelim=1000, memlim=1024):
+            args=None, timelim=1000, memlim=1024, set_work_dir=False):
         """Run the program.
 
         Args:
@@ -41,7 +41,7 @@ class Program(object):
 
         status, runtime = self.__run_wait(runcmd + args,
                                           infile, outfile, errfile,
-                                          timelim, memlim)
+                                          timelim, memlim, self.path if set_work_dir else None)
 
         self.runtime = max(self.runtime, runtime)
 
@@ -69,7 +69,7 @@ class Program(object):
 
 
     @staticmethod
-    def __run_wait(argv, infile, outfile, errfile, timelim, memlim):
+    def __run_wait(argv, infile, outfile, errfile, timelim, memlim, working_directory=None):
         logging.debug('run "%s < %s > %s 2> %s"',
                       ' '.join(argv), infile, outfile, errfile)
         pid = os.fork()
@@ -103,7 +103,8 @@ class Program(object):
                                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
                 Program.__setfd(2, errfile,
                                 os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
-
+                if working_directory is not None:
+                    os.chdir(working_directory)
                 os.execvp(argv[0], argv)
             except Exception as exc:
                 print("Oops. Fatal error in child process:")
