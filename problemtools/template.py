@@ -93,7 +93,7 @@ class Template:
         for line in templin:
             try:
                 templout.write(line % data)
-            except:
+            except KeyError:
                 # This is a bit ugly I guess
                 for sample in self.samples:
                     data['sample'] = sample
