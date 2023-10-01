@@ -14,9 +14,10 @@ from .ProblemPlasTeX import ProblemRenderer
 from .ProblemPlasTeX import ProblemsetMacros
 from . import template
 
+from typing import Any
 
-def convert(problem, options=None):
-    problem = os.path.realpath(problem)
+def convert(options: argparse.Namespace) -> None:
+    problem = os.path.realpath(options.problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
@@ -92,7 +93,7 @@ def convert(problem, options=None):
 
         # identify any large generated files (especially images)
         if not options.quiet:
-            for path, dirs, files in os.walk('.'):
+            for path, _dirs, files in os.walk('.'):
                 for f in files:
                     file_size_kib = os.stat(os.path.join(path, f)).st_size // 1024
                     if file_size_kib > 1024:
@@ -109,46 +110,24 @@ def convert(problem, options=None):
         # restore cwd
         os.chdir(origcwd)
 
-    return True
 
-
-class ConvertOptions:
-    available = [
-        ['bodyonly', 'store_true', '-b', '--body-only',
-         'only generate HTML body, no HTML headers', False],
-        ['css', 'store_false', '-c', '--no-css',
-         "don't copy CSS file to output directory", True],
-        ['headers', 'store_false', '-H', '--headers',
-         "don't generate problem headers (title, problem id, time limit)", True],
-        ['tidy', 'store_false', '-m', '--messy',
-         "don't run tidy to postprocess the HTML", True],
-        ['destdir', 'store', '-d', '--dest-dir',
-         "output directory", '${problem}_html'],
-        ['destfile', 'store', '-f', '--dest-file',
-         "output file name", 'index.html'],
-        ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code)', None],
-        ['loglevel', 'store', '-L', '--log-level',
-         'set log level (debug, info, warning, error, critical)', 'warning'],
-        ['quiet', 'store_true', '-q', '--quiet',
-         "quiet", False],
-        ]
-
-    def __init__(self):
-        for (dest, _, _, _, _, default) in ConvertOptions.available:
-            setattr(self, dest, default)
-        self.imgbasedir = ''
-
-
-def main():
-    options = ConvertOptions()
+def main() -> None:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    for (dest, action, short, _long, _help, default) in ConvertOptions.available:
-        parser.add_argument(short, _long, dest=dest, help=_help, action=action, default=default)
+    parser.add_argument('-b', '--body-only', dest='bodyonly', action='store_true', help='only generate HTML body, no HTML headers', default=False)
+    parser.add_argument('-c', '--no-css', dest='css', action='store_false', help="don't copy CSS file to output directory", default=True)
+    parser.add_argument('-H', '--headers', dest='headers', action='store_false', help="don't generate problem headers (title, problem id, time limit)", default=True)
+    parser.add_argument('-m', '--messy', dest='tidy', action='store_false', help="don't run tidy to postprocess the HTML", default=True)
+    parser.add_argument('-d', '--dest-dir', dest='destdir', help="output directory", default='${problem}_html')
+    parser.add_argument('-f', '--dest-file', dest='destfile', help="output file name", default='index.html')
+    parser.add_argument('-l', '--language', dest='language', help='choose alternate language (2-letter code)', default=None)
+    parser.add_argument('-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning')
+    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help="quiet", default=False)
     parser.add_argument('problem', help='the problem to convert')
 
-    options = parser.parse_args(namespace=options)
-    convert(options.problem, options)
+    options = parser.parse_args()
+    options.imgbasedir = ''
+
+    convert(options)
 
 
 if __name__ == '__main__':
