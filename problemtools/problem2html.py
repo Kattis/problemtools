@@ -113,6 +113,7 @@ def convert(options: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
     parser.add_argument('-b', '--body-only', dest='bodyonly', action='store_true', help='only generate HTML body, no HTML headers', default=False)
     parser.add_argument('-c', '--no-css', dest='css', action='store_false', help="don't copy CSS file to output directory", default=True)
     parser.add_argument('-H', '--headers', dest='headers', action='store_false', help="don't generate problem headers (title, problem id, time limit)", default=True)
