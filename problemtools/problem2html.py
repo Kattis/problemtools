@@ -31,7 +31,7 @@ def convert(problem, options=None):
 
     texfile = problem
     # Set up template if necessary
-    with template.Template(problem, language=options.language, title=options.title) as templ:
+    with template.Template(problem, language=options.language) as templ:
         texfile = open(templ.get_file_name(), 'r')
 
         origcwd = os.getcwd()
@@ -127,10 +127,7 @@ class ConvertOptions:
         ['destfile', 'store', '-f', '--dest-file',
          "output file name", 'index.html'],
         ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code)', ''],
-        ['title', 'store', '-T', '--title',
-         'set title (only used when there is no pre-existing template and -h not set)',
-         'Problem Name'],
+         'choose alternate language (2-letter code)', None],
         ['loglevel', 'store', '-L', '--log-level',
          'set log level (debug, info, warning, error, critical)', 'warning'],
         ['quiet', 'store_true', '-q', '--quiet',

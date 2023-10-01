@@ -18,8 +18,7 @@ def convert(problem, options=None):
 
     texfile = problem
     # Set up template if necessary
-    with template.Template(problem, language=options.language,
-                           title=options.title) as templ:
+    with template.Template(problem, language=options.language) as templ:
         texfile = templ.get_file_name()
 
         origcwd = os.getcwd()
@@ -55,11 +54,8 @@ class ConvertOptions:
          "output file name", '${problem}.pdf'],
         ['quiet', 'store_true', '-q', '--quiet',
          "quiet", False],
-        ['title', 'store', '-T', '--title',
-         'set title (only used when there is no pre-existing template and -h not set)',
-         'Problem Name'],
         ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code)', ''],
+         'choose alternate language (2-letter code)', None],
         ['nopdf', 'store_true', '-n', '--no-pdf',
          'run pdflatex in -draftmode', False],
         ]
