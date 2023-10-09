@@ -8,7 +8,9 @@ import subprocess
 from . import template
 
 
-def convert(options: argparse.Namespace) -> None:
+def convert(args: list[str]|None = None) -> bool:
+    options = parse_args(args)
+
     problem = os.path.realpath(options.problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
@@ -42,8 +44,9 @@ def convert(options: argparse.Namespace) -> None:
         if status == 0 and not options.nopdf:
             shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
+    return status == 0
 
-def main() -> None:
+def parse_args(args: list[str]|None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-o', '--output', dest='destfile', help="output file name", default='${problem}.pdf')
@@ -52,8 +55,14 @@ def main() -> None:
     parser.add_argument('-n', '--no-pdf', dest='nopdf', action='store_true', help='run pdflatex in -draftmode', default=False)
     parser.add_argument('problem', help='the problem to convert')
 
-    options = parser.parse_args()
-    convert(options)
+    if args is not None:
+        return parser.parse_args(args)
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    convert()
 
 
 if __name__ == '__main__':

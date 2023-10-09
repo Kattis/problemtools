@@ -14,9 +14,9 @@ from .ProblemPlasTeX import ProblemRenderer
 from .ProblemPlasTeX import ProblemsetMacros
 from . import template
 
-from typing import Any
+def convert(args: list[str]|None = None) -> None:
+    options = parse_args(args)
 
-def convert(options: argparse.Namespace) -> None:
     problem = os.path.realpath(options.problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
@@ -111,7 +111,7 @@ def convert(options: argparse.Namespace) -> None:
         os.chdir(origcwd)
 
 
-def main() -> None:
+def parse_args(args: list[str]|None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-b', '--body-only', dest='bodyonly', action='store_true', help='only generate HTML body, no HTML headers', default=False)
@@ -125,10 +125,16 @@ def main() -> None:
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help="quiet", default=False)
     parser.add_argument('problem', help='the problem to convert')
 
-    options = parser.parse_args()
-    options.imgbasedir = ''
+    if args is not None:
+        options = parser.parse_args(args)
+    else:
+        options = parser.parse_args()
 
-    convert(options)
+    options.imgbasedir = ''
+    return options
+
+def main() -> None:
+    convert()
 
 
 if __name__ == '__main__':
