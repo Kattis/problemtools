@@ -1552,6 +1552,7 @@ class OutputValidators(ProblemAspect):
 
 
     def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
+        res = SubmissionResult('JE')
         val_timelim = self._problem.config.get('limits')['validation_time']
         val_memlim = self._problem.config.get('limits')['validation_memory']
         flags = self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split()
@@ -1567,7 +1568,7 @@ class OutputValidators(ProblemAspect):
                     return res
 
         # TODO: check that all output validators give same result
-        return SubmissionResult('JE')
+        return res
 
 
 class Submissions(ProblemAspect):
