@@ -1801,6 +1801,22 @@ def part_argument(s: str) -> str:
         raise argparse.ArgumentTypeError(f"Invalid problem part specified: {s}")
     return s
 
+
+def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('-b', '--bail_on_error',
+                        action='store_true',
+                        help='bail verification on first error')
+    parser.add_argument('-l', '--log_level',
+                        default='warning',
+                        help='set log level (debug, info, warning, error, critical)')
+    parser.add_argument('-e', '--werror',
+                        action='store_true',
+                        help='consider warnings as errors')
+    parser.add_argument('--max_additional_info',
+                        type=int, default=15,
+                        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
+
+
 def argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Validate a problem package in the Kattis problem format.')
     parser.add_argument('-s', '--submission_filter', metavar='SUBMISSIONS',
@@ -1816,18 +1832,7 @@ def argparser() -> argparse.ArgumentParser:
                         type=part_argument, nargs='+', default=PROBLEM_PARTS,
                         help=f'only test the indicated parts of the problem.  Each PROBLEM_PART can be one of {PROBLEM_PARTS}.')
 
-    parser.add_argument('-b', '--bail_on_error',
-                        action='store_true',
-                        help='bail verification on first error')
-    parser.add_argument('-l', '--log_level',
-                        default='warning',
-                        help='set log level (debug, info, warning, error, critical)')
-    parser.add_argument('-e', '--werror',
-                        action='store_true',
-                        help='consider warnings as errors')
-    parser.add_argument('--max_additional_info',
-                        type=int, default=15,
-                        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
+    argparser_basic_arguments(parser)
 
     parser.add_argument('problemdir', nargs='+')
     return parser

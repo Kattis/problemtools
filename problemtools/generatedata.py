@@ -13,7 +13,7 @@ from .verifyproblem import Generators, ProblemAspect, Problem, is_RTE, argparser
 
 ALL_EXTENSIONS = ['in', 'ans'] + Generators._VISUALIZER_EXTENSIONS
 
-def argparser():
+def argparser() -> ArgumentParser:
     parser = ArgumentParser(description='Generate test data for a problem package in the Kattis problem format.')
     parser.add_argument('-g', '--generate',
                         action='store_true',
@@ -31,7 +31,9 @@ def argparser():
                         type=int,
                         default=None,
                         help='level of parallelism')
+
     argparser_basic_arguments(parser)
+
     parser.add_argument('problemdir', nargs='+')
     return parser
 
@@ -41,10 +43,7 @@ def clean(prob, args):
     ProblemAspect.warnings = 0
     base_path = os.path.join(prob.probdir, 'data')
 
-    testcases = {
-        case['path']: case
-        for case in prob.generators._testcases
-    }
+    testcases = { case['path']: case for case in prob.generators._testcases }
 
     def walk(name, path):
         case_count = 0
@@ -191,7 +190,6 @@ def generate_case(case_idx):
 
 
 def generate(prob, args):
-
     # Create directory structure
     created = set()
     for case in prob.generators._testcases:
