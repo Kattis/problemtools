@@ -1072,14 +1072,14 @@ class ProblemStatement(ProblemAspect):
         for lang in self.languages:
             try:
                 if not problem2pdf.convert([self._problem.probdir, '--language', lang, '--no-pdf', '--quiet']):
-                    langparam = f' -l {lang}' if lang != '' else ''
+                    langparam = f' --language {lang}' if lang != '' else ''
                     self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')
             except Exception as e:
                 self.error(f'Error raised when checking problem statement for language {lang}:\n{e}')
             try:
                 problem2html.convert([self._problem.probdir, '--dest-dir', os.path.join(self._problem.tmpdir, 'html'), '--language', lang, '--quiet'])
             except Exception:
-                langparam = f' -l {lang}' if lang != '' else ''
+                langparam = f' --language {lang}' if lang != '' else ''
                 self.error(f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.')
         return self._check_res
 
