@@ -1851,7 +1851,7 @@ def main() -> None:
     for problemdir in args.problemdir:
         print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))}')
         with Problem(problemdir) as prob:
-            [errors, warnings] = prob.check(args)
+            errors, warnings = prob.check(args)
             p = lambda x: '' if x == 1 else 's'
             print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
             total_errors += errors
