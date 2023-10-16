@@ -5,7 +5,7 @@
 # version of problemtools to be built (default is latest version of
 # develop branch on GitHub)
 
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 LABEL maintainer="austrin@kattis.com"
 

@@ -10,7 +10,7 @@
 #    PROBLEMTOOLS_VERSION but this is not checked.)
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 LABEL maintainer="austrin@kattis.com"
 
