@@ -35,7 +35,7 @@ There are four supported ways of installing and running problemtools.
 
 Run
 ```
-pip3 install git+https://github.com/kattis/problemtools
+sudo pip3 install git+https://github.com/kattis/problemtools
 ```
 
 Or if you don't want a system-wide installation,
@@ -60,7 +60,7 @@ We maintain three official problemtools Docker images on Docker Hub:
 
 - [`problemtools/full`](https://hub.docker.com/r/problemtools/full/): this image contains problemtools along with compilers/interpreters for all supported programming languages.
 
-- [`problemtools/icpc`](https://hub.docker.com/r/problemtools/icpc/): this image contains problemtools along with compilers/interpreters for the programming languages allowed in the International Collegiate Programming Contest (ICPC): C, C++, Java, Python 2+3, and Kotlin.
+- [`problemtools/icpc`](https://hub.docker.com/r/problemtools/icpc/): this image contains problemtools along with compilers/interpreters for the programming languages allowed in the International Collegiate Programming Contest (ICPC): C, C++, Java, Kotlin, and Python 3.  Note that the compiler/interpreter versions used might not be exactly the same as those used in the current ICPC season.
 
 - [`problemtools/minimal`](https://hub.docker.com/r/problemtools/minimal/): this image only contains problemtools, no additional programming languages.  As such as it is not particularly useful on its own, but if you are organizing a contest and want to set up a problemtools environment containing exactly the right set of compilers/interpreters for your contest, this is the recommended starting point.
 
