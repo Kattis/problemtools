@@ -1,3 +1,108 @@
+kattis-problemtools (1.20231016) jammy; urgency=medium
+
+  [ Don-Khue Le ]
+  * Change examples to new format
+
+  [ mzuenni ]
+  * made script python3.10 compatible
+
+  [ JoelNiemela ]
+  * Add oddecho to the example problems
+  * Remove duplicate source key in problem.yaml
+
+  [ Joel Niemelä ]
+  * Add longer problem deescription for oddecho
+
+  [ Greg Hamerly ]
+  * initial changes for moving to plastex 3.0
+  * problem2html: update to use newer version of plasTeX
+  * instead of try/except, check plasTeX.__version__
+
+  [ osalbahr ]
+  * Edited package names that no longer exist
+
+  [ Greg Hamerly ]
+  * verifyproblem: if the language of an output validator is not from an allowed list, warn the user
+
+  [ Simon Lindholm ]
+  * Handle plastex version diffs by try-catch instead of checking __version__
+
+  [ Bjarki Ágúst Guðmundsson ]
+  * Draft implementation of generators.yaml spec
+  * Fix error accounting when parallelism is used
+  * Use regular YAML loader
+  * Add support for more visualizer extensions
+  * Parse whole command
+  * Chmod to staging directory when running generator
+  * Copy non-.in files along with manual cases
+  * Remove unhelpful "generated no files" warning
+  * Make sure data_directories is initialized
+  * Clean up old code
+  * Handle testcases with None as name correctly
+  * Use first file in implicit generator as entry point
+  * Move visualizer extensions into verifyproblem.py
+  * Number test cases per directory
+  * Add support for testdata.yaml
+  * Make sure empty testdata.yaml is loaded as empty dict
+  * Fix linter warnings
+  * Remove python2 support
+  * Skip invalid problems
+
+  [ Simon Lindholm ]
+  * Don't crash on score = None
+  * Allow negative scores as grader output
+
+  [ Osama Albahrani ]
+  * recommended -> supported?
+
+  [ Tagl ]
+  * First attempt to fix the PAC TLE bug
+  * Forgot to update aggregation
+  * forgot comma
+  * Fix run_submission declaration and typo in sensitive time limit message
+  * Set runtime on low result too
+  * Use regular time limit to break instead of safety margin
+  * Update break logic to consider each time limit
+  * Accidentally inverted the logic, fixed
+
+  [ Greg Hamerly ]
+  * problem2html.py: warn about large generated files
+  * if there are no sub-results, do not call a grader
+  * default_grader: return score with JE
+  * report an error if there are any empty test case groups
+
+  [ Maarten Sijm ]
+  * Make python3 the default for `.py` submissions
+
+  [ Simon Lindholm ]
+  * Fix Debian build on Ubuntu 23.04
+  * Fix adding to PYTHONPATH
+
+  [ Tagl ]
+  * Remove unused variable
+  * Basic support for languages in problem.yaml
+  * Use correct default value for languages
+  * Fix BuildRun
+  * Fix NameError when BuildRun fails
+
+  [ JoelNiemela ]
+  * Set language argument default to None
+  * Remove unused argument title
+  * Remove trailing spaces
+  * Set default value of language to None in problem2pdf
+  * Remove unused argument title from problem2pdf
+  * Fix automatic language detection
+  * Use fstrings instead of % operator
+  * Use fstrings instead of concating strings
+  * Fix typo
+  * Fix CodeFactor error
+  * Explicitly only catch KeyError
+
+  [ Per Austrin ]
+  * [docker] update docker image files and build script
+
+ -- Per Austrin <austrin@kattis.com>  Mon, 16 Oct 2023 14:31:34 +0200
+
 kattis-problemtools (1.20210928) groovy; urgency=medium
 
   [ Simon Lindholm ]
