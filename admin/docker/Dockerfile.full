@@ -11,15 +11,22 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y \
-            mono-complete \
-            ghc haskell-platform \
-            libmozjs-52-dev \
-            gccgo \
             fp-compiler \
-            php-cli \
-            swi-prolog \
-            scala \
-            sbcl \
+            gfortran \
+            gnucobol \
+            gccgo \
+            ghc haskell-platform \
+            gnustep-devel gnustep gnustep-make gnustep-common gobjc \
+            libgmp3-dev \
+            libmozjs-78-dev \
+            lua5.4 \
+            mono-complete \
+            nodejs \
             ocaml-nox \
+            php-cli \
+            pypy \
             rustc \
+            sbcl \
+            scala \
+            swi-prolog \
    ;

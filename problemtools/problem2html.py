@@ -1,18 +1,17 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import re
 import os.path
-import sys
 import string
-from string import Template
-from optparse import OptionParser
-from .ProblemPlasTeX import ProblemRenderer
-from .ProblemPlasTeX import ProblemsetMacros
-from plasTeX.TeX import TeX
-from plasTeX.Logging import getLogger, disableLogging
+import argparse
 import logging
 import subprocess
+
+import plasTeX.TeX
+import plasTeX.Logging
+
+from .ProblemPlasTeX import ProblemRenderer
+from .ProblemPlasTeX import ProblemsetMacros
 from . import template
 
 
@@ -20,30 +19,32 @@ def convert(problem, options=None):
     problem = os.path.realpath(problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
-    destdir = Template(options.destdir).safe_substitute(problem=problembase)
-    destfile = Template(options.destfile).safe_substitute(problem=problembase)
-    imgbasedir = Template(options.imgbasedir).safe_substitute(problem=problembase)
+    destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
+    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+    imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problembase)
 
     if options.quiet:
-        disableLogging()
+        plasTeX.Logging.disableLogging()
     else:
-        getLogger().setLevel(eval("logging." + options.loglevel.upper()))
-        getLogger('status').setLevel(eval("logging." + options.loglevel.upper()))
+        plasTeX.Logging.getLogger().setLevel(getattr(logging, options.loglevel.upper()))
+        plasTeX.Logging.getLogger('status').setLevel(getattr(logging, options.loglevel.upper()))
 
     texfile = problem
     # Set up template if necessary
-    with template.Template(problem, language=options.language, title=options.title) as templ:
+    with template.Template(problem, language=options.language) as templ:
         texfile = open(templ.get_file_name(), 'r')
 
         origcwd = os.getcwd()
 
         # Setup parser and renderer etc
 
-        # Python 2 compatibility: the second keyword argument for th TeX
-        # class changed name from file to myfile in Python 3 version.  When
-        # Python 2 compatibility is dropped, change this to "tex =
-        # TeX(myfile=texfile)".
-        tex = TeX(None, texfile)
+        # plasTeX version 3 changed the name of this argument (and guarding against this
+        # by checking plasTeX.__version__ fails on plastex v3.0 which failed to update
+        # __version__)
+        try:
+            tex = plasTeX.TeX.TeX(myfile=texfile)
+        except Exception:
+            tex = plasTeX.TeX.TeX(file=texfile)
 
         ProblemsetMacros.init(tex)
 
@@ -55,6 +56,8 @@ def convert(problem, options=None):
         tex.ownerDocument.config['images']['enabled'] = False
         tex.ownerDocument.config['images']['imager'] = 'none'
         tex.ownerDocument.config['images']['base-url'] = imgbasedir
+        # tell plasTeX where to search for problemtools' built-in packages
+        tex.ownerDocument.config['general']['packages-dirs'] = [os.path.join(os.path.dirname(__file__), 'ProblemPlasTeX')]
 
         renderer = ProblemRenderer()
 
@@ -87,6 +90,16 @@ def convert(problem, options=None):
                     if not options.quiet:
                         print("Warning: Command 'tidy' not found. Install tidy or run with --messy")
 
+        # identify any large generated files (especially images)
+        if not options.quiet:
+            for path, dirs, files in os.walk('.'):
+                for f in files:
+                    file_size_kib = os.stat(os.path.join(path, f)).st_size // 1024
+                    if file_size_kib > 1024:
+                        print(f"WARNING: FILE {f} HAS SIZE {file_size_kib} KiB; CONSIDER REDUCING IT")
+                    elif file_size_kib > 300:
+                        print(f"Warning: file {f} has size {file_size_kib} KiB; consider reducing it")
+
         if options.bodyonly:
             content = open(destfile).read()
             body = re.search('<body>(.*)</body>', content, re.DOTALL)
@@ -102,57 +115,41 @@ def convert(problem, options=None):
 class ConvertOptions:
     available = [
         ['bodyonly', 'store_true', '-b', '--body-only',
-         'only generate HTML body, no HTML headers.'],
+         'only generate HTML body, no HTML headers', False],
         ['css', 'store_false', '-c', '--no-css',
-         "don't copy CSS file to output directory."],
+         "don't copy CSS file to output directory", True],
         ['headers', 'store_false', '-H', '--headers',
-         "don't generate problem headers (title, problem id, time limit)"],
+         "don't generate problem headers (title, problem id, time limit)", True],
         ['tidy', 'store_false', '-m', '--messy',
-         "don't run tidy to postprocess the HTML"],
+         "don't run tidy to postprocess the HTML", True],
         ['destdir', 'store', '-d', '--dest-dir',
-         "output directory."],
+         "output directory", '${problem}_html'],
         ['destfile', 'store', '-f', '--dest-file',
-         "output file name."],
+         "output file name", 'index.html'],
         ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code).'],
-        ['title', 'store', '-T', '--title',
-         'set title (only used when there is no pre-existing template and -h not set).'],
+         'choose alternate language (2-letter code)', None],
         ['loglevel', 'store', '-L', '--log-level',
-         'set log level (debug, info, warning, error, critical).'],
+         'set log level (debug, info, warning, error, critical)', 'warning'],
         ['quiet', 'store_true', '-q', '--quiet',
-         "quiet."],
+         "quiet", False],
         ]
 
     def __init__(self):
-        self.bodyonly = False
-        self.css = True
-        self.headers = True
-        self.tidy = True
-        self.destdir = "${problem}_html"
-        self.destfile = "index.html"
-        self.language = ""
-        self.title = "Problem Name"
-        self.loglevel = "warning"
+        for (dest, _, _, _, _, default) in ConvertOptions.available:
+            setattr(self, dest, default)
         self.imgbasedir = ''
-        self.quiet = False
 
 
 def main():
     options = ConvertOptions()
-    optparse = OptionParser(usage="usage: %prog [options] problem")
-    for (dest, action, short, long, help) in ConvertOptions.available:
-        if (action == 'store'):
-            help += ' default: "%s"' % options.__dict__[dest]
-        optparse.add_option(short, long, dest=dest, help=help, action=action)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    for (dest, action, short, _long, _help, default) in ConvertOptions.available:
+        parser.add_argument(short, _long, dest=dest, help=_help, action=action, default=default)
+    parser.add_argument('problem', help='the problem to convert')
 
-    (options, args) = optparse.parse_args(values=options)
+    options = parser.parse_args(namespace=options)
+    convert(options.problem, options)
 
-    if len(args) != 1:
-        optparse.print_help()
-        sys.exit(1)
-
-    texfile = args[0]
-    convert(texfile, options)
 
 if __name__ == '__main__':
     main()

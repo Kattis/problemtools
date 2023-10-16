@@ -45,7 +45,7 @@ bool isfloat(const char *s, double &val) {
 	double v;
 	if (sscanf(s, "%lf%10s", &v, trash) != 1) return false;
 	val = v;
-	return true;
+	return !std::isinf(v) && !std::isnan(v);
 }
 
 template <typename Stream>
@@ -110,7 +110,6 @@ int main(int argc, char **argv) {
 	judgeans_line = stdin_line = 1;
    
 	std::string judge, team;
-	char trash[20];
 	while (true) {
 		// Space!  Can't live with it, can't live without it...
 		while (isspace(judgeans.peek())) {

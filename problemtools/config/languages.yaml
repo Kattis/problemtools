@@ -154,8 +154,8 @@ javascript:
     name: 'JavaScript'
     priority: 500
     files: '*.js'
-    compile: '/usr/bin/js24 -c {files}'
-    run: '/usr/bin/js24 "{mainfile}"'
+    compile: '/usr/bin/nodejs -c {files}'
+    run: '/usr/bin/nodejs "{mainfile}"'
 
 kotlin:
     name: 'Kotlin'
@@ -207,18 +207,27 @@ prolog:
     compile: '/usr/bin/swipl -O -q -g main -t halt -o {binary} -c {files}'
     run: '{binary}'
 
+# Python2 with shebang comes before default python3.
+python2_with_shebang:
+    name: 'Python 2'
+    priority: 860
+    files: '*.py *.py2'
+    shebang: '^#!.*python2\b'
+    compile: '/usr/bin/python2 -m py_compile {files}'
+    run: '/usr/bin/python2 "{mainfile}"'
+
 python3:
     name: 'Python 3'
-    priority: 900
-    files: '*.py'
-    shebang: '^#!.*python3\b'
+    priority: 850
+    files: '*.py *.py3'
     compile: '/usr/bin/python3 -m py_compile {files}'
     run: '/usr/bin/python3 "{mainfile}"'
 
+# Python2 without shebang comes after python3.
 python2:
     name: 'Python 2'
-    priority: 850
-    files: '*.py'
+    priority: 840
+    files: '*.py2'
     compile: '/usr/bin/python2 -m py_compile {files}'
     run: '/usr/bin/python2 "{mainfile}"'
 

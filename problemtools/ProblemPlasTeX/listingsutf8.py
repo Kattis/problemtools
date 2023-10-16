@@ -1,8 +1,10 @@
 from plasTeX.Base import Command
 from plasTeX.Logging import getLogger
 
-import cgi
 import os
+import io
+
+import ProblemsetMacros
 
 log = getLogger()
 
@@ -13,8 +15,8 @@ class lstinputlisting(Command):
     args = '* [ options:dict ] file:str'
 
     def read_file(self, filename):
-        data = open(filename, 'r').read().decode('utf8')
-        data = cgi.escape(data)
+        data = io.open(filename, 'r', encoding='utf-8').read()
+        data = ProblemsetMacros.plastex_escape(data)
         return data
 
     def invoke(self, tex):

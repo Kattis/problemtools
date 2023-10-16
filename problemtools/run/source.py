@@ -109,7 +109,7 @@ class SourceCode(Program):
             subprocess.check_output(command, stderr=subprocess.STDOUT)
             self._compile_result = (True, None)
         except subprocess.CalledProcessError as err:
-            self._compile_result = (False, err.output)
+            self._compile_result = (False, err.output.decode('utf8', 'replace'))
 
         return self._compile_result
 

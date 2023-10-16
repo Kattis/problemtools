@@ -1,5 +1,3 @@
-from __future__ import print_function
-import os
 import re
 import os.path
 import glob
@@ -10,14 +8,13 @@ import shutil
 # For backwards compatibility, remove in bright and shiny future.
 def detect_version(problemdir, problemtex):
     # Check for 0.1 - lack of \problemname
-    if open(problemtex).read().find('\problemname') < 0:
+    if open(problemtex).read().find(r'\problemname') < 0:
         return '0.1'
     return ''  # Current
 
 
 class Template:
-    def __init__(self, problemdir, language='',
-                 title='Problem Title', force_copy_cls=False):
+    def __init__(self, problemdir, language=None, force_copy_cls=False):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
 
@@ -36,7 +33,7 @@ class Template:
         dotlang = ''
         # If language unspec., use first available one (will be
         # problem.tex if exists)
-        if language == '':
+        if language is None:
             language = langs[0]
         if language != '':
             if len(language) != 2 or not language.isalpha():
@@ -51,7 +48,7 @@ class Template:
 
         if not os.path.isfile(problemtex):
             raise Exception('Unable to find problem statement, was looking for "%s"' % problemtex)
-        
+
         self.templatefile = 'template.tex'
         self.clsfile = 'problemset.cls'
         timelim = 1  # Legacy for compatibility with v0.1
@@ -96,7 +93,7 @@ class Template:
         for line in templin:
             try:
                 templout.write(line % data)
-            except:
+            except KeyError:
                 # This is a bit ugly I guess
                 for sample in self.samples:
                     data['sample'] = sample
@@ -108,7 +105,7 @@ class Template:
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        if self.problemset_cls is not None and self.copy_cls and  os.path.isfile(self.problemset_cls):
+        if self.problemset_cls is not None and self.copy_cls and os.path.isfile(self.problemset_cls):
             os.remove(self.problemset_cls)
         if self.filename is not None:
             for f in glob.glob(os.path.splitext(self.filename)[0] + '.*'):

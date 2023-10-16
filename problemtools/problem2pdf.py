@@ -1,29 +1,24 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-import re
 import os.path
 import shutil
-import sys
 import string
-from string import Template
-from optparse import OptionParser
-import logging
+import argparse
 import subprocess
 from . import template
 
 
 def convert(problem, options=None):
-    if options == None:
+    if options is None:
         options = ConvertOptions()
 
     problem = os.path.realpath(problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
-    destfile = Template(options.destfile).safe_substitute(problem=problembase)
+    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
     texfile = problem
     # Set up template if necessary
-    with template.Template(problem, language=options.language,
-                           title=options.title) as templ:
+    with template.Template(problem, language=options.language) as templ:
         texfile = templ.get_file_name()
 
         origcwd = os.getcwd()
@@ -56,41 +51,29 @@ def convert(problem, options=None):
 class ConvertOptions:
     available = [
         ['destfile', 'store', '-o', '--output',
-         "output file name."],
+         "output file name", '${problem}.pdf'],
         ['quiet', 'store_true', '-q', '--quiet',
-         "quiet."],
-        ['title', 'store', '-T', '--title',
-         'set title (only used when there is no pre-existing template and -h not set).'],
+         "quiet", False],
         ['language', 'store', '-l', '--language',
-         'choose alternate language (2-letter code).'],
+         'choose alternate language (2-letter code)', None],
         ['nopdf', 'store_true', '-n', '--no-pdf',
-         'run pdflatex in -draftmode'],
+         'run pdflatex in -draftmode', False],
         ]
 
     def __init__(self):
-        self.destfile = "${problem}.pdf"
-        self.title = "Problem Name"
-        self.quiet = False
-        self.language = ""
-        self.nopdf = False
+        for (dest, _, _, _, _, default) in ConvertOptions.available:
+            setattr(self, dest, default)
 
 
 def main():
-    options = ConvertOptions()
-    optparse = OptionParser(usage="usage: %prog [options] problem")
-    for (dest, action, short, long, help) in ConvertOptions.available:
-        if (action == 'store'):
-            help += ' default: "%s"' % options.__dict__[dest]
-        optparse.add_option(short, long, dest=dest, help=help, action=action)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    (options, args) = optparse.parse_args(values=options)
+    for (dest, action, short, _long, _help, default) in ConvertOptions.available:
+        parser.add_argument(short, _long, dest=dest, help=_help, action=action, default=default)
+    parser.add_argument('problem', help='the problem to convert')
 
-    if len(args) != 1:
-        optparse.print_help()
-        sys.exit(1)
-
-    texfile = args[0]
-    convert(texfile, options)
+    options = parser.parse_args()
+    convert(options.problem, options)
 
 
 if __name__ == '__main__':

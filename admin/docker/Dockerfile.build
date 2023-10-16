@@ -5,7 +5,7 @@
 # version of problemtools to be built (default is latest version of
 # develop branch on GitHub)
 
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 LABEL maintainer="austrin@kattis.com"
 
@@ -29,10 +29,7 @@ RUN apt update && \
         python3-pytest \
         python3-setuptools \
         python3-yaml \
-        python \
-        python-pytest \
-        python-setuptools \
-        python-yaml
+        python3-setuptools
 
 RUN mkdir -p /usr/local/problemtools_build
 

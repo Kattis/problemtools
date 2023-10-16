@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 from setuptools import setup, find_packages
 from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
@@ -76,13 +76,13 @@ setup(name='problemtools',
               'verifyproblem=problemtools.verifyproblem:main',
               'problem2html=problemtools.problem2html:main',
               'problem2pdf=problemtools.problem2pdf:main',
+              'generatedata=problemtools.generatedata:main',
           ]
       },
       include_package_data=True,
       install_requires=[
           'PyYAML',
-          'plasTeX<=1.0;python_version<"3"',
-          'plasTeX>=2.0;python_version>="3"'
+          'plasTeX>=3.0;python_version>="3"'
       ],
 #      Temporarily disabled, see setup.cfg
 #      For now tests can be run manually with pytest

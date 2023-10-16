@@ -60,8 +60,8 @@ def __update_dict(orig, update):
     """
     for (key, value) in update.items():
         if (key in orig and
-            isinstance(value, collections.Mapping) and
-            isinstance(orig[key], collections.Mapping)):
+            isinstance(value, collections.abc.Mapping) and
+            isinstance(orig[key], collections.abc.Mapping)):
             __update_dict(orig[key], value)
         else:
             orig[key] = value

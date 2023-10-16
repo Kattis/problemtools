@@ -28,18 +28,10 @@ class ImageConverter(object):
         self.staticimages = {}
 
         # Filename generator
-        
-        # Python 2 compatibility: the second keyword argument for the Filenames
-        # class changed name from vars to variables in Python 3 version.  When
-        # Python 2 compatibility is dropped, change the following command to
-        # self.newFilename = Filenames(self.config['images'].get('filenames', raw=True),
-        #                              variables={'jobname': document.userdata.get('jobname', '')},
-        #                              extension=self.fileExtension, invalid={})
-        self.newFilename = Filenames(self.config['images'].get('filenames', raw=True),
+        self.newFilename = Filenames(self.config['images'].get('filenames'),
                                      None,
-                                     {'jobname': document.userdata.get('jobname', '')},
+                                     variables={'jobname': document.userdata.get('jobname', '')},
                                      extension=self.fileExtension, invalid={})
-
 
     def close(self):
         return
