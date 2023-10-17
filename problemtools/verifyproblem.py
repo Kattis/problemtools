@@ -1316,6 +1316,8 @@ class Graders(ProblemAspect):
         return self._check_res
 
     def grade(self, sub_results, testcasegroup, shadow_result=False):
+        if not sub_results:
+            return ("?", 0.0)
 
         if testcasegroup.config['grading'] == 'default':
             graders = [self._default_grader]
