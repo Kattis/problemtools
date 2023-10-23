@@ -543,8 +543,8 @@ class TestCaseGroup(ProblemAspect):
 
     def run_submission(self, sub, args: argparse.Namespace, timelim: int, timelim_low: int, timelim_high: int) -> tuple[SubmissionResult, SubmissionResult, SubmissionResult]:
         self.info(f'Running on {self}')
-        subres:      list[SubmissionResult] = []
-        subres_low:  list[SubmissionResult] = []
+        subres: list[SubmissionResult] = []
+        subres_low: list[SubmissionResult] = []
         subres_high: list[SubmissionResult] = []
         active_low, active = True, True
         on_reject = self.config['on_reject']
