@@ -219,6 +219,9 @@ Followed by:
 
     pip3 install --user plastex
 
+### Arch
+Package is avalible on the AUR [kattis-problemtools-git](https://aur.archlinux.org/packages/kattis-problemtools-git), use your favorite AUR helper or follow the installation instructions found [here](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages).
+
 ### Other platforms
 
 The problem tools have not been tested on other platforms.  If you do
