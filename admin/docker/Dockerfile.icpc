@@ -9,16 +9,27 @@ LABEL maintainer="austrin@kattis.com"
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install C++, Java, Kotlin, and PyPy 3 via their ppa repository
-RUN apt update && \
-    apt install -y software-properties-common && \
+# Install C++, Java, and PyPy 3 via their ppa repository (Kotlin is installed below to get a more up-to-date version)
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
     add-apt-repository ppa:pypy/ppa && \
-    apt update && \
-    apt install -y \
+    apt-get update && \
+    apt-get install -y \
         gcc g++ \
         openjdk-11-jdk openjdk-11-jre \
-        kotlin \
         pypy3
+
+RUN apt-get install -y curl
+
+ARG KOTLIN_VERSION=1.8.10
+RUN curl "https://github.com/JetBrains/kotlin/releases/download/v$KOTLIN_VERSION/kotlin-compiler-$KOTLIN_VERSION.zip" -L -o kotlin.zip
+RUN unzip -q kotlin.zip
+RUN rm kotlin.zip
+
+RUN mv kotlinc/bin/* /usr/bin
+RUN mv kotlinc/lib/* /usr/lib
+
+RUN rm -r kotlinc
 
 # Reconfigure problemtools:
 # - Use PyPy for Python 2 (not available in this image but in the full one)
