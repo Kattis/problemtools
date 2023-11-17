@@ -30,7 +30,7 @@ def add_files(src, dstdir):
                 srcfile = os.path.join(src, name)
                 destfile = os.path.join(dstdir, name)
                 if os.path.isdir(srcfile):
-                    shutil.copytree(srcfile, destfile)
+                    shutil.copytree(srcfile, destfile, dirs_exist_ok=True)
                 else:
                     shutil.copy(srcfile, destfile)
     except IOError as exc:
