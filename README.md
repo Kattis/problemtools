@@ -17,7 +17,7 @@ The problem tools provide the following three programs:
  - `problem2pdf`: convert a problem statement to pdf
  - `problem2html`: convert a problem statement to html
 
-Running any of them with command-line option `-h` gives
+Running any of them with the command-line option `-h` gives
 documentation on what arguments they accept.
 
 
@@ -62,7 +62,7 @@ We maintain three official problemtools Docker images on Docker Hub:
 
 - [`problemtools/icpc`](https://hub.docker.com/r/problemtools/icpc/): this image contains problemtools along with compilers/interpreters for the programming languages allowed in the International Collegiate Programming Contest (ICPC): C, C++, Java, Kotlin, and Python 3.  Note that the compiler/interpreter versions used might not be exactly the same as those used in the current ICPC season.
 
-- [`problemtools/minimal`](https://hub.docker.com/r/problemtools/minimal/): this image only contains problemtools, no additional programming languages.  As such as it is not particularly useful on its own, but if you are organizing a contest and want to set up a problemtools environment containing exactly the right set of compilers/interpreters for your contest, this is the recommended starting point.
+- [`problemtools/minimal`](https://hub.docker.com/r/problemtools/minimal/): this image only contains problemtools, no additional programming languages.  As such, it is not particularly useful on its own, but if you are organizing a contest and want to set up a problemtools environment containing exactly the right set of compilers/interpreters for your contest, this is the recommended starting point.
 
 For example, suppose you want to use the `problemtools/icpc` image.  To get started, install the [Docker CLI](https://docs.docker.com/install), and then pull the image:
 
@@ -78,16 +78,16 @@ By default, docker containers do _NOT_ persist storage between runs, so any file
     ```
     docker run --rm -it -v ${FULL_PATH_TO_MOUNT}:/kattis_work_dir problemtools/icpc
     ```
-2) Persist any changes you want to keep to a remote file system/source control (e.g. a remote Git repository, note however that you would first need to install Git in the image).
+2) Persist any changes you want to keep to a remote file system/source control (e.g., a remote Git repository; note, however, that you would first need to install Git in the image).
 
 #### Building your own images
 
-If you want a more complete environment in the Docker images (e.g. if
+If you want a more complete environment in the Docker images (e.g., if
 you want to install git or your favorite editor), feel free to extend
 them in whichever way you like.
 
 The `problemtools/{minimal,icpc,full}` images point to the latest
-release versions of problemtools.  If for some reason you want an
+release versions of problemtools.  If, for some reason, you want an
 image containing the latest development version, you have to build it
 yourself from scratch (while there are
 `problemtools/{minimal,icpc,full}:develop` Docker images on Docker
@@ -101,7 +101,7 @@ If you intend to help develop problemtools, or if you just want a
 bare-bones way of running them, this is your option.
 
 For this method, you need to clone the repository (just downloading a
-zip archive of it does not work, because the project has submodules
+zip archive of it does not work because the project has submodules
 that are not included in that zip archive).
 
 In order for the tools to work, you first have to compile the various
@@ -119,11 +119,11 @@ order for problemtools to work correctly.
 
 ### Method 4: Build and install the Debian package
 
-This applies if you are running on Debian or a Debian derivative such
+This applies if you are running on Debian or a Debian derivative, such
 as Ubuntu.
 
 As with method 3, you need to clone the repository (just downloading a
-zip archive of it does not work, because the project has submodules
+zip archive of it does not work because the project has submodules
 that are not included in that zip archive).
 
 Run `make builddeb` in the root of the problemtools repository to
@@ -189,7 +189,7 @@ problemtools' configuration:
        memory: 2048 # (unit is MiB)
    ```
 
-   (In principle it is possible to override the defaults of other values than the
+   (In principle, it is possible to override the defaults of other values than the
    system-dependent defaults in the problem.yaml metadata files this way, but such
    usage is very strongly discouraged.)
 
@@ -220,7 +220,7 @@ Followed by:
     pip3 install --user plastex
 
 ### Arch
-Package is avalible on the AUR [kattis-problemtools-git](https://aur.archlinux.org/packages/kattis-problemtools-git), use your favorite AUR helper or follow the installation instructions found [here](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages).
+Package is available on the AUR [kattis-problemtools-git](https://aur.archlinux.org/packages/kattis-problemtools-git). Use your favorite AUR helper or follow the installation instructions found [here](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages).
 
 ### Other platforms
 
