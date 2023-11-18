@@ -68,7 +68,7 @@ class SubmissionResult:
 
         if self.reason is not None:
             details.append(self.reason)
-        if self.verdict != 'AC' and self.testcase is not None:
+        if self.testcase is not None:
             details.append(f'test case: {self.testcase}')
         if self.runtime != -1:
             details.append(f'CPU: {self.runtime:.2f}s @ {self.runtime_testcase}')
