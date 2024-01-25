@@ -148,8 +148,13 @@ class TestCase(ProblemAspect):
         problem.testcase_by_infile[self.infile] = self
 
     def check_newlines(self, filename: str) -> None:
-        with open(filename, 'r') as f:
-            data = f.read()
+        with open(filename, 'rb') as f:
+            rawdata = f.read()
+            try:
+                data = rawdata.decode('utf-8', 'strict')
+            except UnicodeDecodeError:
+                self.warning(f'The file {filename} could not be decoded as utf-8')
+                return
         if data.find('\r') != -1:
             self.warning(f'The file {filename} contains non-standard line breaks.')
         if len(data) > 0 and data[-1] != '\n':
