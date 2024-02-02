@@ -1078,7 +1078,7 @@ class ProblemStatement(ProblemAspect):
 
         for lang in self.languages:
             try:
-                options = problem2pdf.get_parser()
+                options = problem2pdf.get_parser().parse_args([None])
                 options.problem = self._problem.probdir
                 options.language = lang
                 options.nopdf = True
@@ -1089,7 +1089,7 @@ class ProblemStatement(ProblemAspect):
             except Exception as e:
                 self.error(f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}')
             try:
-                options = problem2html.get_parser()
+                options = problem2html.get_parser().parse_args([None])
                 options.problem = self._problem.probdir
                 options.destdir = os.path.join(self._problem.tmpdir, 'html')
                 options.language = lang
