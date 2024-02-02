@@ -15,6 +15,8 @@ import tempfile
 import sys
 import copy
 import random
+import traceback
+
 import argparse
 import shlex
 
@@ -1085,7 +1087,7 @@ class ProblemStatement(ProblemAspect):
                     langparam = f' --language {lang}' if lang != '' else ''
                     self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')
             except Exception as e:
-                self.error(f'Error raised when checking problem statement for language {lang}:\n{e}')
+                self.error(f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}')
             try:
                 options = problem2html.get_parser()
                 options.problem = self._problem.probdir
@@ -1093,9 +1095,9 @@ class ProblemStatement(ProblemAspect):
                 options.language = lang
                 options.quiet = True
                 problem2html.convert(options)
-            except Exception:
+            except Exception as e:
                 langparam = f' --language {lang}' if lang != '' else ''
-                self.error(f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.')
+                self.error(f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.\n{e}\n{traceback.format_exc()}')
         return self._check_res
 
     def __str__(self) -> str:
