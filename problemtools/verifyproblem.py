@@ -15,6 +15,8 @@ import tempfile
 import sys
 import copy
 import random
+import traceback
+
 import argparse
 import shlex
 
@@ -396,6 +398,10 @@ class TestCaseGroup(ProblemAspect):
 
     def get_subgroups(self) -> list[TestCaseGroup]:
         return [child for child in self._items if isinstance(child, TestCaseGroup)]
+
+
+    def get_subgroup(self, name):
+        return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
 
 
     def has_custom_groups(self) -> bool:
@@ -1076,16 +1082,26 @@ class ProblemStatement(ProblemAspect):
 
         for lang in self.languages:
             try:
-                if not problem2pdf.convert([self._problem.probdir, '--language', lang, '--no-pdf', '--quiet']):
+                options = problem2pdf.get_parser().parse_args([None])
+                options.problem = self._problem.probdir
+                options.language = lang
+                options.nopdf = True
+                options.quiet = True
+                if not problem2pdf.convert(options):
                     langparam = f' --language {lang}' if lang != '' else ''
                     self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')
             except Exception as e:
-                self.error(f'Error raised when checking problem statement for language {lang}:\n{e}')
+                self.error(f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}')
             try:
-                problem2html.convert([self._problem.probdir, '--dest-dir', os.path.join(self._problem.tmpdir, 'html'), '--language', lang, '--quiet'])
-            except Exception:
+                options = problem2html.get_parser().parse_args([None])
+                options.problem = self._problem.probdir
+                options.destdir = os.path.join(self._problem.tmpdir, 'html')
+                options.language = lang
+                options.quiet = True
+                problem2html.convert(options)
+            except Exception as e:
                 langparam = f' --language {lang}' if lang != '' else ''
-                self.error(f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.')
+                self.error(f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.\n{e}\n{traceback.format_exc()}')
         return self._check_res
 
     def __str__(self) -> str:
@@ -1137,6 +1153,11 @@ class Attachments(ProblemAspect):
                 self.error(f'Directories are not allowed as attachments ({attachment_path} is a directory)')
 
         return self._check_res
+
+
+    def get_attachment_paths(self):
+        return self.attachments
+
 
     def __str__(self) -> str:
         return 'attachments'

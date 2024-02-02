@@ -14,9 +14,7 @@ from .ProblemPlasTeX import ProblemRenderer
 from .ProblemPlasTeX import ProblemsetMacros
 from . import template
 
-def convert(args: list[str]|None = None) -> None:
-    options = parse_args(args)
-
+def convert(options: argparse.Namespace) -> None:
     problem = os.path.realpath(options.problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
@@ -111,7 +109,7 @@ def convert(args: list[str]|None = None) -> None:
         os.chdir(origcwd)
 
 
-def parse_args(args: list[str]|None) -> argparse.Namespace:
+def get_parser() -> argparse.Namespace:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-b', '--body-only', dest='bodyonly', action='store_true', help='only generate HTML body, no HTML headers', default=False)
@@ -123,18 +121,15 @@ def parse_args(args: list[str]|None) -> argparse.Namespace:
     parser.add_argument('-l', '--language', dest='language', help='choose alternate language (2-letter code)', default=None)
     parser.add_argument('-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning')
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help="quiet", default=False)
+    parser.add_argument('-i', '--imgbasedir', dest='imgbasedir', default='')
     parser.add_argument('problem', help='the problem to convert')
 
-    if args is not None:
-        options = parser.parse_args(args)
-    else:
-        options = parser.parse_args()
-
-    options.imgbasedir = ''
-    return options
+    return parser
 
 def main() -> None:
-    convert()
+    parser = get_parser()
+    options = parser.parse_args()
+    convert(options)
 
 
 if __name__ == '__main__':
