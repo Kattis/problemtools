@@ -400,6 +400,10 @@ class TestCaseGroup(ProblemAspect):
         return [child for child in self._items if isinstance(child, TestCaseGroup)]
 
 
+    def get_subgroup(self, name):
+        return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
+
+
     def has_custom_groups(self) -> bool:
         return any(group.get_subgroups() for group in self.get_subgroups())
 
