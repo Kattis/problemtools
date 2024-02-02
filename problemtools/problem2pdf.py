@@ -8,8 +8,7 @@ import subprocess
 from . import template
 
 
-def convert(args: list[str]|None = None) -> bool:
-    options = parse_args(args)
+def convert(options: argparse.Namespace) -> bool:
 
     problem = os.path.realpath(options.problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
@@ -46,7 +45,7 @@ def convert(args: list[str]|None = None) -> bool:
 
     return status == 0
 
-def parse_args(args: list[str]|None) -> argparse.Namespace:
+def get_parser() -> argparse.Namespace:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-o', '--output', dest='destfile', help="output file name", default='${problem}.pdf')
@@ -55,14 +54,13 @@ def parse_args(args: list[str]|None) -> argparse.Namespace:
     parser.add_argument('-n', '--no-pdf', dest='nopdf', action='store_true', help='run pdflatex in -draftmode', default=False)
     parser.add_argument('problem', help='the problem to convert')
 
-    if args is not None:
-        return parser.parse_args(args)
-
-    return parser.parse_args()
+    return parser
 
 
 def main() -> None:
-    convert()
+    parser = get_parser()
+    options = parser.parse_args()
+    convert(options)
 
 
 if __name__ == '__main__':
