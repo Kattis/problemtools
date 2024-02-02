@@ -1154,6 +1154,11 @@ class Attachments(ProblemAspect):
 
         return self._check_res
 
+
+    def get_attachment_paths(self):
+        return self.attachments
+
+
     def __str__(self) -> str:
         return 'attachments'
 
