@@ -9,12 +9,10 @@ from . import template
 
 
 def convert(options: argparse.Namespace) -> bool:
-
     problem = os.path.realpath(options.problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
-    texfile = problem
     # Set up template if necessary
     with template.Template(problem, language=options.language) as templ:
         texfile = templ.get_file_name()

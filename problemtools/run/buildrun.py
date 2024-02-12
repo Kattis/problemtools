@@ -12,12 +12,14 @@ from .errors import ProgramError
 from .program import Program
 from . import rutil
 
+log = logging.getLogger(__file__)
+
 
 class BuildRun(Program):
     """Class for build/run-script program.
     """
 
-    def __init__(self, path, work_dir=None):
+    def __init__(self, path, work_dir=None, include_dir=None):
         """Instantiate BuildRun object.
 
         Args:
@@ -27,12 +29,6 @@ class BuildRun(Program):
         """
         if not os.path.isdir(path):
             raise ProgramError('%s is not a directory' % path)
-
-        build = os.path.join(path, 'build')
-        if not os.path.isfile(build):
-            raise ProgramError('%s does not have a build script' % path)
-        if not os.access(build, os.X_OK):
-            raise ProgramError('%s/build is not executable' % path)
 
         if work_dir is None:
             work_dir = tempfile.mkdtemp()
@@ -47,7 +43,15 @@ class BuildRun(Program):
             os.makedirs(self.path)
 
         rutil.add_files(path, self.path)
+        if include_dir is not None and os.path.isdir(include_dir):
+            rutil.add_files(include_dir, self.path)
 
+        # Check for existence of build script after copying include_dir, since that could contain the script
+        build = os.path.join(self.path, 'build')
+        if not os.path.isfile(build):
+            raise ProgramError('%s does not have a build script' % path)
+        if not os.access(build, os.X_OK):
+            raise ProgramError('%s/build is not executable' % path)
 
     def __str__(self):
         """String representation"""
@@ -65,8 +69,8 @@ class BuildRun(Program):
         run = os.path.join(self.path, 'run')
 
         if status:
-            logging.debug('Build script failed (status %d) when compiling %s\n', status, self.name)
-            self._compile_result = (False, 'build script failed with exit code %d' % (status))
+            log.debug('Build script failed (status %d) when compiling %s', status, self.name)
+            self._compile_result = (False, f'build script failed with exit code {status:d}')
         elif not os.path.isfile(run) or not os.access(run, os.X_OK):
             self._compile_result = (False, 'build script did not produce an executable called "run"')
         else:

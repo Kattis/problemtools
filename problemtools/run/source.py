@@ -12,6 +12,9 @@ from .errors import ProgramError
 from .program import Program
 from . import rutil
 
+log = logging.getLogger(__name__)
+
+
 class SourceCode(Program):
     """Class representing a program provided by source code.
     """
@@ -103,7 +106,7 @@ class SourceCode(Program):
         if not os.path.isfile(compiler) or not os.access(compiler, os.X_OK):
             return (False, '%s does not seem to be installed, expected to find compiler at %s' % (self.language.name, compiler))
 
-        logging.debug('compile command: %s', command)
+        log.debug('compile command: %s', command)
 
         try:
             subprocess.check_output(command, stderr=subprocess.STDOUT)
