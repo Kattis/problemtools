@@ -1186,7 +1186,7 @@ class Attachments(ProblemAspect):
 
 _JUNK_CASES = [
     ('an empty file', b''),
-    ('a binary file with byte values 0 up to 127', bytearray(x for x in range(127))),
+    ('a binary file with random bytes', bytearray(random.Random(0).randbytes(1024))),
     ('a text file with the ASCII characters 32 up to 127', bytearray(x for x in range(32, 127))),
     ('a random text file with printable ASCII characters', bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200))),
 ]
@@ -1479,15 +1479,15 @@ class OutputValidators(ProblemAspect):
         return self._check_res
 
     @staticmethod
-    def __get_feedback(feedback_dir: str) -> str|None:
+    def _get_feedback(feedback_dir: str) -> str|None:
         all_feedback = []
         for feedback_file in os.listdir(feedback_dir):
             feedback_path = os.path.join(feedback_dir, feedback_file)
             if os.path.getsize(feedback_path) == 0:
                 continue
             all_feedback.append(f'=== {feedback_file}: ===')
-            # FIXME handle feedback files containing non-text
-            with open(feedback_path, 'r') as feedback:
+            # Note: The file could contain non-unicode characters, "replace" to be on the safe side
+            with open(feedback_path, 'r', errors="replace") as feedback:
                 # Cap amount of feedback per file at some high-ish
                 # size, so that a buggy validator spewing out lots of
                 # data doesn't kill us.
@@ -1508,15 +1508,15 @@ class OutputValidators(ProblemAspect):
         if not os.WIFEXITED(status):
             return SubmissionResult('JE',
                                     reason=f'output validator {val} crashed, status {status}',
-                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
+                                    additional_info=OutputValidators._get_feedback(feedbackdir))
         ret = os.WEXITSTATUS(status)
         if ret not in [42, 43]:
             return SubmissionResult('JE',
                                     reason=f'output validator {val} exited with status {ret}',
-                                    additional_info=OutputValidators.__get_feedback(feedbackdir))
+                                    additional_info=OutputValidators._get_feedback(feedbackdir))
 
         if ret == 43:
-            return SubmissionResult('WA', additional_info=OutputValidators.__get_feedback(feedbackdir))
+            return SubmissionResult('WA', additional_info=OutputValidators._get_feedback(feedbackdir))
 
         if custom_score:
             if os.path.isfile(score_file):
