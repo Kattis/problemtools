@@ -116,6 +116,9 @@ class ProblemAspect:
     def __init__(self, name):
         self.log = log.getChild(name)
 
+    def msg(self, msg: str) -> None:
+        print(msg)
+
     def error(self, msg: str, additional_info: str|None=None, *args) -> None:
         self._check_res = False
         ProblemAspect.errors += 1
@@ -806,6 +809,7 @@ class Generators(ProblemAspect):
     _VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
 
     def __init__(self, problem: Problem):
+        super().__init__(f"{problem.shortname}.generators")
         self.debug('  Loading generators')
         self._problem = problem
         self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
