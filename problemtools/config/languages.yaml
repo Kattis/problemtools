@@ -147,7 +147,7 @@ java:
     name: 'Java'
     priority: 800
     files: '*.java'
-    compile: '/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}'
+    compile: '/usr/bin/javac -source 11 -encoding UTF-8 -sourcepath {path} -d {path} {files}'
     run: '/usr/bin/java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
 
 javascript:
@@ -161,7 +161,7 @@ kotlin:
     name: 'Kotlin'
     priority: 250
     files: '*.kt'
-    compile: '/usr/bin/kotlinc -d {path}/ -- {files}'
+    compile: '/usr/bin/kotlinc -language-version 1.3 -d {path}/ -- {files}'
     run: '/usr/bin/kotlin -Dfile.encoding=UTF-8 -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {Mainclass}Kt'
 
 lisp:
