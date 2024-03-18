@@ -136,6 +136,10 @@ class ProblemAspect:
     def debug(self, msg: str, *args) -> None:
         self.log.debug(msg, *args)
 
+    def msg(self, msg):
+        # TODO Should this be silent?
+        print(msg)
+
     def check_basename(self, path: str) -> None:
         basename = os.path.basename(path)
         if not self.basename_regex.match(basename):
@@ -806,6 +810,7 @@ class Generators(ProblemAspect):
     _VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
 
     def __init__(self, problem: Problem):
+        super().__init__(f"{problem.shortname}.generators")
         self.debug('  Loading generators')
         self._problem = problem
         self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
