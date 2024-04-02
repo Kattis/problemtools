@@ -7,14 +7,15 @@ import argparse
 import logging
 import subprocess
 
-import plasTeX.TeX
-import plasTeX.Logging
-
-from .ProblemPlasTeX import ProblemRenderer
-from .ProblemPlasTeX import ProblemsetMacros
 from . import template
 
 def convert(options: argparse.Namespace) -> None:
+    # PlasTeX.Logging statically overwrites logging and formatting, so delay loading
+    import plasTeX.TeX
+    import plasTeX.Logging
+    from .ProblemPlasTeX import ProblemRenderer
+    from .ProblemPlasTeX import ProblemsetMacros
+
     problem = os.path.realpath(options.problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
