@@ -1851,6 +1851,8 @@ class Problem(ProblemAspect):
             if not re.match('^[a-z0-9]+$', self.shortname):
                 self.error(f"Invalid shortname '{self.shortname}' (must be [a-z0-9]+)")
 
+            self._check_symlinks()
+
             run.limit.check_limit_capabilities(self)
 
             for part in args.parts:
@@ -1861,6 +1863,27 @@ class Problem(ProblemAspect):
             pass
         return ProblemAspect.errors, ProblemAspect.warnings
 
+    def _check_symlinks(self):
+        """Check that all symlinks point to something existing within the problem package"""
+        probdir = os.path.realpath(self.probdir)
+        for root, dirs, files in os.walk(probdir):
+            for file in dirs + files:
+                filename = os.path.join(root, file)
+                if os.path.islink(filename):
+                    target = os.path.realpath(filename)
+                    # We only use these relative paths to give a nice error message.
+                    # relfile is the filename of the symlink, relative to the problem root
+                    relfile = os.path.relpath(filename, self.probdir)
+                    # reltarget is what the symlink points to (absolute, or relative to where the symlink is)
+                    reltarget = os.readlink(filename)
+                    if not os.path.exists(target):
+                        self.error(
+                            f"Symlink {relfile} links to {reltarget} which does not exist"
+                        )
+                    if os.path.commonpath([probdir, target]) != probdir:
+                        self.error(
+                            f"Symlink {relfile} links to {reltarget} which is outside of problem package"
+                        )
 
 def re_argument(s: str) -> Pattern[str]:
     try:
