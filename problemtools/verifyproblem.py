@@ -1871,8 +1871,7 @@ class Problem(ProblemAspect):
                 filename = os.path.join(root, file)
                 if os.path.islink(filename):
                     target = os.path.realpath(filename)
-                    # We only use these relative paths to give a nice error message.
-                    # relfile is the filename of the symlink, relative to the problem root
+                    # relfile is the filename of the symlink, relative to the problem root (only used for nicer error messages)
                     relfile = os.path.relpath(filename, self.probdir)
                     # reltarget is what the symlink points to (absolute, or relative to where the symlink is)
                     reltarget = os.readlink(filename)
@@ -1883,6 +1882,10 @@ class Problem(ProblemAspect):
                     if os.path.commonpath([probdir, target]) != probdir:
                         self.error(
                             f"Symlink {relfile} links to {reltarget} which is outside of problem package"
+                        )
+                    if os.path.isabs(reltarget):
+                        self.error(
+                            f"Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative."
                         )
 
 def re_argument(s: str) -> Pattern[str]:
