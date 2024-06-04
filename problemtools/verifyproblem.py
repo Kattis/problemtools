@@ -29,7 +29,7 @@ from . import config
 from . import languages
 from . import run
 
-from typing import Callable, Literal, Pattern, Match
+from typing import Any, Callable, Literal, Pattern, Match
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class SubmissionResult:
         self.runtime_testcase: TestCase|None = None
         self.runtime = -1.0
         self.ac_runtime = -1.0
-        self.ac_runtime_testcase = None
+        self.ac_runtime_testcase: TestCase|None = None
         self.validator_first = False
         self.sample_failures: list[SubmissionResult] = []
 
@@ -422,7 +422,7 @@ class TestCaseGroup(ProblemAspect):
         return [child for child in self._items if isinstance(child, TestCaseGroup)]
 
 
-    def get_subgroup(self, name):
+    def get_subgroup(self, name: str) -> TestCaseGroup|None:
         return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
 
 
@@ -602,7 +602,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def aggregate_results(self, sub, sub_results: list[SubmissionResult], shadow_result: bool=False) -> SubmissionResult:
-        res = SubmissionResult(None)
+        res = SubmissionResult('JE')
 
         for r in sub_results:
             if r.runtime > res.runtime:
@@ -706,7 +706,7 @@ class ProblemConfig(ProblemAspect):
     def __str__(self) -> str:
         return 'problem configuration'
 
-    def get(self, key: str|None=None):
+    def get(self, key: str|None=None) -> Any:
         if key:
             return self._data[key]
         return self._data
@@ -815,6 +815,7 @@ class Generators(ProblemAspect):
         self._problem = problem
         self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
         self._data = None
+        self._generators: dict[str, str|list[str]|run.Program] = {}
 
         if os.path.isfile(self.configfile):
             try:
@@ -1093,7 +1094,9 @@ class ProblemStatement(ProblemAspect):
         if glob.glob(glob_path + 'tex'):
             self.languages.append('')
         for f in glob.glob(glob_path + '[a-z][a-z].tex'):
-            self.languages.append(re.search("problem.([a-z][a-z]).tex$", f).group(1))
+            m = re.search("problem.([a-z][a-z]).tex$", f)
+            assert m
+            self.languages.append(m.group(1))
 
     def check(self, args: argparse.Namespace) -> bool:
         if self._check_res is not None:
@@ -1107,7 +1110,7 @@ class ProblemStatement(ProblemAspect):
 
         for lang in self.languages:
             try:
-                options = problem2pdf.get_parser().parse_args([None])
+                options = problem2pdf.get_parser().parse_args([""])
                 options.problem = self._problem.probdir
                 options.language = lang
                 options.nopdf = True
@@ -1118,7 +1121,7 @@ class ProblemStatement(ProblemAspect):
             except Exception as e:
                 self.error(f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}')
             try:
-                options = problem2html.get_parser().parse_args([None])
+                options = problem2html.get_parser().parse_args([""])
                 options.problem = self._problem.probdir
                 options.destdir = os.path.join(self._problem.tmpdir, 'html')
                 options.language = lang
@@ -1196,7 +1199,7 @@ _JUNK_CASES = [
     ('a random text file with printable ASCII characters', bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200))),
 ]
 
-def _build_junk_modifier(desc: str, pattern: str, repl: str|Callable[[Match], str]) -> tuple[str, Callable, Callable[[str], str]]:
+def _build_junk_modifier(desc: str, pattern: str, repl: str|Callable[[Match[str]], str]) -> tuple[str, Callable, Callable[[str], str]]:
     p = re.compile(pattern)
     return (desc, p.search, lambda text: p.sub(repl, text))
 
@@ -1251,8 +1254,8 @@ class InputFormatValidators(ProblemAspect):
 
         # Only sanity check input validators if they all actually compiled
         if self._check_res:
-            all_flags: set = set()
-            def collect_flags(group: TestCaseGroup, flags: set) -> None:
+            all_flags: set[str] = set()
+            def collect_flags(group: TestCaseGroup, flags: set[str]) -> None:
                 if len(group.get_testcases()) > 0:
                     flags.add(group.config['input_validator_flags'])
                 for subgroup in group.get_subgroups():
@@ -1265,8 +1268,8 @@ class InputFormatValidators(ProblemAspect):
                 f = open(file_name, "wb")
                 f.write(case)
                 f.close()
-                for flags in all_flags:
-                    flags = flags.split()
+                for flags_str in all_flags:
+                    flags = flags_str.split()
                     for val in self._validators:
                         status, _ = val.run(file_name, args=flags)
                         if os.WEXITSTATUS(status) != 42:
@@ -1284,8 +1287,8 @@ class InputFormatValidators(ProblemAspect):
                     with open(file_name, "wb") as f:
                         f.write(modifier(infile_data).encode('utf8'))
 
-                    for flags in all_flags:
-                        flags = flags.split()
+                    for flags_str in all_flags:
+                        flags = flags_str.split()
                         for val in self._validators:
                             status, _ = val.run(file_name, args=flags)
                             if os.WEXITSTATUS(status) != 42:
@@ -1405,7 +1408,8 @@ class Graders(ProblemAspect):
                     self.debug(f'Output was: "{grader_output}"')
                     return ('JE', None)
 
-                verdict, score_str = grader_output.split()
+                verdict_str, score_str = grader_output.split()
+                verdict = verdict_str  # type: ignore
                 score = float(score_str)
         # TODO: check that all graders give same result
 
@@ -1440,7 +1444,7 @@ class OutputValidators(ProblemAspect):
         recommended_output_validator_languages = {'c', 'cpp', 'python3'}
 
         for v in self._validators:
-            if not isinstance(v, run.BuildRun) and v.language.lang_id not in recommended_output_validator_languages:
+            if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
         if self._problem.config.get('validation') == 'default' and self._validators:
@@ -1747,7 +1751,8 @@ class Submissions(ProblemAspect):
             runtimes = []
 
             for sub in self._submissions[acr]:
-                if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
+                sub_name = sub.name  # type: ignore
+                if args.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     self.info(f'Check {acr} submission {sub}')
 
                     if sub.code_size() > 1024*limits['code']:

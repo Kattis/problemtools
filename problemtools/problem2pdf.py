@@ -43,7 +43,7 @@ def convert(options: argparse.Namespace) -> bool:
 
     return status == 0
 
-def get_parser() -> argparse.Namespace:
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-o', '--output', dest='destfile', help="output file name", default='${problem}.pdf')
