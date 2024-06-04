@@ -16,7 +16,7 @@ from . import rutil
 
 
 def find_programs(path, pattern='.*', language_config=None, work_dir=None,
-                  include_dir=None, allow_validation_script=False):
+                  include_dir=None, allow_validation_script=False) -> list[Program]:
     """Find all programs in a directory.
 
     Args:
@@ -62,7 +62,7 @@ def find_programs(path, pattern='.*', language_config=None, work_dir=None,
 
 
 def get_program(path, language_config=None, work_dir=None, include_dir=None,
-                allow_validation_script=False):
+                allow_validation_script=False) -> Program|None:
     """Get a Program object for a program
 
     Args:

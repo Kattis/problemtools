@@ -22,27 +22,23 @@ class Checktestdata(Executable):
         if Checktestdata._CTD_PATH is None:
             raise ProgramError(
                 'Could not locate the Checktestdata program to run %s' % path)
-        super(Checktestdata, self).__init__(Checktestdata._CTD_PATH,
-                                            args=[path])
+        super().__init__(Checktestdata._CTD_PATH, args=[path])
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String representation"""
         return '%s' % (self.args[0])
 
 
-    _compile_result = None
-    def compile(self):
+    def do_compile(self) -> tuple[bool, str|None]:
         """Syntax-check the Checktestdata script
 
         Returns:
             (False, None) if the Checktestdata script has syntax errors and
             (True, None) otherwise
         """
-        if self._compile_result is None:
-            (status, _) = super(Checktestdata, self).run()
-            self._compile_result = ((os.WIFEXITED(status) and os.WEXITSTATUS(status) in [0, 1]), None)
-        return self._compile_result
+        (status, _) = super().run()
+        return ((os.WIFEXITED(status) and os.WEXITSTATUS(status) in [0, 1]), None)
 
 
     def run(self, infile='/dev/null', outfile='/dev/null',

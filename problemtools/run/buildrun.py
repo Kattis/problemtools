@@ -27,6 +27,8 @@ class BuildRun(Program):
             work_dir (str): name of temp directory in which to run the
                 scripts (if None, will make new temp directory).
         """
+        super().__init__()
+
         if not os.path.isdir(path):
             raise ProgramError('%s is not a directory' % path)
 
@@ -53,32 +55,27 @@ class BuildRun(Program):
         if not os.access(build, os.X_OK):
             raise ProgramError('%s/build is not executable' % path)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String representation"""
         return '%s/' % (self.path)
 
 
-    _compile_result = None
-    def compile(self):
+    def do_compile(self) -> tuple[bool, str|None]:
         """Run the build script."""
-        if self._compile_result is not None:
-            return self._compile_result
-
         with open(os.devnull, 'w') as devnull:
             status = subprocess.call(['./build'], stdout=devnull, stderr=devnull, cwd=self.path)
         run = os.path.join(self.path, 'run')
 
         if status:
-            log.debug('Build script failed (status %d) when compiling %s', status, self.name)
-            self._compile_result = (False, f'build script failed with exit code {status:d}')
+            logging.debug('Build script failed (status %d) when compiling %s\n', status, self.name)
+            return (False, 'build script failed with exit code %d' % (status))
         elif not os.path.isfile(run) or not os.access(run, os.X_OK):
-            self._compile_result = (False, 'build script did not produce an executable called "run"')
+            return (False, 'build script did not produce an executable called "run"')
         else:
-            self._compile_result = (True, None)
-        return self._compile_result
+            return (True, None)
 
 
-    def get_runcmd(self, cwd=None, memlim=None):
+    def get_runcmd(self, cwd=None, memlim=None) -> list[str]:
         """Run command for the program.
 
         Args:
@@ -89,6 +86,6 @@ class BuildRun(Program):
         return [os.path.join(path, 'run')]
 
 
-    def should_skip_memory_rlimit(self):
+    def should_skip_memory_rlimit(self) -> bool:
         """Ugly hack (see program.py for details)."""
         return True

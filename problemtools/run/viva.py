@@ -22,8 +22,7 @@ class Viva(Executable):
         if Viva._VIVA_PATH is None:
             raise ProgramError(
                 'Could not locate the VIVA program to run %s' % path)
-        super(Viva, self).__init__(Viva._VIVA_PATH,
-                                   args=[path])
+        super().__init__(Viva._VIVA_PATH, args=[path])
 
 
     def __str__(self):
@@ -31,17 +30,14 @@ class Viva(Executable):
         return '%s' % (self.args[0])
 
 
-    _compile_result = None
-    def compile(self):
+    def do_compile(self) -> tuple[bool, str|None]:
         """Syntax-check the VIVA script
 
         Returns:
             (False, None) if the VIVA script has syntax errors and (True, None) otherwise
         """
-        if self._compile_result is None:
-            (status, _) = super(Viva, self).run()
-            self._compile_result = ((os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0), None)
-        return self._compile_result
+        (status, _) = super().run()
+        return ((os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0), None)
 
 
     def run(self, infile='/dev/null', outfile='/dev/null',
