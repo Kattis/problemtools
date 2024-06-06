@@ -33,7 +33,7 @@ from . import config
 from . import languages
 from . import run
 
-from typing import Any, Callable, Literal, Pattern, Match
+from typing import Any, Callable, Literal, Pattern, Match, ParamSpec, TypeVar
 
 log = logging.getLogger(__name__)
 
@@ -91,6 +91,9 @@ class VerifyError(Exception):
     pass
 
 
+_T = TypeVar("_T")
+_P = ParamSpec("_P")
+
 class Context:
     def __init__(self, args: argparse.Namespace, executor: ThreadPoolExecutor|None) -> None:
         self.data_filter: Pattern[str] = args.data_filter
@@ -98,6 +101,14 @@ class Context:
         self.fixed_timelim: int|None = args.fixed_timelim
         self.compile_generators: bool = ('compile_generators' not in args or args.compile_generators)
         self.executor = executor
+        self._background_work: list[concurrent.futures.Future[object]] = []
+
+    def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> None:
+        assert self.executor
+        self._background_work.append(self.executor.submit(job, *args, **kwargs))
+
+    def wait_for_background_work(self) -> None:
+        concurrent.futures.wait(self._background_work)
 
 
 class ProblemAspect:
@@ -1240,9 +1251,8 @@ class InputValidators(ProblemAspect):
 
 
     def start_background_work(self, context: Context) -> None:
-        if context.executor:
-            for val in self._validators:
-                context.executor.submit(lambda v: v.compile(), val)
+        for val in self._validators:
+            context.submit_background_work(lambda v: v.compile(), val)
 
 
     def check(self, context: Context|None) -> bool:
@@ -1452,9 +1462,9 @@ class OutputValidators(ProblemAspect):
 
 
     def start_background_work(self, context: Context) -> None:
-        if context.executor and not self._has_precompiled:
+        if not self._has_precompiled:
             for val in self._actual_validators():
-                context.executor.submit(lambda v: v.compile(), val)
+                context.submit_background_work(lambda v: v.compile(), val)
             self._has_precompiled = True
 
 
@@ -1675,12 +1685,12 @@ class Runner:
         self._problem = problem
         self._sub = sub
         self._context = context
-        self._executor = context.executor
+        self._multithreaded = (context.executor is not None)
         self._timelim = timelim
         self._timelim_low = timelim_low
         self._timelim_high = timelim_high
         self._cache: dict[TestCase, TestCase.Result] = {}
-        if self._executor:
+        if self._multithreaded:
             self._queues: dict[TestCase, queue.Queue[TestCase.Result]] = {}
             self._lock = threading.Lock()
             self._started_jobs: set[TestCase] = set()
@@ -1689,14 +1699,13 @@ class Runner:
             self._recompute_jobs()
 
     def __enter__(self) -> Runner:
-        if self._executor:
+        if self._multithreaded:
             for i in range(len(self._remaining_jobs)):
-                future = self._executor.submit(self._work)
-                self._problem.background_jobs.append(future)
+                self._context.submit_background_work(self._work)
         return self
 
     def __exit__(self, *exc) -> None:
-        if self._executor:
+        if self._multithreaded:
             with self._lock:
                 self._remaining_jobs = []
 
@@ -1712,7 +1721,7 @@ class Runner:
             sys.stdout.write(msg)
             sys.stdout.flush()
 
-        if self._executor:
+        if self._multithreaded:
             result = self._queues[testcase].get()
         else:
             result = self._run_submission_real(testcase)
@@ -1724,7 +1733,7 @@ class Runner:
         return (result, False)
 
     def mark_group_done(self, group: TestCaseGroup, broken: bool) -> None:
-        if self._executor:
+        if self._multithreaded:
             self._done_groups.add(group)
             if broken:
                 # Since a group was broken out of, some test cases may no
@@ -1856,6 +1865,14 @@ class Submissions(ProblemAspect):
         best_score = min_score if self._problem.config.get('grading')['objective'] == 'min' else max_score
         return result.verdict == 'AC' and (not self._problem.is_scoring or result.score == best_score)
 
+    def start_background_work(self, context: Context) -> None:
+        # Send off an early background compile job for each submission and
+        # validator, to avoid a bottleneck step at the start of each test run.
+        self._problem.output_validators.start_background_work(context)
+        for acr in self._submissions:
+            for sub in self._submissions[acr]:
+                context.submit_background_work(lambda s: s.compile(), sub)
+
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
@@ -1874,14 +1891,6 @@ class Submissions(ProblemAspect):
         if context.fixed_timelim is not None:
             timelim = context.fixed_timelim
             timelim_margin = int(round(timelim * safety_margin))
-
-        if context.executor:
-            # Send off an early background compile job for each submission and
-            # validator, to avoid a bottleneck step at the start of each test run.
-            self._problem.output_validators.start_background_work(context)
-            for acr in self._submissions:
-                for sub in self._submissions[acr]:
-                    context.executor.submit(lambda s: s.compile(), sub)
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -1965,13 +1974,9 @@ class Problem(ProblemAspect):
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.submissions = Submissions(self)
         self.generators = Generators(self)
-        self.background_jobs: list[concurrent.futures.Future[None]] = []
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
-        # Wait for discarded speculative submission runs to finish before
-        # performing an rmtree on the directory tree they use.
-        concurrent.futures.wait(self.background_jobs)
         shutil.rmtree(self.tmpdir)
 
     def __str__(self) -> str:
@@ -2007,9 +2012,10 @@ class Problem(ProblemAspect):
 
             run.limit.check_limit_capabilities(self)
 
-            for part in args.parts:
-                for item in part_mapping[part]:
-                    item.start_background_work(context)
+            if executor:
+                for part in args.parts:
+                    for item in part_mapping[part]:
+                        item.start_background_work(context)
 
             for part in args.parts:
                 self.msg(f'Checking {part}')
@@ -2017,6 +2023,10 @@ class Problem(ProblemAspect):
                     item.check(context)
         except VerifyError:
             pass
+        finally:
+            # Wait for background work to finish before performing an rmtree on
+            # the directory tree it uses.
+            context.wait_for_background_work()
         return ProblemAspect.errors, ProblemAspect.warnings
 
     def _check_symlinks(self):
