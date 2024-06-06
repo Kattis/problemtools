@@ -1,9 +1,9 @@
 # Kattis Problem Tools
 
 master:
-[![Master Build Status](https://travis-ci.org/Kattis/problemtools.svg?branch=master)](https://travis-ci.org/Kattis/problemtools).
+![Master Build Status](https://github.com/kattis/problemtools/actions/workflows/python-app.yml/badge.svg?branch=master)
 develop:
-[![Develop Build Status](https://travis-ci.org/Kattis/problemtools.svg?branch=develop)](https://travis-ci.org/Kattis/problemtools)
+![Develop Build Status](https://github.com/kattis/problemtools/actions/workflows/python-app.yml/badge.svg?branch=develop)
 
 These are tools to manage problem packages using the Kattis problem package
 format.
