@@ -110,7 +110,7 @@ def convert(options: argparse.Namespace) -> None:
         os.chdir(origcwd)
 
 
-def get_parser() -> argparse.Namespace:
+def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-b', '--body-only', dest='bodyonly', action='store_true', help='only generate HTML body, no HTML headers', default=False)

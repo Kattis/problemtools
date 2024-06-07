@@ -39,6 +39,7 @@ class SourceCode(Program):
                 then the files in include_dir/<foo>/ will be copied
                 into the work_dir along with the source file(s).
         """
+        super().__init__()
 
         if path[-1] == '/':
             path = path[:-1]
@@ -80,24 +81,18 @@ class SourceCode(Program):
         self.binary = os.path.join(self.path, 'run')
 
 
-    def code_size(self):
+    def code_size(self) -> int:
         return sum(os.path.getsize(x) for x in self.src)
 
 
-    _compile_result = None
-
-    def compile(self):
+    def do_compile(self) -> tuple[bool, str|None]:
         """Compile the source code.
 
         Returns tuple:
             (True, None) if compilation succeeded
             (False, errmsg) otherwise
         """
-        if self._compile_result is not None:
-            return self._compile_result
-
         if self.language.compile is None:
-            self._compile_result = (True, None)
             return (True, None)
 
         command = self.get_compilecmd()
@@ -110,14 +105,12 @@ class SourceCode(Program):
 
         try:
             subprocess.check_output(command, stderr=subprocess.STDOUT)
-            self._compile_result = (True, None)
+            return (True, None)
         except subprocess.CalledProcessError as err:
-            self._compile_result = (False, err.output.decode('utf8', 'replace'))
-
-        return self._compile_result
+            return (False, err.output.decode('utf8', 'replace'))
 
 
-    def get_compilecmd(self):
+    def get_compilecmd(self) -> list[str]:
         return shlex.split(self.language.compile.format(**self.__get_substitution()))
 
 
@@ -140,12 +133,12 @@ class SourceCode(Program):
         return shlex.split(self.language.run.format(**subs))
 
 
-    def should_skip_memory_rlimit(self):
+    def should_skip_memory_rlimit(self) -> bool:
         """Ugly hack (see program.py for details)."""
         return self.language.name in ['Java', 'Scala', 'Kotlin', 'Common Lisp']
 
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String representation"""
         return '%s (%s)' % (self.name, self.language.name)
 

@@ -5,6 +5,7 @@ from . import limit
 import resource
 import signal
 import logging
+import threading
 
 from .errors import ProgramError
 
@@ -14,7 +15,11 @@ log = logging.getLogger(__name__)
 class Program(object):
     """Abstract base class for programs.
     """
-    runtime = 0
+
+    def __init__(self) -> None:
+        self.runtime = 0
+        self._compile_lock = threading.Lock()
+        self._compile_result: tuple[bool, str|None]|None = None
 
     def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null',
             args=None, timelim=1000, memlim=1024, set_work_dir=False):
@@ -50,12 +55,23 @@ class Program(object):
 
         return status, runtime
 
-    def code_size(self):
+    def compile(self) -> tuple[bool, str|None]:
+        with self._compile_lock:
+            if self._compile_result is None:
+                self._compile_result = self.do_compile()
+            return self._compile_result
+
+    def do_compile(self) -> tuple[bool, str|None]:
+        """Actually compile the program, if needed. Subclasses should override this method.
+        Do not call this manually -- use compile() instead."""
+        return (True, None)
+
+    def code_size(self) -> int:
         """Subclasses should override this method with the total size of the
         source code."""
         return 0
 
-    def should_skip_memory_rlimit(self):
+    def should_skip_memory_rlimit(self) -> bool:
         """Ugly workaround to accommodate Java -- the JVM will crash and burn
         if there is a memory rlimit applied and this will probably not
         change anytime soon [time of writing this: 2017-02-05], see

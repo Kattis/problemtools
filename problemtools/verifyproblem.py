@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import queue
 import glob
 import string
 import hashlib
@@ -29,7 +33,7 @@ from . import config
 from . import languages
 from . import run
 
-from typing import Callable, Literal, Pattern, Match
+from typing import Any, Callable, Literal, Pattern, Match, ParamSpec, TypeVar
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +58,7 @@ class SubmissionResult:
         self.runtime_testcase: TestCase|None = None
         self.runtime = -1.0
         self.ac_runtime = -1.0
-        self.ac_runtime_testcase = None
+        self.ac_runtime_testcase: TestCase|None = None
         self.validator_first = False
         self.sample_failures: list[SubmissionResult] = []
 
@@ -87,6 +91,26 @@ class VerifyError(Exception):
     pass
 
 
+_T = TypeVar("_T")
+_P = ParamSpec("_P")
+
+class Context:
+    def __init__(self, args: argparse.Namespace, executor: ThreadPoolExecutor|None) -> None:
+        self.data_filter: Pattern[str] = args.data_filter
+        self.submission_filter: Pattern[str] = args.submission_filter
+        self.fixed_timelim: int|None = args.fixed_timelim
+        self.compile_generators: bool = ('compile_generators' not in args or args.compile_generators)
+        self.executor = executor
+        self._background_work: list[concurrent.futures.Future[object]] = []
+
+    def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> None:
+        assert self.executor
+        self._background_work.append(self.executor.submit(job, *args, **kwargs))
+
+    def wait_for_background_work(self) -> None:
+        concurrent.futures.wait(self._background_work)
+
+
 class ProblemAspect:
     max_additional_info = 15
     errors = 0
@@ -95,7 +119,7 @@ class ProblemAspect:
     _check_res: bool|None = None
     consider_warnings_errors = False
     basename_regex = re.compile('^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9]$')
-    consider_warnings_errors: bool
+    name: str
 
     @staticmethod
     def __append_additional_info(msg: str, additional_info: str|None) -> str:
@@ -113,7 +137,7 @@ class ProblemAspect:
 
         return f'{msg}:\n' + '\n'.join(' '*8 + line for line in lines)
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.log = log.getChild(name)
 
     def error(self, msg: str, additional_info: str|None=None, *args) -> None:
@@ -145,8 +169,13 @@ class ProblemAspect:
         if not self.basename_regex.match(basename):
             self.error(f"Invalid name '{basename}' (should match '{self.basename_regex.pattern}')")
 
+    def start_background_work(self, context: Context) -> None:
+        pass
+
 class TestCase(ProblemAspect):
-    def __init__(self, problem: Problem, base: str, testcasegroup: TestCaseGroup):
+    Result = tuple[SubmissionResult, SubmissionResult, SubmissionResult]
+
+    def __init__(self, problem: Problem, base: str, testcasegroup: TestCaseGroup) -> None:
         super().__init__(f"{problem.shortname}.test.{testcasegroup.name}.{os.path.basename(base)}")
         self._base = base
         self.infile = f'{base}.in'
@@ -154,7 +183,7 @@ class TestCase(ProblemAspect):
         self._problem = problem
         self.testcasegroup = testcasegroup
         self.reuse_result_from: TestCase|None = None
-        self._result_cache: tuple[tuple, tuple[SubmissionResult, SubmissionResult, SubmissionResult]]|tuple[None, None] = (None, None)
+        self.counter = len(problem.testcase_by_infile)
         problem.testcase_by_infile[self.infile] = self
 
     def check_newlines(self, filename: str) -> None:
@@ -176,7 +205,7 @@ class TestCase(ProblemAspect):
     def is_in_sample_group(self) -> bool:
         return self.strip_path_prefix(self.infile).startswith('sample')
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -184,7 +213,7 @@ class TestCase(ProblemAspect):
         self.check_basename(self.ansfile)
         self.check_newlines(self.infile)
         self.check_newlines(self.ansfile)
-        self._problem.input_format_validators.validate(self)
+        self._problem.input_validators.validate(self)
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
         outputlim = self._problem.config.get('limits')['output']
         if anssize > outputlim:
@@ -234,8 +263,8 @@ class TestCase(ProblemAspect):
             return False
         return True
 
-    def run_submission(self, sub, args: argparse.Namespace, timelim: int, timelim_low: int, timelim_high: int) -> tuple[SubmissionResult, SubmissionResult, SubmissionResult]:
-        res, res_low, res_high, reused = self._run_submission_real(sub, args, timelim, timelim_low, timelim_high)
+    def run_submission(self, sub, runner: Runner, context: Context) -> Result:
+        (res, res_low, res_high), reused = runner.run(self)
         res = self._init_result_for_testcase(res)
         res_low = self._init_result_for_testcase(res_low)
         res_high = self._init_result_for_testcase(res_high)
@@ -246,26 +275,13 @@ class TestCase(ProblemAspect):
 
         return (res, res_low, res_high)
 
-    def _run_submission_real(self, sub, args: argparse.Namespace, timelim: int, timelim_low: int, timelim_high: int) -> tuple[SubmissionResult, SubmissionResult, SubmissionResult, bool]:
-        if self.reuse_result_from is not None:
-            return self.reuse_result_from._run_submission_real(sub, args, timelim, timelim_low, timelim_high)
-
-        cache_key = (sub, args, timelim, timelim_low, timelim_high)
-        if self._result_cache[0] == cache_key:
-            res, res_low, res_high = self._result_cache[1]
-            return (res, res_low, res_high, True)
-
-        outfile = os.path.join(self._problem.tmpdir, 'output')
-        errfile = os.path.join(self._problem.tmpdir, 'error')
-
-        if sys.stdout.isatty():
-            msg = f'Running {sub} on {self}...'
-            sys.stdout.write(msg)
-            sys.stdout.flush()
-
+    def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
+        # This may be called off-main thread.
         if self._problem.is_interactive:
             res_high = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
+            outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
+            errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
             status, runtime = sub.run(infile=self.infile, outfile=outfile, errfile=errfile,
                                       timelim=timelim_high+1,
                                       memlim=self._problem.config.get('limits')['memory'], set_work_dir=True)
@@ -283,8 +299,6 @@ class TestCase(ProblemAspect):
                 res_high = self._problem.output_validators.validate(self, outfile)
             res_high.runtime = runtime
 
-        if sys.stdout.isatty():
-            sys.stdout.write('\b \b' * (len(msg)))
         if res_high.runtime <= timelim_low:
             res_low = res_high
             res = res_high
@@ -306,8 +320,7 @@ class TestCase(ProblemAspect):
         res.set_ac_runtime()
         res_low.set_ac_runtime()
         res_high.set_ac_runtime()
-        self._result_cache = (cache_key, (res, res_low, res_high))
-        return (res, res_low, res_high, False)
+        return (res, res_low, res_high)
 
     def _init_result_for_testcase(self, res: SubmissionResult) -> SubmissionResult:
         res = copy.copy(res)
@@ -343,7 +356,7 @@ class TestCaseGroup(ProblemAspect):
         self._seen_oob_scores = False
         self.debug('Loading test data group %s', datadir)
         configfile = os.path.join(self._datadir, 'testdata.yaml')
-        self.config = {}
+        self.config: dict[str, Any] = {}
         if os.path.isfile(configfile):
             try:
                 with open(configfile) as f:
@@ -422,7 +435,7 @@ class TestCaseGroup(ProblemAspect):
         return [child for child in self._items if isinstance(child, TestCaseGroup)]
 
 
-    def get_subgroup(self, name):
+    def get_subgroup(self, name: str) -> TestCaseGroup|None:
         return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
 
 
@@ -439,7 +452,7 @@ class TestCaseGroup(ProblemAspect):
             return (float('-inf'), float('inf'))
 
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -568,23 +581,23 @@ class TestCaseGroup(ProblemAspect):
             last_testgroup_name = name
 
         for child in self._items:
-            if child.matches_filter(args.data_filter):
-                child.check(args)
+            if child.matches_filter(context.data_filter):
+                child.check(context)
 
         return self._check_res
 
-
-    def run_submission(self, sub, args: argparse.Namespace, timelim: int, timelim_low: int, timelim_high: int) -> tuple[SubmissionResult, SubmissionResult, SubmissionResult]:
+    def run_submission(self, sub, runner: Runner, context: Context) -> TestCase.Result:
         self.info(f'Running on {self}')
         subres: list[SubmissionResult] = []
         subres_low: list[SubmissionResult] = []
         subres_high: list[SubmissionResult] = []
         active_low, active = True, True
         on_reject = self.config['on_reject']
+        broken = False
         for child in self._items:
-            if not child.matches_filter(args.data_filter):
+            if not child.matches_filter(context.data_filter):
                 continue
-            res, res_low, res_high = child.run_submission(sub, args, timelim, timelim_low, timelim_high)
+            res, res_low, res_high = child.run_submission(sub, runner, context)
             subres_high.append(res_high)
             if active:
                 subres.append(res)
@@ -594,7 +607,10 @@ class TestCaseGroup(ProblemAspect):
                 active_low &= res_low.verdict == 'AC'
                 active &= res.verdict == 'AC'
                 if res_high.verdict != 'AC':
+                    broken = True
                     break
+
+        runner.mark_group_done(self, broken)
 
         return (self.aggregate_results(sub, subres),
                 self.aggregate_results(sub, subres_low, shadow_result=True),
@@ -602,7 +618,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def aggregate_results(self, sub, sub_results: list[SubmissionResult], shadow_result: bool=False) -> SubmissionResult:
-        res = SubmissionResult(None)
+        res = SubmissionResult('JE')
 
         for r in sub_results:
             if r.runtime > res.runtime:
@@ -706,12 +722,12 @@ class ProblemConfig(ProblemAspect):
     def __str__(self) -> str:
         return 'problem configuration'
 
-    def get(self, key: str|None=None):
+    def get(self, key: str|None=None) -> Any:
         if key:
             return self._data[key]
         return self._data
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -815,6 +831,7 @@ class Generators(ProblemAspect):
         self._problem = problem
         self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
         self._data = None
+        self._generators: dict[str, str|list[str]|run.Program] = {}
 
         if os.path.isfile(self.configfile):
             try:
@@ -1028,7 +1045,7 @@ class Generators(ProblemAspect):
             if not ok and gen in self._generators:
                 del self._generators[gen]
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1077,7 +1094,7 @@ class Generators(ProblemAspect):
 
         self._parse_element(self._data, default_state)
 
-        if 'compile_generators' not in args or args.compile_generators:
+        if context.compile_generators:
             self._compile_generators()
 
         return self._check_res
@@ -1093,9 +1110,11 @@ class ProblemStatement(ProblemAspect):
         if glob.glob(glob_path + 'tex'):
             self.languages.append('')
         for f in glob.glob(glob_path + '[a-z][a-z].tex'):
-            self.languages.append(re.search("problem.([a-z][a-z]).tex$", f).group(1))
+            m = re.search("problem.([a-z][a-z]).tex$", f)
+            assert m
+            self.languages.append(m.group(1))
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1107,7 +1126,7 @@ class ProblemStatement(ProblemAspect):
 
         for lang in self.languages:
             try:
-                options = problem2pdf.get_parser().parse_args([None])
+                options = problem2pdf.get_parser().parse_args([""])
                 options.problem = self._problem.probdir
                 options.language = lang
                 options.nopdf = True
@@ -1118,7 +1137,7 @@ class ProblemStatement(ProblemAspect):
             except Exception as e:
                 self.error(f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}')
             try:
-                options = problem2html.get_parser().parse_args([None])
+                options = problem2html.get_parser().parse_args([""])
                 options.problem = self._problem.probdir
                 options.destdir = os.path.join(self._problem.tmpdir, 'html')
                 options.language = lang
@@ -1169,7 +1188,7 @@ class Attachments(ProblemAspect):
 
         self.debug(f'Adding attachments {str(self.attachments)}')
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1196,7 +1215,7 @@ _JUNK_CASES = [
     ('a random text file with printable ASCII characters', bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200))),
 ]
 
-def _build_junk_modifier(desc: str, pattern: str, repl: str|Callable[[Match], str]) -> tuple[str, Callable, Callable[[str], str]]:
+def _build_junk_modifier(desc: str, pattern: str, repl: str|Callable[[Match[str]], str]) -> tuple[str, Callable, Callable[[str], str]]:
     p = re.compile(pattern)
     return (desc, p.search, lambda text: p.sub(repl, text))
 
@@ -1208,7 +1227,7 @@ _JUNK_MODIFICATIONS = [
     ('random junk added to the end of the file', lambda f: True, lambda f: f + ''.join(random.choice(string.printable) for _ in range(200))),
 ]
 
-class InputFormatValidators(ProblemAspect):
+class InputValidators(ProblemAspect):
 
     def __init__(self, problem: Problem):
         super().__init__(f"{problem.shortname}.input_validator")
@@ -1231,7 +1250,12 @@ class InputFormatValidators(ProblemAspect):
         return 'input format validators'
 
 
-    def check(self, args: argparse.Namespace|None) -> bool:
+    def start_background_work(self, context: Context) -> None:
+        for val in self._validators:
+            context.submit_background_work(lambda v: v.compile(), val)
+
+
+    def check(self, context: Context|None) -> bool:
         if self._check_res is not None:
             return self._check_res
         if self._uses_old_path:
@@ -1251,8 +1275,8 @@ class InputFormatValidators(ProblemAspect):
 
         # Only sanity check input validators if they all actually compiled
         if self._check_res:
-            all_flags: set = set()
-            def collect_flags(group: TestCaseGroup, flags: set) -> None:
+            all_flags: set[str] = set()
+            def collect_flags(group: TestCaseGroup, flags: set[str]) -> None:
                 if len(group.get_testcases()) > 0:
                     flags.add(group.config['input_validator_flags'])
                 for subgroup in group.get_subgroups():
@@ -1265,8 +1289,8 @@ class InputFormatValidators(ProblemAspect):
                 f = open(file_name, "wb")
                 f.write(case)
                 f.close()
-                for flags in all_flags:
-                    flags = flags.split()
+                for flags_str in all_flags:
+                    flags = flags_str.split()
                     for val in self._validators:
                         status, _ = val.run(file_name, args=flags)
                         if os.WEXITSTATUS(status) != 42:
@@ -1284,8 +1308,8 @@ class InputFormatValidators(ProblemAspect):
                     with open(file_name, "wb") as f:
                         f.write(modifier(infile_data).encode('utf8'))
 
-                    for flags in all_flags:
-                        flags = flags.split()
+                    for flags_str in all_flags:
+                        flags = flags_str.split()
                         for val in self._validators:
                             status, _ = val.run(file_name, args=flags)
                             if os.WEXITSTATUS(status) != 42:
@@ -1310,7 +1334,10 @@ class InputFormatValidators(ProblemAspect):
 
     def validate(self, testcase: TestCase) -> None:
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
+
+        # Remove input validators that don't compile, even without -p validators
         self.check(None)
+
         for val in self._validators:
             with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
                 status, _ = val.run(testcase.infile, outfile.name, errfile.name, args=flags)
@@ -1340,7 +1367,7 @@ class Graders(ProblemAspect):
     def __str__(self) -> str:
         return 'graders'
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1405,7 +1432,8 @@ class Graders(ProblemAspect):
                     self.debug(f'Output was: "{grader_output}"')
                     return ('JE', None)
 
-                verdict, score_str = grader_output.split()
+                verdict_str, score_str = grader_output.split()
+                verdict = verdict_str  # type: ignore
                 score = float(score_str)
         # TODO: check that all graders give same result
 
@@ -1426,13 +1454,21 @@ class OutputValidators(ProblemAspect):
                                                           'output_validators'),
                                              language_config=problem.language_config,
                                              work_dir=problem.tmpdir)
+        self._has_precompiled = False
 
 
     def __str__(self) -> str:
         return 'output validators'
 
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def start_background_work(self, context: Context) -> None:
+        if not self._has_precompiled:
+            for val in self._actual_validators():
+                context.submit_background_work(lambda v: v.compile(), val)
+            self._has_precompiled = True
+
+
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1440,7 +1476,7 @@ class OutputValidators(ProblemAspect):
         recommended_output_validator_languages = {'c', 'cpp', 'python3'}
 
         for v in self._validators:
-            if not isinstance(v, run.BuildRun) and v.language.lang_id not in recommended_output_validator_languages:
+            if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
         if self._problem.config.get('validation') == 'default' and self._validators:
@@ -1540,10 +1576,11 @@ class OutputValidators(ProblemAspect):
         vals = self._validators
         if self._problem.config.get('validation') == 'default':
             vals = [self._default_validator]
-        return vals
+        return [val for val in vals if val is not None]
 
 
     def validate_interactive(self, testcase: TestCase, submission, timelim: int, errorhandler: Submissions) -> SubmissionResult:
+        # This may be called off-main thread.
         interactive_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+ (validator|submission)'
         res = SubmissionResult('JE')
         interactive = run.get_tool('interactive')
@@ -1558,7 +1595,7 @@ class OutputValidators(ProblemAspect):
         val_timelim = self._problem.config.get('limits')['validation_time']
         val_memlim = self._problem.config.get('limits')['validation_memory']
         for val in self._actual_validators():
-            if val is not None and val.compile()[0]:
+            if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 validator_args[2] = feedbackdir + os.sep
                 f = tempfile.NamedTemporaryFile(delete=False)
@@ -1612,7 +1649,7 @@ class OutputValidators(ProblemAspect):
         val_memlim = self._problem.config.get('limits')['validation_memory']
         flags = self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split()
         for val in self._actual_validators():
-            if val is not None and val.compile()[0]:
+            if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 validator_output = tempfile.mkdtemp(prefix='checker_out', dir=self._problem.tmpdir)
                 outfile = validator_output + "/out.txt"
@@ -1643,6 +1680,113 @@ class OutputValidators(ProblemAspect):
         return res
 
 
+class Runner:
+    def __init__(self, problem: Problem, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> None:
+        self._problem = problem
+        self._sub = sub
+        self._context = context
+        self._multithreaded = (context.executor is not None)
+        self._timelim = timelim
+        self._timelim_low = timelim_low
+        self._timelim_high = timelim_high
+        self._cache: dict[TestCase, TestCase.Result] = {}
+        if self._multithreaded:
+            self._queues: dict[TestCase, queue.Queue[TestCase.Result]] = {}
+            self._lock = threading.Lock()
+            self._started_jobs: set[TestCase] = set()
+            self._done_groups: set[TestCaseGroup] = set()
+            self._remaining_jobs: list[TestCase] = []
+            self._recompute_jobs()
+
+    def __enter__(self) -> Runner:
+        if self._multithreaded:
+            for i in range(len(self._remaining_jobs)):
+                self._context.submit_background_work(self._work)
+        return self
+
+    def __exit__(self, *exc) -> None:
+        if self._multithreaded:
+            with self._lock:
+                self._remaining_jobs = []
+
+    def run(self, testcase: TestCase) -> tuple[TestCase.Result, bool]:
+        while testcase.reuse_result_from:
+            testcase = testcase.reuse_result_from
+
+        if testcase in self._cache:
+            return (self._cache[testcase], True)
+
+        if sys.stdout.isatty():
+            msg = f'Running {self._sub} on {testcase}...'
+            sys.stdout.write(msg)
+            sys.stdout.flush()
+
+        if self._multithreaded:
+            result = self._queues[testcase].get()
+        else:
+            result = self._run_submission_real(testcase)
+
+        if sys.stdout.isatty():
+            sys.stdout.write('\b \b' * len(msg))
+
+        self._cache[testcase] = result
+        return (result, False)
+
+    def mark_group_done(self, group: TestCaseGroup, broken: bool) -> None:
+        if self._multithreaded:
+            self._done_groups.add(group)
+            if broken:
+                # Since a group was broken out of, some test cases may no
+                # longer be relevant to run. Recompute the work list.
+                self._recompute_jobs()
+
+    def _run_submission_real(self, item: TestCase) -> TestCase.Result:
+        return item.run_submission_real(self._sub, self._context, self._timelim, self._timelim_low, self._timelim_high)
+
+    def _work(self) -> None:
+        item = self._next_job()
+        if item:
+            res = self._run_submission_real(item)
+            self._queues[item].put(res)
+
+    def _gather_testcases(self, item: TestCase|TestCaseGroup) -> list[TestCase]:
+        if not item.matches_filter(self._context.data_filter):
+            return []
+        if isinstance(item, TestCase):
+            if item.reuse_result_from:
+                return self._gather_testcases(item.reuse_result_from)
+            else:
+                return [item]
+        elif item not in self._done_groups:
+            ret = []
+            for child in item.get_testcases() + item.get_subgroups():
+                ret.extend(self._gather_testcases(child))
+            return ret
+        else:
+            return []
+
+    def _next_job(self) -> TestCase|None:
+        with self._lock:
+            if self._remaining_jobs:
+                job = self._remaining_jobs.pop()
+                self._started_jobs.add(job)
+                return job
+            else:
+                return None
+
+    def _recompute_jobs(self) -> None:
+        with self._lock:
+            seen = set(self._started_jobs)
+            self._remaining_jobs = []
+            for testcase in self._gather_testcases(self._problem.testdata):
+                if testcase not in seen:
+                    seen.add(testcase)
+                    self._remaining_jobs.append(testcase)
+                    if testcase not in self._queues:
+                        self._queues[testcase] = queue.Queue(maxsize=1)
+            self._remaining_jobs.reverse()
+
+
 class Submissions(ProblemAspect):
     _SUB_REGEXP = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$')
     # (verdict, directory, required)
@@ -1671,7 +1815,7 @@ class Submissions(ProblemAspect):
     def __str__(self) -> str:
         return 'submissions'
 
-    def check_submission(self, sub, args: argparse.Namespace, expected_verdict: Verdict, timelim: int, timelim_low: int, timelim_high: int) -> SubmissionResult:
+    def check_submission(self, sub, context: Context, expected_verdict: Verdict, timelim: int, timelim_low: int, timelim_high: int) -> SubmissionResult:
         desc = f'{expected_verdict} submission {sub}'
         partial = False
         if expected_verdict == 'PAC':
@@ -1682,7 +1826,8 @@ class Submissions(ProblemAspect):
         else:
             timelim_low = timelim
 
-        result, result_low, result_high = self._problem.testdata.run_submission(sub, args, timelim, timelim_low, timelim_high)
+        with Runner(self._problem, sub, context, timelim, timelim_low, timelim_high) as runner:
+            result, result_low, result_high = self._problem.testdata.run_submission(sub, runner, context)
 
         if result.verdict == 'AC' and expected_verdict == 'AC' and not partial and result.sample_failures:
             res = result.sample_failures[0]
@@ -1720,7 +1865,15 @@ class Submissions(ProblemAspect):
         best_score = min_score if self._problem.config.get('grading')['objective'] == 'min' else max_score
         return result.verdict == 'AC' and (not self._problem.is_scoring or result.score == best_score)
 
-    def check(self, args: argparse.Namespace) -> bool:
+    def start_background_work(self, context: Context) -> None:
+        # Send off an early background compile job for each submission and
+        # validator, to avoid a bottleneck step at the start of each test run.
+        self._problem.output_validators.start_background_work(context)
+        for acr in self._submissions:
+            for sub in self._submissions[acr]:
+                context.submit_background_work(lambda s: s.compile(), sub)
+
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1735,8 +1888,8 @@ class Submissions(ProblemAspect):
 
         if 'time_for_AC_submissions' in limits:
             timelim = timelim_margin = limits['time_for_AC_submissions']
-        if args.fixed_timelim is not None:
-            timelim = args.fixed_timelim
+        if context.fixed_timelim is not None:
+            timelim = context.fixed_timelim
             timelim_margin = int(round(timelim * safety_margin))
 
         for verdict in Submissions._VERDICTS:
@@ -1747,7 +1900,8 @@ class Submissions(ProblemAspect):
             runtimes = []
 
             for sub in self._submissions[acr]:
-                if args.submission_filter.search(os.path.join(verdict[1], sub.name)):
+                sub_name = sub.name  # type: ignore
+                if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     self.info(f'Check {acr} submission {sub}')
 
                     if sub.code_size() > 1024*limits['code']:
@@ -1759,7 +1913,7 @@ class Submissions(ProblemAspect):
                         self.error(f'Compile error for {acr} submission {sub}', additional_info=msg)
                         continue
 
-                    res = self.check_submission(sub, args, acr, timelim, timelim_margin_lo, timelim_margin)
+                    res = self.check_submission(sub, context, acr, timelim, timelim_margin_lo, timelim_margin)
                     runtimes.append(res.runtime)
 
             if acr == 'AC':
@@ -1773,9 +1927,9 @@ class Submissions(ProblemAspect):
                                          int(0.5 + exact_timelim * safety_margin))
                 else:
                     max_runtime_str = None
-                if args.fixed_timelim is not None and args.fixed_timelim != timelim:
-                    self.msg(f"   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {args.fixed_timelim} seconds instead")
-                    timelim = args.fixed_timelim
+                if context.fixed_timelim is not None and context.fixed_timelim != timelim:
+                    self.msg(f"   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {context.fixed_timelim} seconds instead")
+                    timelim = context.fixed_timelim
                     timelim_margin = timelim * safety_margin
 
                 self.msg(f"   Slowest AC runtime: {max_runtime_str}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs")
@@ -1813,7 +1967,7 @@ class Problem(ProblemAspect):
 
         self.is_interactive = 'interactive' in self.config.get('validation-params')
         self.is_scoring = (self.config.get('type') == 'scoring')
-        self.input_format_validators = InputFormatValidators(self)
+        self.input_validators = InputValidators(self)
         self.output_validators = OutputValidators(self)
         self.graders = Graders(self)
         self.testcase_by_infile: dict[str, TestCase] = {}
@@ -1837,11 +1991,14 @@ class Problem(ProblemAspect):
         ProblemAspect.bail_on_error = args.bail_on_error
         ProblemAspect.consider_warnings_errors = args.werror
 
+        executor = ThreadPoolExecutor(args.threads) if args.threads > 1 else None
+        context = Context(args, executor)
+
         try:
             part_mapping: dict[str, list] = {
                 'config': [self.config],
                 'statement': [self.statement, self.attachments],
-                'validators': [self.input_format_validators, self.output_validators],
+                'validators': [self.input_validators, self.output_validators],
                 'graders': [self.graders],
                 'generators': [self.generators],
                 'data': [self.testdata],
@@ -1855,12 +2012,21 @@ class Problem(ProblemAspect):
 
             run.limit.check_limit_capabilities(self)
 
+            if executor:
+                for part in args.parts:
+                    for item in part_mapping[part]:
+                        item.start_background_work(context)
+
             for part in args.parts:
                 self.msg(f'Checking {part}')
                 for item in part_mapping[part]:
-                    item.check(args)
+                    item.check(context)
         except VerifyError:
             pass
+        finally:
+            # Wait for background work to finish before performing an rmtree on
+            # the directory tree it uses.
+            context.wait_for_background_work()
         return ProblemAspect.errors, ProblemAspect.warnings
 
     def _check_symlinks(self):
@@ -1931,6 +2097,8 @@ def argparser() -> argparse.ArgumentParser:
     parser.add_argument('-p', '--parts', metavar='PROBLEM_PART',
                         type=part_argument, nargs='+', default=PROBLEM_PARTS,
                         help=f'only test the indicated parts of the problem.  Each PROBLEM_PART can be one of {PROBLEM_PARTS}.')
+    parser.add_argument('-j', '--threads', type=int, default=1,
+                        help='run validation using multiple threads. This will make timings less reliable, but can be convenient during development')
 
     argparser_basic_arguments(parser)
 
@@ -1945,7 +2113,7 @@ def initialize_logging(args: argparse.Namespace) -> None:
     fmt = "%(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
-                        level=eval(f"logging.{args.log_level.upper()}"))
+                        level=getattr(logging, args.log_level.upper()))
 
 
 def main() -> None:
