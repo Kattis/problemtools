@@ -199,6 +199,13 @@ class TestCase(ProblemAspect):
         if len(data) > 0 and data[-1] != '\n':
             self.warning(f"The file {filename} does not end with '\\n'.")
 
+    def check_size_limits(self, filename: str) -> None:
+        filesize = os.path.getsize(filename) / 1024.0 / 1024.0
+        if filesize > 1000:
+             self.error(f'The file {filename} ({filesize:.1f} Mb) is larger than 1000 Mb and can not be installed.')
+        elif filesize > 100:
+            self.warning(f'The file {filename} ({filesize:.1f} Mb) is larger than 100 Mb. This may cause performance issues and is not recommended.')
+
     def strip_path_prefix(self, path: str) -> str:
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
 
@@ -213,6 +220,8 @@ class TestCase(ProblemAspect):
         self.check_basename(self.ansfile)
         self.check_newlines(self.infile)
         self.check_newlines(self.ansfile)
+        self.check_size_limits(self.infile)
+        self.check_size_limits(self.ansfile)
         self._problem.input_validators.validate(self)
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
         outputlim = self._problem.config.get('limits')['output']
