@@ -1,4 +1,5 @@
 recursive-include problemtools/config *
 recursive-include problemtools/templates *
 recursive-include problemtools/tests *
+recursive-include examples *
 recursive-include support *
