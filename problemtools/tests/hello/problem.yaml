@@ -1,0 +1,8 @@
+source: Kattis
+license: public domain
+
+# Fix memory limit at 512 MB.  (Note that for most problems, this
+# should not be done.  It is only done in this case because we include
+# a test submission that goes over this limit.)
+limits:
+  memory: 512
