@@ -77,7 +77,7 @@ class SubmissionResult:
         if self.reason is not None:
             details.append(self.reason)
         if self.testcase is not None:
-            details.append(f'test case: {self.testcase}')
+            details.append(f'testcase: {self.testcase}')
         if self.runtime != -1:
             details.append(f'CPU: {self.runtime:.2f}s @ {self.runtime_testcase}')
 
@@ -240,7 +240,7 @@ class TestCase(ProblemAspect):
         return self._check_res
 
     def __str__(self) -> str:
-        return f'test case {self.strip_path_prefix(self._base)}'
+        return f'testcase {self.strip_path_prefix(self._base)}'
 
     def matches_filter(self, filter_re: Pattern[str]) -> bool:
         return filter_re.search(self.strip_path_prefix(self._base)) is not None
@@ -268,7 +268,7 @@ class TestCase(ProblemAspect):
             self.error(f"Symbolic link points outside data/ directory for file '{nicepath}'")
             return False
         if self.testcasegroup.config['output_validator_flags'] != self.reuse_result_from.testcasegroup.config['output_validator_flags']:
-            self.error(f"Symbolic link '{nicepath}' points to test case with different output validator flags")
+            self.error(f"Symbolic link '{nicepath}' points to testcase with different output validator flags")
             return False
         return True
 
@@ -418,7 +418,7 @@ class TestCaseGroup(ProblemAspect):
 
 
     def __str__(self) -> str:
-        return f'test case group {self.name}'
+        return f'testcase group {self.name}'
 
     def set_symlinks(self) -> None:
         for sub in self._items:
@@ -554,7 +554,10 @@ class TestCaseGroup(ProblemAspect):
                 self.error(f"No matching input file for answer '{ansfile}'")
 
         if not self.get_subgroups() and not self.get_testcases():
-            self.error('Test case group is empty')
+            if os.path.basename(self._datadir) != 'sample':
+                self.error(f'Testcase group {self._datadir} exists, but does not contain any testcases')
+            else:
+                self.warning(f'Sample testcase group {self._datadir} exists, but does not contain any testcases')
 
         # Check whether a <= b according to a natural sorting where numeric components
         # are compactified, so that e.g. "a" < "a1" < "a2" < "a10" = "a010" < "a10a".
@@ -785,7 +788,7 @@ class ProblemConfig(ProblemAspect):
         elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
             self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
         if self._data['type'] != 'pass-fail' and self._problem.testdata.has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
-            self.warning("Problem has custom test case groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
+            self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
 
         if 'on_reject' in self._data['grading']:
             if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
