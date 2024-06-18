@@ -3,7 +3,7 @@ import problemtools.verifyproblem as verify
 
 
 def test_load_hello():
-    directory = pathlib.Path(__file__).parent.parent.parent / "examples" / "hello"
+    directory = pathlib.Path(__file__).parent / "hello"
     string = str(directory.resolve())
 
     args = verify.argparser().parse_args([string])
