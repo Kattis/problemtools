@@ -65,7 +65,7 @@ FILE *openfeedback(const char *feedbackdir, const char *feedback, const char *wh
 	return res;
 }
 
-const char *USAGE = "Usage: %s judge_in judge_ans feedback_file [options] < team_out";
+const char *USAGE = "Usage: %s judge_in judge_ans feedback_file [options] < user_out";
 
 int main(int argc, char **argv) {
 	if(argc < 4) {
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
 		while (isspace(std::cin.peek())) {
 			char d = (char)std::cin.get();
 			if (space_change_sensitive) {
-				wrong_answer("Space change error: judge out of space, got %d from team", d);
+				wrong_answer("Space change error: judge out of space, got %d from user", d);
 			}
 			if (d == '\n') ++stdin_line;
 			++stdin_pos;
@@ -148,16 +148,16 @@ int main(int argc, char **argv) {
 			}
 			if(!(fabs(jval - tval) <= float_abs_tol) && 
 			   !(fabs(jval - tval) <= float_rel_tol*fabs(jval))) {
-				wrong_answer("Too large difference.\n Judge: %s\n Team: %s\n Difference: %le\n (abs tol %le rel tol %le)", 
+				wrong_answer("Too large difference.\n Judge: %s\n User: %s\n Difference: %le\n (abs tol %le rel tol %le)", 
 							 judge.c_str(), team.c_str(), jval-tval, float_abs_tol, float_rel_tol);
 			}
 		} else if (case_sensitive) {
 			if (strcmp(judge.c_str(), team.c_str()) != 0) {
-				wrong_answer("String tokens mismatch\nJudge: \"%s\"\nTeam: \"%s\"", judge.c_str(), team.c_str());
+				wrong_answer("String tokens mismatch\nJudge: \"%s\"\nUser: \"%s\"", judge.c_str(), team.c_str());
 			}
 		} else {
 			if(strcasecmp(judge.c_str(), team.c_str()) != 0) {
-				wrong_answer("String tokens mismatch\nJudge: \"%s\"\nTeam: \"%s\"", judge.c_str(), team.c_str());
+				wrong_answer("String tokens mismatch\nJudge: \"%s\"\nUser: \"%s\"", judge.c_str(), team.c_str());
 			}
 		}
 		judgeans_pos += judge.length();
