@@ -1119,12 +1119,14 @@ class ProblemStatement(ProblemAspect):
         self._problem = problem
         self.languages = []
         glob_path = os.path.join(problem.probdir, 'problem_statement', 'problem.')
-        if glob.glob(glob_path + 'tex'):
-            self.languages.append('')
-        for f in glob.glob(glob_path + '[a-z][a-z].tex'):
-            m = re.search("problem.([a-z][a-z]).tex$", f)
-            assert m
-            self.languages.append(m.group(1))
+        for extension in problem2html.SUPPORTED_EXTENSIONS:
+            if glob.glob(glob_path + extension):
+                self.languages.append('')
+            for f in glob.glob(glob_path + '[a-z][a-z].%s' % extension):
+                lang = re.search("problem.([a-z][a-z]).%s$" % extension, f).group(1)
+                if lang in self.languages:
+                    self.error('Language %s has several statement formats' % lang)
+                self.languages.append(lang)
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
@@ -1132,9 +1134,9 @@ class ProblemStatement(ProblemAspect):
         self._check_res = True
 
         if not self.languages:
-            self.error('No problem statements found (expected problem.tex or problem.[a-z][a-z].tex in problem_statement directory)')
+            self.error('No problem statements found (expected problem.{tex,md} or problem.[a-z][a-z].{tex,md} in problem_statement directory)')
         if '' in self.languages and 'en' in self.languages:
-            self.error("Can't supply both problem.tex and problem.en.tex")
+            self.error("Can't supply both problem.{tex,md} and problem.en.{tex,md}")
 
         for lang in self.languages:
             try:
@@ -1143,7 +1145,7 @@ class ProblemStatement(ProblemAspect):
                 options.language = lang
                 options.nopdf = True
                 options.quiet = True
-                if not problem2pdf.convert(options):
+                if not problem2pdf.convert(options, ignore_markdown=True):
                     langparam = f' --language {lang}' if lang != '' else ''
                     self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')
             except Exception as e:
@@ -1165,21 +1167,24 @@ class ProblemStatement(ProblemAspect):
 
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {}
-        for lang in self.languages:
-            filename = f'problem.{lang}.tex' if lang != '' else 'problem.tex'
-            stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
-            patterns = [
-                (r'\\problemname{(.*)}', 'name'),
-                (r'^%%\s*plainproblemname:(.*)$', 'name'),
-            ]
-            for tup in patterns:
-                pattern = tup[0]
-                dest = tup[1]
-                hit = re.search(pattern, stmt, re.MULTILINE)
-                if hit:
-                    if not dest in ret:
-                        ret[dest] = {}
-                    ret[dest][lang] = hit.group(1).strip()
+        for extension in problem2html.SUPPORTED_EXTENSIONS:
+            for lang in self.languages:
+                filename = f'problem.{lang}.{extension}' if lang != '' else 'problem.{extension}'
+                if not os.path.isfile(filename):
+                    continue
+                stmt = open(os.path.join(self._problem.probdir, 'problem_statement', filename)).read()
+                patterns = [
+                    (r'\\problemname{(.*)}', 'name'),
+                    (r'^%%\s*plainproblemname:(.*)$', 'name'),
+                ]
+                for tup in patterns:
+                    pattern = tup[0]
+                    dest = tup[1]
+                    hit = re.search(pattern, stmt, re.MULTILINE)
+                    if hit:
+                        if not dest in ret:
+                            ret[dest] = {}
+                        ret[dest][lang] = hit.group(1).strip()
         return ret
 
 

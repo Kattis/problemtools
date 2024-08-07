@@ -1,0 +1,90 @@
+.problemheader {
+    text-align: center;
+}
+
+.problembody {
+    font-family: 'Times New Roman', Georgia, serif;
+    font-size: 1.1em;
+    text-align: justify;
+    padding-top: 1.5em;
+}
+
+.problembody h2, .problembody h3, .problembody table.sample th {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+div.minipage { 
+  display: inline-block;
+}
+
+div.illustration {
+    float: right;
+    padding-left: 20px;
+}
+
+img.illustration {
+    width: 100%;
+}
+
+div.figure {
+  display: block;
+  float: none;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.illustration div.description {
+    font-size: 8pt;
+    text-align: right;
+}
+
+.problembody p {
+  text-align: justify;
+}
+
+td {
+  vertical-align:top;
+}
+
+table, table td {
+   border: 0;
+}
+
+table.tabular p {
+    margin: 0;
+}
+
+table.sample {
+    width: 100%;
+}
+
+table.sample th {
+    text-align: left;
+    width: 50%;    
+}
+
+table.sample td {
+    border: 1px solid black;
+}
+
+div.sampleinteractionread {
+    border: 1px solid black;
+    width: 60%;
+    float: left;
+    margin: 3px 0px 3px 0px;
+}
+
+.sampleinteractionread pre {
+    margin: 1px 5px 1px 5px;
+}
+
+div.sampleinteractionwrite {
+    border: 1px solid black;
+    width: 60%;
+    float: right;
+    margin: 3px 0px 3px 0px;
+}
+
+.sampleinteractionwrite pre {
+    margin: 1px 5px 1px 5px;
+}

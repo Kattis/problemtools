@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="%(language)s">
+<head>
+<meta http-equiv="content-type" charset="UTF-8">
+<title>%(title)s</title>
+
+<link rel="stylesheet" href="problem.css" />
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  tex2jax: { 
+    ignoreClass: ".*",
+    inlineMath: [['$','$']]
+	},
+  MMLorHTML: {
+    prefer: {Firefox: "HTML"}
+    }
+});
+</script>
+<script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+
+</head>
+<body>
+
+<div class="problemheader">
+   <h1>%(title)s</h1>
+   <h3>Problem ID: %(problemid)s</h3>
+</div>
+<div class="problembody">
+    %(statement_html)s
+</div>
+
+</body>
+</html>

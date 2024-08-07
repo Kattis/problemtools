@@ -6,65 +6,50 @@ import string
 import argparse
 import logging
 import subprocess
+from typing import Optional
 
-from . import template
+from . import tex2html
+from . import md2html
+
+SUPPORTED_EXTENSIONS = ("tex", "md")
+
+def _find_statement(problem: str, extension: str, language: Optional[str]) -> Optional[str]:
+    """Finds the "best" statement for given language and extension"""
+    if language is None:
+        statement_path = os.path.join(problem, f"problem_statement/problem.en.{extension}")
+        if os.path.isfile(statement_path):
+            return statement_path
+        statement_path = os.path.join(problem, f"problem_statement/problem.{extension}")
+        if os.path.isfile(statement_path):
+            return statement_path
+        return None
+    statement_path = os.path.join(problem, f"problem_statement/problem.{language}.{extension}")
+    if os.path.isfile(statement_path):
+        return statement_path
+    return None
+
+
+def _find_statement_extension(problem: str, language: Optional[str]) -> str:
+    """Given a language, find whether the extension is tex or md"""
+    extensions = []
+    for ext in SUPPORTED_EXTENSIONS:
+        if _find_statement(problem, ext, language) is not None:
+            extensions.append(ext)
+    # At most one extension per language to avoid arbitrary/hidden priorities
+    if len(extensions) > 1:
+        raise Exception(f"""Found more than one type of statement ({' and '.join(extensions)})
+                        for language {language or 'en'}""")
+    if len(extensions) == 1:
+        return extensions[0]
+    raise Exception(f"No statement found for language {language or 'en'}")
+
 
 def convert(options: argparse.Namespace) -> None:
-    # PlasTeX.Logging statically overwrites logging and formatting, so delay loading
-    import plasTeX.TeX
-    import plasTeX.Logging
-    from .ProblemPlasTeX import ProblemRenderer
-    from .ProblemPlasTeX import ProblemsetMacros
-
     problem = os.path.realpath(options.problem)
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
-    imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problembase)
-
-    if options.quiet:
-        plasTeX.Logging.disableLogging()
-    else:
-        plasTeX.Logging.getLogger().setLevel(getattr(logging, options.loglevel.upper()))
-        plasTeX.Logging.getLogger('status').setLevel(getattr(logging, options.loglevel.upper()))
-
-    texfile = problem
-    # Set up template if necessary
-    with template.Template(problem, language=options.language) as templ:
-        texfile = open(templ.get_file_name(), 'r')
-
-        origcwd = os.getcwd()
-
-        # Setup parser and renderer etc
-
-        # plasTeX version 3 changed the name of this argument (and guarding against this
-        # by checking plasTeX.__version__ fails on plastex v3.0 which failed to update
-        # __version__)
-        try:
-            tex = plasTeX.TeX.TeX(myfile=texfile)
-        except Exception:
-            tex = plasTeX.TeX.TeX(file=texfile)
-
-        ProblemsetMacros.init(tex)
-
-        tex.ownerDocument.config['general']['copy-theme-extras'] = options.css
-        if not options.headers:
-            tex.ownerDocument.userdata['noheaders'] = True
-        tex.ownerDocument.config['files']['filename'] = destfile
-        tex.ownerDocument.config['images']['filenames'] = 'img-$num(4)'
-        tex.ownerDocument.config['images']['enabled'] = False
-        tex.ownerDocument.config['images']['imager'] = 'none'
-        tex.ownerDocument.config['images']['base-url'] = imgbasedir
-        # tell plasTeX where to search for problemtools' built-in packages
-        tex.ownerDocument.config['general']['packages-dirs'] = [os.path.join(os.path.dirname(__file__), 'ProblemPlasTeX')]
-
-        renderer = ProblemRenderer()
-
-        if not options.quiet:
-            print('Parsing TeX source...')
-        doc = tex.parse()
-        texfile.close()
 
     # Go to destdir
     if destdir:
@@ -75,12 +60,13 @@ def convert(options: argparse.Namespace) -> None:
     try:
         if not options.quiet:
             print('Rendering!')
-        renderer.render(doc)
 
-        # Annoying: I have not figured out any way of stopping the plasTeX
-        # renderer from generating a .paux file
-        if os.path.isfile('.paux'):
-            os.remove('.paux')
+        origcwd = os.getcwd()
+
+        if _find_statement_extension(problem, options.language) == "tex":
+            tex2html.convert(problem, options)
+        else:
+            md2html.convert(problem, options)
 
         if options.tidy:
             with open(os.devnull, 'w') as devnull:

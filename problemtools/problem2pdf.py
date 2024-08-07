@@ -8,10 +8,14 @@ import subprocess
 from . import template
 
 
-def convert(options: argparse.Namespace) -> bool:
+def convert(options: argparse.Namespace, ignore_markdown: bool = False) -> bool:
     problem = os.path.realpath(options.problem)
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+
+    # We skip PDF check when verifying problems with markdown statements
+    if os.path.isfile(os.path.join(problem, "problem_statement", "problem.%s.md" % options.language)) and ignore_markdown:
+        return True
 
     # Set up template if necessary
     with template.Template(problem, language=options.language) as templ:
