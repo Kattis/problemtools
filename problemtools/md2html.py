@@ -118,7 +118,7 @@ def convert(problem: str, options: argparse.Namespace) -> None:
 
     with open(statement_path, "r", encoding="utf-8") as input_file:
         text = input_file.read()
-        statement_html = markdown.markdown(text, extensions=[InlineMathExtension(), "tables"])
+        statement_html = markdown.markdown(text, extensions=[MathExtension(), "tables"])
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown'),
@@ -156,7 +156,18 @@ class InlineMathProcessor(InlineProcessor):
         el.text = "$" + m.group(1) + "$"
         return el, m.start(0), m.end(0)
 
-class InlineMathExtension(Extension):
+class DisplayMathProcessor(InlineProcessor):
+    def handleMatch(self, m, data):
+        el = etree.Element('div')
+        el.attrib['class'] = 'tex2jax_process'
+        el.text = "$$" + m.group(1) + "$$"
+        return el, m.start(0), m.end(0)
+
+class MathExtension(Extension):
     def extendMarkdown(self, md):
-        MATH_PATTERN = r'\$(.*?)\$'  # like $1 + 2$
-        md.inlinePatterns.register(InlineMathProcessor(MATH_PATTERN, md), 'inline-math', 200)
+        # Regex magic so that both $ $ and $$ $$ can coexist
+        INLINE_MATH_PATTERN = r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)'  # $1 + 2$
+        DISPLAY_MATH_PATTERN = r'\$\$(.+?)\$\$'  # $$E = mc^2$$
+
+        md.inlinePatterns.register(DisplayMathProcessor(DISPLAY_MATH_PATTERN, md), 'display-math', 200)
+        md.inlinePatterns.register(InlineMathProcessor(INLINE_MATH_PATTERN, md), 'inline-math', 201)

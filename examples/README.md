@@ -28,5 +28,6 @@ different scores depending on which test groups they solve. It also demonstrates
 
 # bplusa
 
-This is an example of a problem using an output validator, showcasing different things to keep in mind
-when using output validator. It also demonstrates using Markdown as a statement language.
+This is an example of a problem using an output validator, where there are multiple valid answers.
+The output validator is written pretty generally, guarding against the most common mistakes when using
+output validators. It also demonstrates using Markdown as a statement language.
