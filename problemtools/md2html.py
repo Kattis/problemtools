@@ -168,7 +168,7 @@ class DisplayMathProcessor(InlineProcessor):
 # Add the display+inline math
 class MathExtension(Extension):
     def extendMarkdown(self, md):
-        # Regex magic so that both $ $ and $$ $$ can coexist
+        # Regex magic so that both $ $ and $$ $$ can coexist. Written by a wizard (ChatGPT)
         INLINE_MATH_PATTERN = r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)'  # $1 + 2$
         DISPLAY_MATH_PATTERN = r'\$\$(.+?)\$\$'  # $$E = mc^2$$
 
@@ -181,7 +181,7 @@ class AddClassTreeprocessor(Treeprocessor):
     def run(self, root):
         for table in root.findall(".//table"):
             if 'class' not in table.attrib:
-                table.set('class', 'markdown-table')  # Replace 'my-custom-class' with your desired class name
+                table.set('class', 'markdown-table')
 
 class AddClassExtension(Extension):
     def extendMarkdown(self, md):
