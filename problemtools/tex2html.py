@@ -58,7 +58,7 @@ def convert(problem: str, options: argparse.Namespace) -> None:
         doc = tex.parse()
         texfile.close()
 
-    
+
     renderer.render(doc)
 
     # Annoying: I have not figured out any way of stopping the plasTeX

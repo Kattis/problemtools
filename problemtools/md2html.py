@@ -6,18 +6,67 @@ import string
 import argparse
 from typing import Optional
 
+import xml.etree.ElementTree as etree
 import markdown
 from markdown.treeprocessors import Treeprocessor
 from markdown.inlinepatterns import InlineProcessor
 from markdown.extensions import Extension
-import xml.etree.ElementTree as etree
 
 from . import verifyproblem
 from . import problem2html
 
+
+def convert(problem: str, options: argparse.Namespace) -> None:
+    """Convert a Markdown statement to HTML
+    
+    Args:
+        problem: path to problem directory
+        options: command-line arguments. See problem2html.py
+    """
+    problembase = os.path.splitext(os.path.basename(problem))[0]
+    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+
+    statement_path = problem2html._find_statement(problem, extension="md", language=options.language)
+
+    if statement_path is None:
+        raise Exception('No markdown statement found')
+
+    with open(statement_path, "r", encoding="utf-8") as input_file:
+        text = input_file.read()
+        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(), "tables"])
+
+    templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
+                     os.path.join(os.path.dirname(__file__), '../templates/markdown'),
+                     '/usr/lib/problemtools/templates/markdown']
+    templatepath = next((p for p in templatepaths
+                              if os.path.isdir(p) and os.path.isfile(os.path.join(p, "default-layout.html"))),
+                             None)
+
+    if templatepath is None:
+        raise Exception('Could not find directory with markdown templates')
+
+    problem_name = _get_problem_name(problem)
+
+    html_template = _substitute_template(templatepath, "default-layout.html",
+           statement_html=statement_html,
+           language=options.language,
+           title=problem_name or "Missing problem name",
+           problemid=problembase)
+
+    html_template += _samples_to_html(problem)
+
+    with open(destfile, "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
+        output_file.write(html_template)
+
+    if options.css:
+        with open("problem.css", "w") as output_file:
+            with open(os.path.join(templatepath, "problem.css"), "r") as input_file:
+                output_file.write(input_file.read())
+
+
 def _substitute_template(templatepath: str, templatefile: str, **params) -> str:
     """Read the markdown template and substitute in things such as problem name,
-    statement etc using python's format syntax.     
+    statement etc using python's format syntax.
     """
     with open(os.path.join(templatepath, templatefile), "r", encoding="utf-8") as template_file:
         html_template = template_file.read() % params
@@ -35,7 +84,7 @@ def _get_problem_name(problem: str, language: str = "en") -> Optional[str]:
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
         return next(iter(names.values()))
-    
+
     if language not in names:
         raise Exception(f"No problem name defined for language {language}")
     return names[language]
@@ -50,13 +99,13 @@ def _samples_to_html(problem: str) -> str:
     casenum = 1
     for sample in sorted(os.listdir(sample_path)):
         if sample.endswith(".interaction"):
-            lines = ["""<table class="sample" summary="sample data">
+            lines = [f"""<table class="sample" summary="sample data">
                        <tr>
                           <th style="text-align:left; width:33%;">Read</th>
-                          <th style="text-align:center; width:33%;">Sample Interaction {}</th>
+                          <th style="text-align:center; width:33%;">Sample Interaction {casenum}</th>
                           <th style="text-align:right; width:33%;">Write</th>
                        </tr>
-                    </table>""".format(casenum)]
+                    </table>"""]
             with open(os.path.join(sample_path, sample), "r", encoding="utf-8") as infile:
                 sample_interaction = infile.readlines()
             for interaction in sample_interaction:
@@ -84,7 +133,7 @@ def _samples_to_html(problem: str) -> str:
         with open(outpath, "r", encoding="utf-8") as outfile:
             sample_output = outfile.read()
 
-        samples.append(f"""
+        samples.append("""
             <tr>
                 <th>Sample Input %(case)d</th>
                 <th>Sample Output %(case)d</th>
@@ -92,62 +141,22 @@ def _samples_to_html(problem: str) -> str:
             <tr>
             <td><pre>%(input)s</pre></td>
             <td><pre>%(output)s</pre></td>
-            </tr>""" % ({"case": casenum, "input": html.escape(sample_input), "output": html.escape(sample_output)}))
+            </tr>"""
+            % ({"case": casenum, "input": html.escape(sample_input), "output": html.escape(sample_output)}))
         casenum += 1
 
     if interactive_samples:
         samples_html += ''.join(interactive_samples)
     if samples:
-        samples_html += """
+        samples_html += f"""
         <table class="sample" summary="sample data">
           <tbody>
-          %(samples)s
+          {''.join(samples)}
           </tbody>
         </table>
-        """ % {"samples": ''.join(samples)}
+        """
     return samples_html
 
-
-def convert(problem: str, options: argparse.Namespace) -> None:
-    problembase = os.path.splitext(os.path.basename(problem))[0]
-    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
-
-    statement_path = problem2html._find_statement(problem, extension="md", language=options.language)
-
-    if statement_path is None:
-        raise Exception('No markdown statement found')
-
-    with open(statement_path, "r", encoding="utf-8") as input_file:
-        text = input_file.read()
-        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(), "tables"])
-
-    templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
-                     os.path.join(os.path.dirname(__file__), '../templates/markdown'),
-                     '/usr/lib/problemtools/templates/markdown']
-    templatepath = next((p for p in templatepaths
-                              if os.path.isdir(p) and os.path.isfile(os.path.join(p, "default-layout.html"))),
-                             None)
-
-    if templatepath is None:
-        raise Exception('Could not find directory with markdown templates')
-
-    problem_name = _get_problem_name(problem)    
-
-    html_template = _substitute_template(templatepath, "default-layout.html",
-           statement_html=statement_html,
-           language=options.language,
-           title=problem_name or "Missing problem name",
-           problemid=problembase)
-
-    html_template += _samples_to_html(problem)
-
-    with open(destfile, "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
-        output_file.write(html_template)
-
-    if options.css:
-        with open("problem.css", "w") as output_file:
-            with open(os.path.join(templatepath, "problem.css"), "r") as input_file:
-                output_file.write(input_file.read())
 
 # Parse inline math $a+b$
 class InlineMathProcessor(InlineProcessor):
@@ -157,6 +166,7 @@ class InlineMathProcessor(InlineProcessor):
         el.text = "$" + m.group(1) + "$"
         return el, m.start(0), m.end(0)
 
+
 # Parse display math $$a+b$$
 class DisplayMathProcessor(InlineProcessor):
     def handleMatch(self, m, data):
@@ -165,15 +175,17 @@ class DisplayMathProcessor(InlineProcessor):
         el.text = "$$" + m.group(1) + "$$"
         return el, m.start(0), m.end(0)
 
+
 # Add the display+inline math
 class MathExtension(Extension):
     def extendMarkdown(self, md):
         # Regex magic so that both $ $ and $$ $$ can coexist. Written by a wizard (ChatGPT)
-        INLINE_MATH_PATTERN = r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)'  # $1 + 2$
-        DISPLAY_MATH_PATTERN = r'\$\$(.+?)\$\$'  # $$E = mc^2$$
+        inline_math_pattern = r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)'  # $1 + 2$
+        display_math_pattern = r'\$\$(.+?)\$\$'  # $$E = mc^2$$
 
-        md.inlinePatterns.register(DisplayMathProcessor(DISPLAY_MATH_PATTERN, md), 'display-math', 200)
-        md.inlinePatterns.register(InlineMathProcessor(INLINE_MATH_PATTERN, md), 'inline-math', 201)
+        md.inlinePatterns.register(DisplayMathProcessor(display_math_pattern, md), 'display-math', 200)
+        md.inlinePatterns.register(InlineMathProcessor(inline_math_pattern, md), 'inline-math', 201)
+
 
 # Add class markdown-table to all tables for easier styling
 # (Otherwise, we will end up styling sample tables)
@@ -182,6 +194,7 @@ class AddClassTreeprocessor(Treeprocessor):
         for table in root.findall(".//table"):
             if 'class' not in table.attrib:
                 table.set('class', 'markdown-table')
+
 
 class AddClassExtension(Extension):
     def extendMarkdown(self, md):
