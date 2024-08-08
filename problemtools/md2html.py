@@ -7,6 +7,7 @@ import argparse
 from typing import Optional
 
 import markdown
+from markdown.treeprocessors import Treeprocessor
 from markdown.inlinepatterns import InlineProcessor
 from markdown.extensions import Extension
 import xml.etree.ElementTree as etree
@@ -118,7 +119,7 @@ def convert(problem: str, options: argparse.Namespace) -> None:
 
     with open(statement_path, "r", encoding="utf-8") as input_file:
         text = input_file.read()
-        statement_html = markdown.markdown(text, extensions=[MathExtension(), "tables"])
+        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(), "tables"])
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown'),
@@ -148,7 +149,7 @@ def convert(problem: str, options: argparse.Namespace) -> None:
             with open(os.path.join(templatepath, "problem.css"), "r") as input_file:
                 output_file.write(input_file.read())
 
-
+# Parse inline math $a+b$
 class InlineMathProcessor(InlineProcessor):
     def handleMatch(self, m, data):
         el = etree.Element('span')
@@ -156,6 +157,7 @@ class InlineMathProcessor(InlineProcessor):
         el.text = "$" + m.group(1) + "$"
         return el, m.start(0), m.end(0)
 
+# Parse display math $$a+b$$
 class DisplayMathProcessor(InlineProcessor):
     def handleMatch(self, m, data):
         el = etree.Element('div')
@@ -163,6 +165,7 @@ class DisplayMathProcessor(InlineProcessor):
         el.text = "$$" + m.group(1) + "$$"
         return el, m.start(0), m.end(0)
 
+# Add the display+inline math
 class MathExtension(Extension):
     def extendMarkdown(self, md):
         # Regex magic so that both $ $ and $$ $$ can coexist
@@ -171,3 +174,15 @@ class MathExtension(Extension):
 
         md.inlinePatterns.register(DisplayMathProcessor(DISPLAY_MATH_PATTERN, md), 'display-math', 200)
         md.inlinePatterns.register(InlineMathProcessor(INLINE_MATH_PATTERN, md), 'inline-math', 201)
+
+# Add class markdown-table to all tables for easier styling
+# (Otherwise, we will end up styling sample tables)
+class AddClassTreeprocessor(Treeprocessor):
+    def run(self, root):
+        for table in root.findall(".//table"):
+            if 'class' not in table.attrib:
+                table.set('class', 'markdown-table')  # Replace 'my-custom-class' with your desired class name
+
+class AddClassExtension(Extension):
+    def extendMarkdown(self, md):
+        md.treeprocessors.register(AddClassTreeprocessor(md), 'add_class', 15)
