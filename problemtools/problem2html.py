@@ -12,7 +12,7 @@ from . import md2html
 
 SUPPORTED_EXTENSIONS = ("tex", "md")
 
-def _find_statement(problem: str, extension: str, language: Optional[str]) -> Optional[str]:
+def find_statement(problem: str, extension: str, language: Optional[str]) -> Optional[str]:
     """Finds the "best" statement for given language and extension"""
     if language is None:
         statement_path = os.path.join(problem, f"problem_statement/problem.en.{extension}")
@@ -32,7 +32,7 @@ def _find_statement_extension(problem: str, language: Optional[str]) -> str:
     """Given a language, find whether the extension is tex or md"""
     extensions = []
     for ext in SUPPORTED_EXTENSIONS:
-        if _find_statement(problem, ext, language) is not None:
+        if find_statement(problem, ext, language) is not None:
             extensions.append(ext)
     # At most one extension per language to avoid arbitrary/hidden priorities
     if len(extensions) > 1:

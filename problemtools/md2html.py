@@ -27,20 +27,19 @@ def convert(problem: str, options: argparse.Namespace) -> None:
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
-    statement_path = problem2html._find_statement(problem, extension="md", language=options.language)
+    statement_path = problem2html.find_statement(problem, extension="md", language=options.language)
 
     if statement_path is None:
         raise Exception('No markdown statement found')
 
-    seen_images = set()
-    call_handle = lambda src: _handle_image(os.path.join(problem, "problem_statement", src), seen_images)
+    # The extension will only call _handle_image with the image name. We also need the path
+    # to the statement folder. We capture that with this lambda
+    call_handle = lambda src: _copy_image(os.path.join(problem, "problem_statement", src))
     with open(statement_path, "r", encoding="utf-8") as input_file:
         text = input_file.read()
         statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(),
                                                              FixImageLinksExtension(call_handle),
                                                              'footnotes', "tables"])
-
-
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown'),
@@ -71,12 +70,20 @@ def convert(problem: str, options: argparse.Namespace) -> None:
                 output_file.write(input_file.read())
 
 
-def _handle_image(src, seen_images):
-    if src in seen_images:
-        return
+def _copy_image(src: str) -> None:
+    """This is called for every image in the statement
+    Copies the image to the output directory from the statement
+
+    Args:
+        src: full file path to the image
+    """
+
     if not os.path.isfile(src):
         raise Exception(f"Could not find image {src} in problem_statement folder")
     file_name = os.path.basename(src)
+    # No point in copying it twice
+    if os.path.isfile(file_name):
+        return
     with open(src, "rb") as img:
         with open(file_name, "wb") as out:
             out.write(img.read())
@@ -226,11 +233,11 @@ class FixImageLinks(Treeprocessor):
     If your image name is image.jpg, we consider the following to be reasonable
     ![Alt](image.jpg)
     <img src="image.jpg">
-    
+
     Implementation details: python-markdown seems to put both of these inside
     html nodes' text, not as their own nodes. Therefore, we do a dfs and
     use regex to extract them.
-    
+
     """
     def __init__(self, md, callback):
         super().__init__(md)
@@ -240,24 +247,24 @@ class FixImageLinks(Treeprocessor):
         """Find all images in a string and call the callback on each"""
         if not text:
             return
-        
+
         # Find html-style images
         html_img_pattern = re.compile(r'<img\s+([^>]*?)>', re.IGNORECASE)
 
         html_src_pattern = re.compile(r'src\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
         for match in html_img_pattern.finditer(text):
             img_attrs = match.group(1)
-            
+
             src_match = html_src_pattern.search(img_attrs)
             if src_match:
                 src_value = src_match.group(1)
                 self.callback(src_value)
-        
+
         # Find markdown-style images
         markdown_pattern = re.compile(r'!\[(.*?)\]\((.*?)\s*(?:"(.*?)")?\)')
 
         for match in markdown_pattern.finditer(text):
-            alt_text, src, title = match.groups()
+            _, src, __ = match.groups()
             self.callback(src)
 
     def dfs(self, element):
