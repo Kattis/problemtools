@@ -4,6 +4,7 @@ import html
 import os.path
 import string
 import argparse
+import re
 from typing import Optional
 
 import xml.etree.ElementTree as etree
@@ -31,9 +32,14 @@ def convert(problem: str, options: argparse.Namespace) -> None:
     if statement_path is None:
         raise Exception('No markdown statement found')
 
+    seen_images = set()
+    call_handle = lambda src: _handle_image(os.path.join(problem, "problem_statement", src), seen_images)
     with open(statement_path, "r", encoding="utf-8") as input_file:
         text = input_file.read()
-        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(), "tables"])
+        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(), "tables",
+                                                             FixImageLinksExtension(call_handle)])
+
+
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown'),
@@ -62,6 +68,17 @@ def convert(problem: str, options: argparse.Namespace) -> None:
         with open("problem.css", "w") as output_file:
             with open(os.path.join(templatepath, "problem.css"), "r") as input_file:
                 output_file.write(input_file.read())
+
+
+def _handle_image(src, seen_images):
+    if src in seen_images:
+        return
+    if not os.path.isfile(src):
+        raise Exception(f"Could not find image {src} in problem_statement folder")
+    file_name = os.path.basename(src)
+    with open(src, "rb") as img:
+        with open(file_name, "wb") as out:
+            out.write(img.read())
 
 
 def _substitute_template(templatepath: str, templatefile: str, **params) -> str:
@@ -158,8 +175,8 @@ def _samples_to_html(problem: str) -> str:
     return samples_html
 
 
-# Parse inline math $a+b$
 class InlineMathProcessor(InlineProcessor):
+    """Tell mathjax to process all $a+b$"""
     def handleMatch(self, m, data):
         el = etree.Element('span')
         el.attrib['class'] = 'tex2jax_process'
@@ -167,8 +184,8 @@ class InlineMathProcessor(InlineProcessor):
         return el, m.start(0), m.end(0)
 
 
-# Parse display math $$a+b$$
 class DisplayMathProcessor(InlineProcessor):
+    """Tell mathjax to process all $$a+b$$"""
     def handleMatch(self, m, data):
         el = etree.Element('div')
         el.attrib['class'] = 'tex2jax_process'
@@ -176,8 +193,8 @@ class DisplayMathProcessor(InlineProcessor):
         return el, m.start(0), m.end(0)
 
 
-# Add the display+inline math
 class MathExtension(Extension):
+    """Add $a+b$ and $$a+b$$"""
     def extendMarkdown(self, md):
         # Regex magic so that both $ $ and $$ $$ can coexist. Written by a wizard (ChatGPT)
         inline_math_pattern = r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)'  # $1 + 2$
@@ -187,9 +204,10 @@ class MathExtension(Extension):
         md.inlinePatterns.register(InlineMathProcessor(inline_math_pattern, md), 'inline-math', 201)
 
 
-# Add class markdown-table to all tables for easier styling
-# (Otherwise, we will end up styling sample tables)
 class AddClassTreeprocessor(Treeprocessor):
+    """Add class "markdown-table" to all tables.
+    Makes it easier to only style user-generated, and not sample tables
+    """
     def run(self, root):
         for table in root.findall(".//table"):
             if 'class' not in table.attrib:
@@ -197,5 +215,64 @@ class AddClassTreeprocessor(Treeprocessor):
 
 
 class AddClassExtension(Extension):
+    """Just add AddClassTreeprocessor extension"""
     def extendMarkdown(self, md):
         md.treeprocessors.register(AddClassTreeprocessor(md), 'add_class', 15)
+
+
+class FixImageLinks(Treeprocessor):
+    """Find all reasonable images and run a callback with their image source
+    If your image name is image.jpg, we consider the following to be reasonable
+    ![Alt](image.jpg)
+    <img src="image.jpg">
+    
+    Implementation details: python-markdown seems to put both of these inside
+    html nodes' text, not as their own nodes. Therefore, we do a dfs and
+    use regex to extract them.
+    
+    """
+    def __init__(self, md, callback):
+        super().__init__(md)
+        self.callback = callback
+
+    def find_images(self, text: str) -> None:
+        """Find all images in a string and call the callback on each"""
+        if not text:
+            return
+        
+        # Find html-style images
+        html_img_pattern = re.compile(r'<img\s+([^>]*?)>', re.IGNORECASE)
+
+        html_src_pattern = re.compile(r'src\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
+        for match in html_img_pattern.finditer(text):
+            img_attrs = match.group(1)
+            
+            src_match = html_src_pattern.search(img_attrs)
+            if src_match:
+                src_value = src_match.group(1)
+                self.callback(src_value)
+        
+        # Find markdown-style images
+        markdown_pattern = re.compile(r'!\[(.*?)\]\((.*?)\s*(?:"(.*?)")?\)')
+
+        for match in markdown_pattern.finditer(text):
+            alt_text, src, title = match.groups()
+            self.callback(src)
+
+    def dfs(self, element):
+        """Visit every html node and find any images contained in it"""
+        self.find_images(element.text)
+        for child in element:
+            self.dfs(child)
+
+    def run(self, root):
+        self.dfs(root)
+
+class FixImageLinksExtension(Extension):
+    """Add FixImageLinks extension"""
+    def __init__(self, callback):
+        super().__init__()
+        self.callback = callback
+
+    def extendMarkdown(self, md):
+        md.treeprocessors.register(FixImageLinks(md, self.callback), 'find_images', 200)
