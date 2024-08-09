@@ -10,7 +10,7 @@ Alternatively,
 Du älskar att skrika i grottor för att höra dina ord ekade tillbaka till dig. Tyvärr, som en hårt arbetande mjukvaruingenjör, har du
 inte tid för att komma ut och skrika i grottor så ofta. Istället skulle du vilja implementera ett program som fungerar som en ersättning för en grotta.
 
-Ibland vill du mata in några ord i programmet och få dem ekade tillbaka till dig. Men, som det är välkänt, om du skriker för snabbt i en grotta kan ekot störa de nya ord du säger. Mer specifikt, vartannat ord du säger kommer att störa ekot av ditt tidigare ord. Därför kommer endast det första, tredje, femte och så vidare ordet faktiskt att producera ett eko.
+Ibland vill du mata in några ord i programmet och få dem ekade tillbaka till dig. Men, som det är välkänt, om du skriker för snabbt i en grotta kan ekot störa de nya ord du säger. [^1] Mer specifikt, vartannat ord du säger kommer att störa ekot av ditt tidigare ord. Därför kommer endast det första, tredje, femte och så vidare ordet faktiskt att producera ett eko.
 
 Din uppgift är att skriva ett program som simulerar detta beteende.
 
@@ -35,3 +35,4 @@ För att få poäng för en grupp så måste du klara alla testfall i gruppen.
 | 1     | 1     | $N$ är alltid $5$        |
 | 2     | 1     | Inga ytterligare begränsningar |
 
+[^1]: [https://sv.wikipedia.org/wiki/Interferens_(v%C3%A5gr%C3%B6relse)](https://sv.wikipedia.org/wiki/Interferens_(v%C3%A5gr%C3%B6relse))

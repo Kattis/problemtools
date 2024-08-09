@@ -36,8 +36,9 @@ def convert(problem: str, options: argparse.Namespace) -> None:
     call_handle = lambda src: _handle_image(os.path.join(problem, "problem_statement", src), seen_images)
     with open(statement_path, "r", encoding="utf-8") as input_file:
         text = input_file.read()
-        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(), "tables",
-                                                             FixImageLinksExtension(call_handle)])
+        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(),
+                                                             FixImageLinksExtension(call_handle),
+                                                             'footnotes', "tables"])
 
 
 
