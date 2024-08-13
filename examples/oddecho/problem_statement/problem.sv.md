@@ -1,10 +1,9 @@
 **ECHO! Echo! Ech...**
 
-
-<img src="echo_cave.webp" alt="A cave" style="width:30%">
-<!---
-Alternatively,
-![A cave](echo_cave.webp)
+![](echo_cave.jpg)
+<!--
+Alternatively, if you want more control:
+<img src="echo_cave.jpg" style="width=40%">
 -->
 
 Du älskar att skrika i grottor för att höra dina ord ekade tillbaka till dig. Tyvärr, som en hårt arbetande mjukvaruingenjör, har du
@@ -35,4 +34,4 @@ För att få poäng för en grupp så måste du klara alla testfall i gruppen.
 | 1     | 1     | $N$ är alltid $5$        |
 | 2     | 1     | Inga ytterligare begränsningar |
 
-[^1]: [https://sv.wikipedia.org/wiki/Interferens_(v%C3%A5gr%C3%B6relse)](https://sv.wikipedia.org/wiki/Interferens_(v%C3%A5gr%C3%B6relse))
+[^1]: [https://sv.wikipedia.org/wiki/Interferens](https://sv.wikipedia.org/wiki/Interferens)

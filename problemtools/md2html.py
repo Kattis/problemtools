@@ -5,17 +5,14 @@ import os.path
 import string
 import argparse
 import re
+import json
 from typing import Optional
-
-import xml.etree.ElementTree as etree
-import markdown
-from markdown.treeprocessors import Treeprocessor
-from markdown.inlinepatterns import InlineProcessor
-from markdown.extensions import Extension
 
 from . import verifyproblem
 from . import problem2html
 
+
+FOOTNOTES_STRING = '<section class="footnotes" role="doc-endnotes">'
 
 def convert(problem: str, options: argparse.Namespace) -> None:
     """Convert a Markdown statement to HTML
@@ -32,14 +29,13 @@ def convert(problem: str, options: argparse.Namespace) -> None:
     if statement_path is None:
         raise Exception('No markdown statement found')
 
-    # The extension will only call _handle_image with the image name. We also need the path
-    # to the statement folder. We capture that with this lambda
-    call_handle = lambda src: _copy_image(os.path.join(problem, "problem_statement", src))
-    with open(statement_path, "r", encoding="utf-8") as input_file:
-        text = input_file.read()
-        statement_html = markdown.markdown(text, extensions=[MathExtension(), AddClassExtension(),
-                                                             FixImageLinksExtension(call_handle),
-                                                             'footnotes', "tables"])
+    if not os.path.isfile(statement_path):
+        raise Exception(f"Error! {statement_path} is not a file")
+
+
+    _copy_images(statement_path,
+                 lambda img_name: handle_image(os.path.join(problem, "problem_statement", img_name)))
+    statement_html = os.popen(f"pandoc {statement_path} -t html").read()
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown'),
@@ -59,7 +55,10 @@ def convert(problem: str, options: argparse.Namespace) -> None:
            title=problem_name or "Missing problem name",
            problemid=problembase)
 
-    html_template += _samples_to_html(problem)
+    samples = _samples_to_html(problem)
+
+    html_template = inject_samples(html_template, samples)
+    html_template = replace_hr_in_footnotes(html_template)
 
     with open(destfile, "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
         output_file.write(html_template)
@@ -70,23 +69,69 @@ def convert(problem: str, options: argparse.Namespace) -> None:
                 output_file.write(input_file.read())
 
 
-def _copy_image(src: str) -> None:
+def handle_image(src: str) -> None:
     """This is called for every image in the statement
-    Copies the image to the output directory from the statement
+    Copies the image from the statement to the output directory 
 
     Args:
         src: full file path to the image
     """
+    file_name = os.path.basename(src)
 
     if not os.path.isfile(src):
-        raise Exception(f"Could not find image {src} in problem_statement folder")
-    file_name = os.path.basename(src)
-    # No point in copying it twice
+        raise Exception(f"File {file_name} not found in problem_statement")
     if os.path.isfile(file_name):
         return
     with open(src, "rb") as img:
         with open(file_name, "wb") as out:
             out.write(img.read())
+
+
+def json_dfs(data, callback) -> None:
+    if isinstance(data, dict):
+        for key, value in data.items():
+            # Markdown-style images
+            if key == 't' and value == 'Image':
+                callback(data['c'][2][0])
+            else:
+                json_dfs(value, callback)
+
+            # HTML-style images
+            if key == "t" and value == "RawInline":
+                image_string = data["c"][1]
+                src = re.search(r'src=["\'](.*?)["\']', image_string)
+                if src:
+                    callback(src.group(1))
+    
+    elif isinstance(data, list):
+        for item in data:
+            json_dfs(item, callback)
+
+
+def _copy_images(statement_path, callback):
+    statement_json = os.popen(f"pandoc {statement_path} -t json").read()
+    json_dfs(json.loads(statement_json), callback)
+
+
+def inject_samples(html, samples):
+    if FOOTNOTES_STRING in html:
+        pos = html.find(FOOTNOTES_STRING)
+    else:
+        pos = html.find("</body>")
+    html = html[:pos] + samples + html[pos:]
+    return html
+
+
+def replace_hr_in_footnotes(html_content):
+    if not FOOTNOTES_STRING in html_content:
+        return html_content
+    footnotes = html_content.find(FOOTNOTES_STRING)
+    hr_pos = html_content.find("<hr />", footnotes)
+    return html_content[:hr_pos] + """
+<p>
+    <b>Footnotes</b>
+</p>
+""" + html_content[6 + hr_pos:]
 
 
 def _substitute_template(templatepath: str, templatefile: str, **params) -> str:
@@ -182,105 +227,3 @@ def _samples_to_html(problem: str) -> str:
         """
     return samples_html
 
-
-class InlineMathProcessor(InlineProcessor):
-    """Tell mathjax to process all $a+b$"""
-    def handleMatch(self, m, data):
-        el = etree.Element('span')
-        el.attrib['class'] = 'tex2jax_process'
-        el.text = "$" + m.group(1) + "$"
-        return el, m.start(0), m.end(0)
-
-
-class DisplayMathProcessor(InlineProcessor):
-    """Tell mathjax to process all $$a+b$$"""
-    def handleMatch(self, m, data):
-        el = etree.Element('div')
-        el.attrib['class'] = 'tex2jax_process'
-        el.text = "$$" + m.group(1) + "$$"
-        return el, m.start(0), m.end(0)
-
-
-class MathExtension(Extension):
-    """Add $a+b$ and $$a+b$$"""
-    def extendMarkdown(self, md):
-        # Regex magic so that both $ $ and $$ $$ can coexist. Written by a wizard (ChatGPT)
-        inline_math_pattern = r'(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)'  # $1 + 2$
-        display_math_pattern = r'\$\$(.+?)\$\$'  # $$E = mc^2$$
-
-        md.inlinePatterns.register(DisplayMathProcessor(display_math_pattern, md), 'display-math', 200)
-        md.inlinePatterns.register(InlineMathProcessor(inline_math_pattern, md), 'inline-math', 201)
-
-
-class AddClassTreeprocessor(Treeprocessor):
-    """Add class "markdown-table" to all tables.
-    Makes it easier to only style user-generated, and not sample tables
-    """
-    def run(self, root):
-        for table in root.findall(".//table"):
-            if 'class' not in table.attrib:
-                table.set('class', 'markdown-table')
-
-
-class AddClassExtension(Extension):
-    """Just add AddClassTreeprocessor extension"""
-    def extendMarkdown(self, md):
-        md.treeprocessors.register(AddClassTreeprocessor(md), 'add_class', 15)
-
-
-class FixImageLinks(Treeprocessor):
-    """Find all reasonable images and run a callback with their image source
-    If your image name is image.jpg, we consider the following to be reasonable
-    ![Alt](image.jpg)
-    <img src="image.jpg">
-
-    Implementation details: python-markdown seems to put both of these inside
-    html nodes' text, not as their own nodes. Therefore, we do a dfs and
-    use regex to extract them.
-
-    """
-    def __init__(self, md, callback):
-        super().__init__(md)
-        self.callback = callback
-
-    def find_images(self, text: str) -> None:
-        """Find all images in a string and call the callback on each"""
-        if not text:
-            return
-
-        # Find html-style images
-        html_img_pattern = re.compile(r'<img\s+([^>]*?)>', re.IGNORECASE)
-
-        html_src_pattern = re.compile(r'src\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
-        for match in html_img_pattern.finditer(text):
-            img_attrs = match.group(1)
-
-            src_match = html_src_pattern.search(img_attrs)
-            if src_match:
-                src_value = src_match.group(1)
-                self.callback(src_value)
-
-        # Find markdown-style images
-        markdown_pattern = re.compile(r'!\[(.*?)\]\((.*?)\s*(?:"(.*?)")?\)')
-
-        for match in markdown_pattern.finditer(text):
-            _, src, __ = match.groups()
-            self.callback(src)
-
-    def dfs(self, element):
-        """Visit every html node and find any images contained in it"""
-        self.find_images(element.text)
-        for child in element:
-            self.dfs(child)
-
-    def run(self, root):
-        self.dfs(root)
-
-class FixImageLinksExtension(Extension):
-    """Add FixImageLinks extension"""
-    def __init__(self, callback):
-        super().__init__()
-        self.callback = callback
-
-    def extendMarkdown(self, md):
-        md.treeprocessors.register(FixImageLinks(md, self.callback), 'find_images', 200)
