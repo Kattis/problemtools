@@ -13,31 +13,31 @@
     font-family: Arial, Helvetica, sans-serif;
 }
 
-table {
+/*Style all tables except sample*/
+table:not(.sample) {
     border-collapse: collapse;
-    width: 100%;
 }
 
-table th, table td {
-    border: 1px solid black;
-    padding: 8px;
+table:not(.sample) td, table:not(.sample) th {
+    border-top-style: solid;
+    border-top-color: black;
+    border-top-width: 1px;
     text-align: left;
+    border-right: 1px solid black;
+    border-left: 1px solid black;
+    border-bottom: 1px solid black;
 }
 
-table th {
-    background-color: #f2f2f2;
+table:not(.sample) td {
+    margin: 0px;
 }
 
+/*Style sample in its own way*/
 .sample {
     font-family: Arial, Helvetica, sans-serif;
 }
 
-.sample td {
-    font-size: 13px;
-}
-
 .sample {
-    border-collapse: separate;
     width: 100%;
 }
 
