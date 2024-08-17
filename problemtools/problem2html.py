@@ -5,43 +5,10 @@ import os.path
 import string
 import argparse
 import subprocess
-from typing import Optional
 
 from . import tex2html
 from . import md2html
-
-SUPPORTED_EXTENSIONS = ("tex", "md")
-
-def find_statement(problem: str, extension: str, language: Optional[str]) -> Optional[str]:
-    """Finds the "best" statement for given language and extension"""
-    if language is None:
-        statement_path = os.path.join(problem, f"problem_statement/problem.en.{extension}")
-        if os.path.isfile(statement_path):
-            return statement_path
-        statement_path = os.path.join(problem, f"problem_statement/problem.{extension}")
-        if os.path.isfile(statement_path):
-            return statement_path
-        return None
-    statement_path = os.path.join(problem, f"problem_statement/problem.{language}.{extension}")
-    if os.path.isfile(statement_path):
-        return statement_path
-    return None
-
-
-def _find_statement_extension(problem: str, language: Optional[str]) -> str:
-    """Given a language, find whether the extension is tex or md"""
-    extensions = []
-    for ext in SUPPORTED_EXTENSIONS:
-        if find_statement(problem, ext, language) is not None:
-            extensions.append(ext)
-    # At most one extension per language to avoid arbitrary/hidden priorities
-    if len(extensions) > 1:
-        raise Exception(f"""Found more than one type of statement ({' and '.join(extensions)})
-                        for language {language or 'en'}""")
-    if len(extensions) == 1:
-        return extensions[0]
-    raise Exception(f"No statement found for language {language or 'en'}")
-
+from . import statement_common
 
 def convert(options: argparse.Namespace) -> None:
     problem = os.path.realpath(options.problem)
@@ -62,7 +29,7 @@ def convert(options: argparse.Namespace) -> None:
 
         origcwd = os.getcwd()
 
-        if _find_statement_extension(problem, options.language) == "tex":
+        if statement_common.find_statement_extension(problem, options.language) == "tex":
             tex2html.convert(problem, options)
         else:
             md2html.convert(problem, options)

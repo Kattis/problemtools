@@ -5,47 +5,70 @@ import shutil
 import string
 import argparse
 import subprocess
+import tempfile
+
 from . import template
+from . import statement_common
 
-
-def convert(options: argparse.Namespace, ignore_markdown: bool = False) -> bool:
-    problem = os.path.realpath(options.problem)
-    problembase = os.path.splitext(os.path.basename(problem))[0]
+def convert(options: argparse.Namespace) -> bool:
+    problem_root = os.path.realpath(options.problem)
+    problembase = os.path.splitext(os.path.basename(problem_root))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
-    # We skip PDF check when verifying problems with markdown statements
-    if os.path.isfile(os.path.join(problem, "problem_statement", "problem.%s.md" % options.language)) and ignore_markdown:
-        return True
+    if statement_common.find_statement_extension(problem_root, language=options.language) == "md":
+        statement_path = statement_common.find_statement(problem_root, extension="md", language=options.language)
 
-    # Set up template if necessary
-    with template.Template(problem, language=options.language) as templ:
-        texfile = templ.get_file_name()
+        if not os.path.isfile(statement_path):
+            raise Exception(f"Error! {statement_path} is not a file")
+        
+        statement_dir = os.path.join(problem_root, "problem_statement")
+        with open(statement_path, "r") as f:
+            statement_md = f.read()
+        
+        # Hacky: html samples -> md. Then we append to the markdown document
+        samples = statement_common._samples_to_html(problem_root)
+        with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
+            temp_file.write(samples)
+            temp_file.flush()
+            samples_md = os.popen(f"pandoc {temp_file.name} -t markdown").read()
 
-        origcwd = os.getcwd()
+        statement_md += samples_md
+        with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
+            temp_file.write(statement_md)
+            temp_file.flush()
+            # Do .read so that the file isn't deleted until pandoc is done
+            os.popen(f"pandoc {temp_file.name} -o {problembase}.pdf --resource-path={statement_dir}").read()
 
-        os.chdir(os.path.dirname(texfile))
-        params = ['pdflatex', '-interaction=nonstopmode']
-        output = None
-        if options.quiet:
-            output = open(os.devnull, 'w')
-        if options.nopdf:
-            params.append('-draftmode')
+    else:
+        # Set up template if necessary
+        with template.Template(problem_root, language=options.language) as templ:
+            texfile = templ.get_file_name()
 
-        params.append(texfile)
+            origcwd = os.getcwd()
 
-        status = subprocess.call(params, stdout=output)
-        if status == 0:
+            os.chdir(os.path.dirname(texfile))
+            params = ['pdflatex', '-interaction=nonstopmode']
+            output = None
+            if options.quiet:
+                output = open(os.devnull, 'w')
+            if options.nopdf:
+                params.append('-draftmode')
+
+            params.append(texfile)
+
             status = subprocess.call(params, stdout=output)
+            if status == 0:
+                status = subprocess.call(params, stdout=output)
 
-        if output is not None:
-            output.close()
+            if output is not None:
+                output.close()
 
-        os.chdir(origcwd)
+            os.chdir(origcwd)
 
-        if status == 0 and not options.nopdf:
-            shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
+            if status == 0 and not options.nopdf:
+                shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
-    return status == 0
+        return status == 0
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

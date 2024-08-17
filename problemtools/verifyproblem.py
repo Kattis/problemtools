@@ -28,6 +28,7 @@ import yaml
 
 from . import problem2pdf
 from . import problem2html
+from . import statement_common
 
 from . import config
 from . import languages
@@ -1119,7 +1120,7 @@ class ProblemStatement(ProblemAspect):
         self._problem = problem
         self.languages = []
         glob_path = os.path.join(problem.probdir, 'problem_statement', 'problem.')
-        for extension in problem2html.SUPPORTED_EXTENSIONS:
+        for extension in statement_common.SUPPORTED_EXTENSIONS:
             if glob.glob(glob_path + extension):
                 self.languages.append('')
             for f in glob.glob(glob_path + '[a-z][a-z].%s' % extension):
@@ -1145,7 +1146,7 @@ class ProblemStatement(ProblemAspect):
                 options.language = lang
                 options.nopdf = True
                 options.quiet = True
-                if not problem2pdf.convert(options, ignore_markdown=True):
+                if not problem2pdf.convert(options):
                     langparam = f' --language {lang}' if lang != '' else ''
                     self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')
             except Exception as e:
@@ -1167,7 +1168,7 @@ class ProblemStatement(ProblemAspect):
 
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {}
-        for extension in problem2html.SUPPORTED_EXTENSIONS:
+        for extension in statement_common.SUPPORTED_EXTENSIONS:
             for lang in self.languages:
                 filename = f'problem.{lang}.{extension}' if lang != '' else 'problem.{extension}'
                 if not os.path.isfile(filename):
