@@ -54,7 +54,7 @@ def convert(problem: str, options: argparse.Namespace) -> None:
            title=problem_name or "Missing problem name",
            problemid=problembase)
 
-    samples = statement_common.samples_to_html(problem)
+    samples = "".join(statement_common.samples_to_html(problem))
 
     html_template = inject_samples(html_template, samples)
     html_template = replace_hr_in_footnotes(html_template)

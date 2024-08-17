@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, List
 import html
 
 from . import verifyproblem
@@ -61,11 +61,17 @@ def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
     return names[language]
 
 
-def _samples_to_html(problem: str) -> str:
-    """Read all samples from the problem directory and convert them to HTML"""
-    samples_html = ""
-    sample_path = os.path.join(problem, "data", "sample")
-    interactive_samples = []
+def samples_to_html(problem_root: str) -> List[str]:
+    """Read all samples from the problem directory and convert them to HTML
+    
+    Args:
+        problem_root: path to root of problem
+
+    Returns:
+        List[str]: All samples, converted to html. Ordered lexicographically by file names
+    """
+    
+    sample_path = os.path.join(problem_root, "data", "sample")
     samples = []
     casenum = 1
     for sample in sorted(os.listdir(sample_path)):
@@ -90,7 +96,7 @@ def _samples_to_html(problem: str) -> str:
                     print(f"Warning: Interaction had unknown prefix {interaction[0]}")
                 lines.append(f"""<div class="{line_type}"><pre>{data}</pre></div>""")
 
-            interactive_samples.append(''.join(lines))
+            samples.append(''.join(lines))
             casenum += 1
             continue
         if not sample.endswith(".in"):
@@ -105,26 +111,20 @@ def _samples_to_html(problem: str) -> str:
             sample_output = outfile.read()
 
         samples.append("""
-            <tr>
-                <th>Sample Input %(case)d</th>
-                <th>Sample Output %(case)d</th>
-            </tr>
-            <tr>
-            <td><pre>%(input)s</pre></td>
-            <td><pre>%(output)s</pre></td>
-            </tr>"""
+            <table class="sample" summary="sample data">
+            <tbody>
+                <tr>
+                    <th>Sample Input %(case)d</th>
+                    <th>Sample Output %(case)d</th>
+                </tr>
+                <tr>
+                    <td><pre>%(input)s</pre></td>
+                    <td><pre>%(output)s</pre></td>
+                </tr>
+            </tbody>
+            </table>"""
             % ({"case": casenum, "input": html.escape(sample_input), "output": html.escape(sample_output)}))
         casenum += 1
 
-    if interactive_samples:
-        samples_html += ''.join(interactive_samples)
-    if samples:
-        samples_html += f"""
-        <table class="sample" summary="sample data">
-          <tbody>
-          {''.join(samples)}
-          </tbody>
-        </table>
-        """
-    return samples_html
+    return samples
 

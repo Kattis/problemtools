@@ -21,23 +21,39 @@ def convert(options: argparse.Namespace) -> bool:
         if not os.path.isfile(statement_path):
             raise Exception(f"Error! {statement_path} is not a file")
         
+        templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_pdf'),
+                     os.path.join(os.path.dirname(__file__), '../templates/markdown_pdf'),
+                     '/usr/lib/problemtools/templates/markdown_pdf']
+        templatepath = next((p for p in templatepaths
+                              if os.path.isdir(p) and os.path.isfile(os.path.join(p, "fix_tables.md"))),
+                             None)
+        table_fix_path = os.path.join(templatepath, "fix_tables.md")
+        if not os.path.isfile(table_fix_path):
+            raise Exception("Could not find markdown pdf template")
+        
+        with open(table_fix_path, "r") as f:
+            table_fix = f.read()
+
         statement_dir = os.path.join(problem_root, "problem_statement")
         with open(statement_path, "r") as f:
             statement_md = f.read()
         
+        statement_md = table_fix + statement_md
+
         # Hacky: html samples -> md. Then we append to the markdown document
-        samples = statement_common._samples_to_html(problem_root)
+        samples = "".join(statement_common.samples_to_html(problem_root))
         with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
             temp_file.write(samples)
             temp_file.flush()
-            samples_md = os.popen(f"pandoc {temp_file.name} -t markdown").read()
-
+            samples_md = os.popen(f"pandoc {temp_file.name} -t latex").read()
         statement_md += samples_md
+
+        #statement_md += samples_md
         with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
             temp_file.write(statement_md)
             temp_file.flush()
             # Do .read so that the file isn't deleted until pandoc is done
-            os.popen(f"pandoc {temp_file.name} -o {problembase}.pdf --resource-path={statement_dir}").read()
+            os.popen(f"pandoc --verbose {temp_file.name} -o {problembase}.pdf --resource-path={statement_dir}").read()
 
     else:
         # Set up template if necessary
