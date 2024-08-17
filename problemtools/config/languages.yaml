@@ -98,14 +98,14 @@ c:
     name: 'C'
     priority: 950
     files: '*.c'
-    compile: '/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm'
+    compile: '/usr/bin/gcc -g -O2 -std=gnu23 -static -o {binary} {files} -lm'
     run: '{binary}'
 
 cpp:
     name: 'C++'
     priority: 1000
     files: '*.cc *.C *.cpp *.cxx *.c++'
-    compile: '/usr/bin/g++ -g -O2 -std=gnu++17 -static -o {binary} {files}'
+    compile: '/usr/bin/g++ -g -O2 -std=gnu++23 -static -o {binary} {files}'
     run: '{binary}'
 
 csharp:
