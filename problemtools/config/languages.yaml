@@ -98,7 +98,7 @@ c:
     name: 'C'
     priority: 950
     files: '*.c'
-    compile: '/usr/bin/gcc -g -O2 -std=gnu23 -static -o {binary} {files} -lm'
+    compile: '/usr/bin/gcc -g -O2 -std=gnu17 -static -o {binary} {files} -lm'
     run: '{binary}'
 
 cpp:
