@@ -36,9 +36,9 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     statement_html = subprocess.run(command, capture_output=True, text=True,
                                     shell=False, check=True).stdout
 
-    templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
-                     os.path.join(os.path.dirname(__file__), '../templates/markdown'),
-                     '/usr/lib/problemtools/templates/markdown']
+    templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
+                     os.path.join(os.path.dirname(__file__), '../templates/markdown_html'),
+                     '/usr/lib/problemtools/templates/markdown_html']
     templatepath = next((p for p in templatepaths
                               if os.path.isdir(p) and os.path.isfile(os.path.join(p, "default-layout.html"))),
                              None)

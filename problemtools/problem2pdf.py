@@ -48,7 +48,9 @@ def md2pdf(options: argparse.Namespace) -> bool:
 
     problem_name = statement_common.get_problem_name(problem_root, options.language)
 
+    problem_id = os.path.basename(problem_root)
     # Add code that adds vertical and horizontal lines to all tables
+    statement_md = r'\centerline{\large %s}' % f"Problem id: {problem_id}" + statement_md
     statement_md = r'\centerline{\huge %s}' % problem_name + statement_md
     statement_md = table_fix + statement_md
 

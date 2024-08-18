@@ -26,9 +26,3 @@ more than one language.
 This is an example of a *scoring* problem where submissions can get
 different scores depending on which test groups they solve. It also demonstrates how an input validator might check different constraints for different test groups. The swedish statement showcases how to use images, footnotes
 and tables in Markdown.
-
-# bplusa
-
-This is an example of a problem using an output validator, where there are multiple valid answers.
-The output validator is written pretty generally, guarding against the most common mistakes when using
-output validators. It also demonstrates using Markdown as a statement language.
