@@ -207,7 +207,7 @@ The dependencies needed to *build/install* problemtools can be installed with:
 
 And the dependencies needed to *run* problemtools can be installed with:
 
-    sudo apt install ghostscript libgmpxx4ldbl pandoc python3-minimal python-pkg-resources python3-plastex python3-markdown python3-yaml rsvg-convert texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy
+    sudo apt install ghostscript libgmpxx4ldbl pandoc python3-minimal python-pkg-resources python3-plastex python3-yaml rsvg-convert texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy
 
 ### Fedora
 
