@@ -4,6 +4,7 @@ license: cc by-sa
 validation: custom interactive
 name:
   sv: Gissa talet
+  en: Guess the Number
 
 # Override standard limits: say that the TLE solutions provided should
 # be at least 4 times above the time limit in order for us to be

@@ -1,5 +1,8 @@
 source: Kattis
 license: public domain
+name:
+    sv: Hej Världen!
+    en: Hello World!
 
 # Fix memory limit at 512 MB.  (Note that for most problems, this
 # should not be done.  It is only done in this case because we include
