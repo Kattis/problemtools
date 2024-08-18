@@ -1,5 +1,7 @@
 ---
 header-includes:
+    - '\usepackage{float}'
+    - '\usepackage{booktabs}'
     - '\usepackage{xstring}'
     - '\setlength{\aboverulesep}{0pt}'
     - '\setlength{\belowrulesep}{0pt}'

@@ -38,22 +38,20 @@ def convert(options: argparse.Namespace) -> bool:
         with open(statement_path, "r") as f:
             statement_md = f.read()
         
+        # Add code that adds vertical and horizontal lines to all tables
         statement_md = table_fix + statement_md
 
         # Hacky: html samples -> md. Then we append to the markdown document
-        samples = "".join(statement_common.samples_to_html(problem_root))
-        with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
-            temp_file.write(samples)
-            temp_file.flush()
-            samples_md = os.popen(f"pandoc {temp_file.name} -t latex").read()
-        statement_md += samples_md
+        samples = "\n".join(statement_common.format_samples(problem_root, to_pdf=True))
 
-        #statement_md += samples_md
+        # If we don't add newline, the table might get attached to a footnote
+        statement_md += "\n" + samples
+
         with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
             temp_file.write(statement_md)
             temp_file.flush()
-            # Do .read so that the file isn't deleted until pandoc is done
-            os.popen(f"pandoc --verbose {temp_file.name} -o {problembase}.pdf --resource-path={statement_dir}").read()
+            # Do .read so that the temp file isn't deleted until pandoc is done
+            os.popen(f"pandoc {temp_file.name} -o {problembase}.pdf --resource-path={statement_dir}").read()
 
     else:
         # Set up template if necessary

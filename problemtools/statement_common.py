@@ -1,6 +1,7 @@
 import os
 from typing import Optional, List
 import html
+import tempfile
 
 from . import verifyproblem
 
@@ -49,8 +50,7 @@ def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
     with verifyproblem.Problem(problem) as prob:
         config = verifyproblem.ProblemConfig(prob)
     if not config.check(None):
-        print("Please add problem name to problem.yaml when using markdown")
-        return None
+        raise Exception(f"Invalid problem.yaml")
     names = config.get("name")
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
@@ -61,44 +61,78 @@ def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
     return names[language]
 
 
-def samples_to_html(problem_root: str) -> List[str]:
-    """Read all samples from the problem directory and convert them to HTML
+def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
+    """Read all samples from the problem directory and convert them to pandoc-valid markdown
     
     Args:
         problem_root: path to root of problem
+        to_pdf: whether the outputted samples should be valid for for html or pdf
 
     Returns:
-        List[str]: All samples, converted to html. Ordered lexicographically by file names
+        List[str]: All samples, converted to a format appropriate to be pasted into
+        a markdown file. Ordered lexicographically by file names
     """
     
     sample_path = os.path.join(problem_root, "data", "sample")
+    if not os.path.isdir(sample_path):
+        print("WARNING!! no sample folder")
+        return []
     samples = []
     casenum = 1
     for sample in sorted(os.listdir(sample_path)):
         if sample.endswith(".interaction"):
-            lines = [f"""<table class="sample" summary="sample data">
+            if to_pdf:
+                line = r"""\begin{tabular}{p{0.3\textwidth} p{0.5\textwidth} p{0.0\textwidth}}
+\textbf{Read} & \textbf{Sample Interaction %i} & \textbf{Write} \\
+\end{tabular}""" % casenum
+            else:
+                line = f"""
+                    <table class="sample" summary="sample data">
                        <tr>
                           <th style="text-align:left; width:33%;">Read</th>
                           <th style="text-align:center; width:33%;">Sample Interaction {casenum}</th>
                           <th style="text-align:right; width:33%;">Write</th>
                        </tr>
-                    </table>"""]
+                    </table>"""
+            
             with open(os.path.join(sample_path, sample), "r", encoding="utf-8") as infile:
                 sample_interaction = infile.readlines()
+            lines = []
             for interaction in sample_interaction:
                 data = interaction[1:]
-                line_type = ""
-                if interaction[0] == '>':
-                    line_type = "sampleinteractionwrite"
-                elif interaction[0] == '<':
-                    line_type = "sampleinteractionread"
+                if to_pdf:
+                    if interaction[0] == '>':
+                        left = True
+                    elif interaction[0] == '<':
+                        left = False
+                    else:
+                        print(f"Warning: Interaction had unknown prefix {interaction[0]}")
+                    lines.append(r"""
+                                 \begin{table}[H]
+                                    %(justify)s\begin{tabular}{|p{0.6\textwidth}|}
+                                        \hline
+                                        %(text)s \\
+                                        \hline
+                                    \end{tabular}
+                                \end{table}""" % {"justify": "" if left else "\\hspace*{\\fill}\n",
+                                                  "text": data})
                 else:
-                    print(f"Warning: Interaction had unknown prefix {interaction[0]}")
-                lines.append(f"""<div class="{line_type}"><pre>{data}</pre></div>""")
+                    line_type = ""
+                    if interaction[0] == '>':
+                        line_type = "sampleinteractionwrite"
+                    elif interaction[0] == '<':
+                        line_type = "sampleinteractionread"
+                    else:
+                        print(f"Warning: Interaction had unknown prefix {interaction[0]}")
+                    lines.append(f"""<div class="{line_type}"><pre>{data}</pre></div>""")
 
-            samples.append(''.join(lines))
+            if to_pdf:
+                samples.append(line + '\\vspace{-15pt}'.join(lines))
+            else:
+                samples.append(line + ''.join(lines))
             casenum += 1
             continue
+
         if not sample.endswith(".in"):
             continue
         sample_name = sample[:-3]
@@ -124,6 +158,14 @@ def samples_to_html(problem_root: str) -> List[str]:
             </tbody>
             </table>"""
             % ({"case": casenum, "input": html.escape(sample_input), "output": html.escape(sample_output)}))
+        
+        if to_pdf:
+            # If pdf, convert to markdown
+            with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
+                temp_file.write(samples[-1])
+                temp_file.flush()
+                samples[-1] = os.popen(f"pandoc {temp_file.name} -t markdown").read()
+
         casenum += 1
 
     return samples
