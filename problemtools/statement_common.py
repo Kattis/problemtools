@@ -26,7 +26,7 @@ def find_statement(problem_root: str, extension: str, language: Optional[str]) -
 
 def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
     """Given a language, find whether the extension is tex or md
-    
+
     Args:
         problem_root: path to problem root
     """
@@ -51,7 +51,7 @@ def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
     with verifyproblem.Problem(problem) as prob:
         config = verifyproblem.ProblemConfig(prob)
     if not config.check(None):
-        raise Exception(f"Invalid problem.yaml")
+        raise Exception("Invalid problem.yaml")
     names = config.get("name")
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
@@ -64,7 +64,7 @@ def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
 
 def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
     """Read all samples from the problem directory and convert them to pandoc-valid markdown
-    
+
     Args:
         problem_root: path to root of problem
         to_pdf: whether the outputted samples should be valid for for html or pdf
@@ -73,7 +73,7 @@ def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
         List[str]: All samples, converted to a format appropriate to be pasted into
         a markdown file. Ordered lexicographically by file names
     """
-    
+
     sample_path = os.path.join(problem_root, "data", "sample")
     if not os.path.isdir(sample_path):
         print("WARNING!! no sample folder")
@@ -95,7 +95,7 @@ def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
                           <th style="text-align:right; width:33%;">Write</th>
                        </tr>
                     </table>"""
-            
+
             with open(os.path.join(sample_path, sample), "r", encoding="utf-8") as infile:
                 sample_interaction = infile.readlines()
             lines = []
@@ -159,16 +159,16 @@ def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
             </tbody>
             </table>"""
             % ({"case": casenum, "input": html.escape(sample_input), "output": html.escape(sample_output)}))
-        
+
         if to_pdf:
             # If pdf, convert to markdown
             with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
                 temp_file.write(samples[-1])
                 temp_file.flush()
                 command = ["pandoc", temp_file.name, "-t" , "markdown"]
-                samples[-1] = subprocess.run(command, capture_output=True, text=True, shell=False).stdout
+                samples[-1] = subprocess.run(command, capture_output=True, text=True,
+                                             shell=False, check=True).stdout
 
         casenum += 1
 
     return samples
-

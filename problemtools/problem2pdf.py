@@ -20,7 +20,7 @@ def convert(options: argparse.Namespace) -> bool:
 
         if not os.path.isfile(statement_path):
             raise Exception(f"Error! {statement_path} is not a file")
-        
+
         templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_pdf'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown_pdf'),
                      '/usr/lib/problemtools/templates/markdown_pdf']
@@ -30,20 +30,20 @@ def convert(options: argparse.Namespace) -> bool:
         table_fix_path = os.path.join(templatepath, "fix_tables.md")
         if not os.path.isfile(table_fix_path):
             raise Exception("Could not find markdown pdf template")
-        
-        with open(table_fix_path, "r") as f:
-            table_fix = f.read()
+
+        with open(table_fix_path, "r") as file:
+            table_fix = file.read()
 
         statement_dir = os.path.join(problem_root, "problem_statement")
-        with open(statement_path, "r") as f:
-            statement_md = f.read()
-        
+        with open(statement_path, "r") as file:
+            statement_md = file.read()
+
         problem_name = statement_common.get_problem_name(problem_root, options.language)
 
         # Add code that adds vertical and horizontal lines to all tables
         statement_md = r'\centerline{\huge %s}' % problem_name + statement_md
         statement_md = table_fix + statement_md
-        
+
         # Hacky: html samples -> md. Then we append to the markdown document
         samples = "\n".join(statement_common.format_samples(problem_root, to_pdf=True))
 
@@ -54,7 +54,7 @@ def convert(options: argparse.Namespace) -> bool:
             temp_file.write(statement_md)
             temp_file.flush()
             command = ["pandoc", temp_file.name, "-o", f"{problembase}.pdf", f"--resource-path={statement_dir}"]
-            subprocess.run(command, capture_output=True, text=True, shell=False)
+            return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
 
     else:
         # Set up template if necessary

@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-import html
 import os.path
 import string
 import argparse
@@ -12,9 +11,9 @@ from . import statement_common
 
 FOOTNOTES_STRING = '<section class="footnotes" role="doc-endnotes">'
 
-def convert(problem: str, options: argparse.Namespace) -> None:
+def convert(problem: str, options: argparse.Namespace) -> bool:
     """Convert a Markdown statement to HTML
-    
+
     Args:
         problem: path to problem directory
         options: command-line arguments. See problem2html.py
@@ -34,7 +33,8 @@ def convert(problem: str, options: argparse.Namespace) -> None:
     _copy_images(statement_path,
                  lambda img_name: handle_image(os.path.join(problem, "problem_statement", img_name)))
     command = ["pandoc", statement_path, "-t" , "html"]
-    statement_html = subprocess.run(command, capture_output=True, text=True, shell=False).stdout
+    statement_html = subprocess.run(command, capture_output=True, text=True,
+                                    shell=False, check=True).stdout
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown'),
@@ -66,11 +66,13 @@ def convert(problem: str, options: argparse.Namespace) -> None:
         with open("problem.css", "w") as output_file:
             with open(os.path.join(templatepath, "problem.css"), "r") as input_file:
                 output_file.write(input_file.read())
+    
+    return True
 
 
 def handle_image(src: str) -> None:
     """This is called for every image in the statement
-    Copies the image from the statement to the output directory 
+    Copies the image from the statement to the output directory
 
     Args:
         src: full file path to the image
@@ -103,7 +105,8 @@ def json_dfs(data, callback) -> None:
 
 def _copy_images(statement_path, callback):
     command = ["pandoc", statement_path, "-t" , "json"]
-    statement_json = subprocess.run(command, capture_output=True, text=True, shell=False).stdout
+    statement_json = subprocess.run(command, capture_output=True,
+                                    text=True, shell=False, check=True).stdout
     json_dfs(json.loads(statement_json), callback)
 
 
@@ -135,4 +138,3 @@ def _substitute_template(templatepath: str, templatefile: str, **params) -> str:
     with open(os.path.join(templatepath, templatefile), "r", encoding="utf-8") as template_file:
         html_template = template_file.read() % params
     return html_template
-
