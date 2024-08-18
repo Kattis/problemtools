@@ -105,7 +105,7 @@ cpp:
     name: 'C++'
     priority: 1000
     files: '*.cc *.C *.cpp *.cxx *.c++'
-    compile: '/usr/bin/g++ -g -O2 -std=gnu++23 -static -o {binary} {files}'
+    compile: '/usr/bin/g++ -g -O2 -std=gnu++23 -static -o {binary} {files} -lrt -Wl,--whole-archive  -lpthread -Wl,--no-whole-archive'
     run: '{binary}'
 
 csharp:
@@ -209,27 +209,27 @@ prolog:
 
 # Python2 with shebang comes before default python3.
 python2_with_shebang:
-    name: 'Python 2'
+    name: 'Python 2 (w/PyPy)'
     priority: 860
     files: '*.py *.py2'
     shebang: '^#!.*python2\b'
-    compile: '/usr/bin/python2 -m py_compile {files}'
-    run: '/usr/bin/python2 "{mainfile}"'
+    compile: '/usr/bin/pypy -m py_compile {files}'
+    run: '/usr/bin/pypy "{mainfile}"'
 
 python3:
-    name: 'Python 3'
+    name: 'Python 3 (w/PyPy3)'
     priority: 850
     files: '*.py *.py3'
-    compile: '/usr/bin/python3 -m py_compile {files}'
-    run: '/usr/bin/python3 "{mainfile}"'
+    compile: '/usr/bin/pypy3 -m py_compile {files}'
+    run: '/usr/bin/pypy3 "{mainfile}"'
 
 # Python2 without shebang comes after python3.
 python2:
-    name: 'Python 2'
+    name: 'Python 2 (w/PyPy)'
     priority: 840
     files: '*.py2'
-    compile: '/usr/bin/python2 -m py_compile {files}'
-    run: '/usr/bin/python2 "{mainfile}"'
+    compile: '/usr/bin/pypy -m py_compile {files}'
+    run: '/usr/bin/pypy "{mainfile}"'
 
 ruby:
     name: 'Ruby'
