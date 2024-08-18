@@ -14,11 +14,12 @@ RUN apt-get update && \
             libgmp10 \
             libgmpxx4ldbl \
             openjdk-8-jdk \
+            pandoc \
             python3-minimal \
             python3-pip \
             python3-plastex \
-            python3-markdown \
             python3-yaml \
+            rsvg-convert \
             sudo \
             texlive-fonts-recommended \
             texlive-lang-cyrillic \

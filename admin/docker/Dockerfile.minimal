@@ -20,11 +20,12 @@ RUN apt update && \
     apt install -y \
         ghostscript \
         libgmpxx4ldbl \
+        pandoc \
         python-pkg-resources \
         python3-minimal \
         python3-yaml \
         python3-plastex \
-        python3-markdown \
+        rsvg-convert \
         texlive-fonts-recommended \
         texlive-lang-cyrillic \
         texlive-latex-extra \
