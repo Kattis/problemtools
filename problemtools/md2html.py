@@ -4,9 +4,8 @@ import html
 import os.path
 import string
 import argparse
-import re
 import json
-from typing import Optional
+import subprocess
 
 from . import statement_common
 
@@ -34,7 +33,8 @@ def convert(problem: str, options: argparse.Namespace) -> None:
 
     _copy_images(statement_path,
                  lambda img_name: handle_image(os.path.join(problem, "problem_statement", img_name)))
-    statement_html = os.popen(f"pandoc {statement_path} -t html").read()
+    command = ["pandoc", statement_path, "-t" , "html"]
+    statement_html = subprocess.run(command, capture_output=True, text=True, shell=False).stdout
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown'),
@@ -102,7 +102,8 @@ def json_dfs(data, callback) -> None:
 
 
 def _copy_images(statement_path, callback):
-    statement_json = os.popen(f"pandoc {statement_path} -t json").read()
+    command = ["pandoc", statement_path, "-t" , "json"]
+    statement_json = subprocess.run(command, capture_output=True, text=True, shell=False).stdout
     json_dfs(json.loads(statement_json), callback)
 
 

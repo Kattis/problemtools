@@ -53,8 +53,8 @@ def convert(options: argparse.Namespace) -> bool:
         with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
             temp_file.write(statement_md)
             temp_file.flush()
-            # Do .read so that the temp file isn't deleted until pandoc is done
-            os.popen(f"pandoc {temp_file.name} -o {problembase}.pdf --resource-path={statement_dir}").read()
+            command = ["pandoc", temp_file.name, "-o", f"{problembase}.pdf", f"--resource-path={statement_dir}"]
+            subprocess.run(command, capture_output=True, text=True, shell=False)
 
     else:
         # Set up template if necessary

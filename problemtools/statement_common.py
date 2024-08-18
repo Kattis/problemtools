@@ -2,6 +2,7 @@ import os
 from typing import Optional, List
 import html
 import tempfile
+import subprocess
 
 from . import verifyproblem
 
@@ -164,7 +165,8 @@ def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
             with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
                 temp_file.write(samples[-1])
                 temp_file.flush()
-                samples[-1] = os.popen(f"pandoc {temp_file.name} -t markdown").read()
+                command = ["pandoc", temp_file.name, "-t" , "markdown"]
+                samples[-1] = subprocess.run(command, capture_output=True, text=True, shell=False).stdout
 
         casenum += 1
 
