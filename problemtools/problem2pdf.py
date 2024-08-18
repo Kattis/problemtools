@@ -12,80 +12,93 @@ from . import statement_common
 
 def convert(options: argparse.Namespace) -> bool:
     problem_root = os.path.realpath(options.problem)
+
+    if statement_common.find_statement_extension(problem_root, language=options.language) == "md":
+        return md2pdf(options)
+    else:
+        return latex2pdf(options)
+
+
+def md2pdf(options: argparse.Namespace) -> bool:
+    problem_root = os.path.realpath(options.problem)
     problembase = os.path.splitext(os.path.basename(problem_root))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
-    if statement_common.find_statement_extension(problem_root, language=options.language) == "md":
-        statement_path = statement_common.find_statement(problem_root, extension="md", language=options.language)
+    statement_path = statement_common.find_statement(problem_root, extension="md", language=options.language)
 
-        if not os.path.isfile(statement_path):
-            raise Exception(f"Error! {statement_path} is not a file")
+    if not os.path.isfile(statement_path):
+        raise Exception(f"Error! {statement_path} is not a file")
 
-        templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_pdf'),
-                     os.path.join(os.path.dirname(__file__), '../templates/markdown_pdf'),
-                     '/usr/lib/problemtools/templates/markdown_pdf']
-        templatepath = next((p for p in templatepaths
-                              if os.path.isdir(p) and os.path.isfile(os.path.join(p, "fix_tables.md"))),
-                             None)
-        table_fix_path = os.path.join(templatepath, "fix_tables.md")
-        if not os.path.isfile(table_fix_path):
-            raise Exception("Could not find markdown pdf template")
+    templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_pdf'),
+                    os.path.join(os.path.dirname(__file__), '../templates/markdown_pdf'),
+                    '/usr/lib/problemtools/templates/markdown_pdf']
+    templatepath = next((p for p in templatepaths
+                            if os.path.isdir(p) and os.path.isfile(os.path.join(p, "fix_tables.md"))),
+                            None)
+    table_fix_path = os.path.join(templatepath, "fix_tables.md")
+    if not os.path.isfile(table_fix_path):
+        raise Exception("Could not find markdown pdf template")
 
-        with open(table_fix_path, "r") as file:
-            table_fix = file.read()
+    with open(table_fix_path, "r") as file:
+        table_fix = file.read()
 
-        statement_dir = os.path.join(problem_root, "problem_statement")
-        with open(statement_path, "r") as file:
-            statement_md = file.read()
+    statement_dir = os.path.join(problem_root, "problem_statement")
+    with open(statement_path, "r") as file:
+        statement_md = file.read()
 
-        problem_name = statement_common.get_problem_name(problem_root, options.language)
+    problem_name = statement_common.get_problem_name(problem_root, options.language)
 
-        # Add code that adds vertical and horizontal lines to all tables
-        statement_md = r'\centerline{\huge %s}' % problem_name + statement_md
-        statement_md = table_fix + statement_md
+    # Add code that adds vertical and horizontal lines to all tables
+    statement_md = r'\centerline{\huge %s}' % problem_name + statement_md
+    statement_md = table_fix + statement_md
 
-        # Hacky: html samples -> md. Then we append to the markdown document
-        samples = "\n".join(statement_common.format_samples(problem_root, to_pdf=True))
+    samples = "\n".join(statement_common.format_samples(problem_root, to_pdf=True))
 
-        # If we don't add newline, the table might get attached to a footnote
-        statement_md += "\n" + samples
+    # If we don't add newline, the topmost table might get attached to a footnote
+    statement_md += "\n" + samples
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
-            temp_file.write(statement_md)
-            temp_file.flush()
-            command = ["pandoc", temp_file.name, "-o", f"{problembase}.pdf", f"--resource-path={statement_dir}"]
-            return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
+    with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
+        temp_file.write(statement_md)
+        temp_file.flush()
+        command = ["pandoc", temp_file.name, "-o", destfile, f"--resource-path={statement_dir}"]
+        return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
 
-    else:
-        # Set up template if necessary
-        with template.Template(problem_root, language=options.language) as templ:
-            texfile = templ.get_file_name()
 
-            origcwd = os.getcwd()
+def latex2pdf(options: argparse.Namespace) -> bool:
+    problem_root = os.path.realpath(options.problem)
+    problembase = os.path.splitext(os.path.basename(problem_root))[0]
+    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
-            os.chdir(os.path.dirname(texfile))
-            params = ['pdflatex', '-interaction=nonstopmode']
-            output = None
-            if options.quiet:
-                output = open(os.devnull, 'w')
-            if options.nopdf:
-                params.append('-draftmode')
+    # Set up template if necessary
+    with template.Template(problem_root, language=options.language) as templ:
+        texfile = templ.get_file_name()
 
-            params.append(texfile)
+        origcwd = os.getcwd()
 
+        os.chdir(os.path.dirname(texfile))
+        params = ['pdflatex', '-interaction=nonstopmode']
+        output = None
+        if options.quiet:
+            output = open(os.devnull, 'w')
+        if options.nopdf:
+            params.append('-draftmode')
+
+        params.append(texfile)
+
+        status = subprocess.call(params, stdout=output)
+        if status == 0:
             status = subprocess.call(params, stdout=output)
-            if status == 0:
-                status = subprocess.call(params, stdout=output)
 
-            if output is not None:
-                output.close()
+        if output is not None:
+            output.close()
 
-            os.chdir(origcwd)
+        os.chdir(origcwd)
 
-            if status == 0 and not options.nopdf:
-                shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
+        if status == 0 and not options.nopdf:
+            shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
-        return status == 0
+    return status == 0
+
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)

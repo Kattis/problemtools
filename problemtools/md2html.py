@@ -66,7 +66,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
         with open("problem.css", "w") as output_file:
             with open(os.path.join(templatepath, "problem.css"), "r") as input_file:
                 output_file.write(input_file.read())
-    
+
     return True
 
 
