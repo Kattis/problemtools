@@ -38,9 +38,12 @@ def convert(options: argparse.Namespace) -> bool:
         with open(statement_path, "r") as f:
             statement_md = f.read()
         
-        # Add code that adds vertical and horizontal lines to all tables
-        statement_md = table_fix + statement_md
+        problem_name = statement_common.get_problem_name(problem_root, options.language)
 
+        # Add code that adds vertical and horizontal lines to all tables
+        statement_md = r'\centerline{\huge %s}' % problem_name + statement_md
+        statement_md = table_fix + statement_md
+        
         # Hacky: html samples -> md. Then we append to the markdown document
         samples = "\n".join(statement_common.format_samples(problem_root, to_pdf=True))
 

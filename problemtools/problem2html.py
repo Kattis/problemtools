@@ -13,6 +13,9 @@ from . import statement_common
 def convert(options: argparse.Namespace) -> None:
     problem = os.path.realpath(options.problem)
 
+    if not os.path.isdir(problem):
+        raise Exception(f"Problem does not exist: {problem}")
+
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
