@@ -293,7 +293,7 @@ class TestCase(ProblemAspect):
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
             status, runtime = sub.run(infile=self.infile, outfile=outfile, errfile=errfile,
                                       timelim=timelim_high+1,
-                                      memlim=self._problem.config.get('limits')['memory'], set_work_dir=True)
+                                      memlim=self._problem.config.get('limits')['memory'], work_dir=sub.path)
             if is_TLE(status) or runtime > timelim_high:
                 res_high = SubmissionResult('TLE')
             elif is_RTE(status):
@@ -1614,7 +1614,7 @@ class OutputValidators(ProblemAspect):
                 interactive_out = f.name
                 f.close()
                 i_status, _ = interactive.run(outfile=interactive_out,
-                                              args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args)
+                                              args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args, work_dir=submission.path)
                 if is_RTE(i_status):
                     errorhandler.error(f'Interactive crashed, status {i_status}')
                 else:
