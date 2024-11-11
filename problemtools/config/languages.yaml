@@ -245,8 +245,8 @@ rust:
     name: 'Rust'
     priority: 575
     files: '*.rs'
-    compile: '/usr/bin/rustc -o{binary} -O --crate-type bin --edition=2018 {files}'
-    run: '{binary}'
+    compile: '/usr/bin/rustc -C opt-level=3 -C target-cpu=native --crate-type bin --edition 2021 {mainfile} -o {mainfile}.out'
+    run: '{mainfile}.out'
 
 scala:
     name: 'Scala'
