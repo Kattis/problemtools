@@ -14,14 +14,13 @@ const int EXIT_WA = 43;
 std::ifstream judgein, judgeans;
 FILE *judgemessage = NULL;
 FILE *diffpos = NULL;
-int judgeans_pos, stdin_pos;
-int judgeans_line, stdin_line;
+int judgeans_pos = 0, stdin_pos = 0;
+int judgeans_line = 1, stdin_line = 1;
 
 void wrong_answer(const char *err, ...) {
 	va_list pvar;
 	va_start(pvar, err);
-	fprintf(judgemessage, "Wrong answer on line %d of output (corresponding to line %d in answer file)\n",
-			stdin_line, judgeans_line);
+	fprintf(judgemessage, "Wrong answer on line %d of output (corresponding to line %d in answer file)\n", stdin_line, judgeans_line);
 	vfprintf(judgemessage, err, pvar);
 	fprintf(judgemessage, "\n");
 	if (diffpos) {
@@ -68,7 +67,7 @@ FILE *openfeedback(const char *feedbackdir, const char *feedback, const char *wh
 const char *USAGE = "Usage: %s judge_in judge_ans feedback_file [options] < user_out";
 
 int main(int argc, char **argv) {
-	if(argc < 4) {
+	if (argc < 4) {
 		judge_error(USAGE, argv[0]);
 	}
 	judgemessage = openfeedback(argv[3], "judgemessage.txt", argv[0]);
@@ -88,16 +87,19 @@ int main(int argc, char **argv) {
 		} else if (!strcmp(argv[a], "space_change_sensitive")) {
 			space_change_sensitive = true;
 		} else if (!strcmp(argv[a], "float_absolute_tolerance")) {
-			if (a+1 == argc || !isfloat(argv[a+1], float_abs_tol))
+			if (a+1 == argc || !isfloat(argv[a+1], float_abs_tol)) {
 				judge_error(USAGE, argv[0]);
+			}
 			++a;
 		} else if (!strcmp(argv[a], "float_relative_tolerance")) {
-			if (a+1 == argc || !isfloat(argv[a+1], float_rel_tol))
+			if (a+1 == argc || !isfloat(argv[a+1], float_rel_tol)) {
 				judge_error(USAGE, argv[0]);
+			}
 			++a;
 		} else if (!strcmp(argv[a], "float_tolerance")) {
-			if (a+1 == argc || !isfloat(argv[a+1], float_rel_tol))
+			if (a+1 == argc || !isfloat(argv[a+1], float_rel_tol)) {
 				judge_error(USAGE, argv[0]);
+			}
 			float_abs_tol = float_rel_tol;
 			++a;
 		} else {
@@ -106,11 +108,8 @@ int main(int argc, char **argv) {
 	}
 	use_floats = float_abs_tol >= 0 || float_rel_tol >= 0;
 
-	judgeans_pos = stdin_pos;
-	judgeans_line = stdin_line = 1;
-   
 	std::string judge, team;
-	while (true) {
+	for (int token = 0; true; token++) {
 		// Space!  Can't live with it, can't live without it...
 		while (isspace(judgeans.peek())) {
 			char c = (char)judgeans.get();
@@ -134,11 +133,26 @@ int main(int argc, char **argv) {
 			++stdin_pos;
 		}
 
-		if (!(judgeans >> judge))
+		if (!(judgeans >> judge)) {
 			break;
+		}
 
 		if (!(std::cin >> team)) {
-			wrong_answer("User EOF while judge had more output\n(Next judge token: %s)", judge.c_str());
+			if (token == 0) {
+				if (stdin_pos == 0) {
+					wrong_answer(
+						"User EOF while judge had more output; user output was empty.\n(Next judge token: %s)",
+						judge.c_str()
+					);
+				} else {
+					wrong_answer(
+						"User EOF while judge had more output; user output contained no tokens.\n(Next judge token: %s)",
+						judge.c_str()
+					);
+				}
+			} else {
+				wrong_answer("User EOF while judge had more output\n(Next judge token: %s)", judge.c_str());
+			}
 		}
      
 		double jval, tval;
@@ -146,8 +160,8 @@ int main(int argc, char **argv) {
 			if (!isfloat(team.c_str(), tval)) {
 				wrong_answer("Expected float, got: %s", team.c_str());
 			}
-			if(!(fabs(jval - tval) <= float_abs_tol) && 
-			   !(fabs(jval - tval) <= float_rel_tol*fabs(jval))) {
+			if (!(fabs(jval - tval) <= float_abs_tol) &&
+			   !(fabs(jval - tval) <= float_rel_tol * fabs(jval))) {
 				wrong_answer("Too large difference.\n Judge: %s\n User: %s\n Difference: %le\n (abs tol %le rel tol %le)", 
 							 judge.c_str(), team.c_str(), jval-tval, float_abs_tol, float_rel_tol);
 			}
@@ -156,7 +170,7 @@ int main(int argc, char **argv) {
 				wrong_answer("String tokens mismatch\nJudge: \"%s\"\nUser: \"%s\"", judge.c_str(), team.c_str());
 			}
 		} else {
-			if(strcasecmp(judge.c_str(), team.c_str()) != 0) {
+			if (strcasecmp(judge.c_str(), team.c_str()) != 0) {
 				wrong_answer("String tokens mismatch\nJudge: \"%s\"\nUser: \"%s\"", judge.c_str(), team.c_str());
 			}
 		}
