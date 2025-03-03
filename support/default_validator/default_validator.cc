@@ -146,7 +146,7 @@ int main(int argc, char **argv) {
 					);
 				} else {
 					wrong_answer(
-						"User EOF while judge had more output; user output contained no tokens.\n(Next judge token: %s)",
+						"User EOF while judge had more output; user output contained only whitespace.\n(Next judge token: %s)",
 						judge.c_str()
 					);
 				}
