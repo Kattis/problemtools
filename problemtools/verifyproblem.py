@@ -99,7 +99,6 @@ class Context:
         self.data_filter: Pattern[str] = args.data_filter
         self.submission_filter: Pattern[str] = args.submission_filter
         self.fixed_timelim: int|None = args.fixed_timelim
-        self.compile_generators: bool = ('compile_generators' not in args or args.compile_generators)
         self.executor = executor
         self._background_work: list[concurrent.futures.Future[object]] = []
 
@@ -729,7 +728,6 @@ class ProblemConfig(ProblemAspect):
             elif param == 'interactive':
                 pass
 
-        self._data['languages'] = self._data['languages'].split()
 
     def __str__(self) -> str:
         return 'problem configuration'
@@ -819,298 +817,11 @@ class ProblemConfig(ProblemAspect):
             self.error('Limits key in problem.yaml must specify a dict')
             self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
 
-        if self._data['languages'] != '':
-            for lang_id in self._data['languages']:
-                if lang_id != 'all' and self._problem.language_config.get(lang_id) is None:
-                    self.error("Unrecognized language id '%s'" % lang_id)
-
         # Some things not yet implemented
         if self._data['libraries'] != '':
             self.error("Libraries not yet supported")
 
         return self._check_res
-
-
-class Generators(ProblemAspect):
-    _TESTCASE_OPTIONS = ['input', 'solution', 'visualizer', 'random_salt']
-    _NULLABLE_OPTIONS = ['input', 'solution', 'visualizer']
-    _DATA_DIRECTORIES = {'sample', 'secret'}
-    _VISUALIZER_EXTENSIONS = ['png', 'jpg', 'jpeg', 'svg', 'interaction', 'desc', 'hint']
-
-    def __init__(self, problem: Problem):
-        super().__init__(f"{problem.shortname}.generators")
-        self.debug('  Loading generators')
-        self._problem = problem
-        self.configfile = os.path.join(problem.probdir, 'generators', 'generators.yaml')
-        self._data = None
-        self._generators: dict[str, str|list[str]|run.Program] = {}
-
-        if os.path.isfile(self.configfile):
-            try:
-                with open(self.configfile) as f:
-                    self._data = yaml.safe_load(f)
-                # Loading empty yaml yields None, for no apparent reason...
-                if self._data is None:
-                    self._data = {}
-            except Exception as e:
-                self.error(str(e))
-
-        if isinstance(self._data, dict):
-            # The top-level dict always represents a directory, even if there
-            # is no type key
-            self._data['type'] = 'directory'
-
-    def __str__(self) -> str:
-        return 'generators'
-
-    def _parse_command(self, key: str, state: dict) -> tuple[str, list[str]]|None:
-        command = state[key]
-        name = os.path.basename(state['path'])
-        random_salt = str(state['random_salt'])
-
-        def err() -> None:
-            self.error('Invalid %s key for path %s in generators.yaml' % (key, state['path']))
-
-        if not isinstance(command, str):
-            err()
-            return None
-
-        seed = str(int(hashlib.sha512((random_salt + command).encode('utf-8')).hexdigest(), 16) % (2**31))
-
-        parts = shlex.split(command)
-        if not parts:
-            err()
-            return None
-
-        for i, part in enumerate(parts):
-            new = ''
-            for j, group in enumerate(part.split('{')):
-                if group.count('}') != (0 if j == 0 else 1):
-                    err()
-                    return None
-                if j == 0:
-                    new += group
-                else:
-                    group, rest = group.split('}')
-                    if group.startswith('seed'):
-                        new += seed
-                    elif group == 'name':
-                        new += name
-                    else:
-                        err()
-                        return None
-                    new += rest
-            parts[i] = new
-
-        program, arguments = parts[0], parts[1:]
-        if program not in self._generators:
-            self._generators[program] = program
-
-        return (program, arguments)
-
-    def _parse_testcase(self, data: dict, state: dict) -> None:
-        if state['input'] is None:
-            self.error('Path %s in generators.yaml must contain an input key' % state['path'])
-        for key in ['input', 'solution', 'visualizer']:
-            if state[key] is not None:
-                state[key] = self._parse_command(key, state)
-
-    def _parse_directory(self, data: dict, state: dict) -> None:
-        # TODO: Process includes
-
-        if 'testdata.yaml' in data:
-            content = data['testdata.yaml']
-            if content is None:
-                content = {}
-
-        cases = data.get('data', {})
-        ordered = True
-        if not isinstance(cases, list):
-            ordered = False
-            cases = [cases]
-
-        case_counter = 0
-        case_format = '%%0%dd' % len(str(len(cases)))
-        for case in cases:
-            if not isinstance(case, dict):
-                self.error('Path %s/data in generators.yaml must contain a dict or a list of dicts' % state['path'])
-                continue
-
-            if ordered:
-                case_counter += 1
-
-            for name, value in sorted(case.items(), key=lambda kv: str(kv[0])):
-                if ordered:
-                    num = case_format % case_counter
-                    name = num + ('' if name is None else '-' + str(name))
-                else:
-                    name = str(name)
-
-                next_state = copy.deepcopy(state)
-                next_state['path'] = '%s/%s' % (state['path'], name)
-                self._parse_element(value, next_state)
-
-    def _parse_element(self, data: dict, state: dict) -> None:
-        if data is None:
-            data = '/%s.in' % state['path']
-            state['manual'] = True
-        if isinstance(data, str):
-            data = { 'input': data }
-        if not isinstance(data, dict):
-            self.error("Path %s in generators.yaml must specify a dict" % state['path'])
-            return
-
-        state.update({
-            key: data[key]
-            for key in Generators._TESTCASE_OPTIONS
-            if key in data
-        })
-
-        if data.get('type', 'testcase') == 'testcase':
-            self._parse_testcase(data, state)
-        else:
-            if data['type'] != 'directory':
-                self.error("Type of %s in generators.yaml must be 'directory'" % state['path'])
-            self._parse_directory(data, state)
-
-    def _resolve_path(self, path: str) -> str:
-        base_path = self._problem.probdir
-        if path.startswith('/'):
-            path = path[1:]
-        else:
-            base_path = os.path.join(base_path, 'generators')
-        return os.path.join(*([base_path] + path.split('/')))
-
-    def _compile_generators(self) -> None:
-        for gen, files in list(self._generators.items()):
-            implicit = True
-            manual = False
-            if isinstance(files, str):
-                path = files
-                files = []
-                implicit = False
-                if path.endswith('.in'):
-                    manual = True
-                    for ext in ['ans'] + Generators._VISUALIZER_EXTENSIONS:
-                        other_path = path[:-2] + ext
-                        if os.path.isfile(self._resolve_path(other_path)):
-                            files.append(other_path)
-                # Always add original file last, to ensure it is chosen as
-                # the representative file
-                files.append(path)
-            if not isinstance(files, list) or not files:
-                self.error('Invalid generator %s in generators.yaml' % gen)
-                continue
-            tmpdir = tempfile.mkdtemp(prefix='generator', dir=self._problem.tmpdir)
-            ok = True
-            for opath in files:
-                if not isinstance(opath, str) or not opath:
-                    self.error('Invalid generator %s in generators.yaml' % gen)
-                    ok = False
-                    break
-
-                name = os.path.basename(opath)
-                if implicit and opath == files[0]:
-                    # In implicit generators, the first listed file should
-                    # be the entry point. problemtools usually picks the
-                    # lexicographically smallest filename as the entry
-                    # point, unless there exists a file that starts with
-                    # "main.". Thus the following renames the file that
-                    # should be the entry point to "main.old.extension".
-                    # TODO: Make problemtools support passing a different
-                    # entry point than "main.", and remove this hack.
-                    name = 'main' + os.path.splitext(name)[1]
-
-                fpath = self._resolve_path(opath)
-                dest = os.path.join(tmpdir, name)
-                if os.path.exists(dest):
-                    self.error('Duplicate entry for filename %s in generator %s' % (name, gen))
-                    ok = False
-                elif not os.path.exists(fpath):
-                    self.error('Generator %s does not exist' % opath)
-                    ok = False
-                else:
-                    try:
-                        if os.path.isdir(fpath):
-                            shutil.copytree(fpath, dest)
-                        else:
-                            shutil.copy2(fpath, dest)
-                    except Exception as e:
-                        self.error(str(e))
-                        ok = False
-            if ok:
-                if manual:
-                    self._generators[gen] = dest
-                else:
-                    prog = run.get_program(tmpdir if implicit else dest,
-                                        language_config=self._problem.language_config,
-                                        work_dir=self._problem.tmpdir)
-                    if prog is None:
-                        self.error('Could not load generator %s' % gen)
-                        ok = False
-                    else:
-                        self._generators[gen] = prog
-                        success, msg = prog.compile()
-                        if not success:
-                            self.error('Compile error for generator %s' % gen, msg)
-                            ok = False
-            if not ok and gen in self._generators:
-                del self._generators[gen]
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        if self._data is None:
-            return self._check_res
-        if not isinstance(self._data, dict):
-            self.error('generators.yaml must specify a dict')
-            return self._check_res
-
-        self._generators = self._data.get('generators') or {}
-        if not isinstance(self._generators, dict):
-            self.error('Generators key in generators.yaml must specify a dict')
-            self._generators = {}
-
-        # Check the shape of the top-level data dict
-        if isinstance(self._data.get('data'), list):
-            self.error('Top-level data key in generators.yaml must specify a dict')
-            self._data['data'] = {}
-
-        if isinstance(self._data.get('data'), dict):
-            invalid = []
-            for key, value in self._data['data'].items():
-                valid = False
-                if key not in Generators._DATA_DIRECTORIES:
-                    self.warning("Invalid key '%s' in generators.yaml, expected one of %s" % (key, Generators._DATA_DIRECTORIES))
-                elif not isinstance(value, dict):
-                    self.warning("Key '%s' in generators.yaml must specify a dict" % key)
-                elif value.get('type') != 'directory':
-                    self.warning("Type of %s in generators.yaml must be 'directory'" % key)
-                else:
-                    valid = True
-                if not valid:
-                    invalid.append(key)
-            for key in invalid:
-                del self._data['data'][key]
-
-        # Run a depth-first search through generators.yaml and generate a
-        # flattened list of testcases
-        default_state: dict[str, str|bool|None] = { key: None for key in Generators._TESTCASE_OPTIONS }
-        default_state.update({
-            'path': 'data',
-            'manual': False,
-            'random_salt': '',
-        })
-
-        self._parse_element(self._data, default_state)
-
-        if context.compile_generators:
-            self._compile_generators()
-
-        return self._check_res
-
 
 class ProblemStatement(ProblemAspect):
     def __init__(self, problem: Problem):
@@ -1949,7 +1660,7 @@ class Submissions(ProblemAspect):
 
         return self._check_res
 
-PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'generators', 'data', 'submissions']
+PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
 
 class Problem(ProblemAspect):
     def __init__(self, probdir: str):
@@ -1968,14 +1679,7 @@ class Problem(ProblemAspect):
         self.statement = ProblemStatement(self)
         self.attachments = Attachments(self)
         self.config = ProblemConfig(self)
-        available_languages = self.config.get('languages')
-        if 'all' not in available_languages:
-            language_config = languages.Languages()
-            for lang_id in available_languages:
-                lang_spec = self.language_config.get(lang_id)
-                if lang_spec is not None:
-                    language_config.update({lang_id: self.language_config.get(lang_id)})
-            self.language_config = language_config
+        self.available_languages = languages.load_language_config()
 
         self.is_interactive = 'interactive' in self.config.get('validation-params')
         self.is_scoring = (self.config.get('type') == 'scoring')
@@ -1985,7 +1689,6 @@ class Problem(ProblemAspect):
         self.testcase_by_infile: dict[str, TestCase] = {}
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.submissions = Submissions(self)
-        self.generators = Generators(self)
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
@@ -2012,7 +1715,6 @@ class Problem(ProblemAspect):
                 'statement': [self.statement, self.attachments],
                 'validators': [self.input_validators, self.output_validators],
                 'graders': [self.graders],
-                'generators': [self.generators],
                 'data': [self.testdata],
                 'submissions': [self.submissions],
             }
