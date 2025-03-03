@@ -352,9 +352,10 @@ class TestCaseGroup(ProblemAspect):
     _DEFAULT_CONFIG = config.load_config('testdata.yaml')
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
-    def __init__(self, problem: Problem, datadir: str, parent: TestCaseGroup|None=None):
+    def __init__(self, problem: Problem, datadir: str|None=None, parent: TestCaseGroup|None=None):
         self._parent = parent
         self._problem = problem
+        datadir = datadir or os.path.join(problem.probdir, 'data')
         self._datadir = datadir
         self.name = os.path.relpath(os.path.abspath(self._datadir),
                                     os.path.abspath(self._problem.probdir)).replace("/", ".")
@@ -1663,6 +1664,7 @@ class Submissions(ProblemAspect):
 PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
 
 class Problem(ProblemAspect):
+
     def __init__(self, probdir: str):
         self.probdir = os.path.realpath(probdir)
         self.shortname: str|None = os.path.basename(self.probdir)
@@ -1675,20 +1677,7 @@ class Problem(ProblemAspect):
             self.error(f"Problem directory '{self.probdir}' not found")
             self.shortname = None
             return self
-
-        self.statement = ProblemStatement(self)
-        self.attachments = Attachments(self)
-        self.config = ProblemConfig(self)
-        self.available_languages = languages.load_language_config()
-
-        self.is_interactive = 'interactive' in self.config.get('validation-params')
-        self.is_scoring = (self.config.get('type') == 'scoring')
-        self.input_validators = InputValidators(self)
-        self.output_validators = OutputValidators(self)
-        self.graders = Graders(self)
-        self.testcase_by_infile: dict[str, TestCase] = {}
-        self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
-        self.submissions = Submissions(self)
+        
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
@@ -1696,6 +1685,9 @@ class Problem(ProblemAspect):
 
     def __str__(self) -> str:
         return str(self.shortname)
+
+    def do_check(self, args, executor, context):
+        pass
 
     def check(self, args: argparse.Namespace) -> tuple[int, int]:
         if self.shortname is None:
@@ -1709,38 +1701,8 @@ class Problem(ProblemAspect):
         executor = ThreadPoolExecutor(args.threads) if args.threads > 1 else None
         context = Context(args, executor)
 
-        try:
-            part_mapping: dict[str, list] = {
-                'config': [self.config],
-                'statement': [self.statement, self.attachments],
-                'validators': [self.input_validators, self.output_validators],
-                'graders': [self.graders],
-                'data': [self.testdata],
-                'submissions': [self.submissions],
-            }
-
-            if not re.match('^[a-z0-9]+$', self.shortname):
-                self.error(f"Invalid shortname '{self.shortname}' (must be [a-z0-9]+)")
-
-            self._check_symlinks()
-
-            run.limit.check_limit_capabilities(self)
-
-            if executor:
-                for part in args.parts:
-                    for item in part_mapping[part]:
-                        item.start_background_work(context)
-
-            for part in args.parts:
-                self.msg(f'Checking {part}')
-                for item in part_mapping[part]:
-                    item.check(context)
-        except VerifyError:
-            pass
-        finally:
-            # Wait for background work to finish before performing an rmtree on
-            # the directory tree it uses.
-            context.wait_for_background_work()
+        self.do_check(args, executor, context)
+        
         return ProblemAspect.errors, ProblemAspect.warnings
 
     def _check_symlinks(self):
@@ -1768,6 +1730,69 @@ class Problem(ProblemAspect):
                             f"Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative."
                         )
 
+class ProblemLegacy(Problem):
+    def __enter__(self):
+        if super().__enter__() is None:
+            return None
+        
+        self.testcase_by_infile: dict[str, TestCase] = {} # Not part-mapping. Is only used in TestCase. Should maybe be moved?
+        
+        self.statement = ProblemStatement(self)
+        self.attachments = Attachments(self)
+        self.config = ProblemConfig(self)
+
+        self.input_validators = InputValidators(self)
+        self.output_validators = OutputValidators(self)
+        self.graders = Graders(self)
+        self.testdata = TestCaseGroup(self)
+        self.submissions = Submissions(self)
+        
+        self.is_interactive = 'interactive' in self.config.get('validation-params') # Not part-mapping, only used in TestCase. Should maybe be moved?
+        self.is_scoring = (self.config.get('type') == 'scoring') # Not part-mapping, used in 2 places. Maybe can be moved? A little code-duplication
+        
+        return self
+    
+    def do_check(self, args, executor, context):
+        try:
+            part_mapping: dict[str, list] = {
+                'config': [self.config],
+                'statement': [self.statement, self.attachments],
+                'validators': [self.input_validators, self.output_validators],
+                'graders': [self.graders],
+                'data': [self.testdata],
+                'submissions': [self.submissions],
+            }
+
+            if not re.match('^[a-z0-9]+$', self.shortname):
+                self.error(f"Invalid shortname '{self.shortname}' (must be [a-z0-9]+)")
+
+            self._check_symlinks()
+
+            run.limit.check_limit_capabilities(self)
+
+            if executor:
+                for part in args.parts: # # BEWARE, args.parts being valid over problem format
+                    for item in part_mapping[part]:
+                        item.start_background_work(context)
+
+            for part in args.parts:
+                self.msg(f'Checking {part}')
+                for item in part_mapping[part]:
+                    item.check(context)
+        except VerifyError:
+            pass
+        finally:
+            # Wait for background work to finish before performing an rmtree on
+            # the directory tree it uses.
+            context.wait_for_background_work()
+        
+
+class Problem2023_07(Problem):
+    def __init__(self, probdir):
+        raise VerifyError("new format not implemented yet!")
+        super().__init__(probdir)
+    
+
 def re_argument(s: str) -> Pattern[str]:
     try:
         r = re.compile(s)
@@ -1781,6 +1806,7 @@ def part_argument(s: str) -> str:
         raise argparse.ArgumentTypeError(f"Invalid problem part specified: {s}")
     return s
 
+PROBLEM_FORMATS = {'legacy':ProblemLegacy, '2023-07':Problem2023_07}
 
 def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('-b', '--bail_on_error',
@@ -1795,6 +1821,9 @@ def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--max_additional_info',
                         type=int, default=15,
                         help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
+    parser.add_argument('-v', '--problem_format',
+                        default='automatic', choices=list(PROBLEM_FORMATS.keys()) + ['automatic'],
+                        help='which problem format should the package be interpreted as, or "automatic" if it should be figured out from problem.yaml')
 
 
 def argparser() -> argparse.ArgumentParser:
@@ -1829,6 +1858,21 @@ def initialize_logging(args: argparse.Namespace) -> None:
                         format=fmt,
                         level=getattr(logging, args.log_level.upper()))
 
+def detect_problem_version(path) -> str:
+    config_path = os.path.join(path, 'problem.yaml')
+    
+    try:
+        with open(config_path) as f:
+            config: dict = yaml.safe_load(f) or {}
+    except FileExistsError:
+        raise VerifyError('problem.yaml does not exist')
+    except yaml.YAMLError:
+        raise VerifyError('problem.yaml could not be parsed')
+    except Exception as e:
+        raise VerifyError(str(e))
+    return config.get('problem_format_version', 'legacy')
+
+
 
 def main() -> None:
     args = argparser().parse_args()
@@ -1836,16 +1880,29 @@ def main() -> None:
     initialize_logging(args)
 
     total_errors = 0
-    for problemdir in args.problemdir:
-        print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))}')
-        with Problem(problemdir) as prob:
-            errors, warnings = prob.check(args)
-            p = lambda x: '' if x == 1 else 's'
-            print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
-            total_errors += errors
+    try:
+        for problemdir in args.problemdir:
+            problem_version = args.problem_format
+            if problem_version == 'automatic':
+                try:
+                    problem_version = detect_problem_version(problemdir)
+                except VerifyError as e:
+                    total_errors += 1
+                    print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
+                    continue
+            
+            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))}')
+            with PROBLEM_FORMATS[problem_version](problemdir) as prob:
+                errors, warnings = prob.check(args)
+                p = lambda x: '' if x == 1 else 's'
+                print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
+                total_errors += errors
 
-    if total_errors > 0:
-        sys.exit(1)
+    except KeyboardInterrupt:
+        print('\naborting...')
+    finally:
+        if total_errors > 0:
+            sys.exit(1)
 
 if __name__ == '__main__':
     main()
