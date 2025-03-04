@@ -1731,9 +1731,10 @@ class Problem(ProblemAspect):
                         )
 
 class ProblemLegacy(Problem):
-    def __enter__(self):
-        if super().__enter__() is None:
-            return None
+    def __enter__(self) -> Problem:
+        super().__enter__()
+        if not self.shortname:
+            return self
         
         self.testcase_by_infile: dict[str, TestCase] = {} # Not part-mapping. Is only used in TestCase. Should maybe be moved?
         
