@@ -1887,14 +1887,9 @@ def initialize_logging(args: argparse.Namespace) -> None:
 
 def detect_problem_version(path) -> str:
     config_path = os.path.join(path, 'problem.yaml')
-    
     try:
         with open(config_path) as f:
             config: dict = yaml.safe_load(f) or {}
-    except FileExistsError:
-        raise VerifyError('problem.yaml does not exist')
-    except yaml.YAMLError:
-        raise VerifyError('problem.yaml could not be parsed')
     except Exception as e:
         raise VerifyError(str(e))
     return config.get('problem_format_version', 'legacy')
