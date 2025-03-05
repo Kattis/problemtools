@@ -693,18 +693,12 @@ class TestCaseGroup(ProblemAspect):
         return res
 
 class ProblemStatement(ProblemPart):
+    # TODO: Not finished yet, get_config() is not correct, error-messages should be more specialized
     PART_NAME = 'statement'
 
     def setup(self):
         self.debug('  Loading problem statement')
         self.languages = self.list_languages()
-        #glob_path = os.path.join(self.problem.probdir, 'problem_statement', 'problem.')
-        #if glob.glob(glob_path + 'tex'):
-        #    self.languages.append('')
-        #for f in glob.glob(glob_path + '[a-z][a-z].tex'):
-        #    m = re.search("problem.([a-z][a-z]).tex$", f)
-        #    assert m
-        #    self.languages.append(m.group(1))
 
         self.set_prop('config', self.get_config())
 
