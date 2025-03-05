@@ -1676,6 +1676,18 @@ class Problem(ProblemAspect):
     So the format is basically 'name' -> (ProblemAspectDerivate, ['dependency1', 'dependency2'])
     """
     aspects: dict[str, tuple[type, set[str]]] = {}
+
+    """
+    Holds the configurable mapping of parts to different problem-aspects. This means you can specify
+    each key as a commandline-argument if it should be checked and it will map to a list of checks
+    done for that part.
+    
+    You could for example have 'statement' -> ['statement', 'attachment']. This would indicate that
+    if you include the part 'statemen' in the verification, then the classes 'statement' and 'attachment'
+    would be verified during the checking-step.
+
+    Note that all classes will be loaded regardless.
+    """
     part_mapping: dict[str, list[str]] = {}
 
     def __init__(self, probdir: str):
