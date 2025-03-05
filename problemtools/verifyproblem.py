@@ -525,7 +525,7 @@ class TestCaseGroup(ProblemAspect):
                     self.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
             except VerifyError:
                 raise
-            except:
+            except Exception:
                 self.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
 
         if self._parent is None:
@@ -697,14 +697,14 @@ class ProblemStatement(ProblemPart):
 
     def setup(self):
         self.debug('  Loading problem statement')
-        self.languages = []
-        glob_path = os.path.join(self.problem.probdir, 'problem_statement', 'problem.')
-        if glob.glob(glob_path + 'tex'):
-            self.languages.append('')
-        for f in glob.glob(glob_path + '[a-z][a-z].tex'):
-            m = re.search("problem.([a-z][a-z]).tex$", f)
-            assert m
-            self.languages.append(m.group(1))
+        self.languages = self.list_languages()
+        #glob_path = os.path.join(self.problem.probdir, 'problem_statement', 'problem.')
+        #if glob.glob(glob_path + 'tex'):
+        #    self.languages.append('')
+        #for f in glob.glob(glob_path + '[a-z][a-z].tex'):
+        #    m = re.search("problem.([a-z][a-z]).tex$", f)
+        #    assert m
+        #    self.languages.append(m.group(1))
 
         self.set_prop('config', self.get_config())
 
@@ -715,8 +715,9 @@ class ProblemStatement(ProblemPart):
 
         if not self.languages:
             self.error('No problem statements found (expected problem.tex or problem.[a-z][a-z].tex in problem_statement directory)')
-        if '' in self.languages and 'en' in self.languages:
-            self.error("Can't supply both problem.tex and problem.en.tex")
+        for lang, count in collections.Counter(self.languages).items():
+            if count > 1:
+                self.error(f"Can't supply multiple statements of the same language ({lang}).")
 
         for lang in self.languages:
             try:
@@ -764,6 +765,35 @@ class ProblemStatement(ProblemPart):
                     ret[dest][lang] = hit.group(1).strip()
         return ret
 
+    def list_languages(self) -> list[str]:
+        print(type(self))
+        raise NotImplementedError('Need to specialize ProblemStatement to list languages')
+
+class ProblemStatementLegacy(ProblemStatement):
+    def list_languages(self) -> list[str]:
+        languages = []
+        glob_path = os.path.join(self.problem.probdir, 'problem_statement', 'problem.')
+        if glob.glob(glob_path + 'tex'):
+            languages.append('en')
+        for f in glob.glob(glob_path + '[a-z][a-z].tex'):
+            m = re.search("problem.([a-z][a-z]).tex$", f)
+            assert m
+            languages.append(m.group(1))
+        return languages
+
+class ProblemStatement2023_07(ProblemStatement):
+    def list_languages(self) -> list[str]:
+        languages = []
+        for ext in ('tex', 'md'):
+            glob_path = os.path.join(self.problem.probdir, 'problem_statement', 'problem.')
+            if glob.glob(glob_path + ext):
+                languages.append('en')
+            for f in glob.glob(glob_path + '[a-z][a-z].' + ext):
+                m = re.search(f"problem.([a-z][a-z]).{ext}$", f)
+                assert m
+                languages.append(m.group(1))
+        return languages
+
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
     DEPENDS_ON = {ProblemStatement}
@@ -788,7 +818,7 @@ class ProblemConfig(ProblemPart):
                 self.error(str(e))
 
         # Add config items from problem statement e.g. name
-        self._data.update(self.problem.classes['statement'].get_config())
+        self._data.update(self.problem.get(ProblemStatement.PART_NAME, 'config'))
 
         # Populate rights_owner unless license is public domain
         if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
@@ -1717,6 +1747,7 @@ class Problem(ProblemAspect):
         super().__init__(self.shortname)
         self.language_config = languages.load_language_config()
         self.data = {}
+        self.debug(f'Problem-format: {parts}')
 
     def get(self, part, key, default=None) -> Any:
         if part not in self.data.keys():
@@ -1737,10 +1768,15 @@ class Problem(ProblemAspect):
         def init(_class):
             if _class.PART_NAME in initialized:
                 return
+            # A bit ugly but want to allow for subclasses
             for dependency in _class.DEPENDS_ON:
-                if dependency not in self.aspects:
+                for cl in self.aspects:
+                    if issubclass(cl, dependency):
+                        init(cl)
+                        break
+                else:
                     raise NotImplementedError(f'Part "{_class.PART_NAME}" depends on part "{dependency.PART_NAME}" which is not included in problem-format')
-                init(dependency)
+            self.debug(f'Initializing {_class.PART_NAME} ({_class})')
             self.classes[_class.PART_NAME] = _class(self)
             initialized.add(_class.PART_NAME)
 
@@ -1837,14 +1873,14 @@ def part_argument(s: str) -> str:
 PROBLEM_FORMATS = {
     'legacy': {
         'config':       [ProblemConfig],
-        'statement':    [ProblemStatement, Attachments],
+        'statement':    [ProblemStatementLegacy, Attachments],
         'validators':   [InputValidators, OutputValidators],
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
     },
-    '2023-07': { # TODO
-
+    '2023-07': { # TODO: Add all the parts
+        'statement':    [ProblemStatement2023_07, Attachments],
     }
 }
 
