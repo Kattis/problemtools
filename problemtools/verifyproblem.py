@@ -203,8 +203,8 @@ class TestCase(ProblemAspect):
         self._problem = problem
         self.testcasegroup = testcasegroup
         self.reuse_result_from: TestCase|None = None
-        self.counter = len(problem.data['testcase_by_infile'])
-        problem.data['testcase_by_infile'][self.infile] = self
+        self.counter = len(problem.get('testdata', 'testcase_by_infile'))
+        problem.get('testdata', 'testcase_by_infile')[self.infile] = self
 
     def check_newlines(self, filename: str) -> None:
         with open(filename, 'rb') as f:
@@ -249,7 +249,7 @@ class TestCase(ProblemAspect):
             self.error(f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit')
         elif 2 * anssize > outputlim:
             self.warning(f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit')
-        if not self._problem.data['is_interactive']:
+        if not self._problem.get('testdata', 'is_interactive'):
             val_res = self._problem.classes[OutputValidators.PART_NAME].validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
@@ -269,8 +269,8 @@ class TestCase(ProblemAspect):
         if not os.path.islink(self.infile):
             return
         target = os.path.realpath(self.infile)
-        if target in self._problem.data['testcase_by_infile']:
-            self.reuse_result_from = self._problem.data['testcase_by_infile'][target]
+        if target in self._problem.get('testdata', 'testcase_by_infile'):
+            self.reuse_result_from = self._problem.get('testdata', 'testcase_by_infile')[target]
 
     def _check_symlinks(self) -> bool:
         if not os.path.islink(self.infile):
@@ -306,7 +306,7 @@ class TestCase(ProblemAspect):
 
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
-        if self._problem.data['is_interactive']:
+        if self._problem.get('testdata', 'is_interactive'):
             res_high = self._problem.classes[OutputValidators.PART_NAME].validate_interactive(self, sub, timelim_high, self._problem.classes['submissions'])
         else:
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
@@ -508,7 +508,7 @@ class TestCaseGroup(ProblemAspect):
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
 
-        if not self._problem.data['is_scoring']:
+        if not self._problem.get('testdata', 'is_scoring'):
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if self.config.get(key) is not None:
                     self.error(f"Key '{key}' is only applicable for scoring problems, this is a pass-fail problem")
@@ -516,7 +516,7 @@ class TestCaseGroup(ProblemAspect):
         if self.config['on_reject'] not in ['break', 'continue']:
             self.error(f"Invalid value '{self.config['on_reject']}' for on_reject policy")
 
-        if self._problem.data['is_scoring']:
+        if self._problem.get('testdata', 'is_scoring'):
             # Check grading
             try:
                 score_range = self.config['range']
@@ -674,7 +674,7 @@ class TestCaseGroup(ProblemAspect):
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
-            if self._problem.data['is_scoring']:
+            if self._problem.get('testdata', 'is_scoring'):
                 res.score = score
                 min_score, max_score = self.get_score_range()
                 if score is not None and not (min_score <= score <= max_score) and not self._seen_oob_scores:
@@ -925,7 +925,10 @@ class ProblemTestCases(ProblemPart):
     DEPENDS_ON = {ProblemConfig}
 
     def setup(self):
+        self.set_prop('testcase_by_infile', {})
         self.set_prop('root_group', TestCaseGroup(self.problem, self.PART_NAME))
+        self.set_prop('is_interactive', 'interactive' in self.problem.classes['config'].get('validation-params'))
+        self.set_prop('is_scoring', self.problem.classes['config'].get('type') == 'scoring')
 
     def check(self, context: Context) -> bool:
         return self.problem.get(self.PART_NAME, 'root_group').check(context)
@@ -1623,7 +1626,7 @@ class Submissions(ProblemPart):
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases.PART_NAME, 'root_group').get_score_range()
         best_score = min_score if self.problem.classes['config'].get('grading')['objective'] == 'min' else max_score
-        return result.verdict == 'AC' and (not self.problem.data['is_scoring'] or result.score == best_score)
+        return result.verdict == 'AC' and (not self.problem.get('testdata', 'is_scoring') or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
@@ -1697,34 +1700,18 @@ class Submissions(ProblemPart):
 
         return self._check_res
 
-# TODO: This has to be thought over
-PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
 
 class Problem(ProblemAspect):
-    """
-    Abstract baseclass for all problem-formats
-    """
+    """Represents a checkable problem"""
 
     """
-    TODO: write thorough documentation
+    Needs a problem-format in the form of a parts-dictionary, where all classes that verify the
+    problem are listed. These should all be a subclass of ProblemPart. The dictionary is in the form
+    of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
-    aspects: set[type] = set()
-
-    """
-    TODO: This is incorrect
-    Holds the configurable mapping of parts to different problem-aspects. This means you can specify
-    each key as a commandline-argument if it should be checked and it will map to a list of checks
-    done for that part.
-    
-    You could for example have 'statement' -> ['statement', 'attachment']. This would indicate that
-    if you include the part 'statemen' in the verification, then the classes 'statement' and 'attachment'
-    would be verified during the checking-step.
-
-    Note that all classes will be loaded regardless.
-    """
-    part_mapping: dict[str, list[type]] = {}
-
-    def __init__(self, probdir: str):
+    def __init__(self, probdir: str, parts: dict[str, list[type]]):
+        self.part_mapping: dict[str, list[type]] = parts
+        self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
         self.shortname: str|None = os.path.basename(self.probdir)
         super().__init__(self.shortname)
@@ -1747,13 +1734,15 @@ class Problem(ProblemAspect):
         initialized = set()
         self.classes = {}
 
-        def init(c):
-            if c.PART_NAME in initialized:
+        def init(_class):
+            if _class.PART_NAME in initialized:
                 return
-            for d in c.DEPENDS_ON:
-                init(d)
-            self.classes[c.PART_NAME] = c(self)
-            initialized.add(c.PART_NAME)
+            for dependency in _class.DEPENDS_ON:
+                if dependency not in self.aspects:
+                    raise NotImplementedError(f'Part "{_class.PART_NAME}" depends on part "{dependency.PART_NAME}" which is not included in problem-format')
+                init(dependency)
+            self.classes[_class.PART_NAME] = _class(self)
+            initialized.add(_class.PART_NAME)
 
         for c in self.aspects:
             init(c)
@@ -1785,13 +1774,16 @@ class Problem(ProblemAspect):
             self._check_symlinks()
 
             run.limit.check_limit_capabilities(self)
+            
+            # Skip any parts that do not belong to the format
+            parts = [part for part in args.parts if part in self.part_mapping]
 
             if executor:
-                for part in args.parts: # # BEWARE, args.parts being valid over problem format
+                for part in parts:
                     for item in self.part_mapping[part]:
                         self.classes[item.PART_NAME].start_background_work(context)
 
-            for part in args.parts:
+            for part in parts:
                 self.msg(f'Checking {part}')
                 for item in self.part_mapping[part]:
                     self.classes[item.PART_NAME].check(context)
@@ -1829,36 +1821,6 @@ class Problem(ProblemAspect):
                             f"Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative."
                         )
 
-class ProblemLegacy(Problem):
-    aspects: set[type] = { ProblemConfig, ProblemStatement, Attachments, InputValidators, OutputValidators, Graders, ProblemTestCases, Submissions }
-    part_mapping: dict[str, list[type]] = {
-        'config': [ProblemConfig],
-        'statement': [ProblemStatement, Attachments],
-        'validators': [InputValidators, OutputValidators],
-        'graders': [Graders],
-        'data': [ProblemTestCases],
-        'submissions': [Submissions],
-    }
-    def __enter__(self) -> Problem:
-        self.data['testcase_by_infile'] = {} # Not part-mapping. Is only used in TestCase. Should maybe be moved?
-
-        super().__enter__()
-        if not self.shortname:
-            return self
-
-        # Not part-mapping, only used in TestCase. Should maybe be moved?
-        self.data['is_interactive'] = 'interactive' in self.classes['config'].get('validation-params')
-        # Not part-mapping, used in 2 places. Maybe can be moved? A little code-duplication
-        self.data['is_scoring'] = (self.classes['config'].get('type') == 'scoring')
-        
-        return self
-        
-
-class Problem2023_07(Problem):
-    def __init__(self, probdir):
-        raise NotImplementedError("new format not implemented yet!")
-    
-
 def re_argument(s: str) -> Pattern[str]:
     try:
         r = re.compile(s)
@@ -1872,7 +1834,22 @@ def part_argument(s: str) -> str:
         raise argparse.ArgumentTypeError(f"Invalid problem part specified: {s}")
     return s
 
-PROBLEM_FORMATS = {'legacy':ProblemLegacy, '2023-07':Problem2023_07}
+PROBLEM_FORMATS = {
+    'legacy': {
+        'config':       [ProblemConfig],
+        'statement':    [ProblemStatement, Attachments],
+        'validators':   [InputValidators, OutputValidators],
+        'graders':      [Graders],
+        'data':         [ProblemTestCases],
+        'submissions':  [Submissions],
+    },
+    '2023-07': { # TODO
+
+    }
+}
+
+# parts tested in alphabetical order
+PROBLEM_PARTS = [*sorted({part for format in PROBLEM_FORMATS.values() for part in format})]
 
 def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('-b', '--bail_on_error',
@@ -1933,8 +1910,6 @@ def detect_problem_version(path) -> str:
         raise VerifyError(str(e))
     return config.get('problem_format_version', 'legacy')
 
-
-
 def main() -> None:
     args = argparser().parse_args()
 
@@ -1952,8 +1927,9 @@ def main() -> None:
                     print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
                     continue
             
-            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))}')
-            with PROBLEM_FORMATS[problem_version](problemdir) as prob:
+            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {problem_version}')
+            format = PROBLEM_FORMATS[problem_version]
+            with Problem(problemdir, format) as prob:
                 errors, warnings = prob.check(args)
                 p = lambda x: '' if x == 1 else 's'
                 print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
