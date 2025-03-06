@@ -949,8 +949,8 @@ class ProblemTestCases(ProblemPart):
     def setup(self):
         self.set_prop('testcase_by_infile', {})
         self.set_prop('root_group', TestCaseGroup(self.problem, self.PART_NAME))
-        self.set_prop('is_interactive', 'interactive' in self.problem.classes['config'].get('validation-params'))
-        self.set_prop('is_scoring', self.problem.classes['config'].get('type') == 'scoring')
+        self.set_prop('is_interactive', 'interactive' in self.problem.get(ProblemConfig.PART_NAME, 'data')['validation-params'])
+        self.set_prop('is_scoring', self.problem.get(ProblemConfig.PART_NAME, 'data')['type'] == 'scoring')
 
     def check(self, context: Context) -> bool:
         return self.problem.get(self.PART_NAME, 'root_group').check(context)
