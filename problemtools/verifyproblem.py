@@ -169,6 +169,7 @@ class ProblemAspect:
             self.error(f"Invalid name '{basename}' (should match '{self.basename_regex.pattern}')")
 
 class ProblemPart(ProblemAspect):
+    # TODO: document these
     PART_NAME = None
     DEPENDS_ON = set()
 
@@ -693,12 +694,17 @@ class TestCaseGroup(ProblemAspect):
         return res
 
 class ProblemStatement(ProblemPart):
-    # TODO: Not finished yet, get_config() is not correct, error-messages should be more specialized
     PART_NAME = 'statement'
 
+    EXTENSIONS = []
+
     def setup(self):
+        if not self.EXTENSIONS:
+            raise NotImplementedError('Need to override class and set EXTENSIONS class-variable')
         self.debug('  Loading problem statement')
-        self.languages = self.list_languages()
+        self.statement_regex = re.compile(r"problem(\.([a-z][a-z]))?\.(%s)$" % ('|'.join(self.EXTENSIONS)))
+        dir = os.path.join(self.problem.probdir, 'problem_statement')
+        self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
 
         self.set_prop('config', self.get_config())
 
@@ -707,13 +713,15 @@ class ProblemStatement(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if not self.languages:
-            self.error('No problem statements found (expected problem.tex or problem.[a-z][a-z].tex in problem_statement directory)')
-        for lang, count in collections.Counter(self.languages).items():
+        if not self.statements:
+            self.error(f'No problem statements found (expected file of one of following forms in folder problem_statement/: {', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.EXTENSIONS)}')
+
+        langs = [lang or 'en' for _, lang in self.statements]
+        for lang, count in collections.Counter(langs).items():
             if count > 1:
                 self.error(f"Can't supply multiple statements of the same language ({lang}).")
 
-        for lang in self.languages:
+        for _, lang in self.statements:
             try:
                 options = problem2pdf.get_parser().parse_args([""])
                 options.problem = self.problem.probdir
@@ -741,52 +749,21 @@ class ProblemStatement(ProblemPart):
         return 'problem statement'
 
     def get_config(self) -> dict[str, dict[str, str]]:
-        ret: dict[str, dict[str, str]] = {}
-        for lang in self.languages:
-            filename = f'problem.{lang}.tex' if lang != '' else 'problem.tex'
-            stmt = open(os.path.join(self.problem.probdir, 'problem_statement', filename)).read()
-            patterns = [
-                (r'\\problemname{(.*)}', 'name'),
-                (r'^%%\s*plainproblemname:(.*)$', 'name'),
-            ]
-            for tup in patterns:
-                pattern = tup[0]
-                dest = tup[1]
-                hit = re.search(pattern, stmt, re.MULTILINE)
-                if hit:
-                    if not dest in ret:
-                        ret[dest] = {}
-                    ret[dest][lang] = hit.group(1).strip()
-        return ret
-
-    def list_languages(self) -> list[str]:
-        print(type(self))
-        raise NotImplementedError('Need to specialize ProblemStatement to list languages')
+        ret: dict[str, dict[str, str]] = {'name':{}}
+        for filename, lang in self.statements:
+            with open(os.path.join(self.problem.probdir, 'problem_statement', filename)) as f:
+                stmt = f.read()
+            hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
+            if hit:
+                problem_name = hit.group(1).strip()
+                ret['name'][lang] = problem_name
+        return ret if ret['name'] else {}
 
 class ProblemStatementLegacy(ProblemStatement):
-    def list_languages(self) -> list[str]:
-        languages = []
-        glob_path = os.path.join(self.problem.probdir, 'problem_statement', 'problem.')
-        if glob.glob(glob_path + 'tex'):
-            languages.append('en')
-        for f in glob.glob(glob_path + '[a-z][a-z].tex'):
-            m = re.search("problem.([a-z][a-z]).tex$", f)
-            assert m
-            languages.append(m.group(1))
-        return languages
+    EXTENSIONS = ['tex']
 
 class ProblemStatement2023_07(ProblemStatement):
-    def list_languages(self) -> list[str]:
-        languages = []
-        for ext in ('tex', 'md'):
-            glob_path = os.path.join(self.problem.probdir, 'problem_statement', 'problem.')
-            if glob.glob(glob_path + ext):
-                languages.append('en')
-            for f in glob.glob(glob_path + '[a-z][a-z].' + ext):
-                m = re.search(f"problem.([a-z][a-z]).{ext}$", f)
-                assert m
-                languages.append(m.group(1))
-        return languages
+    EXTENSIONS = ['md', 'tex']
 
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
