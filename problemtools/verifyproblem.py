@@ -169,10 +169,24 @@ class ProblemAspect:
             self.error(f"Invalid name '{basename}' (should match '{self.basename_regex.pattern}')")
 
 class ProblemPart(ProblemAspect):
-    # TODO: document these
-    PART_NAME = None
-    DEPENDS_ON = set()
+    """Baseclass for all parts that can be included in a problem-format.
+    """
 
+    """Should always be overridden by the subclass. Specifies the name that will be used to refer
+    to the part e.g for logs.
+    """
+    PART_NAME = None
+
+    """Should return all classes that need to be initialized before this one. It is sufficient to be
+    a subclass of the classes listed. There should be exactly one subclass of each dependency in the
+    format that the problem-part is included in.
+    
+    Note that this will only ensure that the specified classes are initialized before this one, but
+    they might be checked in a different order.
+    """
+    def depends_on() -> set[type]:
+        return set()
+    
     def __init__(self, problem: Problem) -> None:
         if self.PART_NAME is None:
             raise NotImplementedError('Every problem-part must override PART_NAME')
@@ -181,6 +195,9 @@ class ProblemPart(ProblemAspect):
         self.problem.data[self.PART_NAME] = {}
         self.setup()
 
+    """Override to setup data about this problem-part. The order in which problem-parts are setup 
+    will be decided based on the dependencies that exist.
+    """
     def setup(self) -> None:
         pass
 
@@ -767,7 +784,8 @@ class ProblemStatement2023_07(ProblemStatement):
 
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
-    DEPENDS_ON = {ProblemStatement}
+    def depends_on():
+        return {ProblemStatement}
 
     _MANDATORY_CONFIG = ['name']
     _OPTIONAL_CONFIG = config.load_config('problem.yaml')
@@ -922,8 +940,11 @@ class ProblemConfig(ProblemPart):
         return self._check_res
 
 class ProblemTestCases(ProblemPart):
+    
     PART_NAME = 'testdata'
-    DEPENDS_ON = {ProblemConfig}
+    
+    def depends_on():
+        return {ProblemConfig}
 
     def setup(self):
         self.set_prop('testcase_by_infile', {})
@@ -1740,7 +1761,7 @@ class Problem(ProblemAspect):
             if _class.PART_NAME in initialized:
                 return
             # A bit ugly but want to allow for subclasses
-            for dependency in _class.DEPENDS_ON:
+            for dependency in _class.depends_on():
                 for cl in self.aspects:
                     if issubclass(cl, dependency):
                         init(cl)
