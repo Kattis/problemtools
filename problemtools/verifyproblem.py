@@ -184,6 +184,7 @@ class ProblemPart(ProblemAspect):
     Note that this will only ensure that the specified classes are initialized before this one, but
     they might be checked in a different order.
     """
+    @staticmethod
     def depends_on() -> set[type]:
         return set()
     
@@ -784,6 +785,8 @@ class ProblemStatement2023_07(ProblemStatement):
 
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
+
+    @staticmethod
     def depends_on():
         return {ProblemStatement}
 
@@ -943,6 +946,7 @@ class ProblemTestCases(ProblemPart):
     
     PART_NAME = 'testdata'
     
+    @staticmethod
     def depends_on():
         return {ProblemConfig}
 
