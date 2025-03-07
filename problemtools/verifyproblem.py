@@ -953,7 +953,7 @@ class ProblemTestCases(ProblemPart):
         self.set_prop('is_scoring', self.problem.get(ProblemConfig, 'data')['type'] == 'scoring')
 
     def check(self, context: Context) -> bool:
-        return self.problem.get(self, 'root_group').check(context)
+        return self.problem.get(ProblemTestCases, 'root_group').check(context)
 
 
 
