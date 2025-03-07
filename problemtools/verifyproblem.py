@@ -221,8 +221,8 @@ class TestCase(ProblemAspect):
         self._problem = problem
         self.testcasegroup = testcasegroup
         self.reuse_result_from: TestCase|None = None
-        self.counter = len(problem.get('testdata', 'testcase_by_infile'))
-        problem.get('testdata', 'testcase_by_infile')[self.infile] = self
+        self.counter = len(problem.get(ProblemTestCases, 'testcase_by_infile'))
+        problem.get(ProblemTestCases, 'testcase_by_infile')[self.infile] = self
 
     def check_newlines(self, filename: str) -> None:
         with open(filename, 'rb') as f:
@@ -267,7 +267,7 @@ class TestCase(ProblemAspect):
             self.error(f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit')
         elif 2 * anssize > outputlim:
             self.warning(f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit')
-        if not self._problem.get('testdata', 'is_interactive'):
+        if not self._problem.get(ProblemTestCases, 'is_interactive'):
             val_res = self._problem.classes[OutputValidators.PART_NAME].validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
@@ -287,8 +287,8 @@ class TestCase(ProblemAspect):
         if not os.path.islink(self.infile):
             return
         target = os.path.realpath(self.infile)
-        if target in self._problem.get('testdata', 'testcase_by_infile'):
-            self.reuse_result_from = self._problem.get('testdata', 'testcase_by_infile')[target]
+        if target in self._problem.get(ProblemTestCases, 'testcase_by_infile'):
+            self.reuse_result_from = self._problem.get(ProblemTestCases, 'testcase_by_infile')[target]
 
     def _check_symlinks(self) -> bool:
         if not os.path.islink(self.infile):
@@ -324,7 +324,7 @@ class TestCase(ProblemAspect):
 
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
-        if self._problem.get('testdata', 'is_interactive'):
+        if self._problem.get(ProblemTestCases, 'is_interactive'):
             res_high = self._problem.classes[OutputValidators.PART_NAME].validate_interactive(self, sub, timelim_high, self._problem.classes['submissions'])
         else:
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
@@ -526,7 +526,7 @@ class TestCaseGroup(ProblemAspect):
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
 
-        if not self._problem.get('testdata', 'is_scoring'):
+        if not self._problem.get(ProblemTestCases, 'is_scoring'):
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if self.config.get(key) is not None:
                     self.error(f"Key '{key}' is only applicable for scoring problems, this is a pass-fail problem")
@@ -534,7 +534,7 @@ class TestCaseGroup(ProblemAspect):
         if self.config['on_reject'] not in ['break', 'continue']:
             self.error(f"Invalid value '{self.config['on_reject']}' for on_reject policy")
 
-        if self._problem.get('testdata', 'is_scoring'):
+        if self._problem.get(ProblemTestCases, 'is_scoring'):
             # Check grading
             try:
                 score_range = self.config['range']
@@ -692,7 +692,7 @@ class TestCaseGroup(ProblemAspect):
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
-            if self._problem.get('testdata', 'is_scoring'):
+            if self._problem.get(ProblemTestCases, 'is_scoring'):
                 res.score = score
                 min_score, max_score = self.get_score_range()
                 if score is not None and not (min_score <= score <= max_score) and not self._seen_oob_scores:
@@ -807,7 +807,7 @@ class ProblemConfig(ProblemPart):
                 self.error(str(e))
 
         # Add config items from problem statement e.g. name
-        self._data.update(self.problem.get(ProblemStatement.PART_NAME, 'config'))
+        self._data.update(self.problem.get(ProblemStatement, 'config'))
 
         # Populate rights_owner unless license is public domain
         if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
@@ -901,7 +901,7 @@ class ProblemConfig(ProblemPart):
             self.error(f"Invalid value for grading.show_test_data_groups: {self._data['grading']['show_test_data_groups']}")
         elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
             self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
-        if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases.PART_NAME, 'root_group').has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
+        if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases, 'root_group').has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
             self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
 
         if 'on_reject' in self._data['grading']:
@@ -949,11 +949,11 @@ class ProblemTestCases(ProblemPart):
     def setup(self):
         self.set_prop('testcase_by_infile', {})
         self.set_prop('root_group', TestCaseGroup(self.problem, self.PART_NAME))
-        self.set_prop('is_interactive', 'interactive' in self.problem.get(ProblemConfig.PART_NAME, 'data')['validation-params'])
-        self.set_prop('is_scoring', self.problem.get(ProblemConfig.PART_NAME, 'data')['type'] == 'scoring')
+        self.set_prop('is_interactive', 'interactive' in self.problem.get(ProblemConfig, 'data')['validation-params'])
+        self.set_prop('is_scoring', self.problem.get(ProblemConfig, 'data')['type'] == 'scoring')
 
     def check(self, context: Context) -> bool:
-        return self.problem.get(self.PART_NAME, 'root_group').check(context)
+        return self.problem.get(self, 'root_group').check(context)
 
 
 
@@ -1067,7 +1067,7 @@ class InputValidators(ProblemPart):
                     flags.add(group.config['input_validator_flags'])
                 for subgroup in group.get_subgroups():
                     collect_flags(subgroup, flags)
-            collect_flags(self.problem.get(ProblemTestCases.PART_NAME, 'root_group'), all_flags)
+            collect_flags(self.problem.get(ProblemTestCases, 'root_group'), all_flags)
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
@@ -1085,7 +1085,7 @@ class InputValidators(ProblemPart):
                         self.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
 
             def modified_input_validates(applicable, modifier):
-                for testcase in self.problem.get(ProblemTestCases.PART_NAME, 'root_group').get_all_testcases():
+                for testcase in self.problem.get(ProblemTestCases, 'root_group').get_all_testcases():
                     with open(testcase.infile) as infile:
                         infile_data = infile.read()
                     if not applicable(infile_data):
@@ -1291,7 +1291,7 @@ class OutputValidators(ProblemPart):
                 f.write(case)
                 f.close()
                 rejected = False
-                for testcase in self.problem.get(ProblemTestCases.PART_NAME, 'root_group').get_all_testcases():
+                for testcase in self.problem.get(ProblemTestCases, 'root_group').get_all_testcases():
                     result = self.validate(testcase, file_name)
                     if result.verdict != 'AC':
                         rejected = True
@@ -1612,7 +1612,7 @@ class Submissions(ProblemPart):
             timelim_low = timelim
 
         with Runner(self.problem, sub, context, timelim, timelim_low, timelim_high) as runner:
-            result, result_low, result_high = self.problem.get(ProblemTestCases.PART_NAME, 'root_group').run_submission(sub, runner, context)
+            result, result_low, result_high = self.problem.get(ProblemTestCases, 'root_group').run_submission(sub, runner, context)
 
         if result.verdict == 'AC' and expected_verdict == 'AC' and not partial and result.sample_failures:
             res = result.sample_failures[0]
@@ -1639,7 +1639,7 @@ class Submissions(ProblemPart):
         return result
 
     def full_score_finite(self) -> bool:
-        min_score, max_score = self.problem.get(ProblemTestCases.PART_NAME, 'root_group').get_score_range()
+        min_score, max_score = self.problem.get(ProblemTestCases, 'root_group').get_score_range()
         if self.problem.classes['config'].get('grading')['objective'] == 'min':
             return min_score != float('-inf')
         else:
@@ -1648,7 +1648,7 @@ class Submissions(ProblemPart):
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases.PART_NAME, 'root_group').get_score_range()
         best_score = min_score if self.problem.classes['config'].get('grading')['objective'] == 'min' else max_score
-        return result.verdict == 'AC' and (not self.problem.get('testdata', 'is_scoring') or result.score == best_score)
+        return result.verdict == 'AC' and (not self.problem.get(ProblemTestCases, 'is_scoring') or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
@@ -1742,7 +1742,9 @@ class Problem(ProblemAspect):
         self.debug(f'Problem-format: {parts}')
 
     def get(self, part, key, default=None) -> Any:
-        if part not in self.data.keys():
+        if isinstance(part, type) and issubclass(part, ProblemPart):
+            part = part.PART_NAME
+        if part not in self.data:
             return default
         return self.data[part].get(key, default)
 
