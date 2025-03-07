@@ -1563,7 +1563,7 @@ class Runner:
         with self._lock:
             seen = set(self._started_jobs)
             self._remaining_jobs = []
-            for testcase in self._gather_testcases(self._problem.testdata):
+            for testcase in self._gather_testcases(self._problem.get(ProblemTestCases, 'root_group')):
                 if testcase not in seen:
                     seen.add(testcase)
                     self._remaining_jobs.append(testcase)
