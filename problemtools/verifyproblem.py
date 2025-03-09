@@ -717,7 +717,7 @@ class ProblemStatement(ProblemPart):
         if not self.EXTENSIONS:
             raise NotImplementedError('Need to override class and set EXTENSIONS class-variable')
         self.debug('  Loading problem statement')
-        self.statement_regex = re.compile(r"problem(\.([a-z][a-z]))?\.(%s)$" % ('|'.join(self.EXTENSIONS)))
+        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.EXTENSIONS)))
         dir = os.path.join(self.problem.probdir, 'problem_statement')
         self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
 
