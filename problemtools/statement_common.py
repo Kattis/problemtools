@@ -139,7 +139,7 @@ def format_normal_sample(sample_root: str, sample: str, casenum: int, to_pdf: bo
         with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
             temp_file.write(sample)
             temp_file.flush()
-            command = ["pandoc", temp_file.name, "-t" , "markdown"]
+            command = ["pandoc", temp_file.name, "-t" , "markdown", "-f", "markdown-raw_html"]
             return subprocess.run(command, capture_output=True, text=True,
                                   shell=False, check=True).stdout
     else:

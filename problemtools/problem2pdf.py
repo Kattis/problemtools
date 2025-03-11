@@ -62,7 +62,7 @@ def md2pdf(options: argparse.Namespace) -> bool:
     with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
         temp_file.write(statement_md)
         temp_file.flush()
-        command = ["pandoc", temp_file.name, "-o", destfile, f"--resource-path={statement_dir}"]
+        command = ["pandoc", temp_file.name, "-o", destfile, f"--resource-path={statement_dir}", "-f", "markdown-raw_html"]
         return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
 
 

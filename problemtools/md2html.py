@@ -32,7 +32,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
     _copy_images(statement_path,
                  lambda img_name: handle_image(os.path.join(problem, "problem_statement", img_name)))
-    command = ["pandoc", statement_path, "-t" , "html"]
+    command = ["pandoc", statement_path, "-t" , "html", "-f", "markdown-raw_html"]
     statement_html = subprocess.run(command, capture_output=True, text=True,
                                     shell=False, check=True).stdout
 
@@ -104,7 +104,7 @@ def json_dfs(data, callback) -> None:
 
 
 def _copy_images(statement_path, callback):
-    command = ["pandoc", statement_path, "-t" , "json"]
+    command = ["pandoc", statement_path, "-t" , "json", "-f", "markdown-raw_html"]
     statement_json = subprocess.run(command, capture_output=True,
                                     text=True, shell=False, check=True).stdout
     json_dfs(json.loads(statement_json), callback)
