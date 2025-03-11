@@ -781,6 +781,385 @@ class ProblemStatementLegacy(ProblemStatement):
 class ProblemStatement2023_07(ProblemStatement):
     EXTENSIONS = ['md', 'tex']
 
+config_format = {
+    "type":"object",
+    "required": [],
+    "config_fields": ["problem_format_version", "type", "name", "uuid", "author", "source", "source_url", "license", "rights_owner", "limits", "validation", "validator_flags", "keywords", "grading"],
+    "properties": {
+        "problem_format_version": {
+            "type": "string",
+            "default": "legacy",
+            "alternatives": {"legacy":{}}
+        },
+        "type": {
+            "type": "string",
+            "default": "pass-fail",
+            "alternatives": {
+                "pass-fail": {
+                    "forbid": ["grading/on_reject:grade"]
+                },
+                "scoring": {},
+            },
+        },
+        "name": {
+            "type": "string",
+            "default": "",
+        },
+        "uuid": {
+            "type": "string",
+            "default": "",
+        },
+        "author": {
+            "type": "string",
+            "default": "",
+        },
+        "source": {
+            "type": "string",
+            "default": "",
+        },
+        "source_url": {
+            "type": "string",
+            "default": "",
+            "alternatives": {
+                ".*": {
+                    "require": ["source"]
+                }
+            },
+        },
+        "licence": {
+            "type": "string",
+            "default": "unknown",
+            "alternatives": {
+                "unknown": {
+                    "warn": "License is unknown",
+                    "require": ["rights_owner"]
+                },
+                "cc0|cc by|cc by-sa|educational|permission": {
+                    "require": ["rights_owner"]
+                },
+                "public domain": {
+                    "forbid": ["rights_owner"]
+                }
+            }
+        },
+        "rights_owner": {
+            "type": "string",
+            "default": "copy-from:author",
+        },
+        "limits": {
+            "type": "object",
+            "required": [],
+            "properties": {
+                "time_multiplier": {
+                    "type": "float",
+                    "default": 5.0
+                },
+                "time_safety_margin": {
+                    "type": "float",
+                    "default": 2.0
+                },
+                "memory": {
+                    "type": "int",
+                    "default": "copy-from:system_default/memory"
+                },
+                "output": {
+                    "type": "int",
+                    "default": "copy-from:system_default/output"
+                },
+                "code": {
+                    "type": "int",
+                    "default": "copy-from:system_default/code"
+                },
+                "compilation_time": {
+                    "type": "float",
+                    "default": "copy-from:system_default/compilation_time"
+                },
+                "compilation_memory": {
+                    "type": "int",
+                    "default": "copy-from:system_default/compilation_memory"
+                },
+                "validation_time": {
+                    "type": "float",
+                    "default": "copy-from:system_default/validation_time"
+                },
+                "validation_memory": {
+                    "type": "int",
+                    "default": "copy-from:system_default/validation_memory"
+                },
+                "validation_output": {
+                    "type": "int",
+                    "default": "copy-from:system_default/validation_output"
+                }
+            }
+        },
+        "validation": {
+            "type": "object",
+            "parsing": "legacy-validation",
+            "required": [],
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "default": "default",
+                    "alternatives": {
+                        "default": {
+                            "forbid": ["validation/interactive:true", "validation/score:true"]
+                        },
+                        "custom": {}
+                    }
+                },
+                "interactive": {
+                    "type": "bool",
+                    "default": False
+                },
+                "score": {
+                    "type": "bool",
+                    "default": False
+                }
+            }
+        },
+        "validator_flags": {
+            "type": "string",
+            "default": "",
+        },
+        "keywords": {
+            "type": "list",
+            "parsing": "space-separated-strings",
+            "content": {
+                "type": "string",
+            },
+            "default": [],
+        }
+    }
+}
+
+class BaseValidator:
+    def __init__(self, layout: dict, aspect: ProblemAspect, path: str = ""):
+        self.layout = layout
+        self.aspect = aspect
+        self.path = path
+
+    def verify(self, value):
+        """
+        Verifies the value:
+          - Applies defaults
+          - Converts types
+          - Logs warnings/errors if needed
+        """
+        raise NotImplementedError("Subclasses must implement verify")
+
+    def check(self, value, get_path_func):
+        """
+        Performs extra-checks (like forbid/require logic)
+        get_path_func can be used to fetch other values by path.
+        """
+        raise NotImplementedError("Subclasses must implement check")
+
+
+class StringValidator(BaseValidator):
+    def __init__(self, layout: dict, aspect: ProblemAspect, path: str = ""):
+        super().__init__(layout, aspect, path)
+        alternatives = self.layout.get("alternatives")
+        if alternatives:
+            self.patterns = {alt: re.compile('^' + alt + '$') for alt in alternatives}
+        else:
+            self.patterns = None
+
+    def verify(self, value):
+        if value is None:
+            value = self.layout.get("default", "")
+        if not isinstance(value, str):
+            self.aspect.warning(f'Property {self.path} was expected to be of type string')
+            value = str(value)
+        if self.patterns:
+            if not any(pattern.match(value) for pattern in self.patterns.values()):
+                self.aspect.error(f"Property {self.path} is {value} but must match one of {list(self.patterns.keys())}")
+                value = self.layout.get("default", "")
+        return value
+
+    def check(self, value, get_path_func):
+        if not self.patterns:
+            return
+        match = next((key for key, pattern in self.patterns.items() if pattern.match(value)), None)
+        checks = self.layout["alternatives"][match]
+        for forbidden in checks.get("forbid", []):
+            other_path, expected = forbidden.split(':')
+            if get_path_func(other_path) == expected:
+                self.aspect.error(f"Property {self.path} has value {value} which forbids property {other_path} to have value {expected}")
+        for required in checks.get("required", []):
+            if not get_path_func(required): #TODO: This is not a good way to handle this check I think
+                self.aspect.error(f"Property {self.path} has value {value} which requires property {required}")
+        if "warn" in checks:
+            self.aspect.warning(checks["warn"])
+
+class ObjectValidator(BaseValidator):
+    def verify(self, value):
+        if value is None:
+            return self.layout.get("default", {})
+        if self.layout.get("parsing") == "legacy-validation":
+            if not isinstance(value, str):
+                self.aspect.error(f"Property {self.path} was expected to be a string")
+                return {}
+            elements = value.split()
+            value = {
+                "type": elements[0],
+                "interactive": "interactive" in elements[1:],
+                "score": "score" in elements[1:]
+            }
+        if not isinstance(value, dict):
+            self.aspect.error(f"property {self.path} was expected to be a dictionary")
+            return {}
+        for prop in self.layout.get("required", []):
+            if prop not in value:
+                self.aspect.error(f"Missing required property: {self.path}/{prop}")
+        for prop in value.keys():
+            if prop not in self.layout["properties"]:
+                self.aspect.warning(f"Unknown property: {self.path}/{prop}")
+        return value
+    
+    def check(self, value, get_path_func):
+        pass
+
+class ListValidator(BaseValidator):
+    def verify(self, value):
+        if value is None:
+            return self.layout.get("default", [])
+        if self.layout.get("parsing") == "space-separated-strings":
+            if not isinstance(value, str):
+                self.aspect.error(f"Property {self.path} was expected to be a string")
+                return {}
+            value = value.split()
+        if not isinstance(value, list):
+            self.aspect.error(f"property {self.path} was expected to be a list")
+            return {}
+        return value
+    
+    def check(self, value, get_path_func):
+        pass
+
+class FloatValidator(BaseValidator):
+    def verify(self, value):
+        if value is None:
+            return self.layout.get("default", 0.0)
+        if not isinstance(value, float):
+            try:
+                value = float(value)
+            except Exception:
+                self.aspect.error(f"Property {self.path} was expected to be a float")
+                value = self.layout.get("default", 0.0)
+        return value
+    
+    def check(self, value, get_path_func):
+        pass
+
+class IntValidator(BaseValidator):
+    def verify(self, value):
+        if value is None:
+            return self.layout.get("default", 0)
+        if not isinstance(value, int):
+            try:
+                value = int(value)
+                self.aspect.warning(f"Property {self.path} should be of type integer, interpreting as {value}")
+            except Exception:
+                self.aspect.error(f"Property {self.path} was expected to be an integer")
+                value = self.layout.get("default", 0)
+        return value
+
+    def check(self, value, get_path_func):
+        pass
+
+def get_validator(layout: dict, aspect: ProblemAspect, path: str) -> BaseValidator:
+    type_map = {
+        "string": StringValidator,
+        "int": IntValidator,
+        "float": FloatValidator,
+        "object": ObjectValidator,
+    }
+    typ = layout.get("type")
+    if typ not in type_map:
+        raise NotImplementedError(f"Unrecognized type: {typ}")
+    return type_map[typ](layout, aspect, path)
+
+class NewProblemConfig(ProblemPart):
+    PART_NAME = 'config2'
+
+    LAYOUT = {}
+
+    def setup(self):
+        self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
+        self.data = {}
+        if os.path.isfile(self.configfile):
+            try:
+                with open(self.configfile) as f:
+                    self.data = yaml.safe_load(f) or {}
+            except Exception as e:
+                self.error(str(e))
+        self.data = self.verify_data(self.LAYOUT, self.data)
+        self.inject_data()
+        def resolve_all_copy_from(data, path):
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    resolve_all_copy_from(v, f'{path}/{k}')
+            else:
+                self.resolve_copy_from(path)
+        resolve_all_copy_from(self.data, "")
+
+    def inject_data(self):
+        pass
+
+    def resolve_copy_from(self, path: str, resolving=set()):
+        if path in resolving:
+            raise NotImplementedError(f"Circular copy-from dependency between properties {list(resolving)}")
+        val = self.get_path(path)
+        if not isinstance(val, str) or not val.startswith("copy-from:"):
+            return
+        copy_path = val.split(':')[1]
+        resolving.add(path)
+        self.resolve_copy_from(copy_path)
+        resolving.remove(path)
+        cur = self.data
+        parts = path.split('/')
+        for d in parts[:-1]:
+            cur = cur[d]
+        cur[parts[-1]] = self.get_path(copy_path)
+
+
+    def get_path(self, path: str) -> Any:
+        cur = self.data
+        parts = path.split('/')
+        for part in parts[:-1]:
+            if not isinstance(cur, dict):
+                return None
+            cur = cur.get(part, {})
+        return cur.get(parts[-1], None)
+
+    def verify_data(self, layout, data, path="") -> Any:
+        validator = get_validator(layout, self, path)
+        verified = validator.verify(data)
+        if layout["type"] == "object":
+            for prop, spec in layout.get("properties", {}).items():
+                verified[prop] = self.verify_data(spec, verified.get(prop), f"{path}/{prop}")
+        elif layout["type"] == "list":
+            for i in range(len(verified)):
+                verified[i] = self.verify_data(layout["content"], verified[i], f"{path}[{i}]")
+        return verified
+
+    def check_data(self, layout, data, path=""):
+        validator = get_validator(layout, self, path)
+        validator.check(data, self.get_path)
+        if layout["type"] == "object":
+            for prop, spec in layout.get("properties", {}).items():
+                self.check_data(spec, data.get(prop), f"{path}/{prop}")
+        elif layout["type"] == "list":
+            for i in range(len(verified)):
+                self.verify_check(layout["content"], verified[i], f"{path}[{i}]")
+        
+    def check(self, context: Context) -> bool:
+        self.check_data(self.LAYOUT, self.data)
+        return True
+
+class NewProblemConfigLegacy(NewProblemConfig):
+    LAYOUT = config_format
+
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
 
