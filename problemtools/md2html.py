@@ -3,7 +3,6 @@
 import os.path
 import string
 import argparse
-import json
 import subprocess
 import re
 import tempfile
@@ -32,8 +31,9 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
         raise Exception(f"Error! {statement_path} is not a file")
 
 
-    _copy_images(statement_path,
-                 lambda img_name: handle_image(problem, img_name))
+    statement_common.check_images_are_valid(statement_path)
+    statement_common.foreach_image(statement_path,
+                 lambda img_name: copy_image(problem, img_name))
     
     with open (statement_path, "r") as source:
         statement_md = source.read()
@@ -92,52 +92,21 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     return True
 
 
-def handle_image(problem_root: str, img_src: str) -> None:
-    """This is called for every image in the statement
-    First, check if we actually allow this image
-    Then, copies the image from the statement to the output directory
+def copy_image(problem_root: str, img_src: str) -> None:
+    """Copy image to output directory
 
     Args:
         problem_root: the root of the problem directory
         img_src: the image source as in the Markdown statement
     """
 
-    src_pattern = r'^[a-zA-Z0-9._]+\.(png|jpg|jpeg)$'
-
-    if not re.match(src_pattern, img_src):
-        raise Exception(f"Image source must match regex {src_pattern}")
-
     source_name = os.path.join(problem_root, "problem_statement", img_src)
 
-    if not os.path.isfile(source_name):
-        raise Exception(f"File {source_name} not found in problem_statement")
     if os.path.isfile(img_src): # already copied
         return
     with open(source_name, "rb") as img:
         with open(img_src, "wb") as out:
             out.write(img.read())
-
-
-def json_dfs(data, callback) -> None:
-    """Traverse all items in a JSON tree, find all images, and call callback for each one"""
-    if isinstance(data, dict):
-        for key, value in data.items():
-            # Markdown-style images
-            if key == 't' and value == 'Image':
-                callback(data['c'][2][0])
-            else:
-                json_dfs(value, callback)
-
-    elif isinstance(data, list):
-        for item in data:
-            json_dfs(item, callback)
-
-
-def _copy_images(statement_path, callback):
-    command = ["pandoc", statement_path, "-t" , "json", "-f", "markdown-raw_html"]
-    statement_json = subprocess.run(command, capture_output=True,
-                                    text=True, shell=False, check=True).stdout
-    json_dfs(json.loads(statement_json), callback)
 
 
 def replace_hr_in_footnotes(html_content):

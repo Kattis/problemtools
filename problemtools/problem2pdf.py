@@ -29,6 +29,8 @@ def md2pdf(options: argparse.Namespace) -> bool:
     if not os.path.isfile(statement_path):
         raise Exception(f"Error! {statement_path} is not a file")
 
+    statement_common.check_images_are_valid(statement_path)
+
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_pdf'),
                     os.path.join(os.path.dirname(__file__), '../templates/markdown_pdf'),
                     '/usr/lib/problemtools/templates/markdown_pdf']
@@ -45,7 +47,7 @@ def md2pdf(options: argparse.Namespace) -> bool:
     statement_dir = os.path.join(problem_root, "problem_statement")
     with open(statement_path, "r") as file:
         statement_md = file.read()
-
+    
     problem_name = statement_common.get_problem_name(problem_root, options.language)
 
     # Add problem name and id to the top
@@ -65,7 +67,11 @@ def md2pdf(options: argparse.Namespace) -> bool:
         temp_file.write(statement_md)
         temp_file.flush()
         command = ["pandoc", temp_file.name, "-o", destfile, f"--resource-path={statement_dir}", "-f", "markdown-raw_html"]
-        return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
+        try:
+            return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error compiling Markdown to pdf: {e.stderr}")
+            return False
 
 
 def latex2pdf(options: argparse.Namespace) -> bool:

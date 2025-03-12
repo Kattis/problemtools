@@ -4,6 +4,7 @@ import html
 import tempfile
 import subprocess
 import re
+import json
 
 from . import verifyproblem
 
@@ -44,6 +45,47 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
     raise Exception(f"No statement found for language {language or 'en'}")
 
 
+def json_dfs(data, callback) -> None:
+    """Traverse all items in a JSON tree, find all images, and call callback for each one"""
+    if isinstance(data, dict):
+        for key, value in data.items():
+            # Markdown-style images
+            if key == 't' and value == 'Image':
+                callback(data['c'][2][0])
+            else:
+                json_dfs(value, callback)
+
+    elif isinstance(data, list):
+        for item in data:
+            json_dfs(item, callback)
+
+
+def foreach_image(statement_path, callback):
+    # Find all images in the statement and call callback for each one
+    command = ["pandoc", statement_path, "-t" , "json", "-f", "markdown-raw_html"]
+    statement_json = subprocess.run(command, capture_output=True,
+                                    text=True, shell=False, check=True).stdout
+    json_dfs(json.loads(statement_json), callback)
+
+
+def assert_image_is_valid(problem_root: str, img_src: str) -> None:
+    # Check that the source is a legal image source
+    src_pattern = r'^[a-zA-Z0-9._]+\.(png|jpg|jpeg)$'
+
+    if not re.match(src_pattern, img_src):
+        raise Exception(r"Image source must match regex ^[a-zA-Z0-9._]+\.(png|jpg|jpeg)$")
+
+    source_name = os.path.join(problem_root, img_src)
+
+    if not os.path.isfile(source_name):
+        print(source_name)
+        raise Exception(f"File {img_src} not found in problem_statement")
+
+
+def check_images_are_valid(statement_path: str) -> None:
+    problem_root = os.path.dirname(statement_path)
+    foreach_image(statement_path,
+                lambda img_name: assert_image_is_valid(problem_root, img_name))
 
 def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
     """Load problem.yaml to get problem name"""
