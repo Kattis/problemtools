@@ -5,6 +5,7 @@ import string
 import argparse
 import json
 import subprocess
+import re
 
 from . import statement_common
 
@@ -31,7 +32,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
 
     _copy_images(statement_path,
-                 lambda img_name: handle_image(os.path.join(problem, "problem_statement", img_name)))
+                 lambda img_name: handle_image(problem, img_name))
     command = ["pandoc", statement_path, "-t" , "html", "-f", "markdown-raw_html"]
     statement_html = subprocess.run(command, capture_output=True, text=True,
                                     shell=False, check=True).stdout
@@ -70,21 +71,29 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     return True
 
 
-def handle_image(src: str) -> None:
+def handle_image(problem_root: str, img_src: str) -> None:
     """This is called for every image in the statement
-    Copies the image from the statement to the output directory
+    First, check if we actually allow this image
+    Then, copies the image from the statement to the output directory
 
     Args:
-        src: full file path to the image
+        problem_root: the root of the problem directory
+        img_src: the image source as in the Markdown statement
     """
-    file_name = os.path.basename(src)
 
-    if not os.path.isfile(src):
-        raise Exception(f"File {file_name} not found in problem_statement")
-    if os.path.isfile(file_name):
+    src_pattern = r'^[a-zA-Z0-9.]+\.(png|jpg|jpeg)$'
+
+    if not re.match(src_pattern, img_src):
+        raise Exception(f"Image source must match regex {src_pattern}")
+
+    source_name = os.path.join(problem_root, "problem_statement", img_src)
+
+    if not os.path.isfile(source_name):
+        raise Exception(f"File {source_name} not found in problem_statement")
+    if os.path.isfile(img_src): # already copied
         return
-    with open(src, "rb") as img:
-        with open(file_name, "wb") as out:
+    with open(source_name, "rb") as img:
+        with open(img_src, "wb") as out:
             out.write(img.read())
 
 
