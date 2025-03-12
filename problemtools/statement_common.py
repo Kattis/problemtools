@@ -76,7 +76,6 @@ def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
 
     sample_path = os.path.join(problem_root, "data", "sample")
     if not os.path.isdir(sample_path):
-        print("WARNING!! no sample folder")
         return []
     samples = []
     casenum = 1

@@ -16,16 +16,20 @@
 /*Style all tables except sample*/
 table:not(.sample) {
     border-collapse: collapse;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    margin: 20px auto;
 }
 
 table:not(.sample) td, table:not(.sample) th {
-    border-top-style: solid;
-    border-top-color: black;
-    border-top-width: 1px;
     text-align: left;
-    border-right: 1px solid black;
-    border-left: 1px solid black;
-    border-bottom: 1px solid black;
+    padding: 12px;
+    border: 1px solid #d6d6d6;
+}
+
+table:not(.sample) th {
+    background-color: #eeeeee;
+    font-weight: bold;
 }
 
 table:not(.sample) td {
@@ -50,6 +54,21 @@ table:not(.sample) td {
 
 .sample td {
     border: 1px solid black;
+}
+
+code {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+pre code {
+    background-color: #eeeeee;
+    padding: 15px 20px;
+    border: 2px solid #dddddd;
+    font-size: 16px;
+    display: inline-block;
+    margin: 10px 0;
+    word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 div.minipage { 
@@ -79,10 +98,6 @@ div.figure {
 
 .problembody p {
   text-align: justify;
-}
-
-td {
-  vertical-align:top;
 }
 
 div.sampleinteractionread {

@@ -33,7 +33,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
     _copy_images(statement_path,
                  lambda img_name: handle_image(problem, img_name))
-    command = ["pandoc", statement_path, "-t" , "html", "-f", "markdown-raw_html"]
+    command = ["pandoc", statement_path, "-t" , "html", "-f", "markdown-raw_html", "--mathjax"]
     statement_html = subprocess.run(command, capture_output=True, text=True,
                                     shell=False, check=True).stdout
 
@@ -81,7 +81,7 @@ def handle_image(problem_root: str, img_src: str) -> None:
         img_src: the image source as in the Markdown statement
     """
 
-    src_pattern = r'^[a-zA-Z0-9.]+\.(png|jpg|jpeg)$'
+    src_pattern = r'^[a-zA-Z0-9._]+\.(png|jpg|jpeg)$'
 
     if not re.match(src_pattern, img_src):
         raise Exception(f"Image source must match regex {src_pattern}")
