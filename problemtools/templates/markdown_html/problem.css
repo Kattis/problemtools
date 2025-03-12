@@ -53,7 +53,12 @@ table:not(.sample) td {
 }
 
 .sample td {
+    vertical-align: top;
     border: 1px solid black;
+}
+
+.sample pre {
+    margin: 0px;
 }
 
 code {
