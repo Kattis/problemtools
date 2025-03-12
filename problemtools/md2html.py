@@ -6,6 +6,7 @@ import argparse
 import json
 import subprocess
 import re
+import tempfile
 
 from . import statement_common
 
@@ -33,9 +34,20 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
     _copy_images(statement_path,
                  lambda img_name: handle_image(problem, img_name))
-    command = ["pandoc", statement_path, "-t" , "html", "-f", "markdown-raw_html", "--mathjax"]
-    statement_html = subprocess.run(command, capture_output=True, text=True,
-                                    shell=False, check=True).stdout
+    
+    with open (statement_path, "r") as source:
+        statement_md = source.read()
+        # Replace \nextsample with \\nextsample to avoid pandoc interpreting it as a newline
+        statement_md = statement_md.replace('\\nextsample', '\\\\nextsample')
+        statement_md = statement_md.replace('\\remainingsamples', '\\\\remainingsamples')
+        with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
+            temp_file.write(statement_md)
+            temp_file.flush()
+
+            command = ["pandoc", temp_file.name, "-t" , "html", "-f", "markdown-raw_html", "--mathjax"]
+            statement_html = subprocess.run(command, capture_output=True, text=True,
+                                            shell=False, check=True).stdout
+
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
                      os.path.join(os.path.dirname(__file__), '../templates/markdown_html'),
@@ -55,9 +67,18 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
            title=problem_name or "Missing problem name",
            problemid=problembase)
 
-    samples = "".join(statement_common.format_samples(problem, to_pdf=False))
+    samples = statement_common.format_samples(problem, to_pdf=False)
 
-    html_template = inject_samples(html_template, samples)
+    # Insert samples at \nextsample and \remainingsamples
+    html_template, remaining_samples = statement_common.inject_samples(html_template, samples, "")
+
+    # Insert the remaining samples at the bottom
+    if FOOTNOTES_STRING in html_template:
+        pos = html_template.find(FOOTNOTES_STRING)
+    else:
+        pos = html_template.find("</body>")
+    html_template = html_template[:pos] + "".join(remaining_samples) + html_template[pos:]
+
     html_template = replace_hr_in_footnotes(html_template)
 
     with open(destfile, "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
@@ -119,16 +140,8 @@ def _copy_images(statement_path, callback):
     json_dfs(json.loads(statement_json), callback)
 
 
-def inject_samples(html, samples):
-    if FOOTNOTES_STRING in html:
-        pos = html.find(FOOTNOTES_STRING)
-    else:
-        pos = html.find("</body>")
-    html = html[:pos] + samples + html[pos:]
-    return html
-
-
 def replace_hr_in_footnotes(html_content):
+    # Remove <hr /> tag that pandoc automatically creates after the footnotes
     if not FOOTNOTES_STRING in html_content:
         return html_content
     footnotes = html_content.find(FOOTNOTES_STRING)

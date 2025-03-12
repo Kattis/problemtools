@@ -3,6 +3,7 @@ from typing import Optional, List
 import html
 import tempfile
 import subprocess
+import re
 
 from . import verifyproblem
 
@@ -60,6 +61,38 @@ def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
     if language not in names:
         raise Exception(f"No problem name defined for language {language or 'en'}")
     return names[language]
+
+
+def inject_samples(html, samples, sample_separator):
+    """Injects samples at occurences of \nextsample and \remainingsamples
+    Non-destructive, returns the new html and all left-over samples
+
+    Returns:
+        """
+    
+    while True:
+        match = re.search(r'\\(nextsample|remainingsamples)', html)
+        if not match:
+            break
+        matched_text = match.group(1)
+        if matched_text == "nextsample" and len(samples) == 0:
+            raise Exception("Error: called \\nextsample without any samples left")
+        
+        num_inject = 1 if matched_text == "nextsample" else len(samples)
+        to_inject = sample_separator.join(samples[:num_inject])
+        samples = samples[num_inject:]
+        
+        # Always inject, even if to_inject is empty
+        # This will remove all occurences of \nextsample and \remainingsamples
+        # (And also properly throw an error if \nextsample is called with no samples left)
+        html = html[:match.start()] + to_inject + html[match.end():]
+
+    #print(html)
+    return html, samples
+
+
+def append_samples(html, samples):
+    """Appends all samples to the end of the html"""
 
 
 def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
@@ -138,7 +171,7 @@ def format_normal_sample(sample_root: str, sample: str, casenum: int, to_pdf: bo
         with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
             temp_file.write(sample)
             temp_file.flush()
-            command = ["pandoc", temp_file.name, "-t" , "markdown", "-f", "markdown-raw_html"]
+            command = ["pandoc", temp_file.name, "-t" , "markdown"]
             return subprocess.run(command, capture_output=True, text=True,
                                   shell=False, check=True).stdout
     else:

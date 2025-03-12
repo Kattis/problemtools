@@ -48,16 +48,18 @@ def md2pdf(options: argparse.Namespace) -> bool:
 
     problem_name = statement_common.get_problem_name(problem_root, options.language)
 
+    # Add problem name and id to the top
     problem_id = os.path.basename(problem_root)
-    # Add code that adds vertical and horizontal lines to all tables
     statement_md = r'\centerline{\large %s}' % f"Problem id: {problem_id}" + statement_md
     statement_md = r'\centerline{\huge %s}' % problem_name + statement_md
+    # Add code that adds vertical and horizontal lines to all tables
     statement_md = table_fix + statement_md
 
-    samples = "\n".join(statement_common.format_samples(problem_root, to_pdf=True))
+    samples = statement_common.format_samples(problem_root, to_pdf=True)
 
+    statement_md, remaining_samples = statement_common.inject_samples(statement_md, samples, "\n")
     # If we don't add newline, the topmost table might get attached to a footnote
-    statement_md += "\n" + samples
+    statement_md += "\n" + "\n".join(remaining_samples)
 
     with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
         temp_file.write(statement_md)
