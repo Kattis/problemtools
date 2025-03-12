@@ -6,7 +6,7 @@
 # author:
 
 # The problem name
-# En may be omitted, as there is only one language
+# "en" may be omitted, as there is only one language
 name:
     en: A Different Problem
 

@@ -1,6 +1,6 @@
 **EKO! Eko! Ek...**
 
-![](echo_cave.jpg)
+![CC-BY-SA 2.0 By William Craig on wikimedia.org](cave.jpg)
 
 Du älskar att skrika i grottor för att höra dina ord ekade tillbaka till dig. Tyvärr, som en hårt arbetande mjukvaruingenjör, har du
 inte tid för att komma ut och skrika i grottor så ofta. Istället skulle du vilja implementera ett program som fungerar som en ersättning för en grotta.
