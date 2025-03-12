@@ -19,7 +19,6 @@ RUN apt-get update && \
             python3-pip \
             python3-plastex \
             python3-yaml \
-            rsvg-convert \
             sudo \
             texlive-fonts-recommended \
             texlive-lang-cyrillic \

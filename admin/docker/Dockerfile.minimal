@@ -25,7 +25,6 @@ RUN apt update && \
         python3-minimal \
         python3-yaml \
         python3-plastex \
-        rsvg-convert \
         texlive-fonts-recommended \
         texlive-lang-cyrillic \
         texlive-latex-extra \
