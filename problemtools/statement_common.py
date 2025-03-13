@@ -106,27 +106,27 @@ def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
 
 
 def inject_samples(html, samples, sample_separator):
-    """Injects samples at occurences of \nextsample and \remainingsamples
+    """Injects samples at occurences of {{nextsample}} and {{remainingsamples}}
     Non-destructive, returns the new html and all left-over samples
 
     Returns:
         """
     
     while True:
-        match = re.search(r'\\(nextsample|remainingsamples)', html)
+        match = re.search(r'\{\{(nextsample|remainingsamples)\}\}', html)
         if not match:
             break
         matched_text = match.group(1)
         if matched_text == "nextsample" and len(samples) == 0:
-            raise Exception("Error: called \\nextsample without any samples left")
+            raise Exception("Error: called {{nextsample}} without any samples left")
         
         num_inject = 1 if matched_text == "nextsample" else len(samples)
         to_inject = sample_separator.join(samples[:num_inject])
         samples = samples[num_inject:]
         
         # Always inject, even if to_inject is empty
-        # This will remove all occurences of \nextsample and \remainingsamples
-        # (And also properly throw an error if \nextsample is called with no samples left)
+        # This will remove all occurences of {{nextsample}} and {{remainingsamples}}
+        # (And also properly throw an error if {{nextsample}} is called with no samples left)
         html = html[:match.start()] + to_inject + html[match.end():]
 
     #print(html)

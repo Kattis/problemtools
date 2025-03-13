@@ -35,18 +35,9 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     statement_common.foreach_image(statement_path,
                  lambda img_name: copy_image(problem, img_name))
     
-    with open (statement_path, "r") as source:
-        statement_md = source.read()
-        # Replace \nextsample with \\nextsample to avoid pandoc interpreting it as a newline
-        statement_md = statement_md.replace('\\nextsample', '\\\\nextsample')
-        statement_md = statement_md.replace('\\remainingsamples', '\\\\remainingsamples')
-        with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
-            temp_file.write(statement_md)
-            temp_file.flush()
-
-            command = ["pandoc", temp_file.name, "-t" , "html", "-f", "markdown-raw_html", "--mathjax"]
-            statement_html = subprocess.run(command, capture_output=True, text=True,
-                                            shell=False, check=True).stdout
+    command = ["pandoc", statement_path, "-t" , "html", "-f", "markdown-raw_html", "--mathjax"]
+    statement_html = subprocess.run(command, capture_output=True, text=True,
+        shell=False, check=True).stdout
 
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
@@ -69,7 +60,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
     samples = statement_common.format_samples(problem, to_pdf=False)
 
-    # Insert samples at \nextsample and \remainingsamples
+    # Insert samples at {{nextsample}} and {{remainingsamples}}
     html_template, remaining_samples = statement_common.inject_samples(html_template, samples, "")
 
     # Insert the remaining samples at the bottom
