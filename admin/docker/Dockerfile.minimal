@@ -20,6 +20,7 @@ RUN apt update && \
     apt install -y \
         ghostscript \
         libgmpxx4ldbl \
+        librsvg2-bin \
         pandoc \
         python-pkg-resources \
         python3-minimal \
