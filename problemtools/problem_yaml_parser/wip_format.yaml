@@ -1,0 +1,131 @@
+type: object
+required: []
+config_fields:
+- problem_format_version
+- type
+- name
+- uuid
+- author
+- source
+- source_url
+- license
+- rights_owner
+- limits
+- validation
+- validator_flags
+- keywords
+- grading
+properties:
+  problem_format_version:
+    type: string
+    default: legacy
+    alternatives:
+      legacy: {}
+  type:
+    type: string
+    default: pass-fail
+    alternatives:
+      pass-fail:
+        forbid:
+        - grading/on_reject:grade
+      scoring: {}
+  name:
+    type: string
+    default: ''
+  uuid:
+    type: string
+    default: ''
+  author:
+    type: string
+    default: ''
+  source:
+    type: string
+    default: ''
+  source_url:
+    type: string
+    default: ''
+    alternatives:
+      ".+":
+        require:
+        - source
+  licence:
+    type: string
+    default: unknown
+    alternatives:
+      unknown:
+        warn: License is unknown
+        require:
+        - rights_owner
+      cc0|cc by|cc by-sa|educational|permission:
+        require:
+        - rights_owner
+      public domain:
+        forbid:
+        - rights_owner
+  rights_owner:
+    type: string
+    parsing: rights_owner_legacy
+    default: copy-from:author
+  limits:
+    type: object
+    required: []
+    properties:
+      time_multiplier:
+        type: float
+        default: 5
+      time_safety_margin:
+        type: float
+        default: 2
+      memory:
+        type: int
+        default: copy-from:system_default/memory
+      output:
+        type: int
+        default: copy-from:system_default/output
+      code:
+        type: int
+        default: copy-from:system_default/code
+      compilation_time:
+        type: float
+        default: copy-from:system_default/compilation_time
+      compilation_memory:
+        type: int
+        default: copy-from:system_default/compilation_memory
+      validation_time:
+        type: float
+        default: copy-from:system_default/validation_time
+      validation_memory:
+        type: int
+        default: copy-from:system_default/validation_memory
+      validation_output:
+        type: int
+        default: copy-from:system_default/validation_output
+  validation:
+    type: object
+    parsing: legacy-validation
+    required: []
+    properties:
+      type:
+        type: string
+        default: default
+        alternatives:
+          default:
+            forbid:
+            - validation/interactive:true
+            - validation/score:true
+          custom: {}
+      interactive:
+        type: bool
+        default: false
+      score:
+        type: bool
+        default: false
+  validator_flags:
+    type: string
+    default: ''
+  keywords:
+    type: list
+    parsing: space-separated-strings
+    content:
+      type: string
+    default: []

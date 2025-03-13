@@ -1079,6 +1079,11 @@ def get_validator(layout: dict, aspect: ProblemAspect, path: str) -> BaseValidat
         raise NotImplementedError(f"Unrecognized type: {typ}")
     return type_map[typ](layout, aspect, path)
 
+class ConfigLoader:
+    def __init__(self, config_specification: dict) -> None:
+        self.spec = config_specification
+
+
 class NewProblemConfig(ProblemPart):
     PART_NAME = 'config2'
 
@@ -1123,14 +1128,17 @@ class NewProblemConfig(ProblemPart):
         cur[parts[-1]] = self.get_path(copy_path)
 
 
-    def get_path(self, path: str) -> Any:
+    def get_path(self, *path: list[str|int]) -> Any:
         cur = self.data
-        parts = path.split('/')
-        for part in parts[:-1]:
-            if not isinstance(cur, dict):
-                return None
-            cur = cur.get(part, {})
-        return cur.get(parts[-1], None)
+        for part in path:
+            if isinstance(part, int):
+                if not isinstance(cur, list) or len(cur) >= part:
+                    return None
+                cur = cur[part]
+            elif isinstance(cur, dict):
+                cur = cur.get(part)
+            return None
+        return cur
 
     def verify_data(self, layout, data, path="") -> Any:
         validator = get_validator(layout, self, path)
