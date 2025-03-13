@@ -5,6 +5,7 @@ import tempfile
 import subprocess
 import re
 import json
+from pathlib import Path
 
 from . import verifyproblem
 
@@ -69,20 +70,20 @@ def foreach_image(statement_path, callback):
 
 
 def assert_image_is_valid(problem_root: str, img_src: str) -> None:
-    # Check that the source is a legal image source
-    src_pattern = r'^[a-zA-Z0-9._]+\.(png|jpg|jpeg)$'
-
-    if not re.match(src_pattern, img_src):
-        raise Exception(r"Image source must match regex ^[a-zA-Z0-9._]+\.(png|jpg|jpeg)$")
+    # Check that the image exists and uses an allowed extension
+    extension = Path(img_src).suffix
+    if extension not in (".png", ".jpg", ".jpeg", ".svg"):
+        raise Exception(f"Unsupported image extension {extension} for image {img_src}")
 
     source_name = os.path.join(problem_root, img_src)
-
     if not os.path.isfile(source_name):
         print(source_name)
         raise Exception(f"File {img_src} not found in problem_statement")
 
 
-def check_images_are_valid(statement_path: str) -> None:
+def assert_images_are_valid_md(statement_path: str) -> None:
+    # Find all images in the statement and assert that they exist and
+    # use valid image extensions
     problem_root = os.path.dirname(statement_path)
     foreach_image(statement_path,
                 lambda img_name: assert_image_is_valid(problem_root, img_name))
@@ -129,12 +130,7 @@ def inject_samples(html, samples, sample_separator):
         # (And also properly throw an error if {{nextsample}} is called with no samples left)
         html = html[:match.start()] + to_inject + html[match.end():]
 
-    #print(html)
     return html, samples
-
-
-def append_samples(html, samples):
-    """Appends all samples to the end of the html"""
 
 
 def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:

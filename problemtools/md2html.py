@@ -31,7 +31,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
         raise Exception(f"Error! {statement_path} is not a file")
 
 
-    statement_common.check_images_are_valid(statement_path)
+    statement_common.assert_images_are_valid_md(statement_path)
     statement_common.foreach_image(statement_path,
                  lambda img_name: copy_image(problem, img_name))
     
