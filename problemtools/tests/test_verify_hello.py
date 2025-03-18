@@ -12,5 +12,5 @@ def test_load_hello():
     with verify.Problem(string) as p:
         assert p.shortname == "hello"
         # pytest and fork don't go along very well, so just run aspects that work without run
-        assert p.config.check(args)
-        assert p.attachments.check(args)
+        assert p.classes[verify.ProblemConfig.PART_NAME].check(args)
+        assert p.classes[verify.Attachments.PART_NAME].check(args)
