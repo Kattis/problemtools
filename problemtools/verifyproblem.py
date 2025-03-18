@@ -431,7 +431,7 @@ class TestCaseGroup(ProblemAspect):
         if problem_on_reject == 'grade':
             self.config['on_reject'] = 'continue'
 
-        if self._problem.get(ProblemConfig).get('type') == 'pass-fail':
+        if self._problem.get(ProblemConfig)['type'] == 'pass-fail':
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if key not in self.config:
                     self.config[key] = None
@@ -1161,7 +1161,7 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self.problem.get(ProblemConfig).get('type') == 'pass-fail' and len(self._graders) > 0:
+        if self.problem.get(ProblemConfig)['type'] == 'pass-fail' and len(self._graders) > 0:
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
@@ -1268,12 +1268,12 @@ class OutputValidators(ProblemPart):
             if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
-        if self.problem.get(ProblemConfig).get('validation') == 'default' and self._validators:
+        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.get(ProblemConfig).get('validation') != 'default' and not self._validators:
+        elif self.problem.get(ProblemConfig)['validation'] != 'default' and not self._validators:
             self.error('problem.yaml specifies custom validator but no validator programs found')
 
-        if self.problem.get(ProblemConfig).get('validation') == 'default' and self._default_validator is None:
+        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._default_validator is None:
             self.error('Unable to locate default validator')
 
         for val in self._validators[:]:
@@ -1363,7 +1363,7 @@ class OutputValidators(ProblemPart):
 
     def _actual_validators(self) -> list:
         vals = self._validators
-        if self.problem.get(ProblemConfig).get('validation') == 'default':
+        if self.problem.get(ProblemConfig)['validation'] == 'default':
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
 
@@ -1774,7 +1774,6 @@ class Problem(ProblemAspect):
                     if issubclass(cl, dependency):
                         init(cl)
                         cnt += 1
-                        break
                 if cnt != 1:
                     raise NotImplementedError(f'Part "{_class.PART_NAME}" depends on part "{dependency.PART_NAME}" which showed up {cnt} times in problem-format (should have showed up exactly once)')
             self.debug(f'Initializing {_class.PART_NAME} ({_class})')
