@@ -1727,6 +1727,22 @@ class Submissions(ProblemPart):
 
         return self._check_res
 
+PROBLEM_FORMATS = {
+    'legacy': {
+        'config':       [ProblemConfig],
+        'statement':    [ProblemStatementLegacy, Attachments],
+        'validators':   [InputValidators, OutputValidators],
+        'graders':      [Graders],
+        'data':         [ProblemTestCases],
+        'submissions':  [Submissions],
+    },
+    '2023-07': { # TODO: Add all the parts
+        'statement':    [ProblemStatement2023_07, Attachments],
+    }
+}
+
+# parts tested in alphabetical order
+PROBLEM_PARTS = [*sorted({part for format in PROBLEM_FORMATS.values() for part in format})]
 
 class Problem(ProblemAspect):
     """Represents a checkable problem"""
@@ -1736,7 +1752,7 @@ class Problem(ProblemAspect):
     problem are listed. These should all be a subclass of ProblemPart. The dictionary is in the form
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
-    def __init__(self, probdir: str, parts: dict[str, list[type]]):
+    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS['legacy']):
         self.part_mapping: dict[str, list[type]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
@@ -1871,23 +1887,6 @@ def part_argument(s: str) -> str:
     if s not in PROBLEM_PARTS:
         raise argparse.ArgumentTypeError(f"Invalid problem part specified: {s}")
     return s
-
-PROBLEM_FORMATS = {
-    'legacy': {
-        'config':       [ProblemConfig],
-        'statement':    [ProblemStatementLegacy, Attachments],
-        'validators':   [InputValidators, OutputValidators],
-        'graders':      [Graders],
-        'data':         [ProblemTestCases],
-        'submissions':  [Submissions],
-    },
-    '2023-07': { # TODO: Add all the parts
-        'statement':    [ProblemStatement2023_07, Attachments],
-    }
-}
-
-# parts tested in alphabetical order
-PROBLEM_PARTS = [*sorted({part for format in PROBLEM_FORMATS.values() for part in format})]
 
 def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('-b', '--bail_on_error',
