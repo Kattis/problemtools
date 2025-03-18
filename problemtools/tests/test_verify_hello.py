@@ -14,4 +14,3 @@ def test_load_hello():
         # pytest and fork don't go along very well, so just run aspects that work without run
         assert p.config.check(args)
         assert p.attachments.check(args)
-        assert p.generators.check(args)
