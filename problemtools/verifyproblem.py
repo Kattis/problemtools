@@ -182,8 +182,8 @@ class TestCase(ProblemAspect):
         self._problem = problem
         self.testcasegroup = testcasegroup
         self.reuse_result_from: TestCase|None = None
-        self.counter = len(problem.testcase_by_infile)
-        problem.testcase_by_infile[self.infile] = self
+        self.counter = len(problem.testcase_by_input)
+        problem.testcase_by_input[(self.infile, self.testcasegroup.config['output_validator_flags'])] = self
 
     def check_newlines(self, filename: str) -> None:
         with open(filename, 'rb') as f:
@@ -247,9 +247,9 @@ class TestCase(ProblemAspect):
     def set_symlinks(self) -> None:
         if not os.path.islink(self.infile):
             return
-        target = os.path.realpath(self.infile)
-        if target in self._problem.testcase_by_infile:
-            self.reuse_result_from = self._problem.testcase_by_infile[target]
+        target = os.path.realpath(self.infile), self.testcasegroup.config['output_validator_flags']
+        if target in self._problem.testcase_by_input:
+            self.reuse_result_from = self._problem.testcase_by_input[target]
 
     def _check_symlinks(self) -> bool:
         if not os.path.islink(self.infile):
@@ -263,11 +263,8 @@ class TestCase(ProblemAspect):
         if ans_target != f'{in_target[:-3]}.ans':
             self.error(f"Symbolic link '{nicepath}' must have a corresponding link for answer file")
             return False
-        if self.reuse_result_from is None:
+        if not nicepath.startswith('data'):
             self.error(f"Symbolic link points outside data/ directory for file '{nicepath}'")
-            return False
-        if self.testcasegroup.config['output_validator_flags'] != self.reuse_result_from.testcasegroup.config['output_validator_flags']:
-            self.error(f"Symbolic link '{nicepath}' points to testcase with different output validator flags")
             return False
         return True
 
@@ -1372,7 +1369,8 @@ class OutputValidators(ProblemAspect):
         val_memlim = self._problem.config.get('limits')['validation_memory']
         flags = self._problem.config.get('validator_flags').split() + testcase.testcasegroup.config['output_validator_flags'].split()
         for val in self._actual_validators():
-            if val.compile()[0]:
+            compile_res = val.compile()
+            if compile_res[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self._problem.tmpdir)
                 validator_output = tempfile.mkdtemp(prefix='checker_out', dir=self._problem.tmpdir)
                 outfile = validator_output + "/out.txt"
@@ -1381,6 +1379,7 @@ class OutputValidators(ProblemAspect):
                                           args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
                                           timelim=val_timelim, memlim=val_memlim,
                                           outfile=outfile, errfile=errfile)
+
                 if self.log.isEnabledFor(logging.DEBUG):
                     try:
                         with open(outfile, mode="rt") as f:
@@ -1398,6 +1397,8 @@ class OutputValidators(ProblemAspect):
                 shutil.rmtree(validator_output)
                 if res.verdict != 'AC':
                     return res
+            else:
+                self.warning(f"Compilation failed for {val.name}: {compile_res[1]}")
 
         # TODO: check that all output validators give same result
         return res
@@ -1686,7 +1687,7 @@ class Problem(ProblemAspect):
         self.input_validators = InputValidators(self)
         self.output_validators = OutputValidators(self)
         self.graders = Graders(self)
-        self.testcase_by_infile: dict[str, TestCase] = {}
+        self.testcase_by_input: dict[tuple[str, str], TestCase] = {}
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.submissions = Submissions(self)
         return self
