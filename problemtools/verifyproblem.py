@@ -711,15 +711,22 @@ class TestCaseGroup(ProblemAspect):
 
 class ProblemStatement(ProblemPart):
     PART_NAME = 'statement'
-    EXTENSIONS: list[str] = []
+    DIR_END = ""
+    FORMAT_VERSION = ""
 
     def setup(self):
         if not self.EXTENSIONS:
             raise NotImplementedError('Need to override class and set EXTENSIONS class-variable')
+        if not self.DIR_END:
+            raise NotImplementedError('Need to override class and set DIR_END class-variable')
         self.debug('  Loading problem statement')
         self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.EXTENSIONS)))
-        dir = os.path.join(self.problem.probdir, 'problem_statement')
-        self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
+        dir = os.path.join(self.problem.probdir, self.DIR_END)
+        if os.path.isdir(dir):
+            self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
+        else:
+            self.error(f"No directory named {self.DIR_END} found")
+            self.statements = []
 
         return self.get_config()
 
@@ -730,7 +737,7 @@ class ProblemStatement(ProblemPart):
 
         if not self.statements:
             allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.EXTENSIONS)
-            self.error(f'No problem statements found (expected file of one of following forms in folder problem_statement/: {allowed_statements}')
+            self.error(f'No problem statements found (expected file of one of following forms in directory {self.DIR_END}/: {allowed_statements})')
 
         langs = [lang or 'en' for _, lang in self.statements]
         for lang, count in collections.Counter(langs).items():
@@ -744,6 +751,7 @@ class ProblemStatement(ProblemPart):
                 options.language = lang
                 options.nopdf = True
                 options.quiet = True
+                options.format_version = self.FORMAT_VERSION
                 if not problem2pdf.convert(options):
                     langparam = f' --language {lang}' if lang != '' else ''
                     self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')
@@ -755,6 +763,7 @@ class ProblemStatement(ProblemPart):
                 options.destdir = os.path.join(self.problem.tmpdir, 'html')
                 options.language = lang
                 options.quiet = True
+                options.format_version = self.FORMAT_VERSION
                 problem2html.convert(options)
             except Exception as e:
                 langparam = f' --language {lang}' if lang != '' else ''
@@ -767,7 +776,8 @@ class ProblemStatement(ProblemPart):
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {'name':{}}
         for filename, lang in self.statements:
-            with open(os.path.join(self.problem.probdir, 'problem_statement', filename)) as f:
+            dir = os.path.join(self.problem.probdir, self.DIR_END)
+            with open(os.path.join(dir, filename)) as f:
                 stmt = f.read()
             hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
             if hit:
@@ -777,9 +787,13 @@ class ProblemStatement(ProblemPart):
 
 class ProblemStatementLegacy(ProblemStatement):
     EXTENSIONS = ['tex']
+    DIR_END = "problem_statement"
+    FORMAT_VERSION = "legacy"
 
 class ProblemStatement2023_07(ProblemStatement):
     EXTENSIONS = ['md', 'tex']
+    DIR_END = "statement"
+    FORMAT_VERSION = "2023-07"
 
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
