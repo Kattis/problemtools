@@ -1932,8 +1932,7 @@ def argparser() -> argparse.ArgumentParser:
 def initialize_logging(args: argparse.Namespace) -> None:
     ProblemAspect.max_additional_info = args.max_additional_info
 
-    # fmt = "%(levelname)s %(message)s"
-    fmt = "%(message)s"
+    fmt = "%(levelname)s %(message)s"
     logging.basicConfig(stream=sys.stdout,
                         format=fmt,
                         level=getattr(logging, args.log_level.upper()))
