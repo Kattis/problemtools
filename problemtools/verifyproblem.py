@@ -751,7 +751,6 @@ class ProblemStatement(ProblemPart):
                 options.language = lang
                 options.nopdf = True
                 options.quiet = True
-                options.format_version = self.FORMAT_VERSION
                 if not problem2pdf.convert(options):
                     langparam = f' --language {lang}' if lang != '' else ''
                     self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')

@@ -3,6 +3,7 @@ import os.path
 import glob
 import tempfile
 import shutil
+import yaml
 
 
 # For backwards compatibility, remove in bright and shiny future.
@@ -14,13 +15,24 @@ def detect_version(problemdir, problemtex):
 
 
 class Template:
-    def __init__(self, problemdir, language=None, force_copy_cls=False):
+    def __init__(self, problemdir, language=None, force_copy_cls=False, version="default"):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
 
         if problemdir[-1] == '/':
             problemdir = problemdir[:-1]
-        stmtdir = os.path.join(problemdir, 'problem_statement')
+
+        if version == "default":
+            version = self.detect_problem_version(problemdir)
+
+        if version == "2023-07":
+            statement_directory = "statement"
+        else:
+            statement_directory = "problem_statement"
+
+        stmtdir = os.path.join(problemdir, statement_directory)
+
+
 
         langs = []
         if glob.glob(os.path.join(stmtdir, 'problem.tex')):
@@ -115,3 +127,12 @@ class Template:
     def get_file_name(self):
         assert os.path.isfile(self.filename)
         return self.filename
+
+    def detect_problem_version(self, path) -> str:
+        config_path = os.path.join(path, 'problem.yaml')
+        try:
+            with open(config_path) as f:
+                config: dict = yaml.safe_load(f) or {}
+        except Exception as e:
+            raise RuntimeError(f"Error reading problem.yaml: {e}")
+        return config.get('problem_format_version', 'legacy')
