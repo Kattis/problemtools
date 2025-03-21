@@ -1,20 +1,5 @@
 type: object
 required: []
-config_fields:
-- problem_format_version
-- type
-- name
-- uuid
-- author
-- source
-- source_url
-- license
-- rights_owner
-- limits
-- validation
-- validator_flags
-- keywords
-- grading
 properties:
   problem_format_version:
     type: string
@@ -31,23 +16,18 @@ properties:
       scoring: {}
   name:
     type: string
-    default: ''
   uuid:
     type: string
-    default: ''
   author:
     type: string
-    default: ''
   source:
     type: string
-    default: ''
   source_url:
     type: string
-    default: ''
     alternatives:
       ".+":
         require:
-        - source
+        - source:.+
   licence:
     type: string
     default: unknown
@@ -55,20 +35,18 @@ properties:
       unknown:
         warn: License is unknown
         require:
-        - rights_owner
+        - rights_owner:.+
       cc0|cc by|cc by-sa|educational|permission:
         require:
-        - rights_owner
+        - rights_owner:.+
       public domain:
         forbid:
-        - rights_owner
+        - rights_owner:.+
   rights_owner:
     type: string
     parsing: rights_owner_legacy
-    default: copy-from:author
   limits:
     type: object
-    required: []
     properties:
       time_multiplier:
         type: float
@@ -103,11 +81,9 @@ properties:
   validation:
     type: object
     parsing: legacy-validation
-    required: []
     properties:
       type:
         type: string
-        default: default
         alternatives:
           default:
             forbid:
@@ -116,16 +92,60 @@ properties:
           custom: {}
       interactive:
         type: bool
-        default: false
       score:
         type: bool
-        default: false
   validator_flags:
     type: string
-    default: ''
   keywords:
     type: list
     parsing: space-separated-strings
     content:
       type: string
-    default: []
+  grading:
+    type: object
+    properties:
+      show_test_data_groups:
+        type: bool
+        alternatives:
+          True:
+            forbid:
+              - type:pass-fail
+          False: {}
+      on_reject:
+        type: string
+        default: worst_error
+        flags:
+          - deprecated
+        alternatives:
+          first_error: {}
+          worst_error: {}
+          grade: {}
+      objective:
+        type: string
+        default: max
+        alternatives:
+          min: {}
+          max: {}
+      accept_score:
+        type: float # Should actually be type string, add custom parsing?
+        default: 1.0
+        flags:
+          - deprecated
+      reject_score:
+        type: float # Should actually be type string, add custom parsing?
+        default: 0.0
+        flags:
+          - deprecated
+      range:
+        type: object
+        parsing: min-max-float-string
+        flags:
+          - deprecated
+        properties:
+          min:
+            type: float
+            default: .inf
+          max:
+            type: float
+            default: -.inf
+

@@ -104,7 +104,6 @@ class Metadata:
             raise NotImplementedError(f"Unrecognized type: {typ}")
         return type_map[typ](layout, self, path)
 
-
 class BaseValidator:
     def __init__(self, layout: dict, metadata: Metadata, path: str = ""):
         self.layout = layout
