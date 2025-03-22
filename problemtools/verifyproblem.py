@@ -1468,6 +1468,96 @@ class OutputValidators(ProblemPart):
         # TODO: check that all output validators give same result
         return res
 
+class OutputVisualizer(ProblemPart):
+    PART_NAME = 'output_visualizer'
+
+    _default_visualizer = run.get_tool('default_validator') #Should probably not exist? TODO
+  
+    #TODO fix setup
+   def setup(self): #Stolen from outputVal
+        self._visualizers = run.find_programs(os.path.join(self.problem.probdir,'output_visualizers'), 
+        work_dir=self.problem.tmpdir)
+
+        self._has_precompiled = False
+        return
+
+    def __str__(self) -> str: #nödvändigt?
+        return 'output visualizer'
+
+    #From superclass, find out what it does
+    def start_background_work(self, context: Context) -> None:
+        if not self._has_precompiled:
+            for vis in self._actual_visualizers(): #Create in superclass?
+                 context.submit_background_work(lambda v: v.compile(), vis)
+            self._has_precompiled = True
+        
+    def _actual_visualizers(self) -> list:
+        vals = self._visualizers
+        if self.problem.get(ProblemConfig)['visualizer'] == 'none': 
+            visuals = ['none'] #Change to variable _none_visualizer? TODO
+            return [visuals for vis in visuals if vis is not None]
+
+
+    #Perform the check here
+    def check(self, context: Context) -> bool: 
+        if self._check_res is not None:
+            return self._check_res
+        self._check_res = True
+
+        #Ingen check för om det är default då det inte finns någon default
+        if self.problem.get(ProblemConfig)['visualizers'] != 'none' and not self._visualizers:
+            self.error('problem.yaml specifies custom Output visualizer but no validator programs found')
+
+        # if self.problem.config(ProblemConfig)['visualizers'] == 'none' and self._default_visualizer is None:
+
+        #BELOW FROM OUTPUTVAL TODO
+        fd, file_name = tempfile.mkstemp()
+            os.close(fd)
+            for (desc, case) in _JUNK_CASES:
+                f = open(file_name, "wb")
+                f.write(case)
+                f.close()
+                rejected = False
+                for testcase in self.problem.get(ProblemTestCases)['root_group'].get_all_testcases():
+                    result = self.visualize(testcase, file_name)
+                    if result.verdict != 'AC':
+                        rejected = True
+                    if result.verdict == 'JE':
+                        self.error(f'{desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
+                        break
+                if not rejected:
+                    self.warning(f'{desc} gets AC')
+            os.unlink(file_name)
+
+
+            #TODO actual visualizer
+
+            def visualize(self, testcase: TestCase, submission_output:str) -> bool: #Take in everything and see if it creates a image, Maybe take input files? 
+                res = False
+                flags = self.problem.get(ProblemConfig)['output_visualizer_flags'].split()
+                save_image = False
+                #TODO get input files
+                
+
+                #TODO Run the visualiser
+                if flag in flags:
+                    save_image = True
+                    path = "" # fix path to right place TODO
+                    visualisedir = tempfile.mkdtemp(dir=path)
+
+                for vis in self._actual_visualizers():
+                    if vis.compile()[0]:
+
+                        #lot of code
+
+
+                        #TODO Check the byte file
+
+                        if save_image:
+                            #add to tmpdir
+
+
+
 
 class Runner:
     def __init__(self, problem: Problem, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> None:
@@ -1738,6 +1828,8 @@ PROBLEM_FORMATS = {
     },
     '2023-07': { # TODO: Add all the parts
         'statement':    [ProblemStatement2023_07, Attachments],
+        'visualizers': [OutputVisualizers]
+
     }
 }
 
