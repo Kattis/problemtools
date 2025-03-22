@@ -1,6 +1,8 @@
 import re
 from typing import Any, Callable, Literal, Pattern, Match, ParamSpec, TypeVar
 
+class SpecificationError(Exception):
+    pass
 
 class Path:
     INDEXING_REGEX = re.compile(r'^([A-Za-z_0-9\-]+)\[(\d+)\]$')
@@ -155,6 +157,30 @@ class Metadata:
         if typ not in type_map:
             raise NotImplementedError(f"Unrecognized type: {typ}")
         return type_map[typ](layout, self, path)
+
+class Parser:
+    NAME: str = ""
+    PATH_DEPENDENCIES: list[Path] = []
+    OUTPUT_TYPE: str = ""
+    
+    def __init__(self, data: dict, specification: dict, path: Path):
+        if not self.NAME:
+            raise NotImplementedError("Subclasses of BaseParser need to set the name of the parsing rule")
+        if not self.OUTPUT_TYPE:
+            raise NotImplementedError("Subclasses of BaseParser need to set the output type of the parsing rule")
+        required_type = path.spec_path().index(data)["type"]
+        if required_type != self.OUTPUT_TYPE:
+            raise SpecificationError(f"Parsing rule for {path} outputs {self.OUTPUT_TYPE}, but the output should be of type {required_type}")
+    
+    def parse(self, data: dict, path: Path):
+        pass
+
+class DefaultStringParser(Parser):
+    NAME = "default-string-parser"
+    OUTPUT_TYPE = "string"
+    
+    pass
+
 
 class BaseValidator:
     def __init__(self, layout: dict, metadata: Metadata, path: str = ""):
