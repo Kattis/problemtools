@@ -67,6 +67,58 @@ class Path:
                 strings.append(part)
         return '/'.join(strings)
 
+class AlternativeMatch:
+    def __init__(self, matchstr):
+        raise NotImplementedError("Specialize in subclass")
+
+    def check(self, val) -> bool:
+        raise NotImplementedError("Specialize in subclass")
+    
+    @staticmethod
+    def get_matcher(type, matchstr) -> 'AlternativeMatch':
+        matchers = {
+            'string': StringMatch,
+            'int': IntMatch,
+            'float': FloatMatch,
+            'bool': BoolMatch
+        }
+        assert type in matchers
+        return matchers[type](matchstr)
+
+class StringMatch(AlternativeMatch):
+    def __init__(self, matchstr):
+        self.regex = re.compile(matchstr)
+    
+    def check(self, val) -> bool:
+        return self.regex.match(val)
+
+class IntMatch(AlternativeMatch):
+    def __init__(self, matchstr: str):
+        if ':' in matchstr:
+            self.start, self.end = [int(p.strip()) for p in matchstr.split()]
+        else:
+            self.start = self.end = int(matchstr.strip())
+    
+    def check(self, val) -> bool:
+        return isinstance(val, int) and self.start <= val <= self.end
+
+class FloatMatch(AlternativeMatch):
+    def __init__(self, matchstr: str):
+        assert ':' in matchstr
+        self.start, self.end = [float(p.strip()) for p in matchstr.split()]
+    
+    def check(self, val) -> bool:
+        return isinstance(val, float) and self.start <= val <= self.end
+
+class BoolMatch(AlternativeMatch):
+    def __init__(self, matchstr: str):
+        matchstr = matchstr.strip().lower()
+        assert matchstr in ('true', 'false')
+        self.val = {'true':True,'false':False}[matchstr]
+    
+    def check(self, val) -> bool:
+        return isinstance(val, bool) and val == self.val
+
 class Metadata:
     def __init__(self, specification: dict) -> None:
         self.spec = specification
