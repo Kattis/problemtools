@@ -20,7 +20,6 @@ import sys
 import copy
 import random
 import traceback
-import formatversion
 
 import argparse
 import shlex
@@ -29,6 +28,7 @@ import yaml
 
 from . import problem2pdf
 from . import problem2html
+from . import formatversion
 
 from . import config
 from . import languages
