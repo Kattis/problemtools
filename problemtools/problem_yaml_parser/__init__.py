@@ -69,6 +69,10 @@ class Path:
                 res.append("content")
         return Path(*res)
 
+    def up(self, levels=1) -> 'Path':
+        assert levels > 0
+        return Path(*self.path[:-levels])
+
     def __str__(self) -> str:
         strings = []
         for part in self.path:
@@ -202,16 +206,18 @@ class Metadata:
         ready: list[tuple[Path, str]] = []
         dependencies = {}
         depends_on = defaultdict(list)
-        solved = set()
-        for prop, spec in self.spec["properties"].items():
-            parser = Parser.get_parser_type(spec)
-            deps = parser.PATH_DEPENDENCIES
+        solved = {Path()}
+        
+        def consider_prop(path: Path, key: str|int, deps: set[Path]):
             if deps:
-                dependencies[(Path(), prop)] = len(deps)
+                dependencies[(path, key)] = len(deps)
                 for d in deps:
-                    depends_on[d].append((Path(), prop))
+                    depends_on[d].append((path, key)) 
             else:
-                ready.append((Path(), prop))
+                ready.append((path, key))
+    
+        for prop, spec in self.spec["properties"].items():
+            consider_prop(Path(), prop, set(Parser.get_parser_type(spec).PATH_DEPENDENCIES))
             
         while ready:
             p, c = ready.pop()
@@ -221,33 +227,55 @@ class Metadata:
             p.index(self.data)[c] = parser.parse()
             if spec["type"] == "object":
                 for prop, c_spec in self.spec["properties"].items():
-                    c_parser = Parser.get_parser_type(c_spec)
-                    deps = set(c_parser.PATH_DEPENDENCIES) - solved
-                    if deps:
-                        dependencies[(full_path, prop)] = len(deps)
-                        for d in deps:
-                            depends_on[d].append((full_path, prop))
-                    else:
-                        ready.append((full_path, prop))
+                    consider_prop(full_path, prop, set(Parser.get_parser_type(c_spec).PATH_DEPENDENCIES) - solved)
             elif spec["type"] == "list":
-                c_spec = Parser.get_parser_type(spec["content"])
-                deps = set(c_parser.PATH_DEPENDENCIES) - solved
+                deps = set(Parser.get_parser_type(spec["content"]).PATH_DEPENDENCIES) - solved
                 for i in range(len(full_path.index(self.data))):
-                    if deps:
-                        dependencies[(full_path, i)] = len(deps)
-                        for d in deps:
-                            depends_on[d].append((full_path, i)) 
-                    else:
-                        ready.append((full_path, i))
+                    consider_prop(full_path, i, deps)
             for x in depends_on[full_path]:
                 dependencies[x] -= 1
                 if dependencies[x] == 0:
                     ready.append(x)
                     del dependencies[x]
+            solved.add(full_path)
         if any(v > 0 for v in dependencies.items()):
             raise SpecificationError("Circular dependency in specification by parsing rules")
         self.data.update(injected_data)
-        # TODO: copy-from directives
+        
+        # TODO: resolve inherited dependencies, e.g. if baz copies foo/bar, but foo is copied from xyz
+        ready: list[tuple[Path, str]] = []
+        dependencies = {}
+        depends_on = defaultdict(list)
+        solved = {Path()}
+        for prop in self.spec["properties"].keys():
+            val = Path(prop).index(self.data)
+            deps = {Path.parse(val[1])} if isinstance(val, tuple) and val[0] == 'copy-from' else set()
+            consider_prop(Path(), prop, deps)
+            
+        while ready:
+            p, c = ready.pop()
+            full_path = Path.combine(p, c)
+            val = full_path.index(self.data)
+            if isinstance(val, tuple) and val[0] == 'copy-from':
+                copy_val = val[1].index(self.data)
+                assert copy_val is not None
+                p.index(self.data)[c] = copy_val
+            elif isinstance(val, dict):
+                for k, v in val.items():
+                    deps = {Path.parse(v[1])} if isinstance(v, tuple) and v[0] == 'copy-from' else set()
+                    consider_prop(full_path, k, deps)
+            elif isinstance(val, list):
+                for k, v in enumerate(val):
+                    deps = {Path.parse(v[1])} if isinstance(v, tuple) and v[0] == 'copy-from' else set()
+                    consider_prop(full_path, k, deps)
+            for x in depends_on[full_path]:
+                dependencies[x] -= 1
+                if dependencies[x] == 0:
+                    ready.append(x)
+                    del dependencies[x]
+            solved.add(full_path)
+            if any(v > 0 for v in dependencies.items()):
+                raise SpecificationError("Circular dependency in specification by copy-from directives")
 
     def check_config(self) -> None:
         pass
