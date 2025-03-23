@@ -102,7 +102,7 @@ The following formats are used to match the different types.
 ### string
 For strings, matches will be given as regex strings.
 ### bool
-For bools, the values "true" and "false" will be given and compared like expected. This check is case-insensitive.
+For bools, the values "True" and "False" will be given and compared like expected. This check is case-insensitive.
 ### int
 For ints, matches will be given as a string formated like "A:B", where A and B are integers. This will form an inclusive interval that is matched. A or B may be excluded to indicate that one endpoint is infinite. A single number may also be provided, which will match only that number. All numbers should be given in decimal notation.
 
