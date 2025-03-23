@@ -1470,32 +1470,29 @@ class OutputValidators(ProblemPart):
 
 class OutputVisualizer(ProblemPart):
     PART_NAME = 'output_visualizer'
-
-    _default_visualizer = run.get_tool('default_validator') #Should probably not exist? TODO
+    _visualizer = 'none'
   
     #TODO fix setup
-   def setup(self): #Stolen from outputVal
-        self._visualizers = run.find_programs(os.path.join(self.problem.probdir,'output_visualizers'), 
+    def setup(self): #find output_vis
+        self._visualizer = run.find_programs(os.path.join(self.problem.probdir,'output_visualizer'), 
         work_dir=self.problem.tmpdir)
-
         self._has_precompiled = False
-        return
-
+        
     def __str__(self) -> str: #nödvändigt?
         return 'output visualizer'
 
     #From superclass, find out what it does
     def start_background_work(self, context: Context) -> None:
         if not self._has_precompiled:
-            for vis in self._actual_visualizers(): #Create in superclass?
-                 context.submit_background_work(lambda v: v.compile(), vis)
+            #for vis in self._actual_visualizer(): #Create in setup? 
+            context.submit_background_work(lambda v: v.compile(), self._visualizer) #TODO make sure it works with background_work
             self._has_precompiled = True
         
-    def _actual_visualizers(self) -> list:
-        vals = self._visualizers
-        if self.problem.get(ProblemConfig)['visualizer'] == 'none': 
-            visuals = ['none'] #Change to variable _none_visualizer? TODO
-            return [visuals for vis in visuals if vis is not None]
+    # def _actual_visualizer(self) -> list: #Wrong wrong # inte nödvändig?
+    #     vis = self._visualizer
+    #     if self.problem.get(ProblemConfig)['visualizer'] == 'none': 
+    #         visuals = ['none'] #Change to variable _none_visualizer? 
+    #         return [visuals for vis in visuals if vis is not None]
 
 
     #Perform the check here
@@ -1507,54 +1504,70 @@ class OutputVisualizer(ProblemPart):
         #Ingen check för om det är default då det inte finns någon default
         if self.problem.get(ProblemConfig)['visualizers'] != 'none' and not self._visualizers:
             self.error('problem.yaml specifies custom Output visualizer but no validator programs found')
+        
+        res = self.visualize(self.problem.get((ProblemTestCases)['root_group'].get_all_testcases()), "s") #TODO get submission output 
 
         # if self.problem.config(ProblemConfig)['visualizers'] == 'none' and self._default_visualizer is None:
 
-        #BELOW FROM OUTPUTVAL TODO
-        fd, file_name = tempfile.mkstemp()
-            os.close(fd)
-            for (desc, case) in _JUNK_CASES:
-                f = open(file_name, "wb")
-                f.write(case)
-                f.close()
-                rejected = False
-                for testcase in self.problem.get(ProblemTestCases)['root_group'].get_all_testcases():
-                    result = self.visualize(testcase, file_name)
-                    if result.verdict != 'AC':
-                        rejected = True
-                    if result.verdict == 'JE':
-                        self.error(f'{desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
-                        break
-                if not rejected:
-                    self.warning(f'{desc} gets AC')
-            os.unlink(file_name)
+        #BELOW FROM OUTPUTVAL 
+        # fd, file_name = tempfile.mkstemp()
+        # os.close(fd)
+        # for (desc, case) in _JUNK_CASES:
+        #     f = open(file_name, "wb")
+        #     f.write(case)
+        #     f.close()
+        #     rejected = False
+        #     for testcase in self.problem.get(ProblemTestCases)['root_group'].get_all_testcases():
+        #         result = self.visualize(testcase, file_name)
+        #         if result.verdict != 'AC':
+        #             rejected = True
+        #             if result.verdict == 'JE':
+        #                 self.error(f'{desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
+        #                 break
+        #         if not rejected:
+        #             self.warning(f'{desc} gets AC')
+        #     os.unlink(file_name)
 
 
-            #TODO actual visualizer
+    #b"89 50 4E 47 0D 0A 1A 0A", file signatures in hex code
+    #b"FF D8 FF E0",
+    #b"FF D8 FF D9"
+    def check_image_type(file) -> bool:
+        permitted_filetypes = [
+        b"\x89PNG\r\n\x1A\n", 
+        b"\xFF\xD8\xFF\xE0", 
+        b"\xFF\xD8\xFF\xD9"    ]
 
-            def visualize(self, testcase: TestCase, submission_output:str) -> bool: #Take in everything and see if it creates a image, Maybe take input files? 
-                res = False
-                flags = self.problem.get(ProblemConfig)['output_visualizer_flags'].split()
-                save_image = False
-                #TODO get input files
+        with open(file, "rb") as f:
+            file_signature = f.read(8)
+
+        return any(file_signature.startswith(ft) for ft in permitted_filetypes)
+
+
+     #TODO actual visualizer
+
+    def visualize(self, testcase: TestCase, submission_output:str) -> [bool]: #maybe should retunr logs instead?
+        res = []
+        flags = self.problem.get(ProblemConfig)['output_visualizer_flags'].split()
+        save_image = False
+
+        #TODO flag does not exist. Get it from calling output Vis
+        if flag in flags:
+            save_image = True
+            path = "" # fix path to right place TODO
+            visualisedir = tempfile.mkdtemp(dir=path)
+
+        if self._visualizer().compile()[0]: #TODO what is vis? should be _actual_visualizer
+            tempimage = self._visualizer.run(submission_output,
+            args =[testcase.infile])
+                 #lot of code
+            res.append(self.check_image_type(tempimage))
+
+            if save_image:
+                #add to tmpdir
+                pass
                 
-
-                #TODO Run the visualiser
-                if flag in flags:
-                    save_image = True
-                    path = "" # fix path to right place TODO
-                    visualisedir = tempfile.mkdtemp(dir=path)
-
-                for vis in self._actual_visualizers():
-                    if vis.compile()[0]:
-
-                        #lot of code
-
-
-                        #TODO Check the byte file
-
-                        if save_image:
-                            #add to tmpdir
+        return res
 
 
 
@@ -1828,7 +1841,7 @@ PROBLEM_FORMATS = {
     },
     '2023-07': { # TODO: Add all the parts
         'statement':    [ProblemStatement2023_07, Attachments],
-        'visualizers': [OutputVisualizers]
+        'visualizers': [OutputVisualizer]
 
     }
 }
