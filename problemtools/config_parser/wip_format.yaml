@@ -32,7 +32,7 @@ properties:
     type: string
     default: unknown
     alternatives:
-      unknown:
+      unknown: 
         warn: License is unknown
         require:
         - rights_owner: ".+"

@@ -1,7 +1,7 @@
 import re
-from typing import Any, Callable, Literal, Pattern, Match, ParamSpec, TypeVar
-from collections import defaultdict
-
+from typing import Any, Callable, Generator, Literal, Pattern, Match, ParamSpec, TypeVar
+from __future__ import annotations
+from collections import defaultdict, deque
 class SpecificationError(Exception):
     pass
 
@@ -9,14 +9,19 @@ type_mapping = {
     "string": str,
     "object": dict,
     "list": list,
+    "bool": bool,
     "int": int,
     "float": float
 }
 
+def is_copyfrom(val: Any) -> bool:
+    return isinstance(val, tuple) and val[0] == 'copy-from'
+
+
 class Path:
     INDEXING_REGEX = re.compile(r'^([A-Za-z_0-9\-]+)\[(\d+)\]$')
     @staticmethod
-    def parse(path: str) -> 'Path':
+    def parse(path: str) -> Path:
         parts = path.split('/')
         res = []
         for part in parts:
@@ -29,7 +34,7 @@ class Path:
         return Path(*res)
 
     @staticmethod
-    def combine(*parts: str|int|'Path') -> 'Path':
+    def combine(*parts: str|int|Path) -> Path:
         res = []
         for part in parts:
             if isinstance(part, int):
@@ -59,7 +64,7 @@ class Path:
                 rv = rv[part]
         return rv
 
-    def spec_path(self) -> 'Path':
+    def spec_path(self) -> Path:
         res = []
         for part in self.path:
             if isinstance(part, str):
@@ -69,9 +74,42 @@ class Path:
                 res.append("content")
         return Path(*res)
 
-    def up(self, levels=1) -> 'Path':
+    def data_paths(self, data: dict) -> list[Path]:
+        """Finds all data paths that a spec_path is pointing towards (meaning it will explore all items in lists)"""
+        def path_is_not_copyfrom(path: Path) -> bool:
+            return not is_copyfrom(path.index(data))
+        out = [Path()]
+        state = 'base'
+        for part in self.path:
+            if state == 'base':
+                if part == 'properties':
+                    state = 'object-properties'
+                elif part == 'content':
+                    state = 'base'
+                    new_out = []
+                    for path in out:
+                        val = out.index(data) or []
+                        if is_copyfrom(val): # skip copied
+                            continue
+                        assert isinstance(val, list)
+                        new_out.extend(Path.combine(path, i) for i in range(len(val)))
+                    out = new_out
+                    if len(out) == 0:
+                        return []
+                else:
+                    assert False
+            elif state == 'object-properties':
+                combined_paths = [Path.combine(path, part) for path in out]
+                out = [*filter(path_is_not_copyfrom, combined_paths)]
+
+        return out
+
+    def up(self, levels=1) -> Path:
         assert levels > 0
         return Path(*self.path[:-levels])
+
+    def last_name(self) -> int|str:
+        return self.path[-1]
 
     def __str__(self) -> str:
         strings = []
@@ -200,83 +238,88 @@ class Metadata:
     def set_warning_callback(self, fun: Callable):
         self.warning_func = fun
 
+    def invert_graph(dependency_graph: dict[Path, list[Path]]):
+        depends_on_graph = {k : [] for k in dependency_graph.keys()}
+        for dependant, dependencies in dependency_graph.items():
+            for dependency in dependencies:
+                depends_on_graph[dependency].append(dependant)
+        return depends_on_graph
+
+    def topo_sort(dependency_graph: dict[Path, list[Path]]) -> Generator[Path]:
+        # Dependancy graph:
+        # Path : [Depends on Path, ...]
+        
+        in_degree = {p: len(l) for p, l in dependency_graph.items()}
+        
+        q = deque(p for p in dependency_graph.keys() if in_degree[p] == 0)
+
+        depends_on_graph = Metadata.invert_graph(dependency_graph)
+
+        while q:
+            current = q.popleft()
+            yield current
+
+            for dependency in depends_on_graph[current]:
+                in_degree[dependency] -= 1
+
+                if in_degree[dependency] == 0:
+                    q.append(dependency)
+
+        if any(x > 0 for x in in_degree.values()):
+            raise SpecificationError("Unresolvable, cyclic dependencies")        
+
+    def get_path_dependencies(self) -> dict[Path, list[Path]]:
+        stack = [(Path(), Path("properties", prop)) for prop in self.spec['properties']]
+        graph = {}
+        while stack:
+            parent, p = stack.pop()
+            spec = p.index(self.spec)
+            deps = Parser.get_parser_type(spec).PATH_DEPENDENCIES
+            if len(parent.path) > 0:
+                deps.append(parent)
+            graph[p] = deps
+            if spec["type"] == "object":
+                stack.extend((p, Path.combine(p, "properties", prop)) for prop in spec["properties"])
+            elif spec["type"] == "list":
+                stack.append((p, Path.combine(p, 'content')))
+        return graph
+
+    def get_copy_dependencies(self) -> dict[Path, list[Path]]:
+        stack = [(Path(), Path(child)) for child in self.data.keys()]
+        graph = {Path():[]}
+        
+        while stack:
+            parent, path = stack.pop()
+            val = path.index(self.data)
+            graph[parent].append(path)
+            deps = []
+            if is_copyfrom(val):
+                deps.append(val[1])
+            graph[path] = deps
+            if isinstance(val, dict):
+                stack.extend((path, Path.combine(path, child)) for child in val.keys())
+            elif isinstance(val, list):
+                stack.extend((path, Path.combine(path, i)) for i in range(len(val)))
+
+        return graph
+
     def load_config(self, config: dict, injected_data: dict) -> None:
         self.data: dict = DefaultObjectParser(config, self.spec, Path(), self.warning_func, self.error_func).parse()
         
-        ready: list[tuple[Path, str]] = []
-        dependencies = {}
-        depends_on = defaultdict(list)
-        solved = {Path()}
-        
-        def consider_prop(path: Path, key: str|int, deps: set[Path]):
-            if deps:
-                dependencies[(path, key)] = len(deps)
-                for d in deps:
-                    depends_on[d].append((path, key)) 
-            else:
-                ready.append((path, key))
-    
-        for prop, spec in self.spec["properties"].items():
-            consider_prop(Path(), prop, set(Parser.get_parser_type(spec).PATH_DEPENDENCIES))
+        for cfg_path in Metadata.topo_sort(self.get_path_dependencies()):
+            spec = cfg_path.index(self.spec)
+            for full_path in cfg_path.data_paths(self.data):
+                parser = Parser.get_parser_type(spec)(self.data, self.spec, full_path, self.warning_func, self.error_func)
+                full_path.up().index(self.data)[full_path.last_name()] = parser.parse()
             
-        while ready:
-            p, c = ready.pop()
-            full_path = Path.combine(p, c)
-            spec = full_path.spec_path().index(self.spec)
-            parser = Parser.get_parser_type(spec)(self.data, self.spec, full_path, self.warning_func, self.error_func)
-            p.index(self.data)[c] = parser.parse()
-            if spec["type"] == "object":
-                for prop, c_spec in self.spec["properties"].items():
-                    consider_prop(full_path, prop, set(Parser.get_parser_type(c_spec).PATH_DEPENDENCIES) - solved)
-            elif spec["type"] == "list":
-                deps = set(Parser.get_parser_type(spec["content"]).PATH_DEPENDENCIES) - solved
-                for i in range(len(full_path.index(self.data))):
-                    consider_prop(full_path, i, deps)
-            for x in depends_on[full_path]:
-                dependencies[x] -= 1
-                if dependencies[x] == 0:
-                    ready.append(x)
-                    del dependencies[x]
-            solved.add(full_path)
-        if any(v > 0 for v in dependencies.items()):
-            raise SpecificationError("Circular dependency in specification by parsing rules")
         self.data.update(injected_data)
-        
-        # TODO: resolve inherited dependencies, e.g. if baz copies foo/bar, but foo is copied from xyz
-        ready: list[tuple[Path, str]] = []
-        dependencies = {}
-        depends_on = defaultdict(list)
-        solved = {Path()}
-        for prop in self.spec["properties"].keys():
-            val = Path(prop).index(self.data)
-            deps = {Path.parse(val[1])} if isinstance(val, tuple) and val[0] == 'copy-from' else set()
-            consider_prop(Path(), prop, deps)
-            
-        while ready:
-            p, c = ready.pop()
-            full_path = Path.combine(p, c)
-            val = full_path.index(self.data)
-            if isinstance(val, tuple) and val[0] == 'copy-from':
-                copy_val = val[1].index(self.data)
-                assert copy_val is not None
-                p.index(self.data)[c] = copy_val
-            elif isinstance(val, dict):
-                for k, v in val.items():
-                    deps = {Path.parse(v[1])} if isinstance(v, tuple) and v[0] == 'copy-from' else set()
-                    consider_prop(full_path, k, deps)
-            elif isinstance(val, list):
-                for k, v in enumerate(val):
-                    deps = {Path.parse(v[1])} if isinstance(v, tuple) and v[0] == 'copy-from' else set()
-                    consider_prop(full_path, k, deps)
-            for x in depends_on[full_path]:
-                dependencies[x] -= 1
-                if dependencies[x] == 0:
-                    ready.append(x)
-                    del dependencies[x]
-            solved.add(full_path)
-            if any(v > 0 for v in dependencies.items()):
-                raise SpecificationError("Circular dependency in specification by copy-from directives")
 
+        for full_path in Metadata.topo_sort(self.get_copy_dependencies()):
+            val = full_path.index(self.data)
+            if is_copyfrom(val):
+                copy_val = val[1].index(self.data)
+                full_path.up().index(self.data)[full_path.last_name()] = copy_val
+            
     def check_config(self) -> None:
         pass
 
