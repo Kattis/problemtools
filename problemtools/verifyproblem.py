@@ -20,6 +20,7 @@ import sys
 import copy
 import random
 import traceback
+import formatversion
 
 import argparse
 import shlex
@@ -715,17 +716,16 @@ class ProblemStatement(ProblemPart):
     FORMAT_VERSION = ""
 
     def setup(self):
-        if not self.EXTENSIONS:
-            raise NotImplementedError('Need to override class and set EXTENSIONS class-variable')
-        if not self.DIR_END:
-            raise NotImplementedError('Need to override class and set DIR_END class-variable')
+        STATEMENT_DATA = formatversion.get_statement_data(self.problem.probdir)
+        if not STATEMENT_DATA:
+            raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
-        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.EXTENSIONS)))
-        dir = os.path.join(self.problem.probdir, self.DIR_END)
+        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(STATEMENT_DATA.get_statement_extensions())))
+        dir = os.path.join(self.problem.probdir, STATEMENT_DATA.get_statement_directory())
         if os.path.isdir(dir):
             self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
         else:
-            self.error(f"No directory named {self.DIR_END} found")
+            self.error(f"No directory named {STATEMENT_DATA.get_statement_directory()} found")
             self.statements = []
 
         return self.get_config()
@@ -771,6 +771,10 @@ class ProblemStatement(ProblemPart):
 
     def __str__(self) -> str:
         return 'problem statement'
+
+    def __init__(self, problem: Problem):
+        super().__init__(problem)
+        STATEMENT_DATA = formatversion.get_statement_data(self.problem.probdir)
 
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {'name':{}}

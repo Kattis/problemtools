@@ -15,14 +15,14 @@ def detect_version(problemdir, problemtex):
 
 
 class Template:
-    def __init__(self, problemdir, language=None, force_copy_cls=False, version="default"):
+    def __init__(self, problemdir, language=None, force_copy_cls=False, version="automatic"):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
 
         if problemdir[-1] == '/':
             problemdir = problemdir[:-1]
 
-        if version == "default":
+        if version == "automatic":
             version = self.detect_problem_version(problemdir)
 
         if version == "2023-07":
