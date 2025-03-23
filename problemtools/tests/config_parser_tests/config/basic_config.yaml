@@ -1,0 +1,38 @@
+type: object
+require:
+  - bar
+  - boz
+properties:
+  foo:
+    flags:
+      - deprecated
+    type: int
+    default: 1337
+  bar:
+    type: string
+    alternatives:
+      x: {}
+      y:
+        warn: watch out you are using y
+      z:
+        require:
+          - baz: true
+  baz:
+    type: bool
+    default: True
+    alternatives:
+      True:
+        warn: "true is now deprecated"
+      False: {}
+  boz:
+    type: float
+    default: 3.5
+    alternatives:
+      "3.1414:3.1416":
+        require:
+          - foo: 1337
+        warn: this is pie not real pi 7/2
+      ":": {} # Allows all values
+  copied:
+    type: string
+    default: copy-from:external/cool-string

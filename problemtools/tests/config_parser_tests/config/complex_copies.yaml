@@ -1,0 +1,43 @@
+type: object
+properties:
+  a:
+    type: object
+    default: "copy-from:h/j"
+    properties:
+      k:
+        type: int
+        default: 1
+      l:
+        type: int
+        default: 1
+  b:
+    type: object
+    properties:
+      c:
+        type: int
+        default: 123
+      d:
+        type: object
+        properties:
+          k:
+            type: int
+            default: 2
+          l:
+            type: int
+            default: "copy-from:h/i"
+  h:
+    type: object
+    properties:
+      i:
+        type: int
+        default: 1000
+      j:
+        type: object
+        default: "copy-from:b/d"
+        properties:
+          k:
+            type: int
+            default: 13
+          l:
+            type: int
+            default: "copy-from:b/c"
