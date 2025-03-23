@@ -50,7 +50,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help="quiet", default=False)
     parser.add_argument('-l', '--language', dest='language', help='choose alternate language (2-letter code)', default=None)
     parser.add_argument('-n', '--no-pdf', dest='nopdf', action='store_true', help='run pdflatex in -draftmode', default=False)
-    parser.add_argument('-F', '--format-version', dest='format_version', help='choose format version', default="automatic")
+    parser.add_argument('-v', '--format-version', dest='format_version', help='choose format version', default="automatic")
     parser.add_argument('problem', help='the problem to convert')
 
     return parser
