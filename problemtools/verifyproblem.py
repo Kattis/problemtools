@@ -711,33 +711,33 @@ class TestCaseGroup(ProblemAspect):
         return res
 
 class ProblemStatement(ProblemPart):
-    PART_NAME = 'statement'
-    DIR_END = ""
-    FORMAT_VERSION = ""
+    STATEMENT_DATA = None
 
     def setup(self):
-        STATEMENT_DATA = formatversion.get_statement_data(self.problem.probdir)
-        if not STATEMENT_DATA:
+        if not self.STATEMENT_DATA:
             raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
-        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(STATEMENT_DATA.get_statement_extensions())))
-        dir = os.path.join(self.problem.probdir, STATEMENT_DATA.get_statement_directory())
+        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.STATEMENT_DATA.get_statement_extensions())))
+        dir = os.path.join(self.problem.probdir, self.STATEMENT_DATA.get_statement_directory())
         if os.path.isdir(dir):
             self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
         else:
-            self.error(f"No directory named {STATEMENT_DATA.get_statement_directory()} found")
+            self.error(f"No directory named {self.STATEMENT_DATA.get_statement_directory()} found")
             self.statements = []
 
         return self.get_config()
 
     def check(self, context: Context) -> bool:
+        STATEMENT_DATA = self.STATEMENT_DATA
+        if not STATEMENT_DATA:
+            raise NotImplementedError('No version selected.')
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
 
         if not self.statements:
-            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.EXTENSIONS)
-            self.error(f'No problem statements found (expected file of one of following forms in directory {self.DIR_END}/: {allowed_statements})')
+            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in STATEMENT_DATA.get_statement_extensions)
+            self.error(f'No problem statements found (expected file of one of following forms in directory {STATEMENT_DATA.get_statement_directory()}/: {allowed_statements})')
 
         langs = [lang or 'en' for _, lang in self.statements]
         for lang, count in collections.Counter(langs).items():
@@ -762,7 +762,6 @@ class ProblemStatement(ProblemPart):
                 options.destdir = os.path.join(self.problem.tmpdir, 'html')
                 options.language = lang
                 options.quiet = True
-                options.format_version = self.FORMAT_VERSION
                 problem2html.convert(options)
             except Exception as e:
                 langparam = f' --language {lang}' if lang != '' else ''
@@ -774,12 +773,12 @@ class ProblemStatement(ProblemPart):
 
     def __init__(self, problem: Problem):
         super().__init__(problem)
-        STATEMENT_DATA = formatversion.get_statement_data(self.problem.probdir)
+        self.STATEMENT_DATA = formatversion.get_format_version_data_by_dir(self.problem.probdir)
 
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {'name':{}}
         for filename, lang in self.statements:
-            dir = os.path.join(self.problem.probdir, self.DIR_END)
+            dir = os.path.join(self.problem.probdir, self.STATEMENT_DATA.get_statement_directory())
             with open(os.path.join(dir, filename)) as f:
                 stmt = f.read()
             hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
@@ -788,15 +787,6 @@ class ProblemStatement(ProblemPart):
                 ret['name'][lang] = problem_name
         return ret if ret['name'] else {}
 
-class ProblemStatementLegacy(ProblemStatement):
-    EXTENSIONS = ['tex']
-    DIR_END = "problem_statement"
-    FORMAT_VERSION = "legacy"
-
-class ProblemStatement2023_07(ProblemStatement):
-    EXTENSIONS = ['md', 'tex']
-    DIR_END = "statement"
-    FORMAT_VERSION = "2023-07"
 
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
@@ -1747,14 +1737,14 @@ class Submissions(ProblemPart):
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     'legacy': {
         'config':       [ProblemConfig],
-        'statement':    [ProblemStatementLegacy, Attachments],
+        'statement':    [ProblemStatement, Attachments],
         'validators':   [InputValidators, OutputValidators],
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
     },
     '2023-07': { # TODO: Add all the parts
-        'statement':    [ProblemStatement2023_07, Attachments],
+        'statement':    [ProblemStatement, Attachments],
     }
 }
 

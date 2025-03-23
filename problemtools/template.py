@@ -3,7 +3,8 @@ import os.path
 import glob
 import tempfile
 import shutil
-import yaml
+
+from . import formatversion
 
 
 # For backwards compatibility, remove in bright and shiny future.
@@ -23,14 +24,12 @@ class Template:
             problemdir = problemdir[:-1]
 
         if version == "automatic":
-            version = self.detect_problem_version(problemdir)
+            version_data = formatversion.get_format_version_data_by_dir(problemdir)
 
-        if version == "2023-07":
-            statement_directory = "statement"
         else:
-            statement_directory = "problem_statement"
+            version_data = formatversion.get_format_version_data_by_name(version)
 
-        stmtdir = os.path.join(problemdir, statement_directory)
+        stmtdir = os.path.join(problemdir, version_data.get_statement_directory())
 
 
 
@@ -128,11 +127,3 @@ class Template:
         assert os.path.isfile(self.filename)
         return self.filename
 
-    def detect_problem_version(self, path) -> str:
-        config_path = os.path.join(path, 'problem.yaml')
-        try:
-            with open(config_path) as f:
-                config: dict = yaml.safe_load(f) or {}
-        except Exception as e:
-            raise RuntimeError(f"Error reading problem.yaml: {e}")
-        return config.get('problem_format_version', 'legacy')
