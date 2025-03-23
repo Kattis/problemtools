@@ -1,11 +1,12 @@
 from __future__ import annotations
 import re
-from typing import Any, Callable, Generator, Literal, Pattern, Match, ParamSpec, TypeVar
-from collections import defaultdict, deque
+from typing import Any, Callable, Generator
+from collections import deque
 from copy import deepcopy
-from .general import SpecificationError, is_copyfrom, type_field_mapping, type_mapping
-from .matcher import AlternativeMatch
-from .config_path import Path
+from .general import SpecificationError
+from .config_path import is_copyfrom
+from .parser import type_mapping
+from .config_path import Path, PathError
 from .parser import Parser, DefaultObjectParser
 
 
@@ -114,7 +115,7 @@ class Metadata:
                 parser = Parser.get_parser_type(spec)(
                     self.data, self.spec, full_path, self.warning_func, self.error_func
                 )
-                full_path.up().index(self.data)[full_path.last_name()] = parser.parse()
+                full_path.set(self.data, parser.parse())
         self.data.update(injected_data)
 
         for full_path in Metadata.topo_sort(self.get_copy_dependencies()):
@@ -136,7 +137,7 @@ class Metadata:
                     raise SpecificationError(
                         f"copy-from directive provided the wrong type (property: {full_path}, copy-property: {val[1]})"
                     )
-                full_path.up().index(self.data)[full_path.last_name()] = copy_val
+                full_path.set(self.data, copy_val)
 
     def check_config(self) -> None:
         pass

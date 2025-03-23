@@ -1,7 +1,27 @@
 from typing import Callable
 from .config_path import Path
-from .general import SpecificationError, type_field_mapping, type_mapping
+from .general import SpecificationError
 from .matcher import AlternativeMatch
+
+type_mapping = {
+    "string": str,
+    "object": dict,
+    "list": list,
+    "bool": bool,
+    "int": int,
+    "float": float,
+}
+
+type_field_mapping = {
+    "*": ["default", "type", "flags", "parsing"],
+    "string": ["alternatives"],
+    "bool": ["alternatives"],
+    "int": ["alternatives"],
+    "float": ["alternatives"],
+    "object": ["required", "properties"],
+    "list": ["content"],
+}
+
 
 class Parser:
     NAME: str = ""
@@ -38,12 +58,13 @@ class Parser:
         required_type = self.spec_path.index(specification)["type"]
         if required_type != self.OUTPUT_TYPE:
             raise SpecificationError(
-                f"Parsing rule for {path} outputs {self.OUTPUT_TYPE}, but the output should be of type {required_type}"
+                f"Parsing rule ({self.NAME}) for {path} outputs {self.OUTPUT_TYPE}, but the output should be of type {required_type}"
             )
 
         if self.OUTPUT_TYPE in ("string", "int", "float", "bool"):
             alternatives = Path.combine(self.spec_path, "alternatives").index(
-                self.specification
+                self.specification,
+                None
             )
             if alternatives is None:
                 self.alternatives = None
@@ -56,10 +77,9 @@ class Parser:
             self.alternatives = None
 
     def parse(self):
-        val = self.path.index(self.data)
-        out = self._parse(val)
+        out = self._parse(self.path.index(self.data, None))
 
-        flags = Path.combine(self.spec_path, "flags").index(self.specification) or []
+        flags = Path.combine(self.spec_path, "flags").index(self.specification, [])
         if "deprecated" in flags and out is not None:
             self.warning_func(f"deprecated property was provided ({self.path})")
 
@@ -78,12 +98,10 @@ class Parser:
                 out = None
 
         if out is None:
-            fallback = Path.combine(self.spec_path, "default").index(self.specification)
-            if fallback is not None:
-                if isinstance(fallback, str) and fallback.startswith("copy-from:"):
-                    fallback = ("copy-from", Path.parse(fallback.split(":")[1]))
-                return fallback
-            return type_mapping[self.OUTPUT_TYPE]()
+            fallback = Path.combine(self.spec_path, "default").index(self.specification, type_mapping[self.OUTPUT_TYPE]())
+            if isinstance(fallback, str) and fallback.startswith("copy-from:"):
+                fallback = ("copy-from", Path.parse(fallback.split(":")[1]))
+            return fallback
 
         if not (
             isinstance(out, tuple) or isinstance(out, type_mapping[self.OUTPUT_TYPE])
@@ -183,7 +201,7 @@ class DefaultObjectParser(Parser):
             return None
 
         required = (
-            Path.combine(self.spec_path, "required").index(self.specification) or []
+            Path.combine(self.spec_path, "required").index(self.specification, [])
         )
         for req in required:
             req_path = Path.combine(self.path, req)

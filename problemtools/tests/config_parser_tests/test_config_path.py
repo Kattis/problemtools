@@ -1,9 +1,10 @@
-from problemtools.config_parser import Path
+from problemtools.config_parser import Path, PathError
 
 def test_parse():
     assert Path.parse("a/b/c") == Path("a", "b", "c")
     assert Path.parse("array[0]/key") == Path("array", 0, "key")
     assert Path.parse("nested/list[2]/item") == Path("nested", "list", 2, "item")
+    assert Path.parse("multiple_lists[0][0][0][0]") == Path("multiple_lists", 0, 0, 0, 0)
 
 def test_combine():
     assert Path.combine("a", "b", "c") == Path("a", "b", "c")
@@ -13,8 +14,16 @@ def test_combine():
 def test_index():
     data = {"a": {"b": [1, 2, 3]}}
     assert Path("a", "b", 1).index(data) == 2
-    assert Path("a", "c").index(data) is None
-    assert Path("a", "b", 10).index(data) is None
+    try:
+        Path("a", "c").index(data)
+        assert False and "Should crash on invalid indexing"
+    except PathError:
+        pass
+    try:
+        Path("a", "b", 10).index(data) is None
+        assert False and "Should crash on invalid indexing"
+    except PathError:
+        pass
 
 def test_spec_path():
     assert Path("a", "b", 2).spec_path() == Path("properties", "a", "properties", "b", "content")
@@ -34,8 +43,8 @@ def test_last_name():
     assert Path("list", 3).last_name() == 3
 
 def test_str_repr():
-    assert str(Path("a", "b", 2)) == "a/b[2]"
-    assert repr(Path("x", "y")) == "Path(x/y)"
+    assert str(Path("a", "b", 2)) == "/a/b[2]"
+    assert repr(Path("x", "y")) == "Path(/x/y)"
 
 def test_equality_hash():
     p1 = Path("a", "b", 1)
