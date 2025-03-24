@@ -736,7 +736,7 @@ class ProblemStatement(ProblemPart):
         self._check_res = True
 
         if not self.statements:
-            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in STATEMENT_DATA.get_statement_extensions)
+            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in STATEMENT_DATA.get_statement_extensions())
             self.error(f'No problem statements found (expected file of one of following forms in directory {STATEMENT_DATA.get_statement_directory()}/: {allowed_statements})')
 
         langs = [lang or 'en' for _, lang in self.statements]
