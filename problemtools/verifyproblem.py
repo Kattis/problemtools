@@ -33,7 +33,8 @@ from . import config
 from . import languages
 from . import run
 
-from typing import Any, Callable, Literal, Pattern, Match, ParamSpec, TypeVar
+from abc import ABC
+from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, Type, TypeVar
 
 log = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class Context:
         concurrent.futures.wait(self._background_work)
 
 
-class ProblemAspect:
+class ProblemAspect(ABC):
     max_additional_info = 15
     errors = 0
     warnings = 0
@@ -175,7 +176,7 @@ class ProblemPart(ProblemAspect):
     """Should always be overridden by the subclass. Specifies the name that will be used to refer
     to the part e.g for logs.
     """
-    PART_NAME = None
+    PART_NAME: ClassVar[str]
 
     """Should return all classes that need to be initialized before this one. It is sufficient to be
     a subclass of the classes listed. There should be exactly one subclass of each dependency in the
@@ -710,8 +711,7 @@ class TestCaseGroup(ProblemAspect):
 
 class ProblemStatement(ProblemPart):
     PART_NAME = 'statement'
-
-    EXTENSIONS = []
+    EXTENSIONS: list[str] = []
 
     def setup(self):
         if not self.EXTENSIONS:
@@ -1727,7 +1727,7 @@ class Submissions(ProblemPart):
 
         return self._check_res
 
-PROBLEM_FORMATS = {
+PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     'legacy': {
         'config':       [ProblemConfig],
         'statement':    [ProblemStatementLegacy, Attachments],
@@ -1753,13 +1753,13 @@ class Problem(ProblemAspect):
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
     def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS['legacy']):
-        self.part_mapping: dict[str, list[type]] = parts
+        self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
         self.shortname: str|None = os.path.basename(self.probdir)
         super().__init__(self.shortname)
         self.language_config = languages.load_language_config()
-        self._data = {}
+        self._data: dict[str, dict] = {}
         self.debug(f'Problem-format: {parts}')
 
     def get(self, part) -> dict:
@@ -1777,7 +1777,7 @@ class Problem(ProblemAspect):
 
         # Initialize the classes, making sure to resolve dependencies first
         initialized = set()
-        self.classes = {}
+        self.classes: dict[str, ProblemPart] = {}
 
         def init(_class):
             if _class.PART_NAME in initialized:
