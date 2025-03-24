@@ -18,6 +18,9 @@ FORMAT_DATA = {
     }
 }
 
+VERSION_LEGACY = "legacy"
+VERSION_2023_07 = "2023-07"
+
 
 """
 Returns the problem version value of problem.yaml or throws an error if it is unable to read the file.
