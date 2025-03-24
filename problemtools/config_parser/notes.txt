@@ -84,7 +84,7 @@ Is being checked:
                 }
             },
         },
-        "licence": {
+        "license": {
             "type": "string",
             "default": "unknown",
             "alternatives": {

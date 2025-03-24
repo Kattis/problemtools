@@ -91,7 +91,7 @@ class Parser:
                     if "warn" in checks:
                         self.warning_func(checks["warn"])
             if not found_match:
-                alts = ", ".join(f'"{matcher}"' for matcher in self.alternatives.keys())
+                alts = ", ".join(f'"{matcher}"' for matcher, _ in self.alternatives)
                 self.error_func(
                     f"Property {self.path} did not match any of the specified alternatives ({alts})"
                 )
@@ -293,11 +293,11 @@ class DefaultBoolParser(Parser):
             if val.lower() in ("true", "false"):
                 interpretation = val.lower() == "true"
                 self.warning_func(
-                    f'Expected type bool but got a string "{val}" which will be interpreted as {interpretation} ({self.path})'
+                    f'Expected type bool but got stringified bool: "{val}" which will be interpreted as {interpretation} ({self.path})'
                 )
                 val = interpretation
             else:
-                self.error_func(f'Expected type bool but got "{val}" ({self.path})')
+                self.error_func(f'Expected type bool, but got "{val}" ({self.path})')
                 return None
 
         if not isinstance(val, bool):
@@ -305,6 +305,96 @@ class DefaultBoolParser(Parser):
             return None
 
         return val
+
+class RightsOwnerLegacy(Parser):
+    NAME = "rights-owner-legacy"
+    OUTPUT_TYPE = "string"
+    
+    @staticmethod
+    def get_dependencies() -> list[Path]:
+        return [Path("author"), Path("source"), Path("license")]
+    
+    def _parse(self, val):
+        if isinstance(val, str):
+            return val
+        
+        if val is None and Path("license").index(self.data) != "public domain":
+            author = Path("author").index(self.data)
+            if len(author) > 0:
+                return author
+            source = Path("source").index(self.data)
+            if len(source) > 0:
+                return source
+        
+        return None
+
+class LegacyValidation(Parser):
+    NAME = "legacy-validation"
+    OUTPUT_TYPE = "object"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+        
+        if not isinstance(val, str):
+            self.error_func(f'Property {self.path} was expected to be given as type string')
+            return None
+        
+        args = val.split()
+        if args[0] not in ("default", "custom"):
+            self.error_func(f'First argument of {self.path} was expected to be either "default" or "custom"')
+            return None
+        
+        if len(set(args)) != len(args):
+            self.warning_func(f'Arguments of {self.path} contains duplicate values')
+            
+        for arg in args[1:]:
+            if arg not in ("score", "interactive"):
+                self.warning_func(f'Invalid argument "{arg}" in {self.path}')
+                
+        return {
+            "type": args[0],
+            "interactive": "interactive" in args,
+            "score": "score" in args
+        }
+
+class SpaceSeparatedStrings(Parser):
+    NAME = "space-separated-strings"
+    OUTPUT_TYPE = "list"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+        
+        if not isinstance(val, str):
+            self.error_func(f'Property {self.path} was expected to be of type string')
+            return None
+        
+        return val.split()
+
+class MinMaxFloatString(Parser):
+    NAME = "min-max-float-string"
+    OUTPUT_TYPE = "object"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+        
+        if not isinstance(val, str):
+            self.error_func(f'Property {self.path} was expected to be of type string')
+            return None
+        
+        args = val.split()
+        if len(args) != 2:
+            self.error_func(f'Property {self.path} was expected to contain exactly two space-separated floats')
+            return None
+        
+        try:
+            a, b = map(float, args)
+        except ValueError:
+            self.error_func(f'Failed to parse arguments of {self.path} as floats')
+                
+        return {"min": a, "max": b}
 
 parsers = {
     p.NAME: p
@@ -315,5 +405,9 @@ parsers = {
         DefaultIntParser,
         DefaultFloatParser,
         DefaultBoolParser,
+        RightsOwnerLegacy,
+        LegacyValidation,
+        SpaceSeparatedStrings,
+        MinMaxFloatString,
     ]
 }

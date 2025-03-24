@@ -25,10 +25,11 @@ class StringMatch(AlternativeMatch):
         self.regex = re.compile(matchstr)
 
     def check(self, val) -> bool:
-        return self.regex.match(val)
+        return isinstance(val, str) and self.regex.match(val)
 
     def __str__(self) -> str:
-        self.regex.pattern
+        return self.regex.pattern
+
 
 
 class IntMatch(AlternativeMatch):
@@ -50,7 +51,7 @@ class IntMatch(AlternativeMatch):
                 self.start = self.end = int(matchstr)
         except ValueError:
             raise SpecificationError(
-                'Int match string should be of the form "A:B" where A and B can be parsed as ints or left empty, or a single integer'
+                f'Int match string should be of the form "A:B" where A and B can be parsed as ints or left empty, or a single integer, not "{matchstr}"'
             )
 
     def check(self, val) -> bool:

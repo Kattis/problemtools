@@ -16,6 +16,6 @@ properties:
     type: bool
     default: True
     alternatives:
-      Sann:
+      True:
         warn: "true is now deprecated"
       Falsk: {}

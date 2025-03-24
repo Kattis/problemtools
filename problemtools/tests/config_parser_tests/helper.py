@@ -19,6 +19,8 @@ def errors_add(text: str):
     errors.append(text)
 
 def construct_metadata(spec_file, config_file, injected_data) -> Metadata:
+    errors.clear()
+    warnings.clear()
     spec = load_yaml(spec_file)
     config = load_yaml(config_file)
     md = Metadata(spec)

@@ -826,7 +826,7 @@ config_format = {
                 }
             },
         },
-        "licence": {
+        "license": {
             "type": "string",
             "default": "unknown",
             "alternatives": {

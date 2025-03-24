@@ -31,6 +31,7 @@ class Metadata:
         self.warning_func = fun
 
     def invert_graph(dependency_graph: dict[Path, list[Path]]):
+        # TODO: catch key errors better
         depends_on_graph = {k: [] for k in dependency_graph.keys()}
         for dependant, dependencies in dependency_graph.items():
             for dependency in dependencies:
@@ -71,7 +72,7 @@ class Metadata:
         while stack:
             parent, p = stack.pop()
             spec = p.index(self.spec)
-            deps = Parser.get_parser_type(spec).get_dependencies()
+            deps = [d.spec_path() for d in Parser.get_parser_type(spec).get_dependencies()]
             if len(parent.path) > 0:
                 deps.append(parent)
             graph[p] = deps

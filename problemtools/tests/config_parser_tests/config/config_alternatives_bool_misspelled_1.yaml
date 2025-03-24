@@ -1,0 +1,21 @@
+type: object
+require:
+  - bar
+  - boz
+properties:
+  foo:
+    flags:
+      - deprecated
+    type: int
+    default: 69
+  bar:
+    type: string
+    alternatives:
+      x: {}
+  baz:
+    type: bool
+    default: True
+    alternatives:
+      Sann:
+        warn: "true is now deprecated"
+      False: {}
