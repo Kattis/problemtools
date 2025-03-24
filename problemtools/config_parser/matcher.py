@@ -41,8 +41,9 @@ class IntMatch(AlternativeMatch):
             if matchstr.count(":") > 1:
                 raise ValueError
             if ":" in matchstr:
+                
                 self.start, self.end = [
-                    int(p) if p else None for p in map(str.strip, matchstr.split())
+                    int(p) if p else None for p in map(str.strip, matchstr.split(":"))
                 ]
             else:
                 matchstr = matchstr.strip()
@@ -66,10 +67,10 @@ class IntMatch(AlternativeMatch):
         return True
 
     def __str__(self):
-        if A == B:
-            return str(A)
         A = str(self.start) if self.start is not None else ""
         B = str(self.end) if self.end is not None else ""
+        if A == B and A != "":
+            return str(A)
         return f"{A}:{B}"
 
 

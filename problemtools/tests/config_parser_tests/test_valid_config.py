@@ -24,9 +24,9 @@ legacy_injected_data = {
         "memory": 2048,
         "output": 8,
         "code": 128,
-        "compilation_time": 60,
+        "compilation_time": 60.0,
         "compilation_memory": 2048,
-        "validation_time": 60,
+        "validation_time": 60.0,
         "validation_memory": 2048,
         "validation_output": 8
     }
