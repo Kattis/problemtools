@@ -8,6 +8,7 @@ from .config_path import is_copyfrom
 from .parser import type_mapping
 from .config_path import Path, PathError
 from .parser import Parser, DefaultObjectParser
+from .matcher import AlternativeMatch
 
 
 class Metadata:
@@ -20,9 +21,11 @@ class Metadata:
     def __getitem__(self, key: str | Path) -> Any:
         if self.data is None:
             raise Exception("data has not been loaded yet")
-        if isinstance(key, str):
+        if type(key) is str:
             return Path.parse(key).index(self.data)
-        return key.index(self.data)
+        elif type(key) is Path:
+            return key.index(self.data)
+        raise Exception(f"Invalid type for indexing data ({type(key)}). Type should be string or Path")
 
     def set_error_callback(self, fun: Callable):
         self.error_func = fun
@@ -30,7 +33,7 @@ class Metadata:
     def set_warning_callback(self, fun: Callable):
         self.warning_func = fun
 
-    def invert_graph(dependency_graph: dict[Path, list[Path]]):
+    def invert_graph(dependency_graph: dict[Path, list[Path]]) -> dict[Path, list[Path]]:
         # TODO: catch key errors better
         depends_on_graph = {k: [] for k in dependency_graph.keys()}
         for dependant, dependencies in dependency_graph.items():
@@ -99,9 +102,9 @@ class Metadata:
             if is_copyfrom(val):
                 deps.append(val[1])
             graph[path] = deps
-            if isinstance(val, dict):
+            if type(val) is dict:
                 stack.extend((path, Path.combine(path, child)) for child in val.keys())
-            elif isinstance(val, list):
+            elif type(val) is list:
                 stack.extend((path, Path.combine(path, i)) for i in range(len(val)))
 
         return graph
@@ -122,7 +125,7 @@ class Metadata:
         for full_path in Metadata.topo_sort(self.get_copy_dependencies()):
             val = full_path.index(self.data)
             if is_copyfrom(val):
-                if any(isinstance(part, int) for part in val[1].path):
+                if any(type(part) is int for part in val[1].path):
                     raise SpecificationError(
                         f"copy-from directives may not copy from lists (property: {full_path}, copy-property: {val[1]})"
                     )
@@ -140,7 +143,31 @@ class Metadata:
                     )
                 full_path.set(self.data, copy_val)
 
+    def do_alternative_checks(self, checks: dict, prop_path: Path) -> None:
+        for check_result, check_name in ((False, "forbid"), (True, "require")):
+            for path, matchstr in checks.get(check_name, {}):
+                path = Path.parse(path)
+                val = path.index(self.data)
+                typ = Path.combine(path.spec_path(), "type").index(self.spec)
+                if AlternativeMatch.get_matcher(typ, matchstr).check(val) is not check_result:
+                    self.error_func(f'Property {prop_path} with value {prop_path.index(self.data)} {check_name}s property {path} to match value {matchstr}')
+
     def check_config(self) -> None:
-        pass
+        if self.data is None:
+            raise Exception('Data has not been loaded yet')
+        def check(spec: dict, data: Any, path: Path):
+            if spec["type"] == "object":
+                for p in spec["properties"]:
+                    check(spec["properties"][p], data[p], Path.combine(path, p))
+            elif spec["type"] == "list":
+                for i, cont in enumerate(data):
+                    check(spec["content"], cont, Path.combine(path, i))
+            if "alternatives" in spec:
+                for matchstr, checks in spec["alternatives"].items():
+                    if AlternativeMatch.get_matcher(spec["type"], matchstr).check(data):
+                        self.do_alternative_checks(checks, path)
+        check(self.spec, self.data, Path())
+                        
+                    
 
 
