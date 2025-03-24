@@ -24,15 +24,12 @@ class Template:
             problemdir = problemdir[:-1]
 
         if version == "automatic":
-            version_data = formatversion.get_format_version_data_by_dir(problemdir)
+            version_data = formatversion.get_format_data(problemdir)
 
         else:
-            version_data = formatversion.get_format_version_data_by_name(version)
+            version_data = formatversion.get_format_data_by_name(version)
 
-        stmtdir = os.path.join(problemdir, version_data.get_statement_directory())
-
-
-
+        stmtdir = os.path.join(problemdir, version_data.get('statement_directory'))
         langs = []
         if glob.glob(os.path.join(stmtdir, 'problem.tex')):
             langs.append('')

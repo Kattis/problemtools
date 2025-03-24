@@ -3,9 +3,25 @@ import yaml
 
 
 """
+The data specific to any given format version.
+"""
+FORMAT_DATA = {
+    "legacy": {
+        "name": "legacy",
+        "statement_directory": "problem_statement",
+        "statement_extensions": ["tex"]
+    },
+    "2023-07": {
+        "name": "2023-07",
+        "statement_directory": "statement",
+        "statement_extensions": ["md", "tex"],
+    }
+}
+
+
+"""
 Returns the problem version value of problem.yaml or throws an error if it is unable to read the file.
 """
-
 def detect_problem_version(path) -> str:
     config_path = os.path.join(path, 'problem.yaml')
     try:
@@ -17,65 +33,26 @@ def detect_problem_version(path) -> str:
 
 
 """
-Returns a FormatVersionData object based on the format version found in problem.yaml
+Returns a dictionary containing the necessary data for a file format.
 """
-
-def get_format_version_data_by_dir(path):
+def get_format_data(path):
     version = detect_problem_version(path)
-    return get_format_version_data_by_name(version)
-
-
-"""
-Returns a FormatVersionData object based on the format version found in problem.yaml
-"""
-
-def get_format_version_data_by_name(version_name):
-    if version_name == "legacy":
-        return DataLegacy()
-    elif version_name == "2023-07":
-        return Data2023_07()
+    data = FORMAT_DATA.get(version)
+    if not data:
+        raise VersionError(f"No version found with name {version}")
     else:
-        raise VersionError(f"Unknown version {version_name}")
+        return data
 
 
 """
-A superclass for all the format version-specific variables and information
+Returns a dictionary containing the necessary data for a file format given the format's name. 
 """
-class FormatVersionData:
-    FORMAT_VERSION = ""
-    STATEMENT_DIRECTORY = ""
-    STATEMENT_EXTENSIONS = []
-
-    def get_format_version(self):
-        if self.FORMAT_VERSION == "":
-            raise NotImplementedError()
-        else:
-            return self.FORMAT_VERSION
-
-    def get_statement_directory(self):
-        if self.STATEMENT_DIRECTORY == "":
-            raise NotImplementedError()
-        else:
-            return self.STATEMENT_DIRECTORY
-
-    def get_statement_extensions(self):
-        if not self.STATEMENT_EXTENSIONS:
-            raise NotImplementedError()
-        else:
-            return self.STATEMENT_EXTENSIONS
-
-
-class DataLegacy(FormatVersionData):
-    FORMAT_VERSION = "legacy"
-    STATEMENT_DIRECTORY = "problem_statement"
-    STATEMENT_EXTENSIONS = ['tex']
-
-
-class Data2023_07(FormatVersionData):
-    FORMAT_VERSION = "2023-07"
-    STATEMENT_DIRECTORY = "statement"
-    STATEMENT_EXTENSIONS = ['md', 'tex']
-
+def get_format_data_by_name(name):
+    data = FORMAT_DATA.get(name)
+    if not data:
+        raise VersionError(f"No version found with name {name}")
+    else:
+        return data
 
 class VersionError(Exception):
     pass
