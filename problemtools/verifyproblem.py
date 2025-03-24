@@ -33,7 +33,8 @@ from . import config
 from . import languages
 from . import run
 
-from typing import Any, Callable, Literal, Pattern, Match, ParamSpec, TypeVar
+from abc import ABC
+from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, Type, TypeVar
 
 log = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class Context:
         concurrent.futures.wait(self._background_work)
 
 
-class ProblemAspect:
+class ProblemAspect(ABC):
     max_additional_info = 15
     errors = 0
     warnings = 0
@@ -175,7 +176,7 @@ class ProblemPart(ProblemAspect):
     """Should always be overridden by the subclass. Specifies the name that will be used to refer
     to the part e.g for logs.
     """
-    PART_NAME = None
+    PART_NAME: ClassVar[str]
 
     """Should return all classes that need to be initialized before this one. It is sufficient to be
     a subclass of the classes listed. There should be exactly one subclass of each dependency in the
@@ -219,8 +220,8 @@ class TestCase(ProblemAspect):
         self._problem = problem
         self.testcasegroup = testcasegroup
         self.reuse_result_from: TestCase|None = None
-        self.counter = len(problem.classes[ProblemTestCases.PART_NAME].testcase_by_infile)
-        problem.classes[ProblemTestCases.PART_NAME].testcase_by_infile[self.infile] = self
+        self.counter = len(problem.getProblemPart(ProblemTestCases).testcase_by_infile)
+        problem.getProblemPart(ProblemTestCases).testcase_by_infile[self.infile] = self
 
     def check_newlines(self, filename: str) -> None:
         with open(filename, 'rb') as f:
@@ -258,7 +259,7 @@ class TestCase(ProblemAspect):
         self.check_newlines(self.ansfile)
         self.check_size_limits(self.infile)
         self.check_size_limits(self.ansfile)
-        self._problem.classes[InputValidators.PART_NAME].validate(self)
+        self._problem.getProblemPart(InputValidators).validate(self)
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
         outputlim = self._problem.get(ProblemConfig)['limits']['output']
         if anssize > outputlim:
@@ -266,7 +267,7 @@ class TestCase(ProblemAspect):
         elif 2 * anssize > outputlim:
             self.warning(f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit')
         if not self._problem.get(ProblemTestCases)['is_interactive']:
-            val_res = self._problem.classes[OutputValidators.PART_NAME].validate(self, self.ansfile)
+            val_res = self._problem.getProblemPart(OutputValidators).validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
                     self.error(f'judge answer file got {val_res}')
@@ -285,8 +286,8 @@ class TestCase(ProblemAspect):
         if not os.path.islink(self.infile):
             return
         target = os.path.realpath(self.infile)
-        if target in self._problem.classes[ProblemTestCases.PART_NAME].testcase_by_infile:
-            self.reuse_result_from = self._problem.classes[ProblemTestCases.PART_NAME].testcase_by_infile[target]
+        if target in self._problem.getProblemPart(ProblemTestCases).testcase_by_infile:
+            self.reuse_result_from = self._problem.getProblemPart(ProblemTestCases).testcase_by_infile[target]
 
     def _check_symlinks(self) -> bool:
         if not os.path.islink(self.infile):
@@ -323,7 +324,7 @@ class TestCase(ProblemAspect):
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
         if self._problem.get(ProblemTestCases)['is_interactive']:
-            res_high = self._problem.classes[OutputValidators.PART_NAME].validate_interactive(self, sub, timelim_high, self._problem.classes[Submissions.PART_NAME])
+            res_high = self._problem.getProblemPart(OutputValidators).validate_interactive(self, sub, timelim_high, self._problem.getProblemPart(Submissions))
         else:
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
@@ -341,7 +342,7 @@ class TestCase(ProblemAspect):
                     info = None
                 res_high = SubmissionResult('RTE', additional_info=info)
             else:
-                res_high = self._problem.classes[OutputValidators.PART_NAME].validate(self, outfile)
+                res_high = self._problem.getProblemPart(OutputValidators).validate(self, outfile)
             res_high.runtime = runtime
 
         if res_high.runtime <= timelim_low:
@@ -509,10 +510,10 @@ class TestCaseGroup(ProblemAspect):
         if self.config['grading'] not in ['default', 'custom']:
             self.error("Invalid grading policy in testdata.yaml")
 
-        if self.config['grading'] == 'custom' and len(self._problem.classes[Graders.PART_NAME]._graders) == 0:
-            self._problem.classes[Graders.PART_NAME].error(f'{self} has custom grading but no custom graders provided')
+        if self.config['grading'] == 'custom' and len(self._problem.getProblemPart(Graders)._graders) == 0:
+            self._problem.getProblemPart(Graders).error(f'{self} has custom grading but no custom graders provided')
         if self.config['grading'] == 'default' and Graders._default_grader is None:
-            self._problem.classes[Graders.PART_NAME].error(f'{self} has default grading but I could not find default grader')
+            self._problem.getProblemPart(Graders).error(f'{self} has default grading but I could not find default grader')
 
         if self.config['grading'] == 'default' and 'ignore_sample' in self.config['grader_flags'].split():
             if self._parent is not None:
@@ -686,7 +687,7 @@ class TestCaseGroup(ProblemAspect):
             res.additional_info = judge_error.additional_info
             res.testcase = judge_error.testcase
         else:
-            res.verdict, score = self._problem.classes[Graders.PART_NAME].grade(sub_results, self, shadow_result)
+            res.verdict, score = self._problem.getProblemPart(Graders).grade(sub_results, self, shadow_result)
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
@@ -710,8 +711,7 @@ class TestCaseGroup(ProblemAspect):
 
 class ProblemStatement(ProblemPart):
     PART_NAME = 'statement'
-
-    EXTENSIONS = []
+    EXTENSIONS: list[str] = []
 
     def setup(self):
         if not self.EXTENSIONS:
@@ -1658,7 +1658,7 @@ class Submissions(ProblemPart):
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
         # validator, to avoid a bottleneck step at the start of each test run.
-        self.problem.classes[OutputValidators.PART_NAME].start_background_work(context)
+        self.problem.getProblemPart(OutputValidators).start_background_work(context)
         for acr in self._submissions:
             for sub in self._submissions[acr]:
                 context.submit_background_work(lambda s: s.compile(), sub)
@@ -1727,7 +1727,7 @@ class Submissions(ProblemPart):
 
         return self._check_res
 
-PROBLEM_FORMATS = {
+PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     'legacy': {
         'config':       [ProblemConfig],
         'statement':    [ProblemStatementLegacy, Attachments],
@@ -1744,6 +1744,7 @@ PROBLEM_FORMATS = {
 # parts tested in alphabetical order
 PROBLEM_PARTS = [*sorted({part for format in PROBLEM_FORMATS.values() for part in format})]
 
+_ProblemPartT = TypeVar("_ProblemPartT", bound=ProblemPart)
 class Problem(ProblemAspect):
     """Represents a checkable problem"""
 
@@ -1753,13 +1754,13 @@ class Problem(ProblemAspect):
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
     def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS['legacy']):
-        self.part_mapping: dict[str, list[type]] = parts
+        self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
         self.shortname: str|None = os.path.basename(self.probdir)
         super().__init__(self.shortname)
         self.language_config = languages.load_language_config()
-        self._data = {}
+        self._data: dict[str, dict] = {}
         self.debug(f'Problem-format: {parts}')
 
     def get(self, part) -> dict:
@@ -1767,6 +1768,9 @@ class Problem(ProblemAspect):
             part = part.PART_NAME
         assert part in self._data
         return self._data[part]
+
+    def getProblemPart(self, part: Type[_ProblemPartT]) -> _ProblemPartT:
+        return self._classes[part.PART_NAME] # type: ignore
 
     def __enter__(self) -> Problem:
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
@@ -1777,7 +1781,7 @@ class Problem(ProblemAspect):
 
         # Initialize the classes, making sure to resolve dependencies first
         initialized = set()
-        self.classes = {}
+        self._classes: dict[str, ProblemPart] = {}
 
         def init(_class):
             if _class.PART_NAME in initialized:
@@ -1794,8 +1798,8 @@ class Problem(ProblemAspect):
                     raise NotImplementedError(f'Part "{_class.PART_NAME}" depends on part "{dependency.PART_NAME}" which showed up {cnt} times in problem-format (should have showed up exactly once)')
             self.debug(f'Initializing {_class.PART_NAME} ({_class})')
             assert _class.PART_NAME not in initialized
-            self.classes[_class.PART_NAME] = _class(self)
-            self._data[_class.PART_NAME] = self.classes[_class.PART_NAME].setup()
+            self._classes[_class.PART_NAME] = _class(self)
+            self._data[_class.PART_NAME] = self._classes[_class.PART_NAME].setup()
             initialized.add(_class.PART_NAME)
 
         for c in self.aspects:
@@ -1835,12 +1839,12 @@ class Problem(ProblemAspect):
             if executor:
                 for part in parts:
                     for item in self.part_mapping[part]:
-                        self.classes[item.PART_NAME].start_background_work(context)
+                        self._classes[item.PART_NAME].start_background_work(context)
 
             for part in parts:
                 self.msg(f'Checking {part}')
                 for item in self.part_mapping[part]:
-                    self.classes[item.PART_NAME].check(context)
+                    self._classes[item.PART_NAME].check(context)
         except VerifyError:
             pass
         finally:

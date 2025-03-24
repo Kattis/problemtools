@@ -9,10 +9,12 @@ import threading
 
 from .errors import ProgramError
 
+from abc import ABC, abstractmethod
+
 log = logging.getLogger(__name__)
 
 
-class Program(object):
+class Program(ABC):
     """Abstract base class for programs.
     """
 
@@ -20,6 +22,10 @@ class Program(object):
         self.runtime = 0
         self._compile_lock = threading.Lock()
         self._compile_result: tuple[bool, str|None]|None = None
+
+    @abstractmethod
+    def get_runcmd(self, cwd = None, memlim = None) -> list[str]:
+        pass
 
     def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null',
             args=None, timelim=1000, memlim=1024, work_dir=None):

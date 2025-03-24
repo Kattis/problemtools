@@ -24,7 +24,7 @@ def load_config(configuration_file):
             try:
                 with open(path, 'r') as config:
                     new_config = yaml.safe_load(config.read())
-            except (yaml.parser.ParserError, yaml.parser.ScannerError) as err:
+            except (yaml.parser.ParserError, yaml.scanner.ScannerError) as err:
                 raise ConfigError('Config file %s: failed to parse: %s' % (path, err))
         if res is None:
             if new_config is None:
