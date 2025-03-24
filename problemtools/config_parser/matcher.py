@@ -1,31 +1,35 @@
 from .general import SpecificationError
 import re
+from typing import Any
 
 class AlternativeMatch:
     def __init__(self, matchstr):
         raise NotImplementedError("Specialize in subclass")
 
-    def check(self, val) -> bool:
+    def check(self, val: Any) -> bool:
         raise NotImplementedError("Specialize in subclass")
 
     @staticmethod
-    def get_matcher(type, matchstr) -> "AlternativeMatch":
+    def get_matcher(type: str, matchstr: Any) -> "AlternativeMatch":
         matchers = {
             "string": StringMatch,
             "int": IntMatch,
             "float": FloatMatch,
             "bool": BoolMatch,
         }
-        assert type in matchers
+        if type not in matchers:
+            raise SpecificationError(f'There is no matcher for type "{matchstr}"')
         return matchers[type](matchstr)
 
 
 class StringMatch(AlternativeMatch):
-    def __init__(self, matchstr):
+    def __init__(self, matchstr: str):
+        if type(matchstr) is not str:
+            raise SpecificationError(f'String match needs argument to be of type string. Got {type(matchstr)}')
         self.regex = re.compile(matchstr)
 
-    def check(self, val) -> bool:
-        return isinstance(val, str) and self.regex.match(val)
+    def check(self, val: Any) -> bool:
+        return type(val) is str and bool(self.regex.fullmatch(val))
 
     def __str__(self) -> str:
         return self.regex.pattern
@@ -34,7 +38,9 @@ class StringMatch(AlternativeMatch):
 
 class IntMatch(AlternativeMatch):
     def __init__(self, matchstr: str | int):
-        if isinstance(matchstr, int):
+        if type(matchstr) not in (str, int):
+            raise SpecificationError(f"Int match needs argument to be of type string or int. Got {type(matchstr)}")
+        if type(matchstr) is int:
             self.start = self.end = matchstr
             return
         try:
@@ -55,18 +61,18 @@ class IntMatch(AlternativeMatch):
                 f'Int match string should be of the form "A:B" where A and B can be parsed as ints or left empty, or a single integer, not "{matchstr}"'
             )
 
-    def check(self, val) -> bool:
-        if not isinstance(val, int):
+    def check(self, val: Any) -> bool:
+        if type(val) is not int:
             return False
         if self.start is not None:
             if val < self.start:
                 return False
         if self.end is not None:
-            if val > self.start:
+            if val > self.end:
                 return False
         return True
 
-    def __str__(self):
+    def __str__(self) -> str:
         A = str(self.start) if self.start is not None else ""
         B = str(self.end) if self.end is not None else ""
         if A == B and A != "":
@@ -76,6 +82,8 @@ class IntMatch(AlternativeMatch):
 
 class FloatMatch(AlternativeMatch):
     def __init__(self, matchstr: str):
+        if type(matchstr) is not str:
+            raise SpecificationError(f'Float match needs argument to be of type string. Got {type(matchstr)}')
         try:
             if matchstr.count(":") != 1:
                 raise ValueError
@@ -87,10 +95,10 @@ class FloatMatch(AlternativeMatch):
                 'Float match string should be of the form "A:B" where A and B can be parsed as floats or left empty'
             )
 
-    def check(self, val) -> bool:
-        return isinstance(val, float) and self.start <= val <= self.end
+    def check(self, val: Any) -> bool:
+        return type(val) is float and self.start <= val <= self.end
 
-    def __str__(self):
+    def __str__(self) -> str:
         A = str(self.start) if self.start != float("-inf") else ""
         B = str(self.end) if self.end != float("inf") else ""
         return f"{A}:{B}"
@@ -98,7 +106,9 @@ class FloatMatch(AlternativeMatch):
 
 class BoolMatch(AlternativeMatch):
     def __init__(self, matchstr: str | bool):
-        if isinstance(matchstr, bool):
+        if not type(matchstr) in (bool, str):
+            raise SpecificationError(f'BoolMatch needs to recieve either type string or bool. Got {type(matchstr)}')
+        if type(matchstr) is bool:
             self.val = matchstr
             return
         matchstr = matchstr.strip().lower()
@@ -108,8 +118,8 @@ class BoolMatch(AlternativeMatch):
             )
         self.val = {"true": True, "false": False}[matchstr]
 
-    def check(self, val) -> bool:
-        return isinstance(val, bool) and val == self.val
+    def check(self, val: Any) -> bool:
+        return type(val) is bool and val == self.val
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.val)
