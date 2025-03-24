@@ -714,6 +714,7 @@ class ProblemStatement(ProblemPart):
     FORMAT_DATA = None
 
     def setup(self):
+        self.FORMAT_DATA = formatversion.get_format_data(self.problem.probdir)
         if not self.FORMAT_DATA:
             raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
@@ -767,10 +768,6 @@ class ProblemStatement(ProblemPart):
 
     def __str__(self) -> str:
         return 'problem statement'
-
-    def __init__(self, problem: Problem):
-        super().__init__(problem)
-        self.FORMAT_DATA = formatversion.get_format_data(self.problem.probdir)
 
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {'name':{}}
