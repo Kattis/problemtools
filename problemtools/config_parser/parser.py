@@ -70,36 +70,29 @@ class Parser:
                 self.alternatives = None
             else:
                 self.alternatives = [
-                    (AlternativeMatch.get_matcher(self.OUTPUT_TYPE, key), val)
-                    for key, val in alternatives.items()
+                    AlternativeMatch.get_matcher(self.OUTPUT_TYPE, key) for key, _ in alternatives.items()
                 ]
         else:
             self.alternatives = None
 
     def parse(self):
         out = self._parse(self.path.index(self.data, None))
-
+        fallback = Path.combine(self.spec_path, "default").index(self.specification, type_mapping[self.OUTPUT_TYPE]())
+        
         flags = Path.combine(self.spec_path, "flags").index(self.specification, [])
         if "deprecated" in flags and out is not None:
             self.warning_func(f"deprecated property was provided ({self.path})")
 
-        if self.alternatives is not None:
-            found_match = False
-            for matcher, checks in self.alternatives:
-                if matcher.check(out):
-                    found_match = True
-                    if "warn" in checks:
-                        self.warning_func(checks["warn"])
-            if not found_match:
-                alts = ", ".join(f'"{matcher}"' for matcher, _ in self.alternatives)
+        if out is not None and self.alternatives is not None:                    
+            if not any(matcher.check(out) for matcher in self.alternatives):
+                alts = ", ".join(f'"{matcher}"' for matcher in self.alternatives)
                 self.error_func(
-                    f"Property {self.path} did not match any of the specified alternatives ({alts})"
+                    f"Property {self.path} with value {out} did not match any of the specified alternatives ({alts})"
                 )
                 out = None
 
         if out is None:
-            fallback = Path.combine(self.spec_path, "default").index(self.specification, type_mapping[self.OUTPUT_TYPE]())
-            if isinstance(fallback, str) and fallback.startswith("copy-from:"):
+            if type(fallback) is str and fallback.startswith("copy-from:"):
                 fallback = ("copy-from", Path.parse(fallback.split(":")[1]))
             return fallback
 

@@ -16,7 +16,7 @@ properties:
         warn: watch out you are using y
       z:
         require:
-          - baz: true
+          baz: true
   baz:
     type: bool
     default: True
@@ -30,7 +30,7 @@ properties:
     alternatives:
       "3.1414:3.1416":
         require:
-          - foo: 1337
+          foo: 1337
         warn: this is pie not real pi 7/2
       ":": {} # Allows all values
   copied:

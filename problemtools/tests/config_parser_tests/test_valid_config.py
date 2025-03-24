@@ -8,7 +8,8 @@ def test_basic_config():
         }
     }
     data = construct_metadata('basic_config.yaml', 'follows_basic_config.yaml', injected)
-
+    data.check_config()
+    
     print(f"warnings: {warnings}")
     print(f"errors: {errors}")
 
@@ -20,16 +21,7 @@ def test_basic_config():
     assert len(warnings) > 0
 
 legacy_injected_data = {
-    "system_default": {
-        "memory": 2048,
-        "output": 8,
-        "code": 128,
-        "compilation_time": 60.0,
-        "compilation_memory": 2048,
-        "validation_time": 60.0,
-        "validation_memory": 2048,
-        "validation_output": 8
-    }
+    "system_default": load_yaml("system_defaults.yaml")
 }
 
 def test_legacy_config_empty():

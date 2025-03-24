@@ -109,10 +109,46 @@ class Metadata:
 
         return graph
 
+    def resolve_match_properties(spec: dict, data: dict):
+        if spec.get("type") == "list":
+            if type(data) is list:
+                for item in data:
+                    Metadata.resolve_match_properties(spec["content"], item)
+            return
+        if spec.get("type") != "object" or type(data) is not dict:
+            return
+        
+        cur_props = set(spec.get("properties", {}).keys())
+        regex_props = {re.compile(pattern): desc for pattern, desc in spec.get("match_properties", {}).items()}
+        for prop in data.keys():
+            if prop in cur_props:
+                continue
+            matching = [desc for regex, desc in regex_props.items() if regex.fullmatch(prop)]
+            if len(matching) > 1:
+                raise SpecificationError(f'Multiple match_properties could match property name "{prop}"')
+            elif len(matching) == 1:
+                spec["properties"][prop] = deepcopy(matching[0])
+        
+        for prop_name, prop in spec.get("properties", {}).items():
+            if prop_name in data:
+                Metadata.resolve_match_properties(prop, data[prop_name])
+
+    def remove_match_properties(spec: dict):
+        if spec.get("type") == "list":
+            Metadata.remove_match_properties(spec["content"])
+        if spec.get("type") != "object":
+            return
+        if "match_properties" in spec:
+            del spec["match_properties"]
+        for prop in spec.get("properties", {}).values():
+            Metadata.remove_match_properties(prop)
+
     def load_config(self, config: dict, injected_data: dict) -> None:
         self.data: dict = DefaultObjectParser(
             config, self.spec, Path(), self.warning_func, self.error_func
         ).parse()
+        Metadata.resolve_match_properties(self.spec, self.data)
+        Metadata.remove_match_properties(self.spec)
         for cfg_path in Metadata.topo_sort(self.get_path_dependencies()):
             spec = cfg_path.index(self.spec)
             for full_path in cfg_path.data_paths(self.data):
@@ -144,8 +180,10 @@ class Metadata:
                 full_path.set(self.data, copy_val)
 
     def do_alternative_checks(self, checks: dict, prop_path: Path) -> None:
+        if "warn" in checks:
+            self.warning_func(checks["warn"])
         for check_result, check_name in ((False, "forbid"), (True, "require")):
-            for path, matchstr in checks.get(check_name, {}):
+            for path, matchstr in checks.get(check_name, {}).items():
                 path = Path.parse(path)
                 val = path.index(self.data)
                 typ = Path.combine(path.spec_path(), "type").index(self.spec)

@@ -12,7 +12,7 @@ properties:
     alternatives:
       pass-fail:
         forbid:
-        - grading/on_reject: grade
+          grading/on_reject: grade
       scoring: {}
   name:
     type: string
@@ -27,7 +27,8 @@ properties:
     alternatives:
       ".+":
         require:
-        - source: ".+"
+          source: ".+"
+      "": {}
   license:
     type: string
     default: unknown
@@ -35,13 +36,13 @@ properties:
       unknown: 
         warn: License is unknown
         require:
-        - rights_owner: ".+"
+          rights_owner: ".+"
       cc0|cc by|cc by-sa|educational|permission:
         require:
-        - rights_owner: ".+"
+          rights_owner: ".+"
       public domain:
         forbid:
-        - rights_owner: ".+"
+          rights_owner: ".+"
   rights_owner:
     type: string
     parsing: rights-owner-legacy
@@ -60,42 +61,42 @@ properties:
         type: int
         default: copy-from:system_default/memory
         alternatives:
-          "0:": {}
+          "1:": {}
       output:
         type: int
         default: copy-from:system_default/output
         alternatives:
-          "0:": {}
+          "1:": {}
       code:
         type: int
         default: copy-from:system_default/code
         alternatives:
-          "0:": {}
+          "1:": {}
       compilation_time:
-        type: float
+        type: int
         default: copy-from:system_default/compilation_time
         alternatives:
-          "0.0:": {}
+          "1:": {}
       compilation_memory:
         type: int
         default: copy-from:system_default/compilation_memory
         alternatives:
-          "0:": {}
+          "1:": {}
       validation_time:
-        type: float
+        type: int
         default: copy-from:system_default/validation_time
         alternatives:
-          "0.0:": {}
+          "1:": {}
       validation_memory:
         type: int
         default: copy-from:system_default/validation_memory
         alternatives:
-          "0:": {}
+          "1:": {}
       validation_output:
         type: int
         default: copy-from:system_default/validation_output
         alternatives:
-          "0:": {}
+          "1:": {}
   validation:
     type: object
     parsing: legacy-validation
@@ -105,8 +106,8 @@ properties:
         alternatives:
           default:
             forbid:
-            - validation/interactive: true
-            - validation/score: true
+              validation/interactive: true
+              validation/score: true
           custom: {}
       interactive:
         type: bool
@@ -127,7 +128,7 @@ properties:
         alternatives:
           True:
             forbid:
-              - type: pass-fail
+                type: pass-fail
           False: {}
       on_reject:
         type: string

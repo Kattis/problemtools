@@ -1,0 +1,204 @@
+type: object
+required: [problem_format_version,name,uuid]
+properties:
+  problem_format_version:
+    type: string
+    default: "2023-07"
+    alternatives:
+      "2023-07": {}
+  type:
+    type: object
+    parsing: type-2023-07
+    properties:
+      pass-fail:
+        type: bool
+        default: True
+        alternatives:
+          True:
+            require:
+              type/scoring: False
+          False: {}
+      scoring:
+        type: bool
+      multi-pass:
+        type: bool
+      interactive:
+        type: bool
+      submit-answer:
+        type: bool
+        alternatives:
+          True:
+            require:
+              type/interactive: False
+              type/multi-pass: False
+          False: {}
+    content:
+      type: string
+      alternatives:
+        pass-fail: {}
+        scoring: {}
+        multi-pass: {}
+        interactive: {}
+        submit-answer: {}
+  name:
+    type: object
+    parsing: name-parsing-2023-07
+    match_properties:
+      "[a-z]{2,3}|[a-z]{2}-[A-Z]{2}":
+        type: string
+  uuid:
+    type: string
+  version:
+    type: string
+  credits:
+    type: object
+    parsing: credits-parsing-2023-07
+    properties:
+      authors:
+        type: list
+        content:
+          type: string
+      contributors:
+        type: list
+        content:
+          type: string
+      testers:
+        type: list
+        content:
+          type: string
+      contributors:
+        type: list
+        content:
+          type: string
+      translators:
+        type: object
+        match_properties:
+          "[a-z]{2,3}|[a-z]{2}-[A-Z]{2}":
+            type: list
+            content:
+              type: string
+      packagers:
+        type: list
+        content:
+          type: string
+      acknowledgements:
+        type: list
+        content:
+          type: string
+  source:
+    type: list
+    parsing: source-parsing-2023-07
+    content:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+  license:
+    type: string
+    default: unknown
+    alternatives:
+      unknown: 
+        warn: License is unknown
+        require:
+          rights_owner: ".+"
+      cc0|cc by|cc by-sa|educational|permission:
+        require:
+          rights_owner: ".+"
+      public domain:
+        forbid:
+          rights_owner: ".+"
+  rights_owner:
+    type: string
+    parsing: rights-owner-2023-07
+  embargo_until:
+    type: string
+    parsing: date
+  limits:
+    type: object
+    properties:
+      time_multipliers:
+        type: object
+        properties:
+          ac_to_time_limit:
+            type: float
+            default: 2.0
+            alternatives:
+              "1.0:": {}
+          time_limit_to_tle:
+            type: float
+            default: 1.5
+            alternatives:
+              "1.0:": {}
+      time_limit:
+        type: float
+        default: 0.0 # Hmm, time limit needs to be calculated by default
+        alternatives:
+          "0.0:": {}
+      time_resolution:
+        type: float
+        default: 1.0
+        alternatives:
+          "0.0:": {}
+      memory:
+        type: int
+        default: copy-from:system_default/memory
+        alternatives:
+          "1:": {}
+      output:
+        type: int
+        default: copy-from:system_default/output
+        alternatives:
+          "1:": {}
+      code:
+        type: int
+        default: copy-from:system_default/code
+        alternatives:
+          "1:": {}
+      compilation_time:
+        type: int
+        default: copy-from:system_default/compilation_time
+        alternatives:
+          "1:": {}
+      compilation_memory:
+        type: int
+        default: copy-from:system_default/compilation_memory
+        alternatives:
+          "1:": {}
+      validation_time:
+        type: int
+        default: copy-from:system_default/validation_time
+        alternatives:
+          "1:": {}
+      validation_memory:
+        type: int
+        default: copy-from:system_default/validation_memory
+        alternatives:
+          "1:": {}
+      validation_output:
+        type: int
+        default: copy-from:system_default/validation_output
+        alternatives:
+          "1:": {}
+      validation_passes:
+        type: int
+        default: 2
+        alternatives:
+          "2:": {}
+  keywords:
+    type: list
+    content:
+      type: string
+  languages:
+    type: list
+    parsing: languages-parsing
+    content:
+      type: string
+  allow_file_writing:
+    type: bool
+  constants:
+    type: object
+    match_properties:
+      "[a-zA-Z_][a-zA-Z0-9_]*":
+        type: string # In spec, this should be allowed to be int or float as well... This is not supported for this system
