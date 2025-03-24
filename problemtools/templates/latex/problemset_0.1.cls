@@ -138,12 +138,7 @@
 %% Problem inclusion
 \newcommand{\includeproblem}[3]{
   \startproblem{#1}{#2}{#3}
-\IfFileExists{#1/statement/problem\@problemlanguage.tex}{%
-    \import{#1/statement/}{problem\@problemlanguage.tex}%
-}{%
-    \import{#1/problem_statement/}{problem\@problemlanguage.tex}%
-}
-
+  \import{#1/problem_statement/}{problem\@problemlanguage.tex}
 }
 
 \newcommand{\startproblem}[3]{
