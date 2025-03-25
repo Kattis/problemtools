@@ -1,7 +1,6 @@
 import pathlib
 import problemtools.verifyproblem as verify
 
-
 def test_load_hello():
     directory = pathlib.Path(__file__).parent / "hello"
     string = str(directory.resolve())
