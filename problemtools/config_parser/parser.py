@@ -544,6 +544,9 @@ class LanguagesParsing(Parser):
     OUTPUT_TYPE = "list"
     
     def _parse(self, val):
+        if val is None:
+            return ("copy-from", Path("languages"))
+        
         if type(val) is str:
             if val == "all":
                 return ("copy-from", Path("languages"))
@@ -552,6 +555,7 @@ class LanguagesParsing(Parser):
 
         if type(val) is not list:
             self.error_func(f'Property {self.path} should be a list or the string "all", got {val}')
+            return ("copy-from", Path("languages"))
         
         if len(val) == 0:
             self.error_func(f'Property {self.path} needs to contain at least one language')

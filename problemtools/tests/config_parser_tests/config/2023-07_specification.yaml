@@ -125,7 +125,9 @@ properties:
     parsing: rights-owner-2023-07
   embargo_until:
     type: string
-    parsing: date
+    alternatives:
+      "": {}
+      "\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}Z)?": {}    
   limits:
     type: object
     properties:
