@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import threading
 import queue
 import glob
@@ -39,9 +38,6 @@ from typing import Any, Callable, Literal, Pattern, Match, ParamSpec, TypeVar
 log = logging.getLogger(__name__)
 
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
-
-fulspara = None
-
 
 def is_TLE(status: int, may_signal_with_usr1: bool=False) -> bool:
     return (os.WIFSIGNALED(status) and
@@ -331,19 +327,13 @@ class TestCase(ProblemAspect):
         if self._problem.get(ProblemTestCases)['is_interactive']:
             res_high = self._problem.classes[OutputValidators.PART_NAME].validate_interactive(self, sub, timelim_high, self._problem.classes[Submissions.PART_NAME])
         else:
-            print("Cool kommentar")
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
             status, runtime = sub.run(infile=self.infile, outfile=outfile, errfile=errfile,
                                       timelim=timelim_high+1,
                                       memlim=self._problem.get(ProblemConfig)['limits']['memory'], work_dir=sub.path)
-            print("sökbar", outfile)
-            print(status, "SNÄLLA VA 15 (inte år gammal)")
-            with open(outfile, 'r') as f:
-                print(f.read())
             if is_TLE(status) or runtime > timelim_high:
                 res_high = SubmissionResult('TLE')
-                print(outfile, "\nTLE")
             elif is_RTE(status):
                 try:
                     with open(errfile, mode="rt") as f:
@@ -352,14 +342,10 @@ class TestCase(ProblemAspect):
                     self.info("Failed to read error file %s", errfile)
                     info = None
                 res_high = SubmissionResult('RTE', additional_info=info)
-                print(outfile, "\nRTE")
             else:
                 res_high = self._problem.classes[OutputValidators.PART_NAME].validate(self, outfile)
+
                 
-                print(outfile, "\ntror här")
-                
-                global fulspara
-                fulspara = outfile
             res_high.runtime = runtime
 
 
@@ -385,25 +371,10 @@ class TestCase(ProblemAspect):
         res_low.set_ac_runtime()
         res_high.set_ac_runtime()
 
-
-
-        if True:
+        if context.save_output_visualizer_images: #Does nothing?
             visualizer_path = os.getcwd()    #TODO change below to problem name, use f-string
             visualizer_path = visualizer_path +'/examples/' + 'different'+ '/output_visualizer/'
             tempfile.TemporaryDirectory(dir=visualizer_path)
-            ansfiles = tempfile.TemporaryFile(dir=visualizer_path, mode='w')
-            # with open(sub.outfile, 'r') as infile, open(ansfiles, 'w') as outfile:
-            #     lines = infile.readlines()
-            #     for line in lines:
-            #         outfile.write(line)
-
-            # with open(ansfile, 'w') as f:
-            #     lines = f.readlines()
-            #     for line in ansfile:
-            #         f.write(input())
-                
-            # os.makedirs(os.path.dirname(visualizer_path), exist_ok=True)
-            # sub.ansfile
 
         return (res, res_low, res_high)
 
@@ -1501,140 +1472,94 @@ class OutputValidators(ProblemPart):
                         self.info("Failed to read validator output: %s", e)
                 res = self._parse_validator_results(val, status, feedbackdir, testcase)
                 
-                visualizer = self.problem.classes.get(OutputVisualizer.PART_NAME)
+                #Gets the visualizer and if it exits runs the program. Otherwise closes the temporary folder.
+                visualizer = self.problem.classes.get(OutputVisualizer.PART_NAME) 
                 if visualizer:
-                    print("SHEESH")
                     visualizer.visualize(feedbackdir, testcase, submission_output)
                 else:
-                    print("this is so sad put on the song")
-                shutil.rmtree(feedbackdir)
-                shutil.rmtree(validator_output)
+                    shutil.rmtree(feedbackdir)
+                    shutil.rmtree(validator_output)
                 if res.verdict != 'AC':
                     return res
 
         # TODO: check that all output validators give same result
         return res
 
-class OutputVisualizer(ProblemPart):
+    #Class for handeling Output Visualizers
+class OutputVisualizer(ProblemPart): 
     PART_NAME = 'output_visualizer'
-    def setup(self): #find output_vis
-        print("AIDS", os.path.join(self.problem.probdir,'output_visualizer'))
-        print(self.problem.language_config.languages)
-        
+
+    def setup(self):       
         self._visualizer = run.find_programs(os.path.join(self.problem.probdir,'output_visualizer'), 
         work_dir=self.problem.tmpdir,
         language_config=self.problem.language_config)
-        print(self._visualizer)
         self._has_precompiled = False
-        # _ans_file = os.path('/data')
         
-    def __str__(self) -> str: #nödvändigt?
+    def __str__(self) -> str: 
         return 'output visualizer'
 
-    #From superclass, find out what it does
+    #Does an early compilatilation of the visualizer
     def start_background_work(self, context: Context) -> None:
         if not self._has_precompiled:
-            #for vis in self._actual_visualizer(): #Create in setup? 
-            context.submit_background_work(lambda v: v.compile(), self._visualizer) #TODO make sure it works with background_work
+            context.submit_background_work(lambda v: v.compile(), self._visualizer)
             self._has_precompiled = True
         
-
-    def create_folder(self, judge_image_name, submission_name): # self.problem.get(__name__)
-        default_path = Path(os.path.join('/home/elzo/outputVis/problemtools-outvis/examples/different/output_visualizer/', judge_image_name, submission_name))
-        if not os.path.exists(default_path):
-            os.mkdir(default_path)
-
-
-    #Perform the check here
     def check(self, context: Context) -> bool: 
-        print(" GOT TO CHECK")
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
 
-        #Ingen check för om det är default då det inte finns någon default #TODO felhantering
-        # if self.problem.get(ProblemConfig)['visualizers'] != '' and not self._visualizer:
-        #     self.error('problem.yaml specifies custom Output visualizer but no validator programs found')
-        #print(" TIME TO SHOW THIS MF")
-        #res = self.visualize(fulspara, "") #TODO get submission output 
-        #res = self.visualize( context) #TODO get submission output 
-        #print(" WOOOOO IT CHECKED")
-        #print("it got: ", res)
-
-       
-
-    #b"89 50 4E 47 0D 0A 1A 0A", file signatures in hex code
-    #b"FF D8 FF E0",
-    #b"FF D8 FF D9"
-    def check_image_type(self, file) -> bool: #TODO svg support
-        print("\n Jag gillar båtar\n")
+    
+    def check_image_type(self, file) -> bool: #Checks the file type and returns bool 
+        
         permitted_filetypes = [
-        b"\x89PNG\r\n\x1A\n", 
-        b"\xFF\xD8\xFF\xE0", 
-        b"\xFF\xD8\xFF\xD9"    ]
+        b'\x89PNG\r\n\x1a\n',  # PNG magic number
+        b'\xff\xd8\xff\xe0\x10\x00JF',     # JPEG magic number 
+        b'\xFF\xD8\xFF'    # JPG magic number 
+        ]
 
+        #Reads the XML declaration and first 500 characters. Then checks if the declaration is correct and if the <svg> tag is present
+        try:
+            with open(file, 'r', encoding='utf-8') as f:
+                first_line = f.readline().strip()  
+                content = f.read(500)  
+            if first_line.startswith('<?xml') and '<svg' in content:
+                return True
+        except Exception as e:
+            self.warning(f"Error checking SVG: {e}")
+
+        #If the file is not an svg it then reads in the first 8 bytes and checks them agains permitted_filetypes to se if it's an allowed signature
         with open(file, "rb") as f:
-            print(f.read(8))
             file_signature = f.read(8)
-
         return any(file_signature.startswith(ft) for ft in permitted_filetypes)
 
-
-     #TODO actual visualizer
-
-    #def visualize(self, testcase: TestCase, submission_output:str) -> [bool]: #maybe should retunr logs instead?
-    def visualize(self, feedback_dir: str, testcase: TestCase, submission_output: str) -> None:
-        if not self._visualizer:
+    
+    def visualize(self, feedback_dir: str, testcase: TestCase, submission_output: str):
+        res = []
+        if not self._visualizer: 
             self.warning("No visualizer found.")
             return
         
-        visualizer = self._visualizer[0] # use the first
-        print("VISUALIZER", visualizer)
-        visualizer_args = [testcase.ansfile, feedback_dir]
-        print(submission_output, visualizer_args)
+        visualizer = self._visualizer[0] #Selects the visualizer 
         temparg = [submission_output, feedback_dir]
+
+        #Tries to run the visualzier
         try:
-            status, runtime = visualizer.run(args=temparg)#submission_output, feedback_dir)#args=visualizer_args)
+            status, runtime = visualizer.run(args=temparg)
             if status != 0:
                 self.warning(f'The output visualizer crashed, status: {status}')
         except Exception as e:
             self.warning(f'Error running output visualizer: {e}')
         
-        #for file in glob.glob(feedback_dir + "/*"):
-        #    with open(file, "r") as f:
-        #        print(f.read())
-
-
-        # res = []
-        # #flags = self.problem.get(ProblemConfig)['output_visualizer_flags'].split()
-
-        # #TODO flag does not exist. Get it from calling output Vis
-        # if context.save_output_visualizer_images:
-        #     print(" INGGG`WE ARE VSAVING")
-    
-        #     judge_image_name = ""
-        #     submission_name = ""
-        #     self.create_folder(judge_image_name, submission_name)
-        # print(self._visualizer[0], "whatt är den tom för ")
-        # if self._visualizer[0].compile(): 
-        #     print("wooooooOWWWW OASJDOIASJDOIJASOIDJ")
-        #     global fulspara
-        #     print(" path sak", fulspara)
-            
-        #     # skicka in fulspara, dock fulspara är tom
-        #     #tempimage = self._visualizer[0].run(fulspara) # calla rätt #Loop på alla case :)
-
-        #     #with open(fulspara, "r", encoding="utf-8") as f: tempfilhanterar klass
-        #     #    tempimage = f.read()
-            
-            
-
-
-        #     # args =[testcase.infile]
-        #          #lot of code
-        #     res.append(self.check_image_type(fulspara))
-                
-        #return res
+        #Runs the check for image type on all files in the feedback directory
+        for file in glob.glob(feedback_dir + "/*"):
+           with open(file, "r") as f:
+               res.append(self.check_image_type(file))
+        
+        #Raises a warning if the file signature is wrong or the list is empty
+        if True not in res:
+            self.warning("The visualizer did not generate an allowed image")
+       
     
 
 
@@ -1905,7 +1830,7 @@ PROBLEM_FORMATS = {
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
-         'visualizers': [OutputVisualizer] #TODO temporary for running tests
+        'visualizers': [OutputVisualizer] #TODO temporary for running tests
 
     },
     '2023-07': { # TODO: Add all the parts
@@ -1967,7 +1892,6 @@ class Problem(ProblemAspect):
                 if cnt != 1:
                     raise NotImplementedError(f'Part "{_class.PART_NAME}" depends on part "{dependency.PART_NAME}" which showed up {cnt} times in problem-format (should have showed up exactly once)')
             self.debug(f'Initializing {_class.PART_NAME} ({_class})')
-            print("start make now", _class.PART_NAME)
             assert _class.PART_NAME not in initialized
             self.classes[_class.PART_NAME] = _class(self)
             self._data[_class.PART_NAME] = self.classes[_class.PART_NAME].setup()
@@ -2015,17 +1939,8 @@ class Problem(ProblemAspect):
             for part in parts:
                 self.msg(f'Checking {part}')
                 for item in self.part_mapping[part]:
-                    print(" check", item.PART_NAME, "CHECK ORDER")
                     self.classes[item.PART_NAME].check(context)
-            print("i have sigma")
-            for file in glob.glob(self.tmpdir + "/output-*"):
-                with open(file, "r", encoding="utf-8") as f:
-                   print("read the goddamnds OUTPUT", file)
-                   print(f.read())
-            for file in glob.glob(self.tmpdir + "/error-*"):
-                with open(file, "r", encoding="utf-8") as f:
-                   print("read the goddamnds ERROR", file)
-                   print(f.read())
+
         except VerifyError:
             pass
         finally:
@@ -2091,8 +2006,8 @@ def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
                         help='which problem format should the package be interpreted as, or "automatic" if it should be figured out from problem.yaml')
 
     parser.add_argument('-sv', '--save_visualizer',
-                        type=bool,
-                        default=False,
+                        #type=bool,
+                        action='store_true',
                         help="Pass to save visualizer outputs to disk")
 
 def argparser() -> argparse.ArgumentParser:
