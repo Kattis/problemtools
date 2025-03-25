@@ -95,6 +95,7 @@ class ProblemRenderer(Renderer):
         if templatepath == None:
             raise Exception('Could not find templates needed for conversion to HTML')
 
+        assert templatepath is not None
         # Ugly but unfortunately PlasTeX is quite inflexible when it comes to
         # configuring where to search for template files
         os.environ['ProblemRendererTEMPLATES'] = templatepath

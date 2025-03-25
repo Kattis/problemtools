@@ -38,11 +38,14 @@ class StringMatch(AlternativeMatch):
 
 class IntMatch(AlternativeMatch):
     def __init__(self, matchstr: str | int):
+        self.start: int | None = None
+        self.end: int | None = None
         if type(matchstr) not in (str, int):
             raise SpecificationError(f"Int match needs argument to be of type string or int. Got {type(matchstr)}")
         if type(matchstr) is int:
             self.start = self.end = matchstr
             return
+        assert type(matchstr) is str
         try:
             if matchstr.count(":") > 1:
                 raise ValueError

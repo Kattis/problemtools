@@ -30,7 +30,7 @@ class Path:
     @staticmethod
     def combine(*parts: str | int | Path) -> Path:
         """Fuse multiple paths together into one path"""
-        res = []
+        res: list[str | int] = []
         for part in parts:
             if isinstance(part, int):
                 res.append(part)
@@ -106,7 +106,7 @@ class Path:
                     state = "object-properties"
                 elif part == "content":
                     state = "base"
-                    new_out = []
+                    new_out: list[Path] = []
                     for path in out:
                         val = path.index(data) or []
                         if is_copyfrom(val):  # skip copied
@@ -133,7 +133,7 @@ class Path:
         return self.path[-1]
 
     def __str__(self) -> str:
-        strings = []
+        strings: list[str] = []
         for part in self.path:
             if isinstance(part, int):
                 strings[-1] += f"[{part}]"

@@ -72,11 +72,6 @@ properties:
         parsing: string-to-list
         content:
           type: string
-      contributors:
-        type: list
-        parsing: string-to-list
-        content:
-          type: string
       translators:
         type: object
         properties: {}

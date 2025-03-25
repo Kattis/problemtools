@@ -804,7 +804,7 @@ class ProblemConfig(ProblemPart):
         self.debug('  Loading problem config')
         spec = config.load_config(self.SPECIFICATION_FILE_NAME)
         self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-        self.data = {}
+        self.data: dict[str, Any] = {}
         if os.path.isfile(self.configfile):
             try:
                 with open(self.configfile) as f:
@@ -815,6 +815,10 @@ class ProblemConfig(ProblemPart):
         self.metadata.set_error_callback(self.error)
         self.metadata.set_warning_callback(self.warning)
         self.metadata.load_config(self.data, self.get_injected_data())
+
+        if self.metadata.data is None:
+            raise VerifyError(f"Failed to load problem config {self.configfile}")
+
         return self.metadata.data
     
     def __str__(self) -> str:

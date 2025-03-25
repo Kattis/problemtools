@@ -33,15 +33,16 @@ class Metadata:
     def set_warning_callback(self, fun: Callable):
         self.warning_func = fun
 
+    @staticmethod
     def invert_graph(dependency_graph: dict[Path, list[Path]]) -> dict[Path, list[Path]]:
-        # TODO: catch key errors better
-        depends_on_graph = {k: [] for k in dependency_graph.keys()}
+        depends_on_graph: dict[Path, list[Path]] = {k: [] for k in dependency_graph.keys()}
         for dependant, dependencies in dependency_graph.items():
             for dependency in dependencies:
                 depends_on_graph[dependency].append(dependant)
         return depends_on_graph
 
-    def topo_sort(dependency_graph: dict[Path, list[Path]]) -> Generator[Path]:
+    @staticmethod
+    def topo_sort(dependency_graph: dict[Path, list[Path]]) -> Generator[Path, None, None]:
         # Dependancy graph:
         # Path : [Depends on Path, ...]
 
@@ -91,8 +92,11 @@ class Metadata:
         return graph
 
     def get_copy_dependencies(self) -> dict[Path, list[Path]]:
+        if self.data is None:
+            raise SpecificationError("Data is not loaded yet")
+        
         stack = [(Path(), Path(child)) for child in self.data.keys()]
-        graph = {Path(): []}
+        graph: dict[Path, list[Path]] = {Path(): []}
 
         while stack:
             parent, path = stack.pop()
@@ -109,6 +113,7 @@ class Metadata:
 
         return graph
 
+    @staticmethod
     def resolve_match_properties(spec: dict, data: dict):
         if spec.get("type") == "list":
             if type(data) is list:
@@ -132,7 +137,8 @@ class Metadata:
         for prop_name, prop in spec.get("properties", {}).items():
             if prop_name in data:
                 Metadata.resolve_match_properties(prop, data[prop_name])
-
+    
+    @staticmethod
     def remove_match_properties(spec: dict):
         if spec.get("type") == "list":
             Metadata.remove_match_properties(spec["content"])
@@ -144,9 +150,13 @@ class Metadata:
             Metadata.remove_match_properties(prop)
 
     def load_config(self, config: dict, injected_data: dict) -> None:
-        self.data: dict = DefaultObjectParser(
+        self.data = DefaultObjectParser(
             config, self.spec, Path(), self.warning_func, self.error_func
         ).parse()
+
+        if self.data is None:
+            raise SpecificationError("DefaultObjectParser returned None")
+
         Metadata.resolve_match_properties(self.spec, self.data)
         Metadata.remove_match_properties(self.spec)
         for cfg_path in Metadata.topo_sort(self.get_path_dependencies()):
@@ -180,6 +190,8 @@ class Metadata:
                 full_path.set(self.data, copy_val)
 
     def do_alternative_checks(self, checks: dict, prop_path: Path) -> None:
+        if self.data is None:
+            raise SpecificationError("Data is not loaded yet")
         if "warn" in checks:
             self.warning_func(checks["warn"])
         for check_result, check_name in ((False, "forbid"), (True, "require")):

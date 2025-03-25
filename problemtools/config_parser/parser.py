@@ -76,6 +76,21 @@ class Parser:
         else:
             self.alternatives = None
 
+    def check_object_properties(self, val: dict):
+        spec: dict = self.spec_path.index(self.specification)
+        required_props = spec.get('required', [])
+        missing_props = [req for req in required_props if req not in val]
+
+        for req in missing_props:
+            self.error_func(f"Missing required property: {Path.combine(self.path, req)}")
+
+        known_props = spec.get('properties', [])
+        unknown_props = [prop for prop in val.keys() if prop not in known_props]
+
+        for prop in unknown_props:
+            self.warning_func(f"Unknown property: {Path.combine(self.path, prop)}")
+            val.pop(prop, None)
+
     def parse(self):
         out = self._parse(self.path.index(self.data, None))
         
@@ -85,24 +100,7 @@ class Parser:
                 self.warning_func(f"deprecated property was provided ({self.path})")
 
             if self.OUTPUT_TYPE == "object":
-                required = (
-                    Path.combine(self.spec_path, "required").index(self.specification, [])
-                )
-                for req in required:
-                    req_path = Path.combine(self.path, req)
-                    if req_path.index(self.data) is None:
-                        self.error_func(f"Missing required property: {req_path}")
-
-                remove = []
-                known_props = Path.combine(self.spec_path, "properties").index(
-                    self.specification
-                )
-                for prop in out.keys():
-                    if prop not in known_props:
-                        self.warning_func(f"Unknown property: {Path.combine(self.path, prop)}")
-                        remove.append(prop)
-                for r in remove:
-                    del out[r]
+                self.check_object_properties(out)
 
             if self.alternatives is not None:                    
                 if not any(matcher.check(out) for matcher in self.alternatives):
@@ -129,6 +127,7 @@ class Parser:
     def _parse(self, val):
         raise NotImplementedError("Subclasses of Parse need to implement _parse()")
 
+    @staticmethod
     def smallest_edit_dist(a: str, b: list[str]) -> str:
         def edit_dist(a: str, b: str) -> int:
             n = len(a)
@@ -155,7 +154,7 @@ class Parser:
         return best
 
     @staticmethod
-    def get_parser_type(specification: dict) -> type:
+    def get_parser_type(specification: dict) -> type["Parser"]:
         parsing_rule = specification.get("parsing")
         if parsing_rule is None:
             typ = specification.get("type")
