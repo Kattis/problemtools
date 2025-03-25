@@ -36,6 +36,7 @@ Standard default: {}
 Has the following properties:
 - "required": List of all strictly required properties, will give an error if one is missing
 - "properties": Dictionary of property-names to their types
+- "match_properties": Dictionary of regex strings to their types. A step will be performed to add all properties that match here to the normal properties.
 
 ## list
 Standard default: []
