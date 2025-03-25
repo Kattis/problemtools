@@ -263,7 +263,7 @@ class DefaultFloatParser(Parser):
         if val is None:
             return None
 
-        if not isinstance(val, float):
+        if not isinstance(val, (int, float)):
             try:
                 cast = float(val)
                 self.warning_func(
@@ -274,7 +274,7 @@ class DefaultFloatParser(Parser):
                 self.error_func(f"Expected a float, got {val} ({self.path})")
                 return None
 
-        return val
+        return float(val)
 
 
 class DefaultBoolParser(Parser):

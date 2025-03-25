@@ -839,7 +839,7 @@ class ProblemConfigLegacy(ProblemConfig):
         super().check(context)
         if (self.problem.get(ProblemConfig)['type'] != 'pass-fail' and
             self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and
-            'show_test_data_groups' not in self.get(ProblemConfig)['original_data'].get('grading', {})):
+            'show_test_data_groups' not in self.problem.get(ProblemConfig)['original_data'].get('grading', {})):
             self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
         return self._check_res
 
