@@ -586,5 +586,6 @@ parser_classes = [
 
 parsers = { p.NAME: p for p in parser_classes }
 if len(parser_classes) != len(parsers):
-    duplicates = [f' - {prop}, {cnt} occurences' for prop, cnt in Counter(c.NAME for c in parser_classes).items() if cnt > 1]
-    raise NotImplementedError(f"Duplicate name(s) detected in parsers:\n{'\n'.join(duplicates)}")
+    duplicates = '\n'.join(f' - {prop}, {cnt} occurences' for prop, cnt in Counter(c.NAME for c in parser_classes).items() if cnt > 1)
+    
+    raise NotImplementedError(f"Duplicate name(s) detected in parsers:\n{duplicates}")
