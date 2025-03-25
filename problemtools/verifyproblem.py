@@ -1648,6 +1648,7 @@ PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
         'submissions':  [Submissions],
     },
     '2023-07': { # TODO: Add all the parts
+        'config':       [ProblemConfig2023_07],
         'statement':    [ProblemStatement2023_07, Attachments],
     }
 }
