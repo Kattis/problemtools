@@ -365,6 +365,25 @@ class TestCase(ProblemAspect):
         res.set_ac_runtime()
         res_low.set_ac_runtime()
         res_high.set_ac_runtime()
+
+        if True:
+            visualizer_path = os.getcwd()    #TODO change below to problem name, use f-string
+            visualizer_path = visualizer_path +'/examples/' + 'different'+ '/output_visualizer/'
+            tempfile.TemporaryDirectory(dir=visualizer_path)
+            ansfiles = tempfile.TemporaryFile(dir=visualizer_path, mode='w')
+            with open(sub.outfile, 'r') as infile, open(ansfiles, 'w') as outfile:
+                lines = infile.readlines()
+                for line in lines:
+                    outfile.write(line)
+
+            # with open(ansfile, 'w') as f:
+            #     lines = f.readlines()
+            #     for line in ansfile:
+            #         f.write(input())
+                
+            # os.makedirs(os.path.dirname(visualizer_path), exist_ok=True)
+            # sub.ansfile
+
         return (res, res_low, res_high)
 
     def _init_result_for_testcase(self, res: SubmissionResult) -> SubmissionResult:
@@ -1470,11 +1489,11 @@ class OutputValidators(ProblemPart):
 
 class OutputVisualizer(ProblemPart):
     PART_NAME = 'output_visualizer'
-  
     def setup(self): #find output_vis
         self._visualizer = run.find_programs(os.path.join(self.problem.probdir,'output_visualizer'), 
         work_dir=self.problem.tmpdir)
         self._has_precompiled = False
+        # _ans_file = os.path('/data')
         
     def __str__(self) -> str: #nödvändigt?
         return 'output visualizer'
@@ -1498,9 +1517,9 @@ class OutputVisualizer(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        #Ingen check för om det är default då det inte finns någon default
-        if self.problem.get(ProblemConfig)['visualizers'] != 'none' and not self._visualizers:
-            self.error('problem.yaml specifies custom Output visualizer but no validator programs found')
+        #Ingen check för om det är default då det inte finns någon default #TODO felhantering
+        # if self.problem.get(ProblemConfig)['visualizers'] != '' and not self._visualizer:
+        #     self.error('problem.yaml specifies custom Output visualizer but no validator programs found')
         
         res = self.visualize(self.problem.get((ProblemTestCases)['root_group'].get_all_testcases()), "s") #TODO get submission output 
 
@@ -1816,6 +1835,8 @@ PROBLEM_FORMATS = {
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
+         'visualizers': [OutputVisualizer] #TODO temporary for running tests
+
     },
     '2023-07': { # TODO: Add all the parts
         'statement':    [ProblemStatement2023_07, Attachments],
