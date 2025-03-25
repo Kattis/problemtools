@@ -13,7 +13,7 @@ def test_output_validator_feedback():
         text = "".join(r.choices(string.printable))
         feedback.write_text(text)
         data = OutputValidators._get_feedback(directory)
-        assert text in data
+        assert data is not None and text in data
 
 
 def test_output_validator_feedback_non_unicode():
