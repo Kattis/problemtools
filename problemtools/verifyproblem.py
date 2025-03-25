@@ -37,6 +37,8 @@ from . import config_parser
 from abc import ABC
 from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, Type, TypeVar
 
+from copy import deepcopy
+
 log = logging.getLogger(__name__)
 
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
@@ -414,23 +416,17 @@ class TestCaseGroup(ProblemAspect):
             if self.config is None:
                 self.config = {}
 
-        if 'range' in self.config: # Convert range in config to reasonable format
-            try:
-                a, b = map(float, self.config['range'].split())
-                self.config['range'] = {'min': a, 'max': b}
-            except Exception:
-                self.error(f"Invalid format '{self.config['range']}' for range: must be exactly two floats")
-
         # For non-root groups, missing properties are inherited from the parent group
         if parent:
             for field, parent_value in parent.config.items():
                 if not field in self.config:
                     self.config[field] = parent_value
 
+        # TODO: Decide if these should stay
         # Some deprecated properties are inherited from problem config during a transition period
-        problem_grading = problem.get(ProblemConfig)['grading']
+        problem_grading = problem.get(ProblemConfig)['original_data']['grading']
         for key in ['accept_score', 'reject_score', 'range']:
-            if key in problem.get(ProblemConfig)['grading']:
+            if key in problem.get(ProblemConfig)['original_data']['grading']:
                 self.config[key] = problem_grading[key]
 
         problem_on_reject = problem_grading.get('on_reject')
@@ -500,7 +496,9 @@ class TestCaseGroup(ProblemAspect):
 
     def get_score_range(self) -> tuple[float, float]:
         try:
-            return (self.config['range']['min'], self.config['range']['max'])
+            score_range = self.config['range']
+            min_score, max_score = list(map(float, score_range.split()))
+            return (min_score, max_score)
         except Exception:
             return (float('-inf'), float('inf'))
 
@@ -540,18 +538,15 @@ class TestCaseGroup(ProblemAspect):
 
         if self._problem.get(ProblemTestCases)['is_scoring']:
             # Check grading
-            min_score, max_score = self.get_score_range()
-            if min_score > max_score:
-                self.error(f"Invalid score range '{min_score} {max_score}': minimum score cannot be greater than maximum score")
-            #try: Should never be a problem anymore
-            #    score_range = self.config['range']
-            #    min_score, max_score = list(map(float, score_range.split()))
-            #    if min_score > max_score:
-            #        self.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
-            #except VerifyError:
-            #    raise
-            #except Exception:
-            #    self.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
+            try:
+                score_range = self.config['range']
+                min_score, max_score = list(map(float, score_range.split()))
+                if min_score > max_score:
+                    self.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
+            except VerifyError:
+                raise
+            except Exception:
+                self.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
 
         if self._parent is None:
             seen_secret = False
@@ -796,7 +791,8 @@ class ProblemConfig(ProblemPart):
     def get_injected_data(self) -> dict:
         return {
             "languages": self.problem.language_config,
-            "system_default": config.load_config('system_default.yaml')
+            "system_default": config.load_config('system_default.yaml'),
+            "original_data": deepcopy(self.data) # TODO: TestCaseGroup does not like the new system
         }
     
     def setup(self) -> dict:
@@ -805,17 +801,18 @@ class ProblemConfig(ProblemPart):
         self.debug('  Loading problem config')
         spec = config.load_config(self.SPECIFICATION_FILE_NAME)
         self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-        data = {}
+        self.data = {}
         if os.path.isfile(self.configfile):
             try:
                 with open(self.configfile) as f:
-                    data = yaml.safe_load(f) or {}
+                    self.data = yaml.safe_load(f) or {}
             except Exception as e:
                 self.error(str(e))
         self.metadata = config_parser.Metadata(spec)
         self.metadata.set_error_callback(self.error)
         self.metadata.set_warning_callback(self.warning)
-        self.metadata.load_config(data, self.get_injected_data())
+        self.metadata.load_config(self.data, self.get_injected_data())
+        #print(yaml.dump(self.metadata.data))
         return self.metadata.data
     
     def __str__(self) -> str:
@@ -1328,12 +1325,12 @@ class OutputValidators(ProblemPart):
             if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
-        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._validators:
+        if self.problem.get(ProblemConfig)['validation']['type'] == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.get(ProblemConfig)['validation'] != 'default' and not self._validators:
+        elif self.problem.get(ProblemConfig)['validation']['type'] != 'default' and not self._validators:
             self.error('problem.yaml specifies custom validator but no validator programs found')
 
-        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._default_validator is None:
+        if self.problem.get(ProblemConfig)['validation']['type'] == 'default' and self._default_validator is None:
             self.error('Unable to locate default validator')
 
         for val in self._validators[:]:
@@ -1423,7 +1420,7 @@ class OutputValidators(ProblemPart):
 
     def _actual_validators(self) -> list:
         vals = self._validators
-        if self.problem.get(ProblemConfig)['validation'] == 'default':
+        if self.problem.get(ProblemConfig)['validation']['type'] == 'default':
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
 

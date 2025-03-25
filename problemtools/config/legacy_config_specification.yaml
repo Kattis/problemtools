@@ -103,6 +103,7 @@ properties:
     properties:
       type:
         type: string
+        default: default
         alternatives:
           default:
             forbid:
@@ -155,6 +156,9 @@ properties:
         default: 0.0
         flags:
           - deprecated
+      custom_scoring:
+        type: bool
+        default: copy-from:validation/score
       range:
         type: object
         parsing: min-max-float-string
