@@ -42,7 +42,10 @@ properties:
         submit-answer: {}
   name:
     type: object
-    parsing: name-parsing-2023-07
+    parsing: name-2023-07
+    properties:
+      en: # en will always exist, if english really doesn't exist, it will be an empty string
+        type: string
     match_properties:
       "[a-z]{2,3}|[a-z]{2}-[A-Z]{2}":
         type: string
@@ -52,33 +55,40 @@ properties:
     type: string
   credits:
     type: object
-    parsing: credits-parsing-2023-07
+    parsing: credits-2023-07
     properties:
       authors:
         type: list
+        parsing: string-to-list
         content:
           type: string
       contributors:
         type: list
+        parsing: string-to-list
         content:
           type: string
       testers:
         type: list
+        parsing: string-to-list
         content:
           type: string
       contributors:
         type: list
+        parsing: string-to-list
         content:
           type: string
       translators:
         type: object
+        properties: {}
         match_properties:
           "[a-z]{2,3}|[a-z]{2}-[A-Z]{2}":
             type: list
+            parsing: string-to-list
             content:
               type: string
       packagers:
         type: list
+        parsing: string-to-list
         content:
           type: string
       acknowledgements:
@@ -87,9 +97,10 @@ properties:
           type: string
   source:
     type: list
-    parsing: source-parsing-2023-07
+    parsing: source-2023-07
     content:
       type: object
+      parsing: source-item-2023-07
       properties:
         name:
           type: string
@@ -199,6 +210,7 @@ properties:
     type: bool
   constants:
     type: object
+    properties: {}
     match_properties:
       "[a-zA-Z_][a-zA-Z0-9_]*":
         type: string # In spec, this should be allowed to be int or float as well... This is not supported for this system

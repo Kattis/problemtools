@@ -2,6 +2,7 @@ from typing import Callable
 from .config_path import Path
 from .general import SpecificationError
 from .matcher import AlternativeMatch
+from collections import Counter
 
 type_mapping = {
     "string": str,
@@ -77,21 +78,42 @@ class Parser:
 
     def parse(self):
         out = self._parse(self.path.index(self.data, None))
-        fallback = Path.combine(self.spec_path, "default").index(self.specification, type_mapping[self.OUTPUT_TYPE]())
         
-        flags = Path.combine(self.spec_path, "flags").index(self.specification, [])
-        if "deprecated" in flags and out is not None:
-            self.warning_func(f"deprecated property was provided ({self.path})")
+        if out is not None:
+            flags = Path.combine(self.spec_path, "flags").index(self.specification, [])
+            if "deprecated" in flags:
+                self.warning_func(f"deprecated property was provided ({self.path})")
 
-        if out is not None and self.alternatives is not None:                    
-            if not any(matcher.check(out) for matcher in self.alternatives):
-                alts = ", ".join(f'"{matcher}"' for matcher in self.alternatives)
-                self.error_func(
-                    f"Property {self.path} with value {out} did not match any of the specified alternatives ({alts})"
+            if self.OUTPUT_TYPE == "object":
+                required = (
+                    Path.combine(self.spec_path, "required").index(self.specification, [])
                 )
-                out = None
+                for req in required:
+                    req_path = Path.combine(self.path, req)
+                    if req_path.index(self.data) is None:
+                        self.error_func(f"Missing required property: {req_path}")
+
+                remove = []
+                known_props = Path.combine(self.spec_path, "properties").index(
+                    self.specification
+                )
+                for prop in out.keys():
+                    if prop not in known_props:
+                        self.warning_func(f"Unknown property: {Path.combine(self.path, prop)}")
+                        remove.append(prop)
+                for r in remove:
+                    del out[r]
+
+            if self.alternatives is not None:                    
+                if not any(matcher.check(out) for matcher in self.alternatives):
+                    alts = ", ".join(f'"{matcher}"' for matcher in self.alternatives)
+                    self.error_func(
+                        f"Property {self.path} with value {out} did not match any of the specified alternatives ({alts})"
+                    )
+                    out = None
 
         if out is None:
+            fallback = Path.combine(self.spec_path, "default").index(self.specification, type_mapping[self.OUTPUT_TYPE]())
             if type(fallback) is str and fallback.startswith("copy-from:"):
                 fallback = ("copy-from", Path.parse(fallback.split(":")[1]))
             return fallback
@@ -192,25 +214,6 @@ class DefaultObjectParser(Parser):
         if not isinstance(val, dict):
             self.error_func(f"Expected an object, got {val} ({self.path})")
             return None
-
-        required = (
-            Path.combine(self.spec_path, "required").index(self.specification, [])
-        )
-        for req in required:
-            req_path = Path.combine(self.path, req)
-            if req_path.index(self.data) is None:
-                self.error_func(f"Missing required property: {req_path}")
-
-        remove = []
-        known_props = Path.combine(self.spec_path, "properties").index(
-            self.specification
-        )
-        for prop in val.keys():
-            if prop not in known_props:
-                self.warning_func(f"Unknown property: {Path.combine(self.path, prop)}")
-                remove.append(prop)
-        for r in remove:
-            del val[r]
 
         return val
 
@@ -389,18 +392,195 @@ class MinMaxFloatString(Parser):
                 
         return {"min": a, "max": b}
 
-parsers = {
-    p.NAME: p
-    for p in [
-        DefaultObjectParser,
-        DefaultListParser,
-        DefaultStringParser,
-        DefaultIntParser,
-        DefaultFloatParser,
-        DefaultBoolParser,
-        RightsOwnerLegacy,
-        LegacyValidation,
-        SpaceSeparatedStrings,
-        MinMaxFloatString,
-    ]
-}
+class Type2023_07(Parser):
+    NAME = "type-2023-07"
+    OUTPUT_TYPE = "object"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+        
+        if type(val) is str:
+            val = [val]
+        
+        if type(val) is not list:
+            self.error_func(f'Property {self.path} was expected to be of type list or a single string. Got {type(val)}')
+            return None
+        
+        if len(val) == 0:
+            self.error_func(f'Property {self.path} was empty list, but it should contain at least one element')
+            return None
+        
+        valid_options = {"pass-fail", "scoring", "multi-pass", "interactive", "submit-answer"}
+        out = {option: False for option in valid_options}
+        
+        for option in val:
+            if option not in valid_options:
+                self.error_func(f'Property {self.path} received invalid option "{option}"')
+                return None
+            else:
+                if out[option]:
+                    self.error_func(f'Property {self.path} must not contain duplicate elements. Found duplicate "{option}"')
+                    return None
+                out[option] = True
+        
+        return out
+        
+class Name2023_07(Parser):
+    NAME = "name-2023-07"
+    OUTPUT_TYPE = "object"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+        
+        if type(val) is str:
+            return {"en": val}
+        
+        if type(val) is not dict:
+            self.error_func(f'Property {self.path} should be of type string or a dictionary of language-codes to strings. Got {type(val)}')
+            return None
+        
+        return val
+
+class Credits2023_07(Parser):
+    NAME = "credits-2023-07"
+    OUTPUT_TYPE = "object"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+        
+        if type(val) is str:
+            return {"authors": val}
+        
+        if type(val) is not dict:
+            self.error_func(f'Property {self.path} should be either a single string, or a dictionary')
+            return None
+        
+        return val
+
+class StringToList(Parser):
+    NAME = "string-to-list"
+    OUTPUT_TYPE = "list"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+        
+        if type(val) is str:
+            return [val]
+        
+        if type(val) is not list:
+            self.error_func(f'Property {self.path} should be either a single string or a list of strings')
+            return None
+        
+        return val
+
+class Source2023_07(Parser):
+    NAME = "source-2023-07"
+    OUTPUT_TYPE = "list"
+    
+    def _parse(self, val):
+        if val is None:
+            return None
+
+        if type(val) is str:
+            return [{"name":val}]
+        
+        if type(val) is dict:
+            return [val]
+        
+        if type(val) is not list:
+            self.error_func(f'Property {self.path} should be of type string, object or a list')
+            return None
+        
+        return val
+    
+class SourceItem2023_07(Parser):
+    NAME = "source-item-2023-07"
+    OUTPUT_TYPE = "object"
+    
+    def _parse(self, val):
+        if val is None:
+            return {"name": "???"}
+        
+        if type(val) is str:
+            return {"name": val}
+        
+        if type(val) is dict:
+            if "name" not in val:
+                self.error_func(f'Property {self.path} needs key "name"')
+                val["name"] = "???"
+            return val
+        
+        self.error_func(f'Property {self.path} should be of type string or object, got {type(val)}')
+        return {"name": "???"}
+
+class RightsOwner2023_07(Parser):
+    NAME = "rights-owner-2023-07"
+    OUTPUT_TYPE = "string"
+    
+    @staticmethod
+    def get_dependencies() -> list[Path]:
+        return [Path("credits", "authors"), Path("source", 0), Path("license")]
+    
+    def _parse(self, val):
+        if type(val) is str:
+            return val
+        
+        if val is None and Path("license").index(self.data) != "public domain":
+            authors = Path("credits", "authors").index(self.data)
+            if len(authors) > 0:
+                return ' and '.join(authors)
+            source = Path("source").index(self.data)
+            if len(source) > 0:
+                return ' and '.join(s["name"] for s in source)
+        
+        return None
+
+class LanguagesParsing(Parser):
+    NAME = "languages-parsing"
+    OUTPUT_TYPE = "list"
+    
+    def _parse(self, val):
+        if type(val) is str:
+            if val == "all":
+                return ("copy-from", Path("languages"))
+            else:
+                self.error_func(f'Property {self.path} should be a list or the string "all", got "{val}"')
+
+        if type(val) is not list:
+            self.error_func(f'Property {self.path} should be a list or the string "all", got {val}')
+        
+        if len(val) == 0:
+            self.error_func(f'Property {self.path} needs to contain at least one language')
+            return ("copy-from", Path("languages"))
+        
+        return val
+
+parser_classes = [
+    DefaultObjectParser,
+    DefaultListParser,
+    DefaultStringParser,
+    DefaultIntParser,
+    DefaultFloatParser,
+    DefaultBoolParser,
+    RightsOwnerLegacy,
+    LegacyValidation,
+    SpaceSeparatedStrings,
+    MinMaxFloatString,
+    Type2023_07,
+    Name2023_07,
+    Credits2023_07,
+    StringToList,
+    Source2023_07,
+    SourceItem2023_07,
+    RightsOwner2023_07,
+    LanguagesParsing,
+]
+
+parsers = { p.NAME: p for p in parser_classes }
+if len(parser_classes) != len(parsers):
+    duplicates = [f' - {prop}, {cnt} occurences' for prop, cnt in Counter(c.NAME for c in parser_classes).items() if cnt > 1]
+    raise NotImplementedError(f"Duplicate name(s) detected in parsers:\n{'\n'.join(duplicates)}")
