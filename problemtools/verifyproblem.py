@@ -426,7 +426,7 @@ class TestCaseGroup(ProblemAspect):
         # Some deprecated properties are inherited from problem config during a transition period
         problem_grading = problem.get(ProblemConfig)['original_data']['grading']
         for key in ['accept_score', 'reject_score', 'range']:
-            if key in problem.get(ProblemConfig)['original_data']['grading']:
+            if key in problem_grading:
                 self.config[key] = problem_grading[key]
 
         problem_on_reject = problem_grading.get('on_reject')
@@ -789,10 +789,13 @@ class ProblemConfig(ProblemPart):
     SPECIFICATION_FILE_NAME: str|None = None
     
     def get_injected_data(self) -> dict:
+        orig_data = deepcopy(self.data) # Ugly hack to make TestCaseGroup work like before
+        if 'grading' not in orig_data:
+            orig_data['grading'] = {'objective': 'max', 'show_test_data_groups': False}
         return {
             "languages": self.problem.language_config,
             "system_default": config.load_config('system_default.yaml'),
-            "original_data": deepcopy(self.data) # TODO: TestCaseGroup does not like the new system
+            "original_data": orig_data
         }
     
     def setup(self) -> dict:
@@ -1830,6 +1833,8 @@ class Problem(ProblemAspect):
         return self._classes[part.PART_NAME] # type: ignore
 
     def __enter__(self) -> Problem:
+        ProblemAspect.errors = 0
+        ProblemAspect.warnings = 0
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
         if not os.path.isdir(self.probdir):
             self.error(f"Problem directory '{self.probdir}' not found")
@@ -1874,8 +1879,6 @@ class Problem(ProblemAspect):
         if self.shortname is None:
             return 1, 0
 
-        ProblemAspect.errors = 0
-        ProblemAspect.warnings = 0
         ProblemAspect.bail_on_error = args.bail_on_error
         ProblemAspect.consider_warnings_errors = args.werror
 
