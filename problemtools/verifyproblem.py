@@ -32,6 +32,7 @@ from . import problem2html
 from . import config
 from . import languages
 from . import run
+from . import config_parser
 
 from abc import ABC
 from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, Type, TypeVar
@@ -413,13 +414,19 @@ class TestCaseGroup(ProblemAspect):
             if self.config is None:
                 self.config = {}
 
+        if 'range' in self.config: # Convert range in config to reasonable format
+            try:
+                a, b = map(float, self.config['range'].split())
+                self.config['range'] = {'min': a, 'max': b}
+            except Exception:
+                self.error(f"Invalid format '{self.config['range']}' for range: must be exactly two floats")
+
         # For non-root groups, missing properties are inherited from the parent group
         if parent:
             for field, parent_value in parent.config.items():
                 if not field in self.config:
                     self.config[field] = parent_value
 
-        # TODO: Decide if these should stay
         # Some deprecated properties are inherited from problem config during a transition period
         problem_grading = problem.get(ProblemConfig)['grading']
         for key in ['accept_score', 'reject_score', 'range']:
@@ -493,10 +500,8 @@ class TestCaseGroup(ProblemAspect):
 
     def get_score_range(self) -> tuple[float, float]:
         try:
-            score_range = self.config['range']
-            min_score, max_score = list(map(float, score_range.split()))
-            return (min_score, max_score)
-        except:
+            return (self.config['range']['min'], self.config['range']['max'])
+        except Exception:
             return (float('-inf'), float('inf'))
 
 
@@ -535,15 +540,18 @@ class TestCaseGroup(ProblemAspect):
 
         if self._problem.get(ProblemTestCases)['is_scoring']:
             # Check grading
-            try:
-                score_range = self.config['range']
-                min_score, max_score = list(map(float, score_range.split()))
-                if min_score > max_score:
-                    self.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
-            except VerifyError:
-                raise
-            except Exception:
-                self.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
+            min_score, max_score = self.get_score_range()
+            if min_score > max_score:
+                self.error(f"Invalid score range '{min_score} {max_score}': minimum score cannot be greater than maximum score")
+            #try: Should never be a problem anymore
+            #    score_range = self.config['range']
+            #    min_score, max_score = list(map(float, score_range.split()))
+            #    if min_score > max_score:
+            #        self.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
+            #except VerifyError:
+            #    raise
+            #except Exception:
+            #    self.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
 
         if self._parent is None:
             seen_secret = False
@@ -781,546 +789,211 @@ class ProblemStatementLegacy(ProblemStatement):
 class ProblemStatement2023_07(ProblemStatement):
     EXTENSIONS = ['md', 'tex']
 
-config_format = {
-    "type":"object",
-    "required": [],
-    "config_fields": ["problem_format_version", "type", "name", "uuid", "author", "source", "source_url", "license", "rights_owner", "limits", "validation", "validator_flags", "keywords", "grading"],
-    "properties": {
-        "problem_format_version": {
-            "type": "string",
-            "default": "legacy",
-            "alternatives": {"legacy":{}}
-        },
-        "type": {
-            "type": "string",
-            "default": "pass-fail",
-            "alternatives": {
-                "pass-fail": {
-                    "forbid": ["grading/on_reject:grade"]
-                },
-                "scoring": {},
-            },
-        },
-        "name": {
-            "type": "string",
-            "default": "",
-        },
-        "uuid": {
-            "type": "string",
-            "default": "",
-        },
-        "author": {
-            "type": "string",
-            "default": "",
-        },
-        "source": {
-            "type": "string",
-            "default": "",
-        },
-        "source_url": {
-            "type": "string",
-            "default": "",
-            "alternatives": {
-                ".*": {
-                    "require": ["source"]
-                }
-            },
-        },
-        "license": {
-            "type": "string",
-            "default": "unknown",
-            "alternatives": {
-                "unknown": {
-                    "warn": "License is unknown",
-                    "require": ["rights_owner"]
-                },
-                "cc0|cc by|cc by-sa|educational|permission": {
-                    "require": ["rights_owner"]
-                },
-                "public domain": {
-                    "forbid": ["rights_owner"]
-                }
-            }
-        },
-        "rights_owner": {
-            "type": "string",
-            "default": "copy-from:author",
-        },
-        "limits": {
-            "type": "object",
-            "required": [],
-            "properties": {
-                "time_multiplier": {
-                    "type": "float",
-                    "default": 5.0
-                },
-                "time_safety_margin": {
-                    "type": "float",
-                    "default": 2.0
-                },
-                "memory": {
-                    "type": "int",
-                    "default": "copy-from:system_default/memory"
-                },
-                "output": {
-                    "type": "int",
-                    "default": "copy-from:system_default/output"
-                },
-                "code": {
-                    "type": "int",
-                    "default": "copy-from:system_default/code"
-                },
-                "compilation_time": {
-                    "type": "float",
-                    "default": "copy-from:system_default/compilation_time"
-                },
-                "compilation_memory": {
-                    "type": "int",
-                    "default": "copy-from:system_default/compilation_memory"
-                },
-                "validation_time": {
-                    "type": "float",
-                    "default": "copy-from:system_default/validation_time"
-                },
-                "validation_memory": {
-                    "type": "int",
-                    "default": "copy-from:system_default/validation_memory"
-                },
-                "validation_output": {
-                    "type": "int",
-                    "default": "copy-from:system_default/validation_output"
-                }
-            }
-        },
-        "validation": {
-            "type": "object",
-            "parsing": "legacy-validation",
-            "required": [],
-            "properties": {
-                "type": {
-                    "type": "string",
-                    "default": "default",
-                    "alternatives": {
-                        "default": {
-                            "forbid": ["validation/interactive:true", "validation/score:true"]
-                        },
-                        "custom": {}
-                    }
-                },
-                "interactive": {
-                    "type": "bool",
-                    "default": False
-                },
-                "score": {
-                    "type": "bool",
-                    "default": False
-                }
-            }
-        },
-        "validator_flags": {
-            "type": "string",
-            "default": "",
-        },
-        "keywords": {
-            "type": "list",
-            "parsing": "space-separated-strings",
-            "content": {
-                "type": "string",
-            },
-            "default": [],
-        }
-    }
-}
-
-class BaseValidator:
-    def __init__(self, layout: dict, aspect: ProblemAspect, path: str = ""):
-        self.layout = layout
-        self.aspect = aspect
-        self.path = path
-
-    def verify(self, value):
-        """
-        Verifies the value:
-          - Applies defaults
-          - Converts types
-          - Logs warnings/errors if needed
-        """
-        raise NotImplementedError("Subclasses must implement verify")
-
-    def check(self, value, get_path_func):
-        """
-        Performs extra-checks (like forbid/require logic)
-        get_path_func can be used to fetch other values by path.
-        """
-        raise NotImplementedError("Subclasses must implement check")
-
-
-class StringValidator(BaseValidator):
-    def __init__(self, layout: dict, aspect: ProblemAspect, path: str = ""):
-        super().__init__(layout, aspect, path)
-        alternatives = self.layout.get("alternatives")
-        if alternatives:
-            self.patterns = {alt: re.compile('^' + alt + '$') for alt in alternatives}
-        else:
-            self.patterns = None
-
-    def verify(self, value):
-        if value is None:
-            value = self.layout.get("default", "")
-        if not isinstance(value, str):
-            self.aspect.warning(f'Property {self.path} was expected to be of type string')
-            value = str(value)
-        if self.patterns:
-            if not any(pattern.match(value) for pattern in self.patterns.values()):
-                self.aspect.error(f"Property {self.path} is {value} but must match one of {list(self.patterns.keys())}")
-                value = self.layout.get("default", "")
-        return value
-
-    def check(self, value, get_path_func):
-        if not self.patterns:
-            return
-        match = next((key for key, pattern in self.patterns.items() if pattern.match(value)), None)
-        checks = self.layout["alternatives"][match]
-        for forbidden in checks.get("forbid", []):
-            other_path, expected = forbidden.split(':')
-            if get_path_func(other_path) == expected:
-                self.aspect.error(f"Property {self.path} has value {value} which forbids property {other_path} to have value {expected}")
-        for required in checks.get("required", []):
-            if not get_path_func(required): #TODO: This is not a good way to handle this check I think
-                self.aspect.error(f"Property {self.path} has value {value} which requires property {required}")
-        if "warn" in checks:
-            self.aspect.warning(checks["warn"])
-
-class ObjectValidator(BaseValidator):
-    def verify(self, value):
-        if value is None:
-            return self.layout.get("default", {})
-        if self.layout.get("parsing") == "legacy-validation":
-            if not isinstance(value, str):
-                self.aspect.error(f"Property {self.path} was expected to be a string")
-                return {}
-            elements = value.split()
-            value = {
-                "type": elements[0],
-                "interactive": "interactive" in elements[1:],
-                "score": "score" in elements[1:]
-            }
-        if not isinstance(value, dict):
-            self.aspect.error(f"property {self.path} was expected to be a dictionary")
-            return {}
-        for prop in self.layout.get("required", []):
-            if prop not in value:
-                self.aspect.error(f"Missing required property: {self.path}/{prop}")
-        for prop in value.keys():
-            if prop not in self.layout["properties"]:
-                self.aspect.warning(f"Unknown property: {self.path}/{prop}")
-        return value
-    
-    def check(self, value, get_path_func):
-        pass
-
-class ListValidator(BaseValidator):
-    def verify(self, value):
-        if value is None:
-            return self.layout.get("default", [])
-        if self.layout.get("parsing") == "space-separated-strings":
-            if not isinstance(value, str):
-                self.aspect.error(f"Property {self.path} was expected to be a string")
-                return {}
-            value = value.split()
-        if not isinstance(value, list):
-            self.aspect.error(f"property {self.path} was expected to be a list")
-            return {}
-        return value
-    
-    def check(self, value, get_path_func):
-        pass
-
-class FloatValidator(BaseValidator):
-    def verify(self, value):
-        if value is None:
-            return self.layout.get("default", 0.0)
-        if not isinstance(value, float):
-            try:
-                value = float(value)
-            except Exception:
-                self.aspect.error(f"Property {self.path} was expected to be a float")
-                value = self.layout.get("default", 0.0)
-        return value
-    
-    def check(self, value, get_path_func):
-        pass
-
-class IntValidator(BaseValidator):
-    def verify(self, value):
-        if value is None:
-            return self.layout.get("default", 0)
-        if not isinstance(value, int):
-            try:
-                value = int(value)
-                self.aspect.warning(f"Property {self.path} should be of type integer, interpreting as {value}")
-            except Exception:
-                self.aspect.error(f"Property {self.path} was expected to be an integer")
-                value = self.layout.get("default", 0)
-        return value
-
-    def check(self, value, get_path_func):
-        pass
-
-def get_validator(layout: dict, aspect: ProblemAspect, path: str) -> BaseValidator:
-    type_map = {
-        "string": StringValidator,
-        "int": IntValidator,
-        "float": FloatValidator,
-        "object": ObjectValidator,
-    }
-    typ = layout.get("type")
-    if typ not in type_map:
-        raise NotImplementedError(f"Unrecognized type: {typ}")
-    return type_map[typ](layout, aspect, path)
-
-class ConfigLoader:
-    def __init__(self, config_specification: dict) -> None:
-        self.spec = config_specification
-
-
-class NewProblemConfig(ProblemPart):
-    PART_NAME = 'config2'
-
-    LAYOUT = {}
-
-    def setup(self):
-        self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-        self.data = {}
-        if os.path.isfile(self.configfile):
-            try:
-                with open(self.configfile) as f:
-                    self.data = yaml.safe_load(f) or {}
-            except Exception as e:
-                self.error(str(e))
-        self.data = self.verify_data(self.LAYOUT, self.data)
-        self.inject_data()
-        def resolve_all_copy_from(data, path):
-            if isinstance(data, dict):
-                for k, v in data.items():
-                    resolve_all_copy_from(v, f'{path}/{k}')
-            else:
-                self.resolve_copy_from(path)
-        resolve_all_copy_from(self.data, "")
-
-    def inject_data(self):
-        pass
-
-    def resolve_copy_from(self, path: str, resolving=set()):
-        if path in resolving:
-            raise NotImplementedError(f"Circular copy-from dependency between properties {list(resolving)}")
-        val = self.get_path(path)
-        if not isinstance(val, str) or not val.startswith("copy-from:"):
-            return
-        copy_path = val.split(':')[1]
-        resolving.add(path)
-        self.resolve_copy_from(copy_path)
-        resolving.remove(path)
-        cur = self.data
-        parts = path.split('/')
-        for d in parts[:-1]:
-            cur = cur[d]
-        cur[parts[-1]] = self.get_path(copy_path)
-
-
-    def get_path(self, *path: list[str|int]) -> Any:
-        cur = self.data
-        for part in path:
-            if isinstance(part, int):
-                if not isinstance(cur, list) or len(cur) >= part:
-                    return None
-                cur = cur[part]
-            elif isinstance(cur, dict):
-                cur = cur.get(part)
-            return None
-        return cur
-
-    def verify_data(self, layout, data, path="") -> Any:
-        validator = get_validator(layout, self, path)
-        verified = validator.verify(data)
-        if layout["type"] == "object":
-            for prop, spec in layout.get("properties", {}).items():
-                verified[prop] = self.verify_data(spec, verified.get(prop), f"{path}/{prop}")
-        elif layout["type"] == "list":
-            for i in range(len(verified)):
-                verified[i] = self.verify_data(layout["content"], verified[i], f"{path}[{i}]")
-        return verified
-
-    def check_data(self, layout, data, path=""):
-        validator = get_validator(layout, self, path)
-        validator.check(data, self.get_path)
-        if layout["type"] == "object":
-            for prop, spec in layout.get("properties", {}).items():
-                self.check_data(spec, data.get(prop), f"{path}/{prop}")
-        elif layout["type"] == "list":
-            for i in range(len(verified)):
-                self.verify_check(layout["content"], verified[i], f"{path}[{i}]")
-        
-    def check(self, context: Context) -> bool:
-        self.check_data(self.LAYOUT, self.data)
-        return True
-
-class NewProblemConfigLegacy(NewProblemConfig):
-    LAYOUT = config_format
-
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
-
-    @staticmethod
-    def setup_dependencies():
-        return {ProblemStatement}
-
-    _MANDATORY_CONFIG = ['name']
-    _OPTIONAL_CONFIG = config.load_config('problem.yaml')
-    _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
-
-    def setup(self):
+    SPECIFICATION_FILE_NAME: str|None = None
+    
+    def get_injected_data(self) -> dict:
+        return {
+            "languages": self.problem.language_config,
+            "system_default": config.load_config('system_default.yaml')
+        }
+    
+    def setup(self) -> dict:
+        if self.SPECIFICATION_FILE_NAME is None:
+            raise NotImplementedError("Subclasses of ProblemConfig need to define SPECIFICATION_FILE_NAME")
         self.debug('  Loading problem config')
+        spec = config.load_config(self.SPECIFICATION_FILE_NAME)
         self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-        self._data = {}
-
+        data = {}
         if os.path.isfile(self.configfile):
             try:
                 with open(self.configfile) as f:
-                    self._data = yaml.safe_load(f)
-                # Loading empty yaml yields None, for no apparent reason...
-                if self._data is None:
-                    self._data = {}
+                    data = yaml.safe_load(f) or {}
             except Exception as e:
                 self.error(str(e))
-
-        # Add config items from problem statement e.g. name
-        self._data.update(self.problem.get(ProblemStatement))
-
-        # Populate rights_owner unless license is public domain
-        if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
-            if 'author' in self._data:
-                self._data['rights_owner'] = self._data['author']
-            elif 'source' in self._data:
-                self._data['rights_owner'] = self._data['source']
-
-        if 'license' in self._data:
-            self._data['license'] = self._data['license'].lower()
-
-        # Ugly backwards compatibility hack
-        if 'name' in self._data and not isinstance(self._data['name'], dict):
-            self._data['name'] = {'': self._data['name']}
-
-        self._origdata = copy.deepcopy(self._data)
-
-        for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).items():
-            if not field in self._data:
-                self._data[field] = default
-            elif isinstance(default, dict) and isinstance(self._data[field], dict):
-                self._data[field] = dict(list(default.items()) + list(self._data[field].items()))
-
-        val = self._data['validation'].split()
-        self._data['validation-type'] = val[0]
-        self._data['validation-params'] = val[1:]
-
-        self._data['grading']['custom_scoring'] = False
-        for param in self._data['validation-params']:
-            if param == 'score':
-                self._data['grading']['custom_scoring'] = True
-            elif param == 'interactive':
-                pass
-
-        return self._data
-
-
+        self.metadata = config_parser.Metadata(spec)
+        self.metadata.set_error_callback(self.error)
+        self.metadata.set_warning_callback(self.warning)
+        self.metadata.load_config(data, self.get_injected_data())
+        return self.metadata.data
+    
     def __str__(self) -> str:
         return 'problem configuration'
-
+    
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
-
+        
         if not os.path.isfile(self.configfile):
             self.error(f"No config file {self.configfile} found")
-
-        for field in ProblemConfig._MANDATORY_CONFIG:
-            if not field in self._data:
-                self.error(f"Mandatory field '{field}' not provided")
-
-        for field, value in self._origdata.items():
-            if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
-                self.warning(f"Unknown field '{field}' provided in problem.yaml")
-
-        for field, value in self._data.items():
-            if value is None:
-                self.error(f"Field '{field}' provided in problem.yaml but is empty")
-                self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
-
-        # Check type
-        if not self._data['type'] in ['pass-fail', 'scoring']:
-            self.error(f"Invalid value '{self._data['type']}' for type")
-
-        # Check rights_owner
-        if self._data['license'] == 'public domain':
-            if self._data['rights_owner'].strip() != '':
-                self.error('Can not have a rights_owner for a problem in public domain')
-        elif self._data['license'] != 'unknown':
-            if self._data['rights_owner'].strip() == '':
-                self.error('No author, source or rights_owner provided')
-
-        # Check source_url
-        if (self._data['source_url'].strip() != '' and
-            self._data['source'].strip() == ''):
-            self.error('Can not provide source_url without also providing source')
-
-        # Check license
-        if not self._data['license'] in ProblemConfig._VALID_LICENSES:
-            self.error(f"Invalid value for license: {self._data['license']}.\n  Valid licenses are {ProblemConfig._VALID_LICENSES}")
-        elif self._data['license'] == 'unknown':
-            self.warning("License is 'unknown'")
-
-        if self._data['grading']['show_test_data_groups'] not in [True, False]:
-            self.error(f"Invalid value for grading.show_test_data_groups: {self._data['grading']['show_test_data_groups']}")
-        elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
-            self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
-        if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
-            self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
-
-        if 'on_reject' in self._data['grading']:
-            if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
-                self.error(f"Invalid on_reject policy '{self._data['grading']['on_reject']}' for problem type '{self._data['type']}'")
-            if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
-                self.error(f"Invalid value '{self._data['grading']['on_reject']}' for on_reject policy")
-
-        if self._data['grading']['objective'] not in ['min', 'max']:
-            self.error(f"Invalid value '{self._data['grading']['objective']}' for objective")
-
-        for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
-            if deprecated_grading_key in self._data['grading']:
-                self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
-
-        if not self._data['validation-type'] in ['default', 'custom']:
-            self.error(f"Invalid value '{self._data['validation']}' for validation, first word must be 'default' or 'custom'")
-
-        if self._data['validation-type'] == 'default' and len(self._data['validation-params']) > 0:
-            self.error(f"Invalid value '{self._data['validation']}' for validation")
-
-        if self._data['validation-type'] == 'custom':
-            for param in self._data['validation-params']:
-                if param not in['score', 'interactive']:
-                    self.error(f"Invalid parameter '{param}' for custom validation")
-
-        # Check limits
-        if not isinstance(self._data['limits'], dict):
-            self.error('Limits key in problem.yaml must specify a dict')
-            self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
-
-        # Some things not yet implemented
-        if self._data['libraries'] != '':
-            self.error("Libraries not yet supported")
-
+        
+        self.metadata.check_config()
+        
         return self._check_res
+
+# TODO: add additional checks
+class ProblemConfigLegacy(ProblemConfig):
+    SPECIFICATION_FILE_NAME = 'legacy_config_specification.yaml'
+
+# TODO: add additional checks
+class ProblemConfig2023_07(ProblemConfig):
+    SPECIFICATION_FILE_NAME = '2023-07_config_specification.yaml'
+
+#class ProblemConfig(ProblemPart):
+#    PART_NAME = 'config'
+#
+#    @staticmethod
+#    def setup_dependencies():
+#        return {ProblemStatement}
+#
+#    _MANDATORY_CONFIG = ['name']
+#    _OPTIONAL_CONFIG = config.load_config('problem.yaml')
+#    _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
+#
+#    def setup(self):
+#        self.debug('  Loading problem config')
+#        self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
+#        self._data = {}
+#
+#        if os.path.isfile(self.configfile):
+#            try:
+#                with open(self.configfile) as f:
+#                    self._data = yaml.safe_load(f)
+#                # Loading empty yaml yields None, for no apparent reason...
+#                if self._data is None:
+#                    self._data = {}
+#            except Exception as e:
+#                self.error(str(e))
+#
+#        # Add config items from problem statement e.g. name
+#        self._data.update(self.problem.get(ProblemStatement))
+#
+#        # Populate rights_owner unless license is public domain
+#        if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
+#            if 'author' in self._data:
+#                self._data['rights_owner'] = self._data['author']
+#            elif 'source' in self._data:
+#                self._data['rights_owner'] = self._data['source']
+#
+#        if 'license' in self._data:
+#            self._data['license'] = self._data['license'].lower()
+#
+#        # Ugly backwards compatibility hack
+#        if 'name' in self._data and not isinstance(self._data['name'], dict):
+#            self._data['name'] = {'': self._data['name']}
+#
+#        self._origdata = copy.deepcopy(self._data)
+#
+#        for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).items():
+#            if not field in self._data:
+#                self._data[field] = default
+#            elif isinstance(default, dict) and isinstance(self._data[field], dict):
+#                self._data[field] = dict(list(default.items()) + list(self._data[field].items()))
+#
+#        val = self._data['validation'].split()
+#        self._data['validation-type'] = val[0]
+#        self._data['validation-params'] = val[1:]
+#
+#        self._data['grading']['custom_scoring'] = False
+#        for param in self._data['validation-params']:
+#            if param == 'score':
+#                self._data['grading']['custom_scoring'] = True
+#            elif param == 'interactive':
+#                pass
+#
+#        return self._data
+#
+#
+#    def __str__(self) -> str:
+#        return 'problem configuration'
+#
+#    def check(self, context: Context) -> bool:
+#        if self._check_res is not None:
+#            return self._check_res
+#        self._check_res = True
+#
+#        if not os.path.isfile(self.configfile):
+#            self.error(f"No config file {self.configfile} found")
+#
+#        for field in ProblemConfig._MANDATORY_CONFIG:
+#            if not field in self._data:
+#                self.error(f"Mandatory field '{field}' not provided")
+#
+#        for field, value in self._origdata.items():
+#            if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
+#                self.warning(f"Unknown field '{field}' provided in problem.yaml")
+#
+#        for field, value in self._data.items():
+#            if value is None:
+#                self.error(f"Field '{field}' provided in problem.yaml but is empty")
+#                self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
+#
+#        # Check type
+#        if not self._data['type'] in ['pass-fail', 'scoring']:
+#            self.error(f"Invalid value '{self._data['type']}' for type")
+#
+#        # Check rights_owner
+#        if self._data['license'] == 'public domain':
+#            if self._data['rights_owner'].strip() != '':
+#                self.error('Can not have a rights_owner for a problem in public domain')
+#        elif self._data['license'] != 'unknown':
+#            if self._data['rights_owner'].strip() == '':
+#                self.error('No author, source or rights_owner provided')
+#
+#        # Check source_url
+#        if (self._data['source_url'].strip() != '' and
+#            self._data['source'].strip() == ''):
+#            self.error('Can not provide source_url without also providing source')
+#
+#        # Check license
+#        if not self._data['license'] in ProblemConfig._VALID_LICENSES:
+#            self.error(f"Invalid value for license: {self._data['license']}.\n  Valid licenses are {ProblemConfig._VALID_LICENSES}")
+#        elif self._data['license'] == 'unknown':
+#            self.warning("License is 'unknown'")
+#
+#        if self._data['grading']['show_test_data_groups'] not in [True, False]:
+#            self.error(f"Invalid value for grading.show_test_data_groups: {self._data['grading']['show_test_data_groups']}")
+#        elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
+#            self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
+#        if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
+#            self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
+#
+#        if 'on_reject' in self._data['grading']:
+#            if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
+#                self.error(f"Invalid on_reject policy '{self._data['grading']['on_reject']}' for problem type '{self._data['type']}'")
+#            if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
+#                self.error(f"Invalid value '{self._data['grading']['on_reject']}' for on_reject policy")
+#
+#        if self._data['grading']['objective'] not in ['min', 'max']:
+#            self.error(f"Invalid value '{self._data['grading']['objective']}' for objective")
+#
+#        for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
+#            if deprecated_grading_key in self._data['grading']:
+#                self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
+#
+#        if not self._data['validation-type'] in ['default', 'custom']:
+#            self.error(f"Invalid value '{self._data['validation']}' for validation, first word must be 'default' or 'custom'")
+#
+#        if self._data['validation-type'] == 'default' and len(self._data['validation-params']) > 0:
+#            self.error(f"Invalid value '{self._data['validation']}' for validation")
+#
+#        if self._data['validation-type'] == 'custom':
+#            for param in self._data['validation-params']:
+#                if param not in['score', 'interactive']:
+#                    self.error(f"Invalid parameter '{param}' for custom validation")
+#
+#        # Check limits
+#        if not isinstance(self._data['limits'], dict):
+#            self.error('Limits key in problem.yaml must specify a dict')
+#            self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
+#
+#        # Some things not yet implemented
+#        if self._data['libraries'] != '':
+#            self.error("Libraries not yet supported")
+#
+#        return self._check_res
 
 class ProblemTestCases(ProblemPart):
     
@@ -1334,7 +1007,7 @@ class ProblemTestCases(ProblemPart):
         self.testcase_by_infile = {}
         return {
                 'root_group': TestCaseGroup(self.problem, self.PART_NAME),
-                'is_interactive': 'interactive' in self.problem.get(ProblemConfig)['validation-params'],
+                'is_interactive': self.problem.get(ProblemConfig)['validation']['interactive'],
                 'is_scoring': self.problem.get(ProblemConfig)['type'] == 'scoring'
                 }
 
@@ -2116,7 +1789,7 @@ class Submissions(ProblemPart):
 
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     'legacy': {
-        'config':       [ProblemConfig],
+        'config':       [ProblemConfigLegacy],
         'statement':    [ProblemStatementLegacy, Attachments],
         'validators':   [InputValidators, OutputValidators],
         'graders':      [Graders],
