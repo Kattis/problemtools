@@ -40,8 +40,8 @@ class Viva(Executable):
         return ((os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0), None)
 
 
-    def run(self, infile='/dev/null', outfile='/dev/null',
-            errfile='/dev/null', args=None, timelim=1000):
+    def run(self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null',
+            args=None, timelim=1000, memlim=1024, work_dir=None):
         """Run the VIVA script to validate an input file.
 
         Args:
@@ -68,7 +68,9 @@ class Viva(Executable):
         (status, runtime) = super(Viva, self).run(outfile=outfile,
                                                   errfile=errfile,
                                                   args=args,
-                                                  timelim=timelim)
+                                                  timelim=timelim,
+                                                  memlim=memlim,
+                                                  work_dir=work_dir)
         # This is ugly, switches the accept exit status and our accept
         # exit status 42.
         if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
