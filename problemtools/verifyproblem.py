@@ -815,7 +815,6 @@ class ProblemConfig(ProblemPart):
         self.metadata.set_error_callback(self.error)
         self.metadata.set_warning_callback(self.warning)
         self.metadata.load_config(self.data, self.get_injected_data())
-        #print(yaml.dump(self.metadata.data))
         return self.metadata.data
     
     def __str__(self) -> str:
@@ -833,167 +832,18 @@ class ProblemConfig(ProblemPart):
         
         return self._check_res
 
-# TODO: add additional checks
 class ProblemConfigLegacy(ProblemConfig):
     SPECIFICATION_FILE_NAME = 'legacy_config_specification.yaml'
 
-# TODO: add additional checks
+    def check(self, context):
+        super().check(context)
+        if (self.problem.get(ProblemConfig)['type'] != 'pass-fail' and
+            self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and
+            'show_test_data_groups' not in self.get(ProblemConfig)['original_data'].get('grading', {})):
+            self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
+
 class ProblemConfig2023_07(ProblemConfig):
     SPECIFICATION_FILE_NAME = '2023-07_config_specification.yaml'
-
-#class ProblemConfig(ProblemPart):
-#    PART_NAME = 'config'
-#
-#    @staticmethod
-#    def setup_dependencies():
-#        return {ProblemStatement}
-#
-#    _MANDATORY_CONFIG = ['name']
-#    _OPTIONAL_CONFIG = config.load_config('problem.yaml')
-#    _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
-#
-#    def setup(self):
-#        self.debug('  Loading problem config')
-#        self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-#        self._data = {}
-#
-#        if os.path.isfile(self.configfile):
-#            try:
-#                with open(self.configfile) as f:
-#                    self._data = yaml.safe_load(f)
-#                # Loading empty yaml yields None, for no apparent reason...
-#                if self._data is None:
-#                    self._data = {}
-#            except Exception as e:
-#                self.error(str(e))
-#
-#        # Add config items from problem statement e.g. name
-#        self._data.update(self.problem.get(ProblemStatement))
-#
-#        # Populate rights_owner unless license is public domain
-#        if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
-#            if 'author' in self._data:
-#                self._data['rights_owner'] = self._data['author']
-#            elif 'source' in self._data:
-#                self._data['rights_owner'] = self._data['source']
-#
-#        if 'license' in self._data:
-#            self._data['license'] = self._data['license'].lower()
-#
-#        # Ugly backwards compatibility hack
-#        if 'name' in self._data and not isinstance(self._data['name'], dict):
-#            self._data['name'] = {'': self._data['name']}
-#
-#        self._origdata = copy.deepcopy(self._data)
-#
-#        for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).items():
-#            if not field in self._data:
-#                self._data[field] = default
-#            elif isinstance(default, dict) and isinstance(self._data[field], dict):
-#                self._data[field] = dict(list(default.items()) + list(self._data[field].items()))
-#
-#        val = self._data['validation'].split()
-#        self._data['validation-type'] = val[0]
-#        self._data['validation-params'] = val[1:]
-#
-#        self._data['grading']['custom_scoring'] = False
-#        for param in self._data['validation-params']:
-#            if param == 'score':
-#                self._data['grading']['custom_scoring'] = True
-#            elif param == 'interactive':
-#                pass
-#
-#        return self._data
-#
-#
-#    def __str__(self) -> str:
-#        return 'problem configuration'
-#
-#    def check(self, context: Context) -> bool:
-#        if self._check_res is not None:
-#            return self._check_res
-#        self._check_res = True
-#
-#        if not os.path.isfile(self.configfile):
-#            self.error(f"No config file {self.configfile} found")
-#
-#        for field in ProblemConfig._MANDATORY_CONFIG:
-#            if not field in self._data:
-#                self.error(f"Mandatory field '{field}' not provided")
-#
-#        for field, value in self._origdata.items():
-#            if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
-#                self.warning(f"Unknown field '{field}' provided in problem.yaml")
-#
-#        for field, value in self._data.items():
-#            if value is None:
-#                self.error(f"Field '{field}' provided in problem.yaml but is empty")
-#                self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
-#
-#        # Check type
-#        if not self._data['type'] in ['pass-fail', 'scoring']:
-#            self.error(f"Invalid value '{self._data['type']}' for type")
-#
-#        # Check rights_owner
-#        if self._data['license'] == 'public domain':
-#            if self._data['rights_owner'].strip() != '':
-#                self.error('Can not have a rights_owner for a problem in public domain')
-#        elif self._data['license'] != 'unknown':
-#            if self._data['rights_owner'].strip() == '':
-#                self.error('No author, source or rights_owner provided')
-#
-#        # Check source_url
-#        if (self._data['source_url'].strip() != '' and
-#            self._data['source'].strip() == ''):
-#            self.error('Can not provide source_url without also providing source')
-#
-#        # Check license
-#        if not self._data['license'] in ProblemConfig._VALID_LICENSES:
-#            self.error(f"Invalid value for license: {self._data['license']}.\n  Valid licenses are {ProblemConfig._VALID_LICENSES}")
-#        elif self._data['license'] == 'unknown':
-#            self.warning("License is 'unknown'")
-#
-#        if self._data['grading']['show_test_data_groups'] not in [True, False]:
-#            self.error(f"Invalid value for grading.show_test_data_groups: {self._data['grading']['show_test_data_groups']}")
-#        elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
-#            self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
-#        if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
-#            self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
-#
-#        if 'on_reject' in self._data['grading']:
-#            if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
-#                self.error(f"Invalid on_reject policy '{self._data['grading']['on_reject']}' for problem type '{self._data['type']}'")
-#            if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
-#                self.error(f"Invalid value '{self._data['grading']['on_reject']}' for on_reject policy")
-#
-#        if self._data['grading']['objective'] not in ['min', 'max']:
-#            self.error(f"Invalid value '{self._data['grading']['objective']}' for objective")
-#
-#        for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
-#            if deprecated_grading_key in self._data['grading']:
-#                self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
-#
-#        if not self._data['validation-type'] in ['default', 'custom']:
-#            self.error(f"Invalid value '{self._data['validation']}' for validation, first word must be 'default' or 'custom'")
-#
-#        if self._data['validation-type'] == 'default' and len(self._data['validation-params']) > 0:
-#            self.error(f"Invalid value '{self._data['validation']}' for validation")
-#
-#        if self._data['validation-type'] == 'custom':
-#            for param in self._data['validation-params']:
-#                if param not in['score', 'interactive']:
-#                    self.error(f"Invalid parameter '{param}' for custom validation")
-#
-#        # Check limits
-#        if not isinstance(self._data['limits'], dict):
-#            self.error('Limits key in problem.yaml must specify a dict')
-#            self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
-#
-#        # Some things not yet implemented
-#        if self._data['libraries'] != '':
-#            self.error("Libraries not yet supported")
-#
-#        return self._check_res
 
 class ProblemTestCases(ProblemPart):
     
