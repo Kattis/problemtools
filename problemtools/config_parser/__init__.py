@@ -9,6 +9,7 @@ from .parser import type_mapping
 from .config_path import Path, PathError
 from .parser import Parser, DefaultObjectParser
 from .matcher import AlternativeMatch
+from itertools import chain
 
 
 class Metadata:
@@ -35,7 +36,8 @@ class Metadata:
 
     @staticmethod
     def invert_graph(dependency_graph: dict[Path, list[Path]]) -> dict[Path, list[Path]]:
-        depends_on_graph: dict[Path, list[Path]] = {k: [] for k in dependency_graph.keys()}
+        nodes = set(dependency_graph.keys()).union(chain(*dependency_graph.values()))
+        depends_on_graph: dict[Path, list[Path]] = {k: [] for k in nodes}
         for dependant, dependencies in dependency_graph.items():
             for dependency in dependencies:
                 depends_on_graph[dependency].append(dependant)
