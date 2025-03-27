@@ -29,7 +29,7 @@ class Template:
         else:
             version_data = formatversion.get_format_data_by_name(version)
 
-        stmtdir = os.path.join(problemdir, version_data.get('statement_directory'))
+        stmtdir = os.path.join(problemdir, version_data.statement_directory)
         langs = []
         if glob.glob(os.path.join(stmtdir, 'problem.tex')):
             langs.append('')

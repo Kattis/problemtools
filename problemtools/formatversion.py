@@ -1,25 +1,23 @@
 import os
 import yaml
+from dataclasses import dataclass
 
-
-"""
-The data specific to any given format version.
-"""
-FORMAT_DATA = {
-    "legacy": {
-        "name": "legacy",
-        "statement_directory": "problem_statement",
-        "statement_extensions": ["tex"]
-    },
-    "2023-07": {
-        "name": "2023-07",
-        "statement_directory": "statement",
-        "statement_extensions": ["md", "tex"],
-    }
-}
 
 VERSION_LEGACY = "legacy"
 VERSION_2023_07 = "2023-07"
+
+
+@dataclass(frozen=True)
+class FormatData:
+    name: str
+    statement_directory: str
+    statement_extensions: list[str]
+
+
+FORMAT_DATACLASSES = {
+    VERSION_LEGACY: FormatData(name=VERSION_LEGACY, statement_directory="problem_statement", statement_extensions=["tex"]),
+    VERSION_2023_07: FormatData(name=VERSION_2023_07, statement_directory="statement", statement_extensions=["md", "tex"])
+}
 
 
 """
@@ -32,15 +30,15 @@ def detect_problem_version(path) -> str:
             config: dict = yaml.safe_load(f) or {}
     except Exception as e:
         raise VersionError(f"Error reading problem.yaml: {e}")
-    return config.get('problem_format_version', 'legacy')
+    return config.get('problem_format_version', VERSION_LEGACY)
 
 
 """
-Returns a dictionary containing the necessary data for a file format.
+Returns a dataclass containing the necessary data for a file format.
 """
 def get_format_data(path):
     version = detect_problem_version(path)
-    data = FORMAT_DATA.get(version)
+    data = FORMAT_DATACLASSES[version]
     if not data:
         raise VersionError(f"No version found with name {version}")
     else:
@@ -48,14 +46,15 @@ def get_format_data(path):
 
 
 """
-Returns a dictionary containing the necessary data for a file format given the format's name. 
+Returns a dataclass containing the necessary data for a file format given the format's name. 
 """
 def get_format_data_by_name(name):
-    data = FORMAT_DATA.get(name)
+    data = FORMAT_DATACLASSES.get(name)
     if not data:
         raise VersionError(f"No version found with name {name}")
     else:
         return data
+
 
 class VersionError(Exception):
     pass

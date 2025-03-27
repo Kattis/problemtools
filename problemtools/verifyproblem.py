@@ -711,19 +711,20 @@ class TestCaseGroup(ProblemAspect):
 
 
 class ProblemStatement(ProblemPart):
-    FORMAT_DATA = None
+    format_data = None
 
     def setup(self):
-        self.FORMAT_DATA = formatversion.get_format_data(self.problem.probdir)
-        if not self.FORMAT_DATA:
+        self.format_data = formatversion.get_format_data(self.problem.probdir)
+        print(self.format_data.name)
+        if not self.format_data:
             raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
-        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.FORMAT_DATA.get("statement_extensions"))))
-        dir = os.path.join(self.problem.probdir, self.FORMAT_DATA.get("statement_directory"))
+        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.format_data.statement_extensions)))
+        dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
         if os.path.isdir(dir):
             self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
         else:
-            self.error(f"No directory named {self.FORMAT_DATA.get('statement_directory')} found")
+            self.error(f"No directory named {self.format_data.statement_directory} found"
             self.statements = []
 
         return self.get_config()
@@ -734,8 +735,8 @@ class ProblemStatement(ProblemPart):
         self._check_res = True
 
         if not self.statements:
-            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.FORMAT_DATA.get("statement_extensions"))
-            self.error(f'No problem statements found (expected file of one of following forms in directory {self.FORMAT_DATA.get("statement_directory")}/: {allowed_statements})')
+            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.format_data.statement_extensions)
+            self.error(f'No problem statements found (expected file of one of following forms in directory {self.format_data.statement_directory}/: {allowed_statements})')
 
         langs = [lang or 'en' for _, lang in self.statements]
         for lang, count in collections.Counter(langs).items():
@@ -772,7 +773,7 @@ class ProblemStatement(ProblemPart):
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {'name':{}}
         for filename, lang in self.statements:
-            dir = os.path.join(self.problem.probdir, self.FORMAT_DATA.get("statement_directory"))
+            dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
             with open(os.path.join(dir, filename)) as f:
                 stmt = f.read()
             hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
