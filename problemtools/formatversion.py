@@ -9,6 +9,12 @@ VERSION_2023_07 = "2023-07"
 
 @dataclass(frozen=True)
 class FormatData:
+    """
+    A class containing data specific to the format version.
+    name: the version name.
+    statement_directory: the directory where the statements should be found.
+    statement_extensions: the allowed extensions for the statements.
+    """
     name: str
     statement_directory: str
     statement_extensions: list[str]
@@ -20,10 +26,16 @@ FORMAT_DATACLASSES = {
 }
 
 
-"""
-Returns the problem version value of problem.yaml or throws an error if it is unable to read the file.
-"""
 def detect_problem_version(path) -> str:
+    """
+    Returns the problem version value of problem.yaml or throws an error if it is unable to read the file.
+    Args:
+        path: the problem path
+
+    Returns:
+        the version name as a String
+
+    """
     config_path = os.path.join(path, 'problem.yaml')
     try:
         with open(config_path) as f:
@@ -33,22 +45,29 @@ def detect_problem_version(path) -> str:
     return config.get('problem_format_version', VERSION_LEGACY)
 
 
-"""
-Returns a dataclass containing the necessary data for a file format.
-"""
 def get_format_data(path):
-    version = detect_problem_version(path)
-    data = FORMAT_DATACLASSES[version]
-    if not data:
-        raise VersionError(f"No version found with name {version}")
-    else:
-        return data
+    """
+    Gets the dataclass object containing the necessary data for a problem format.
+    Args:
+        path: the problem path
+
+    Returns:
+        the dataclass object containing the necessary data for a problem format
+
+    """
+    return get_format_data_by_name(detect_problem_version(path))
 
 
-"""
-Returns a dataclass containing the necessary data for a file format given the format's name. 
-"""
 def get_format_data_by_name(name):
+    """
+    Gets the dataclass object containing the necessary data for a problem format given the format name.
+    Args:
+        name: the format name
+
+    Returns:
+        the dataclass object containing the necessary data for a problem format
+
+    """
     data = FORMAT_DATACLASSES.get(name)
     if not data:
         raise VersionError(f"No version found with name {name}")
