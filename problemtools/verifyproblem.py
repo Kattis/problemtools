@@ -711,11 +711,10 @@ class TestCaseGroup(ProblemAspect):
 
 
 class ProblemStatement(ProblemPart):
-    format_data = None
+    PART_NAME = 'statement'
 
     def setup(self):
         self.format_data = formatversion.get_format_data(self.problem.probdir)
-        print(self.format_data.name)
         if not self.format_data:
             raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
@@ -724,7 +723,7 @@ class ProblemStatement(ProblemPart):
         if os.path.isdir(dir):
             self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
         else:
-            self.error(f"No directory named {self.format_data.statement_directory} found"
+            self.error(f"No directory named {self.format_data.statement_directory} found")
             self.statements = []
 
         return self.get_config()
