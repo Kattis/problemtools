@@ -4,6 +4,8 @@ import glob
 import tempfile
 import shutil
 
+from . import formatversion
+
 
 # For backwards compatibility, remove in bright and shiny future.
 def detect_version(problemdir, problemtex):
@@ -14,14 +16,20 @@ def detect_version(problemdir, problemtex):
 
 
 class Template:
-    def __init__(self, problemdir, language=None, force_copy_cls=False):
+    def __init__(self, problemdir, language=None, force_copy_cls=False, version="automatic"):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
 
         if problemdir[-1] == '/':
             problemdir = problemdir[:-1]
-        stmtdir = os.path.join(problemdir, 'problem_statement')
 
+        if version == "automatic":
+            version_data = formatversion.get_format_data(problemdir)
+
+        else:
+            version_data = formatversion.get_format_data_by_name(version)
+
+        stmtdir = os.path.join(problemdir, version_data.statement_directory)
         langs = []
         if glob.glob(os.path.join(stmtdir, 'problem.tex')):
             langs.append('')
@@ -115,3 +123,4 @@ class Template:
     def get_file_name(self):
         assert os.path.isfile(self.filename)
         return self.filename
+

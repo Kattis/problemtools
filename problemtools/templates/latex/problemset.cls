@@ -163,7 +163,12 @@
 %% Problem inclusion
 \newcommand{\includeproblem}[1]{
   \startproblem{#1}
-  \import{#1/problem_statement/}{problem\@problemlanguage.tex}
+\IfFileExists{#1/statement/problem\@problemlanguage.tex}{%
+    \import{#1/statement/}{problem\@problemlanguage.tex}%
+}{%
+    \import{#1/problem_statement/}{problem\@problemlanguage.tex}%
+}
+
 
   %% Automatically include samples 1..9, if enabled
   \ifplastex\else

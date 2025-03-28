@@ -28,6 +28,7 @@ import yaml
 
 from . import problem2pdf
 from . import problem2html
+from . import formatversion
 
 from . import config
 from . import languages
@@ -702,24 +703,28 @@ class TestCaseGroup(ProblemAspect):
                     self.error(f'submission {sub} got {res} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]')
         return res
 
-
     def all_datasets(self) -> list:
         res: list = []
         for child in self._items:
             res += child.all_datasets()
         return res
 
+
 class ProblemStatement(ProblemPart):
     PART_NAME = 'statement'
-    EXTENSIONS: list[str] = []
 
     def setup(self):
-        if not self.EXTENSIONS:
-            raise NotImplementedError('Need to override class and set EXTENSIONS class-variable')
+        self.format_data = formatversion.get_format_data(self.problem.probdir)
+        if not self.format_data:
+            raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
-        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.EXTENSIONS)))
-        dir = os.path.join(self.problem.probdir, 'problem_statement')
-        self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
+        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.format_data.statement_extensions)))
+        dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
+        if os.path.isdir(dir):
+            self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
+        else:
+            self.error(f"No directory named {self.format_data.statement_directory} found")
+            self.statements = []
 
         return self.get_config()
 
@@ -729,8 +734,8 @@ class ProblemStatement(ProblemPart):
         self._check_res = True
 
         if not self.statements:
-            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.EXTENSIONS)
-            self.error(f'No problem statements found (expected file of one of following forms in folder problem_statement/: {allowed_statements}')
+            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.format_data.statement_extensions)
+            self.error(f'No problem statements found (expected file of one of following forms in directory {self.format_data.statement_directory}/: {allowed_statements})')
 
         langs = [lang or 'en' for _, lang in self.statements]
         for lang, count in collections.Counter(langs).items():
@@ -767,7 +772,8 @@ class ProblemStatement(ProblemPart):
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {'name':{}}
         for filename, lang in self.statements:
-            with open(os.path.join(self.problem.probdir, 'problem_statement', filename)) as f:
+            dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
+            with open(os.path.join(dir, filename)) as f:
                 stmt = f.read()
             hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
             if hit:
@@ -775,11 +781,6 @@ class ProblemStatement(ProblemPart):
                 ret['name'][lang] = problem_name
         return ret if ret['name'] else {}
 
-class ProblemStatementLegacy(ProblemStatement):
-    EXTENSIONS = ['tex']
-
-class ProblemStatement2023_07(ProblemStatement):
-    EXTENSIONS = ['md', 'tex']
 
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
@@ -1730,14 +1731,14 @@ class Submissions(ProblemPart):
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     'legacy': {
         'config':       [ProblemConfig],
-        'statement':    [ProblemStatementLegacy, Attachments],
+        'statement':    [ProblemStatement, Attachments],
         'validators':   [InputValidators, OutputValidators],
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
     },
     '2023-07': { # TODO: Add all the parts
-        'statement':    [ProblemStatement2023_07, Attachments],
+        'statement':    [ProblemStatement, Attachments],
     }
 }
 

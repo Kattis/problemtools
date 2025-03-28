@@ -123,6 +123,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning')
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help="quiet", default=False)
     parser.add_argument('-i', '--imgbasedir', dest='imgbasedir', default='')
+    parser.add_argument('-v', '--format-version', dest='format_version', help='choose format version', default="automatic")
     parser.add_argument('problem', help='the problem to convert')
 
     return parser
