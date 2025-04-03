@@ -370,8 +370,19 @@ class TestCase(ProblemAspect):
         res.set_ac_runtime()
         res_low.set_ac_runtime()
         res_high.set_ac_runtime()
-
-
+        
+        visualizer = self._problem.classes.get(OutputVisualizer.PART_NAME)    #TODO går att flytta ner men fult???
+        print("WHERE ARE YTOU " , os.getcwd())
+        if visualizer.visualizer_exists():
+            print(" eh ", os.listdir(self._problem.tmpfeeddir))
+            for dir in os.listdir(self._problem.tmpfeeddir):
+                print("dir",dir)
+                for file in dir:
+                    print("Hi ", file, )
+                    if os.path.basename(file).endswith(".ans"):
+                        print("did it")
+                        visualizer.visualize(dir, file) 
+            # visualizer.visualize(feedbackdir, submission_output)
 
         return (res, res_low, res_high)
 
@@ -1468,11 +1479,14 @@ class OutputValidators(ProblemPart):
                     except IOError as e:
                         self.info("Failed to read validator output: %s", e)
                 res = self._parse_validator_results(val, status, feedbackdir, testcase)
-                
-                #Gets the visualizer and if it exits runs the program. Otherwise closes the temporary folder.
-                visualizer = self.problem.classes.get(OutputVisualizer.PART_NAME) 
-                if visualizer: #TODO rätt scope?
-                    visualizer.visualize(feedbackdir, submission_output) #TODO get context here?
+
+                visualizer = self.problem.classes.get(OutputVisualizer.PART_NAME)    #TODO går att flytta ner men fult???
+                if visualizer.visualizer_exists(): #TODO rätt scope?
+                    randomChars = ''.join(random.choices(string.ascii_letters + string.digits , k=16)) 
+                    shutil.copytree(os.path.realpath(feedbackdir) , os.path.join(self.problem.tmpfeeddir, randomChars))#TODO HITTA VAR JAG SKA LÄGGA
+                    shutil.copy(os.path.realpath(submission_output), os.path.join(self.problem.tmpfeeddir, randomChars))
+                    
+
                 shutil.rmtree(feedbackdir)
                 shutil.rmtree(validator_output)    
                 if res.verdict != 'AC':
@@ -1491,14 +1505,18 @@ class OutputVisualizer(ProblemPart):
         language_config=self.problem.language_config)
         self._has_precompiled = False
         self._correct_amount_visualizers = (len(self._visualizer) == 1)
+
         
-        self._has_warned_amount = True
+        self._has_warned_amount = True #TODO borde dessa finnas
         self._missing_visualizer = False
         self._has_created_folder = False
-        self._should_save_image = False
-        #TODO borde should save finnas?
+        self._should_save_image = False #TODO nice to get flag here
     def __str__(self) -> str: 
         return 'output visualizer'
+    
+    @staticmethod
+    def setup_dependencies():
+        return [OutputValidators] #TODO kan kanske ta bort
 
     #Does an early compilatilation of the visualizer
     def start_background_work(self, context: Context) -> None: #kan man lägga flaggan här
@@ -1507,6 +1525,7 @@ class OutputVisualizer(ProblemPart):
             self._has_precompiled = True
         
     def check(self, context: Context) -> bool: #TODO när körs den här? innan? Kolla dependencies kolla ordningen
+        self._should_save_image = context.save_output_visualizer_images
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1540,22 +1559,28 @@ class OutputVisualizer(ProblemPart):
             return False
  
     def save_image(self, file):
-            visualizer_path = os.getcwd()    #TODO change below to problem name, use f-string
-            print("yosef ", visualizer_path)
-            visualizer_path = visualizer_path + "/here" #TODO works but get correct path
+            save_folder_path = os.getcwd()   
+            save_folder_path = save_folder_path + "/here" #TODO works but get correct path
+            # print("File is ", file ,"path ", save_folder_path)
 
-            if  not self._has_created_folder:
+            
+            if  not self._has_created_folder and not os.path.exists(save_folder_path): #TODO check if directory exists #TODO subdirectories
                 self._has_created_folder = True
-                os.mkdir(visualizer_path)
-            shutil.copy(file, visualizer_path)
-                        
-    def visualize(self, feedback_dir: str, submission_output: str): #TODO context istället för testcase för flaggan
-        res = []
+                os.mkdir(save_folder_path)
+            shutil.copy(file, save_folder_path)
+                    
+                # default_path = Path(problemname + "/"+ f"{submission_name}" + "/"+ f"{testcase}/randomchars8st.extension")
+                # shutil.copytree(inFromProblemTmpDir, onDiskPermanentDir) #TODO lägg på rätt plats byt namn som du vill :)
+    def visualizer_exists(self)->bool:
         if not self._visualizer and not self._missing_visualizer: 
             self._missing_visualizer = True
             self.warning('No visualizer found')
+        return bool(self._visualizer)
+                        
+    def visualize(self, feedback_dir: str, submission_output: str): #TODO context istället för testcase för flaggan
+        res = []
+        if not self.visualizer_exists():
             return
-        
         if self._correct_amount_visualizers: 
             visualizer = self._visualizer[0] #Selects the visualizer 
         else:
@@ -1577,13 +1602,17 @@ class OutputVisualizer(ProblemPart):
         for ending in file_endings:
             for file in glob.glob(feedback_dir + "/*" + ending):
                 res.append(tuple((file, self.check_image_type)))
-        print("should save: ", self._should_save_image, "\nres is ", res)
                 
-        if True: #self._should_save_image:
+        if self._should_save_image:  #TODO True for testing
             for i in range(len(res)):
                 if res[i][1]:
-                    self.save_image(file) #TODO kan vara att man sparar bilden if sats
-        
+                    # print("Old name ", res[i][0])
+                    # prefix, sufix = os.path.splitext(res[i][0])
+                    # os.rename(res[i][0],  os.path.join(prefix + str(i)+ sufix))
+                    # print("New file name ", res[i][0])
+                    self.save_image(res[i][0])
+ 
+
         #Raises a warning if the file signature is wrong or the list is empty
         if not any(res):
             self.warning("The visualizer did not generate an allowed image")
@@ -1858,7 +1887,8 @@ PROBLEM_FORMATS = {
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
-        'visualizers': [OutputVisualizer] #TODO temporary for running tests
+        'visualizers': [OutputVisualizer] #TODO for testing
+
 
     },
     '2023-07': { # TODO: Add all the parts
@@ -1897,6 +1927,7 @@ class Problem(ProblemAspect):
 
     def __enter__(self) -> Problem:
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
+        self.tmpfeeddir = tempfile.mkdtemp(prefix=self.probdir, suffix='TempFeedDir') #TODO är de rätt?
         if not os.path.isdir(self.probdir):
             self.error(f"Problem directory '{self.probdir}' not found")
             self.shortname = None
@@ -1932,6 +1963,7 @@ class Problem(ProblemAspect):
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
         shutil.rmtree(self.tmpdir)
+        # shutil.rmtree(self.tmpfeeddir)
 
     def __str__(self) -> str:
         return str(self.shortname)
@@ -1957,7 +1989,7 @@ class Problem(ProblemAspect):
             run.limit.check_limit_capabilities(self)
             
             # Skip any parts that do not belong to the format
-            parts = [part for part in args.parts if part in self.part_mapping]
+            parts = [part for part in args.parts if part in self.part_mapping] #Checkar inte outvis? TODO
 
             if executor:
                 for part in parts:
@@ -1968,6 +2000,7 @@ class Problem(ProblemAspect):
                 self.msg(f'Checking {part}')
                 for item in self.part_mapping[part]:
                     self.classes[item.PART_NAME].check(context)
+                #TODO skapa mappsystemet här eventuellt
 
         except VerifyError:
             pass
