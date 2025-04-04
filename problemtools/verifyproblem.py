@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+import datetime
 import threading
 import queue
 import glob
@@ -141,6 +142,12 @@ class ProblemAspect(ABC):
     def __init__(self, name: str) -> None:
         self.log = log.getChild(name)
 
+    def fatal(self, msg: str, additional_info: str|None=None, *args) -> None:
+        self._check_res = False
+        ProblemAspect.errors += 1
+        self.log.error(ProblemAspect.__append_additional_info(msg, additional_info), *args)
+        raise VerifyError(msg)
+
     def error(self, msg: str, additional_info: str|None=None, *args) -> None:
         self._check_res = False
         ProblemAspect.errors += 1
@@ -262,7 +269,7 @@ class TestCase(ProblemAspect):
         self.check_size_limits(self.ansfile)
         self._problem.getProblemPart(InputValidators).validate(self)
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
-        outputlim = self._problem.get(ProblemConfig)['limits']['output']
+        outputlim = self._problem.get(Config_Legacy)['limits']['output']
         if anssize > outputlim:
             self.error(f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit')
         elif 2 * anssize > outputlim:
@@ -331,7 +338,7 @@ class TestCase(ProblemAspect):
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
             status, runtime = sub.run(infile=self.infile, outfile=outfile, errfile=errfile,
                                       timelim=timelim_high+1,
-                                      memlim=self._problem.get(ProblemConfig)['limits']['memory'], work_dir=sub.path)
+                                      memlim=self._problem.get(Config_Legacy)['limits']['memory'], work_dir=sub.path)
             if is_TLE(status) or runtime > timelim_high:
                 res_high = SubmissionResult('TLE')
             elif is_RTE(status):
@@ -420,11 +427,10 @@ class TestCaseGroup(ProblemAspect):
                 if not field in self.config:
                     self.config[field] = parent_value
 
-        # TODO: Decide if these should stay
         # Some deprecated properties are inherited from problem config during a transition period
-        problem_grading = problem.get(ProblemConfig)['grading']
+        problem_grading = problem.get(Config_Legacy)['grading']
         for key in ['accept_score', 'reject_score', 'range']:
-            if key in problem.get(ProblemConfig)['grading']:
+            if key in problem.get(Config_Legacy)['grading']:
                 self.config[key] = problem_grading[key]
 
         problem_on_reject = problem_grading.get('on_reject')
@@ -433,7 +439,7 @@ class TestCaseGroup(ProblemAspect):
         if problem_on_reject == 'grade':
             self.config['on_reject'] = 'continue'
 
-        if self._problem.get(ProblemConfig)['type'] == 'pass-fail':
+        if self._problem.get(Config_Legacy)['type'] == 'pass-fail':
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if key not in self.config:
                     self.config[key] = None
@@ -709,10 +715,8 @@ class TestCaseGroup(ProblemAspect):
             res += child.all_datasets()
         return res
 
-
 class ProblemStatement(ProblemPart):
     PART_NAME = 'statement'
-
     def setup(self):
         self.format_data = formatversion.get_format_data(self.problem.probdir)
         if not self.format_data:
@@ -725,7 +729,6 @@ class ProblemStatement(ProblemPart):
         else:
             self.error(f"No directory named {self.format_data.statement_directory} found")
             self.statements = []
-
         return self.get_config()
 
     def check(self, context: Context) -> bool:
@@ -741,7 +744,6 @@ class ProblemStatement(ProblemPart):
         for lang, count in collections.Counter(langs).items():
             if count > 1:
                 self.error(f"Can't supply multiple statements of the same language ({lang}).")
-
         for _, lang in self.statements:
             try:
                 options = problem2pdf.get_parser().parse_args([""])
@@ -770,7 +772,7 @@ class ProblemStatement(ProblemPart):
         return 'problem statement'
 
     def get_config(self) -> dict[str, dict[str, str]]:
-        ret: dict[str, dict[str, str]] = {'name':{}}
+        ret: dict[str, dict[str, str]] = {}
         for filename, lang in self.statements:
             dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
             with open(os.path.join(dir, filename)) as f:
@@ -778,19 +780,17 @@ class ProblemStatement(ProblemPart):
             hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
             if hit:
                 problem_name = hit.group(1).strip()
-                ret['name'][lang] = problem_name
-        return ret if ret['name'] else {}
+                ret[lang] = problem_name
+        return ret
 
 
-class ProblemConfig(ProblemPart):
-    PART_NAME = 'config'
 
+class ProblemConfigBase(ProblemPart):
     @staticmethod
     def setup_dependencies():
         return {ProblemStatement}
 
-    _MANDATORY_CONFIG = ['name']
-    _OPTIONAL_CONFIG = config.load_config('problem.yaml')
+    PART_NAME = 'config'
     _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
 
     def setup(self):
@@ -801,41 +801,156 @@ class ProblemConfig(ProblemPart):
         if os.path.isfile(self.configfile):
             try:
                 with open(self.configfile) as f:
-                    self._data = yaml.safe_load(f)
-                # Loading empty yaml yields None, for no apparent reason...
-                if self._data is None:
-                    self._data = {}
+                    self._data = yaml.safe_load(f) or {}
             except Exception as e:
-                self.error(str(e))
+                self.fatal(str(e))
 
-        # Add config items from problem statement e.g. name
-        self._data.update(self.problem.get(ProblemStatement))
+        self.common_fix_config_structure()
+        self.fix_config_structure()
 
-        # Populate rights_owner unless license is public domain
-        if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
-            if 'author' in self._data:
+        return self._data
+
+    def common_fix_config_structure(self):
+        for field, value in self._data.items():
+            if value is None:
+                self.error(f"Field '{field}' provided in problem.yaml but is empty")
+
+        self._data.setdefault('license', 'unknown')
+        if type(self._data['license']) is str:
+            self._data['license'] = self._data['license'].lower()
+        if self._data['license'] not in self._VALID_LICENSES:
+            self.error(f'License needs to be one of: {self._VALID_LICENSES}')
+        if self._data['license'] == 'unknown':
+            self.warning("License is 'unknown'")
+    def fix_config_structure(self):
+        pass
+
+    def check_uuid(self, uuid: str) -> None:
+        if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}+$', uuid):
+            self.error(f'UUID "{uuid}" is not a valid UUID')
+
+
+    def check(self, context: Context) -> bool:
+        if self._check_res is not None:
+            return self._check_res
+        self._check_res = True
+        to_check = [prop for prop in dir(self) if prop.startswith('_check_') and callable(getattr(self, prop))]
+        for prop in to_check:
+            self.info(f'Checking "{prop}"')
+            fun = getattr(self, prop)
+            fun()
+            # TODO: if fatal has happened: abort
+        return self._check_res
+
+class Config_Legacy(ProblemConfigBase):
+    DEFAULT_LIMITS = {
+        "time_multiplier": 5,
+        "time_safety_margin": 2,
+        "memory": 1024,
+        "output": 8,
+        "code": 128,
+        "compilation_time": 60,
+        "validation_time": 60,
+        "validation_memory": 1024,
+        "validation_output": 8,
+    }
+
+    def fix_config_structure(self):
+        self._data.setdefault('problem_format_version', formatversion.VERSION_LEGACY)
+        if self._data.get('problem_format_version') != formatversion.VERSION_LEGACY:
+            val = self._data['problem_format_version']
+            self.error(f'problem_format_version needs to be the string {formatversion.VERSION_LEGACY} for the legacy format (got: "{val}")')
+
+        self._data.setdefault('type', 'pass-fail')
+        if self._data['type'] not in ('pass-fail', 'scoring'):
+            val = self._data['type']
+            self.fatal(f'Type should be one of ["pass-fail", "scoring"] (got: "{val}")')
+
+        if 'name' in self._data:
+            val = self._data['name']
+            if type(val) is not str:
+                self.warning(f'name should be of type string (got: "{val}")')
+                val = str(val)
+            self._data['name'] = {'': val}
+        self._data.setdefault('name', {})
+        self._data['name'].update(self.problem.get(ProblemStatement))
+
+        for prop in ('uuid', 'author', 'source', 'source_url'):
+            if prop in self._data:
+                if type(self._data[prop]) is not str:
+                    val = self._data[prop]
+                    self.warning(f'"{prop}" should be of type string (got "{val}")')
+                    self._data[prop] = str(val)
+                if prop == 'uuid':
+                    self.check_uuid(self._data[prop])
+
+        if self._data['license'] != 'public domain':
+            if 'rights_owner' in self._data:
+                self._data['rights_owner'] = self._data['rights_owner'].strip()
+            elif 'author' in self._data:
                 self._data['rights_owner'] = self._data['author']
             elif 'source' in self._data:
                 self._data['rights_owner'] = self._data['source']
+            else:
+                self.error('No author, source or rights_owner provided')
+        else:
+            if 'rights_owner' in self._data:
+                self.error('Can not have a rights_owner for a problem in public domain')
+        
+        if not self._data['license'] in ('unknown', 'public domain') and 'rights_owner' not in self._data:
+            self.error('rights_owner needs to be defined when license is not "public domain" or "unknown"')
 
-        if 'license' in self._data:
-            self._data['license'] = self._data['license'].lower()
+        self._data.setdefault('limits', {})
+        for key, default in self.DEFAULT_LIMITS.items():
+            self._data['limits'].setdefault(key, default)
+            val = self._data['limits'][key]
+            if key not in ('time_multiplier', 'time_safety_margin') and type(val) is float:
+                self._data['limits'][key] = int(val)
+                self.warning(f'Property limits.{key} of type int was given as a float. Using {self._data["limits"][val]}')
+            elif type(val) not in (float, int):
+                self.fatal(f'Property limts.{key} was of incorrect type. Acceptable types are int and float. (got: "{val}")')
 
-        # Ugly backwards compatibility hack
-        if 'name' in self._data and not isinstance(self._data['name'], dict):
-            self._data['name'] = {'': self._data['name']}
+        self._data.setdefault('grading', {})
+        grading = self._data['grading']
+        if 'objective' in grading:
+            if grading['objective'] not in ('min', 'max'):
+                self.fatal(f'grading.objective shmust be either "min" or "max"] (got: "{grading["objective"]}")')
+        else:
+            self._data['grading']['objective'] = 'max'
 
-        self._origdata = copy.deepcopy(self._data)
+        if 'show_test_data_groups' in grading:
+            if type(grading['show_test_data_groups']) is not bool:
+                self.fatal(f'grading.show_test_data_groups should be of type bool (got: "{grading["show_test_data_groups"]}")')
+            elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
+                self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
+        else:
+            self._data['grading']['show_test_data_groups'] = False
 
-        for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).items():
-            if not field in self._data:
-                self._data[field] = default
-            elif isinstance(default, dict) and isinstance(self._data[field], dict):
-                self._data[field] = dict(list(default.items()) + list(self._data[field].items()))
+        if 'on_reject' in self._data['grading']:
+            if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
+                self.error(f"Invalid on_reject policy '{self._data['grading']['on_reject']}' for problem type '{self._data['type']}'")
+            if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
+                self.error(f"Invalid value '{self._data['grading']['on_reject']}' for on_reject policy")
 
-        val = self._data['validation'].split()
-        self._data['validation-type'] = val[0]
-        self._data['validation-params'] = val[1:]
+        for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
+            if deprecated_grading_key in self._data['grading']:
+                self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
+
+        if 'validation' in self._data:
+            val = self._data['validation']
+            if type(val) is not str:
+                self.fatal(f'validation expected to be of type string (got: "{val}")')
+            else:
+                args = val.split()
+                if len(args) > 0:
+                    self._data['validation-type'] = args[0]
+                    self._data['validation-params'] = args[1:]
+                else:
+                    self.fatal(f'validation expected to contain at least one argument (got: {val})')
+        else:
+            self._data['validation-type'] = 'default'
+            self._data['validation-params'] = []
+
 
         self._data['grading']['custom_scoring'] = False
         for param in self._data['validation-params']:
@@ -844,112 +959,391 @@ class ProblemConfig(ProblemPart):
             elif param == 'interactive':
                 pass
 
-        return self._data
+        self._data.setdefault('validator_flags', '')
+        if type(self._data['validator_flags']) is not str:
+            self.error(f'validator_flags should be of type string (got: "{self._data["validator_flags"]}")')
 
+        self._data.setdefault('keywords', '')
+        if type(self._data['keywords']) is not str:
+            self.error(f'keywords should be a string with space-separated words (got: "{self._data["keywords"]}")')
+        else:
+            self._data['keywords'] = self._data["keywords"].split()
 
-    def __str__(self) -> str:
-        return 'problem configuration'
+    def _check_validation(self):
+        if self._data['validation-type'] == 'default':
+            if len(self._data['validation-params']) > 0:
+                self.error('If validation is set to "default", no other arguments are permitted')
+        elif self._data['validation-type'] == 'custom':
+            params = self._data['validation-params']
+            for p, cnt in collections.Counter(params).items():
+                if p not in ('score', 'interactive'):
+                    self.error(f'validation params should be one of ["score", "interactive"] (got: {p})')
+                elif cnt > 1:
+                    self.error(f'validation params should only be given once ({p} was given {cnt} times)')
 
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
+    def _check_source_url(self):
+        if 'source' not in self._data:
+            if 'source_url' in self._data:
+                self.error('source needs to be defined when source_url is defined')
 
-        if not os.path.isfile(self.configfile):
-            self.error(f"No config file {self.configfile} found")
+    def _check_custom_groups(self):
+        # TODO: implement the check
+        pass
+        #if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
+        #    self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
 
-        for field in ProblemConfig._MANDATORY_CONFIG:
-            if not field in self._data:
-                self.error(f"Mandatory field '{field}' not provided")
+    def _check_unknown_fields(self):
+        known = {'problem_format_version', 'type', 'name', 'uuid', 'author', 'source', 'source_url', 'license', 'rights_owner', 'limits', 'validation', 'validation-type', 'validation-params', 'validator_flags', 'grading', 'keywords'}
+        for field in self._data.keys():
+            if field not in known:
+                self.warning(f'unknown field "{field}"')
 
-        for field, value in self._origdata.items():
-            if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
-                self.warning(f"Unknown field '{field}' provided in problem.yaml")
+class Config_2023_07(ProblemConfigBase):
 
-        for field, value in self._data.items():
-            if value is None:
-                self.error(f"Field '{field}' provided in problem.yaml but is empty")
-                self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
+    DEFAULT_LIMITS = {
+        "time_multipliers": {
+            "ac_to_timmelimit": 2.0,
+            "time_limit_to_tle": 1.5
+        },
+        # "time_limit": left empty if it isn't specified because it needs to be calculated based on slowest submission
+        "time_resolution": 1.0,
+        "memory": 2048,
+        "output": 8,
+        "code": 128,
+        "compilation_time": 60,
+        "compilation_memory": 2048,
+        "validation_time": 60,
+        "validation_memory": 2048,
+        "validation_output": 8,
+        "validation_passes": 2,
+    }
 
-        # Check type
-        if not self._data['type'] in ['pass-fail', 'scoring']:
-            self.error(f"Invalid value '{self._data['type']}' for type")
+    _REQUIRED_FIELDS = ['problem_format_version', 'name', 'uuid']
+    _PROBLEM_TYPES = {'pass-fail', 'scoring', 'interactive', 'multi-pass', 'submit-answer'}
+    _statement_languages = set()
+    def fix_config_structure(self):
+        self._statement_languages = set(self.problem.get(ProblemStatement).keys())
+        for REQUIRED_FIELD in self._REQUIRED_FIELDS:
+            if REQUIRED_FIELD not in self._data:
+                self.error(f'Missing required field "{REQUIRED_FIELD}"')
+                continue
 
-        # Check rights_owner
-        if self._data['license'] == 'public domain':
-            if self._data['rights_owner'].strip() != '':
-                self.error('Can not have a rights_owner for a problem in public domain')
-        elif self._data['license'] != 'unknown':
-            if self._data['rights_owner'].strip() == '':
+            to_check = self._data[REQUIRED_FIELD]
+            if REQUIRED_FIELD == 'problem_format_version':
+                if to_check != formatversion.VERSION_2023_07:
+                    self.error(f'problem_format_version needs to be the string {formatversion.VERSION_2023_07} for the 2023_07 format (got: "{to_check}")')
+
+            elif REQUIRED_FIELD == 'name':
+                if type(to_check) is str:
+                    self._data[REQUIRED_FIELD] = {'en': to_check}
+
+                if type(self._data['name']) is dict:
+                    for statement_lang in self._statement_languages:
+                        if statement_lang not in self._data['name']:
+                            self.error(f'No name set for language: "{statement_lang}"')
+
+                elif type(self._data['name']) is not dict:
+                    self.error(f'Name expected to be of type string or dict (got: {to_check})')
+
+            elif REQUIRED_FIELD == 'uuid':
+                if type(to_check) is not str:
+                    self.error(f'UUID expected to be of type string (got: {to_check}) of type {type(to_check)}')
+                else:
+                    self.check_uuid(self._data['uuid'])
+
+        self._data.setdefault('type', ['pass-fail'])
+        if type(self._data['type']) is str:
+            if self._data['type'] not in self._PROBLEM_TYPES:
+                val = self._data['type']
+                self.error(f'Type expected to be one of {self._PROBLEM_TYPES} (got: {val})')
+            else:
+                self._data['type'] = [self._data['type']]
+
+        elif type(self._data['type']) is not list:
+            self.error(f'Type expected to be of type string or list (got: {self._data["type"]})')
+
+        types_chosen = set(self._data['type'])
+        if len(types_chosen) == 0:
+            self.error('Type must contain at least one type')
+
+        elif len(types_chosen) != len(self._data['type']):
+            self.error('Duplicates for field "type" is not allowed')
+
+        else:
+            if 'pass-fail' in types_chosen and 'scoring' in types_chosen:
+                self.error('Type "pass-fail" and "scoring" are not allowed together')
+
+            if 'submit-answer' in types_chosen:
+                for banned in ['multi-pass', 'interactive']:
+                    if banned in types_chosen:
+                        self.error(f'Type "{banned}" and "submit-answer" are not allowed together')
+
+        def person_check(persons, persontype) -> list[dict[str, str]]:
+            if type(persons) not in (str, list):
+                self.error(f'Field "{persontype}" must be of type str, list (got: {type(persons)})')
+                return []
+
+            if type(persons) is str:
+                persons = [persons]
+
+            def extract_email(person):
+                name_email = re.match(r'(.+)<(.+@.+)>', person)
+                if name_email:
+                    return {
+                            "name": name_email.group(1).strip(), 
+                            "email": name_email.group(2)
+                            }
+                return {"name": person.strip()}
+
+            new_persons = []
+            for person in persons:
+                if type(person) is str:
+                    if person.strip() == '':
+                        self.error(f'"{persontype}" may not be an empty string, remove or set a {persontype[:-1]} / list of {persontype}')
+                    new_persons.append(extract_email(person))               
+                elif type(person) is dict:
+                    if 'name' not in person:
+                        self.error(f'{person} dict must have a field "name"')
+                        continue
+
+                    if person['name'].strip() == '':
+                        self.error(f'name field for "{person}" may not be an empty string')
+
+                    name_email = extract_email(person['name'])
+                    if 'email' in name_email and 'email' in person:
+                        self.error(f'Both email in name and email field in "{person}" cannot be set, choose one')
+
+                    elif 'email' in name_email:
+                        person.update(name_email)        
+
+                    elif 'email' in person:
+                        email = person['email']
+                        if type(email) is str:                                
+                            if email.strip() == '':
+                                self.error('Email may not be empty string')
+                            if not re.fullmatch(r'.+@.+', email):
+                                self.error(f'Email "{email}" is not a valid email address')
+                            person['email'] = email.strip()
+                        else:
+                            self.error(f'Email must be of type str (got: "{email}" of type: {type(email)})')
+
+                    if 'orcid' in person:
+                        if type(person['orcid']) is str:
+                            if person['orcid'].strip() == '':
+                                self.error('ORCID may not be empty string')
+                            if not re.search(r'^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{4}$', person['orcid']):
+                                self.error(f'ORCID "{person["orcid"]}" is not a valid ORCID address')
+                            person['orcid'] = person['orcid'].strip()
+                        else:
+                            self.error(f'ORCID must be of type str (got: {type(person["orcid"])})')
+
+                    if 'kattis' in person:
+                        if type(person['kattis']) is str:
+                            if person['kattis'].strip() == '':
+                                self.error('Kattis username may not be empty string')
+                            if ' ' in person['kattis']:
+                                self.error(f'Kattis username "{person["kattis"]}" may not contain spaces')
+                            person['kattis'] = person['kattis'].strip()
+                        else:
+                            self.error(f'Kattis username must be of type str (got: {type(person["kattis"])})')
+
+                    new_persons.append(person)
+            return new_persons
+
+        if 'rights_owner' in self._data:
+            if type(self._data['rights_owner']) is str:
+                self._data['rights_owner'] = person_check([self._data['rights_owner'].strip()], 'rights_owners')
+            else:
+                self.error(f'rights_owner must be of type str (got: "{self._data["rights_owner"]}" of type: {type(self._data["rights_owner"])})')
+        else:
+            self._data['rights_owner'] = []
+
+        if 'credits' in self._data:
+            if "traslators" in self._data['credits']:
+                translators = self._data['credits']['traslators']
+                if type(translators) is str:
+                    if translators.strip() == '':
+                        self.error('"traslators" may not be an empty string, remove or set a translator / list of translators')
+                    self._data['credits']['traslators'] = {'en': person_check(translators, 'EN_traslators')}
+
+                elif type(translators) is dict:
+                    for lang, translator in translators.items():
+                        if type(lang) is not str:
+                            self.error(f'Traslator language "{lang}" must be of type str (got: {type(lang)})')
+
+                        if lang not in self._statement_languages:
+                            self.error(f'Traslator language "{lang}" does not have a corresponding statement')
+
+                        self._data['credits']['traslators'][lang] = person_check(translator, f'traslators.{lang}')
+                else:
+                    self.error(f'Traslator must be of type str or dict (got: {type(translators)})')
+
+            similar_credit_fields = ['authors', 'contributors', 'testers', 'packagers', 'acknowledgements']
+
+            for field in similar_credit_fields:
+                if field in self._data['credits']:
+                    persons = person_check(self._data['credits'][field], field)
+                    self._data['credits'][field] = persons
+                    if field == 'authors' and len(self._data['rights_owner']) == 0:
+                        self._data['rights_owner'] = persons
+
+        if 'source' in self._data:
+            ALLOWED_SOURCE_KEYS = {'name', 'url'}
+            if type(self._data['source']) in (str, dict):
+                self._data['source'] = [self._data['source']]
+
+            if type(self._data['source']) is list:
+                for i, val in enumerate(self._data['source']):
+                    if type(val) is str:
+                        self._data['source'][i] = {'name': val}
+                    elif type(val) is dict:
+                        if 'name' not in val:
+                            self.error(f'source needs to have key name (got: {val})')
+
+                        for k in val.keys():
+                            if k not in ALLOWED_SOURCE_KEYS:
+                                self.warning(f'source has unknown key "{k}" (allowed keys: {ALLOWED_SOURCE_KEYS})')
+                            elif type(val[k]) is not str:
+                                self.error(f'source.{k} needs to be of type string (got: "{val[k]}")')
+                    else:
+                        self.error(f'each source needs to be a string or a map (got: "{val}")')
+
+                if len(self._data['rights_owner']) == 0:
+                    self._data['rights_owner'] = self._data['source']
+            else:
+                self.error(f'source needs to be of a string, list or a map (got: "{self._data["source"]}")')
+
+        if self._data['license'] != 'public domain':
+            if len(self._data['rights_owner']) == 0:
                 self.error('No author, source or rights_owner provided')
+        else:
+            if len(self._data['rights_owner']) != 0:
+                self.error('Can not have a rights_owner for a problem in public domain')
+        
+        if not self._data['license'] in ('unknown', 'public domain') and len(self._data['rights_owner']) == 0:
+            self.error('rights_owner needs to be defined when license is not "public domain" or "unknown"')
 
-        # Check source_url
-        if (self._data['source_url'].strip() != '' and
-            self._data['source'].strip() == ''):
-            self.error('Can not provide source_url without also providing source')
+        if 'embargo_until' in self._data:
+            val = self._data['embargo_until']
+            try:
+                if type(val) != str:
+                    self.error(f'embargo_until needs to be of type string (got: "{val}")')
 
-        # Check license
-        if not self._data['license'] in ProblemConfig._VALID_LICENSES:
-            self.error(f"Invalid value for license: {self._data['license']}.\n  Valid licenses are {ProblemConfig._VALID_LICENSES}")
-        elif self._data['license'] == 'unknown':
-            self.warning("License is 'unknown'")
+                if re.fullmatch(r'\d{4}-\d\d-\d\d', val):
+                    self._data['embargo_until'] = datetime.datetime.strptime(val, '%Y-%m-%d').replace(tzinfo=datetime.timezone.utc)
+                elif re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ?', val):
+                    val = val.replace('Z', '')
+                    self._data['embargo_until'] = datetime.datetime.strptime(val, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+                else:
+                    self.error(f'embargo_until needs to be in the form "YYYY-MM-DD" or "YYYY-MM-DDThh:mm:ss" and will be treated as UTC0, (got: "{val}")')
+            except ValueError as e:
+                self.error(f'embargo_until contained invalid date: {e}')
 
-        if self._data['grading']['show_test_data_groups'] not in [True, False]:
-            self.error(f"Invalid value for grading.show_test_data_groups: {self._data['grading']['show_test_data_groups']}")
-        elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
-            self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
-        if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
-            self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
+        limits = self._data.get('limits', {})
+        self._data['limits'] = copy.deepcopy(self.DEFAULT_LIMITS)
+        ints = {'memory', 'output', 'code', 'compilation_time', 'compilation_memory', 'validation_time', 'validation_memory', 'validation_output', 'validation_passes'}
+        allowed_keys_limits = ints | {'time_limit', 'time_resolution', 'time_multipliers'}
+        allowed_in_time_multipliers = {'ac_to_time_limit', 'time_limit_to_tle'}
+        for k in limits:
+            if k not in allowed_keys_limits:
+                self.warning(f"Unknown property limits.{k} was given")
+            if k == "time_multipliers":
+                for k2 in limits[k]:
+                    if k2 not in allowed_in_time_multipliers:
+                        self.warning(f"Unknown property limits.time_multipliers.{k2} was given")
 
-        if 'on_reject' in self._data['grading']:
-            if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
-                self.error(f"Invalid on_reject policy '{self._data['grading']['on_reject']}' for problem type '{self._data['type']}'")
-            if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
-                self.error(f"Invalid value '{self._data['grading']['on_reject']}' for on_reject policy")
+        for i in ints:
+            if i not in limits:
+                continue
+            val = limits[i]
+            if type(val) is float:
+                val = int(val)
+                self.warning(f'limits.{i} was given as a float ({limits[i]}), interpreting as {val}')
+            elif type(val) is not int:
+                self.fatal(f'limits.{i} was of incorrect type, expected int (got: "{val}")')
 
-        if self._data['grading']['objective'] not in ['min', 'max']:
-            self.error(f"Invalid value '{self._data['grading']['objective']}' for objective")
+            if i == 'validation_passes' and val < 2:
+                self.fatal(f'limits.validation_passes should be >= 2 (got: "{val}")')
+            elif val <= 0:
+                self.fatal(f'limits.{i} needs to be > 0 (got: {val})')
+            self._data['limits'][i] = limits[i]
 
-        for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
-            if deprecated_grading_key in self._data['grading']:
-                self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
+        for f in ('time_resolution', 'time_limit'):
+            if f in limits:
+                if type(limits[f] not in (int, float)) or limits[f] <= 0:
+                    self.fatal(f'limits.{f} needs to be a float greater than 0 (got: "{limits[f]}")')
+                self._data[f] = float(limits[f])
 
-        if not self._data['validation-type'] in ['default', 'custom']:
-            self.error(f"Invalid value '{self._data['validation']}' for validation, first word must be 'default' or 'custom'")
+        if 'time_multipliers' in limits:
+            if type(limits['time_multipliers']) is dict:
+                for k in ('ac_to_time_limit', 'time_limit_to_tle'):
+                    if k in limits['time_multipliers']:
+                        val = limits['time_multipliers'][k]
+                        if type(val) not in (int, float) or val < 1:
+                            self.fatal(f'limits.time_multipliers.{k} needs to be a float >= 1 (got: "{val}")')
+                        self._data['limits']['ac_to_time_limit'][k] = float(val)
 
-        if self._data['validation-type'] == 'default' and len(self._data['validation-params']) > 0:
-            self.error(f"Invalid value '{self._data['validation']}' for validation")
+        self._data.setdefault('keywords', [])
+        for kw in self._data['keywords']:
+            if type(kw) is not str:
+                self.error(f'keywords contains non-string item ("{kw}")')
 
-        if self._data['validation-type'] == 'custom':
-            for param in self._data['validation-params']:
-                if param not in['score', 'interactive']:
-                    self.error(f"Invalid parameter '{param}' for custom validation")
 
-        # Check limits
-        if not isinstance(self._data['limits'], dict):
-            self.error('Limits key in problem.yaml must specify a dict')
-            self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
+        self._data.setdefault('languages', "all")
+        langs = self._data['languages']
 
-        # Some things not yet implemented
-        if self._data['libraries'] != '':
-            self.error("Libraries not yet supported")
+        # There are way more languages that should be here that are not in the languages.yaml ...
+        valid_languages = set(self.problem.language_config.languages.keys()) if hasattr(self.problem, 'language_config') else set()
 
-        return self._check_res
+        if type(langs) is str:
+            if langs.lower() != 'all':
+                self.error(f'Field "languages" should be "all" or a list of languages (got: "{langs}")')
+            self._data['languages'] = valid_languages
+        elif type(langs) is list:
+            for lang in langs:
+                if type(lang) is not str:
+                    self.error(f'Each language in "languages" list must be of type "str" (got: "{langs}")')
+                elif lang not in valid_languages:
+                    self.fatal(f'Field "languages" contains unknown language "{lang}"')
+            self._data['languages'] = langs
+        else:
+            self.fatal(f'Field "languages" should be "all" or a list of languages (got: "{langs}")')
+
+        self._data.setdefault('allow_file_writing', False)
+        if type(self._data['allow_file_writing']) is not bool:
+            self.fatal(f'allow_file_writing should be of type bool (got: "{self._data["allow_file_writing"]}")')
+
+        self._data.setdefault('constants', {})
+        if type(self._data['constants']) is not dict:
+            self.fatal(f'constants must be maps (got: "{self._data["constants"]}")')
+        else:
+            for k, v in self._data['constants'].items():
+                constant_regex = r'[a-zA-Z_][a-zA-Z0-9_]*'
+                if not re.fullmatch(constant_regex, k):
+                    self.error(f'Invalid name for constant "{k}". Name must match "{constant_regex}"')
+                else:
+                    if type(v) not in (int, float, string):
+                        self.error(f'Invalid type for constant "{k}". Needs to be of type int, float or string. (got: "{v}")')
+
+    def _check_unknown_fields(self):
+        known = {'problem_format_version', 'type', 'name', 'uuid', 'version', 'credits', 'source', 'license', 'rights_owner', 'embargo_until', 'limits', 'keywords', 'languages', 'allow_file_writing', 'constants'}
+        for field in self._data.keys():
+            if field not in known:
+                self.warning(f'unknown field "{field}"')
 
 class ProblemTestCases(ProblemPart):
-    
     PART_NAME = 'testdata'
-    
+
     @staticmethod
     def setup_dependencies():
-        return {ProblemConfig}
+        return {ProblemConfigBase}
 
     def setup(self):
         self.testcase_by_infile = {}
         return {
                 'root_group': TestCaseGroup(self.problem, self.PART_NAME),
-                'is_interactive': 'interactive' in self.problem.get(ProblemConfig)['validation-params'],
-                'is_scoring': self.problem.get(ProblemConfig)['type'] == 'scoring'
+                'is_interactive': 'interactive' in self.problem.get(Config_Legacy)['validation-params'],
+                'is_scoring': self.problem.get(Config_Legacy)['type'] == 'scoring'
                 }
 
     def check(self, context: Context) -> bool:
@@ -1162,7 +1556,7 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self.problem.get(ProblemConfig)['type'] == 'pass-fail' and len(self._graders) > 0:
+        if self.problem.get(Config_Legacy)['type'] == 'pass-fail' and len(self._graders) > 0:
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
@@ -1269,12 +1663,12 @@ class OutputValidators(ProblemPart):
             if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
-        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._validators:
+        if self.problem.get(Config_Legacy)['validation-type'] == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.get(ProblemConfig)['validation'] != 'default' and not self._validators:
+        elif self.problem.get(Config_Legacy)['validation-type'] != 'default' and not self._validators:
             self.error('problem.yaml specifies custom validator but no validator programs found')
 
-        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._default_validator is None:
+        if self.problem.get(Config_Legacy)['validation-type'] == 'default' and self._default_validator is None:
             self.error('Unable to locate default validator')
 
         for val in self._validators[:]:
@@ -1287,7 +1681,7 @@ class OutputValidators(ProblemPart):
 
         # Only sanity check output validators if they all actually compiled
         if self._check_res:
-            flags = self.problem.get(ProblemConfig)['validator_flags']
+            flags = self.problem.get(Config_Legacy)['validator_flags']
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
@@ -1329,7 +1723,7 @@ class OutputValidators(ProblemPart):
 
 
     def _parse_validator_results(self, val, status: int, feedbackdir, testcase: TestCase) -> SubmissionResult:
-        custom_score = self.problem.get(ProblemConfig)['grading']['custom_scoring']
+        custom_score = self.problem.get(Config_Legacy)['grading']['custom_scoring']
         score = None
         # TODO: would be good to have some way of displaying the feedback for debugging uses
         score_file = os.path.join(feedbackdir, 'score.txt')
@@ -1364,7 +1758,7 @@ class OutputValidators(ProblemPart):
 
     def _actual_validators(self) -> list:
         vals = self._validators
-        if self.problem.get(ProblemConfig)['validation'] == 'default':
+        if self.problem.get(Config_Legacy)['validation-type'] == 'default':
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
 
@@ -1380,10 +1774,10 @@ class OutputValidators(ProblemPart):
         # file descriptor, wall time lim
         initargs = ['1', str(2 * timelim)]
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>']
-        submission_args = submission.get_runcmd(memlim=self.problem.get(ProblemConfig)['limits']['memory'])
+        submission_args = submission.get_runcmd(memlim=self.problem.get(Config_Legacy)['limits']['memory'])
 
-        val_timelim = self.problem.get(ProblemConfig)['limits']['validation_time']
-        val_memlim = self.problem.get(ProblemConfig)['limits']['validation_memory']
+        val_timelim = self.problem.get(Config_Legacy)['limits']['validation_time']
+        val_memlim = self.problem.get(Config_Legacy)['limits']['validation_memory']
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
@@ -1435,9 +1829,9 @@ class OutputValidators(ProblemPart):
 
     def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
         res = SubmissionResult('JE')
-        val_timelim = self.problem.get(ProblemConfig)['limits']['validation_time']
-        val_memlim = self.problem.get(ProblemConfig)['limits']['validation_memory']
-        flags = self.problem.get(ProblemConfig)['validator_flags'].split() + testcase.testcasegroup.config['output_validator_flags'].split()
+        val_timelim = self.problem.get(Config_Legacy)['limits']['validation_time']
+        val_memlim = self.problem.get(Config_Legacy)['limits']['validation_memory']
+        flags = self.problem.get(Config_Legacy)['validator_flags'].split() + testcase.testcasegroup.config['output_validator_flags'].split()
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
@@ -1646,14 +2040,14 @@ class Submissions(ProblemPart):
 
     def full_score_finite(self) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases)['root_group'].get_score_range()
-        if self.problem.get(ProblemConfig)['grading']['objective'] == 'min':
+        if self.problem.get(Config_Legacy)['grading']['objective'] == 'min':
             return min_score != float('-inf')
         else:
             return max_score != float('inf')
 
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases)['root_group'].get_score_range()
-        best_score = min_score if self.problem.get(ProblemConfig)['grading']['objective'] == 'min' else max_score
+        best_score = min_score if self.problem.get(Config_Legacy)['grading']['objective'] == 'min' else max_score
         return result.verdict == 'AC' and (not self.problem.get(ProblemTestCases)['is_scoring'] or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
@@ -1669,7 +2063,7 @@ class Submissions(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        limits = self.problem.get(ProblemConfig)['limits']
+        limits = self.problem.get(Config_Legacy)['limits']
         time_multiplier = limits['time_multiplier']
         safety_margin = limits['time_safety_margin']
 
@@ -1729,15 +2123,17 @@ class Submissions(ProblemPart):
         return self._check_res
 
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
-    'legacy': {
-        'config':       [ProblemConfig],
+    formatversion.VERSION_LEGACY: {
+        #'config':       [ProblemConfig],
+        'config':       [Config_Legacy],
         'statement':    [ProblemStatement, Attachments],
         'validators':   [InputValidators, OutputValidators],
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
+        #'fornow_remove': [Config_Legacy],
     },
-    '2023-07': { # TODO: Add all the parts
+    formatversion.VERSION_2023_07: { # TODO: Add all the parts
         'statement':    [ProblemStatement, Attachments],
     }
 }
@@ -1754,7 +2150,7 @@ class Problem(ProblemAspect):
     problem are listed. These should all be a subclass of ProblemPart. The dictionary is in the form
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
-    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS['legacy']):
+    def __init__(self, probdir: str,  args: argparse.Namespace, parts: dict[str, list[type]] = PROBLEM_FORMATS[formatversion.VERSION_LEGACY]) -> None:
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
@@ -1763,6 +2159,12 @@ class Problem(ProblemAspect):
         self.language_config = languages.load_language_config()
         self._data: dict[str, dict] = {}
         self.debug(f'Problem-format: {parts}')
+        self.problem_can_be_checked = True
+        self.args = args
+        ProblemAspect.errors = 0
+        ProblemAspect.warnings = 0
+        ProblemAspect.bail_on_error = self.args.bail_on_error
+        ProblemAspect.consider_warnings_errors = self.args.werror
 
     def get(self, part) -> dict:
         if isinstance(part, type) and issubclass(part, ProblemPart):
@@ -1803,8 +2205,12 @@ class Problem(ProblemAspect):
             self._data[_class.PART_NAME] = self._classes[_class.PART_NAME].setup()
             initialized.add(_class.PART_NAME)
 
-        for c in self.aspects:
-            init(c)
+        try:
+            for c in self.aspects:
+                init(c)
+        except VerifyError:
+            self.problem_can_be_checked = False
+            return self
         
         return self
 
@@ -1814,17 +2220,12 @@ class Problem(ProblemAspect):
     def __str__(self) -> str:
         return str(self.shortname)
 
-    def check(self, args: argparse.Namespace) -> tuple[int, int]:
-        if self.shortname is None:
-            return 1, 0
+    def check(self) -> tuple[int, int]:
+        if self.shortname is None or not self.problem_can_be_checked:
+            return ProblemAspect.errors, ProblemAspect.warnings
 
-        ProblemAspect.errors = 0
-        ProblemAspect.warnings = 0
-        ProblemAspect.bail_on_error = args.bail_on_error
-        ProblemAspect.consider_warnings_errors = args.werror
-
-        executor = ThreadPoolExecutor(args.threads) if args.threads > 1 else None
-        context = Context(args, executor)
+        executor = ThreadPoolExecutor(self.args.threads) if self.args.threads > 1 else None
+        context = Context(self.args, executor)
 
         try:
             if not re.match('^[a-z0-9]+$', self.shortname):
@@ -1835,7 +2236,7 @@ class Problem(ProblemAspect):
             run.limit.check_limit_capabilities(self)
             
             # Skip any parts that do not belong to the format
-            parts = [part for part in args.parts if part in self.part_mapping]
+            parts = [part for part in self.args.parts if part in self.part_mapping]
 
             if executor:
                 for part in parts:
@@ -1942,15 +2343,6 @@ def initialize_logging(args: argparse.Namespace) -> None:
                         format=fmt,
                         level=getattr(logging, args.log_level.upper()))
 
-def detect_problem_version(path) -> str:
-    config_path = os.path.join(path, 'problem.yaml')
-    try:
-        with open(config_path) as f:
-            config: dict = yaml.safe_load(f) or {}
-    except Exception as e:
-        raise VerifyError(str(e))
-    return config.get('problem_format_version', 'legacy')
-
 def main() -> None:
     args = argparser().parse_args()
 
@@ -1962,16 +2354,16 @@ def main() -> None:
             problem_version = args.problem_format
             if problem_version == 'automatic':
                 try:
-                    problem_version = detect_problem_version(problemdir)
-                except VerifyError as e:
+                    problem_version = formatversion.detect_problem_version(problemdir)
+                except formatversion.VersionError as e:
                     total_errors += 1
                     print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
                     continue
             
             print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {problem_version}')
             format = PROBLEM_FORMATS[problem_version]
-            with Problem(problemdir, format) as prob:
-                errors, warnings = prob.check(args)
+            with Problem(problemdir, args, format) as prob:
+                errors, warnings = prob.check()
                 p = lambda x: '' if x == 1 else 's'
                 print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
                 total_errors += errors
