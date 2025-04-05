@@ -7,7 +7,7 @@ import re
 import json
 from pathlib import Path
 
-from . import verifyproblem
+import yaml
 
 SUPPORTED_EXTENSIONS = ("tex", "md")
 
@@ -43,7 +43,7 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
                         for language {language or 'en'}""")
     if len(extensions) == 1:
         return extensions[0]
-    raise Exception(f"No statement found for language {language or 'en'}")
+    raise FileNotFoundError(f"No statement found for language {language or 'en'}")
 
 
 def json_dfs(data, callback) -> None:
@@ -63,7 +63,7 @@ def json_dfs(data, callback) -> None:
 
 def foreach_image(statement_path, callback):
     # Find all images in the statement and call callback for each one
-    command = ["pandoc", statement_path, "-t" , "json", "-f", "markdown-raw_html"]
+    command = ["pandoc", statement_path, "-t" , "json"]
     statement_json = subprocess.run(command, capture_output=True,
                                     text=True, shell=False, check=True).stdout
     json_dfs(json.loads(statement_json), callback)
@@ -77,8 +77,7 @@ def assert_image_is_valid(problem_root: str, img_src: str) -> None:
 
     source_name = os.path.join(problem_root, img_src)
     if not os.path.isfile(source_name):
-        print(source_name)
-        raise Exception(f"File {img_src} not found in problem_statement")
+        raise FileNotFoundError(f"Resource file {img_src} not found in problem_statement")
 
 
 def assert_images_are_valid_md(statement_path: str) -> None:
@@ -88,49 +87,63 @@ def assert_images_are_valid_md(statement_path: str) -> None:
     foreach_image(statement_path,
                 lambda img_name: assert_image_is_valid(problem_root, img_name))
 
-def get_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
-    """Load problem.yaml to get problem name"""
-    if language is None:
-        language = "en"
-    with verifyproblem.Problem(problem) as prob:
-        config = verifyproblem.ProblemConfig(prob)
-    if not config.check(None):
-        raise Exception("Invalid problem.yaml")
+def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
+
+    # TODO: getting this should be done using verifyproblem
+    # Wait until new config parsing system is in place
+    config_file = Path(problem) / 'problem.yaml'
+
+    if not config_file.is_file():
+        raise FileNotFoundError("No problem.yaml found")
+
+    try:
+        with open(config_file) as f:
+            config = yaml.safe_load(f)
+        if config is None:
+            config = {}
+    except Exception as e:
+        raise Exception(f"Invalid problem.yaml: {e}")
+
+    if 'name' in config and not isinstance(config['name'], dict):
+        config['name'] = {'': config['name']}
+
     names = config.get("name")
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
         return next(iter(names.values()))
 
+    if language is None:
+        language = "en"
     if language not in names:
         raise Exception(f"No problem name defined for language {language or 'en'}")
     return names[language]
 
 
-def inject_samples(html, samples, sample_separator):
+def inject_samples(statement_html, samples, sample_separator):
     """Injects samples at occurences of {{nextsample}} and {{remainingsamples}}
     Non-destructive, returns the new html and all left-over samples
 
     Returns:
         """
-    
+
     while True:
-        match = re.search(r'\{\{(nextsample|remainingsamples)\}\}', html)
+        match = re.search(r'\{\{(nextsample|remainingsamples)\}\}', statement_html)
         if not match:
             break
         matched_text = match.group(1)
         if matched_text == "nextsample" and len(samples) == 0:
             raise Exception("Error: called {{nextsample}} without any samples left")
-        
+
         num_inject = 1 if matched_text == "nextsample" else len(samples)
         to_inject = sample_separator.join(samples[:num_inject])
         samples = samples[num_inject:]
-        
+
         # Always inject, even if to_inject is empty
         # This will remove all occurences of {{nextsample}} and {{remainingsamples}}
         # (And also properly throw an error if {{nextsample}} is called with no samples left)
-        html = html[:match.start()] + to_inject + html[match.end():]
+        statement_html = statement_html[:match.start()] + to_inject + statement_html[match.end():]
 
-    return html, samples
+    return statement_html, samples
 
 
 def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
@@ -253,6 +266,7 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int, to_pd
             elif interaction[0] == '<':
                 left = False
             else:
+                left = True
                 print(f"Warning: Interaction had unknown prefix {interaction[0]}")
             lines.append(r"""
                             \begin{table}[H]
@@ -275,5 +289,5 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int, to_pd
 
     if to_pdf:
         return line + '\\vspace{-15pt}'.join(lines)
-    else:
-        return line + ''.join(lines)
+
+    return line + ''.join(lines)

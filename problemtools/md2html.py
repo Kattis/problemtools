@@ -1,11 +1,12 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os.path
-import string
 import argparse
+import html
+import os
+import string
 import subprocess
-import re
-import tempfile
+
+import nh3
 
 from . import statement_common
 
@@ -34,46 +35,67 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     statement_common.assert_images_are_valid_md(statement_path)
     statement_common.foreach_image(statement_path,
                  lambda img_name: copy_image(problem, img_name))
-    
-    command = ["pandoc", statement_path, "-t" , "html", "-f", "markdown-raw_html", "--mathjax"]
+
+    command = ["pandoc", statement_path, "-t" , "html", "--mathjax"]
     statement_html = subprocess.run(command, capture_output=True, text=True,
         shell=False, check=True).stdout
 
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
-                     os.path.join(os.path.dirname(__file__), '../templates/markdown_html'),
                      '/usr/lib/problemtools/templates/markdown_html']
     templatepath = next((p for p in templatepaths
-                              if os.path.isdir(p) and os.path.isfile(os.path.join(p, "default-layout.html"))),
-                             None)
+        if os.path.isdir(p) and os.path.isfile(os.path.join(p, "default-layout.html"))),
+        None)
 
     if templatepath is None:
         raise Exception('Could not find directory with markdown templates')
 
-    problem_name = statement_common.get_problem_name(problem, options.language)
+    problem_name = statement_common.get_yaml_problem_name(problem, options.language)
 
-    html_template = _substitute_template(templatepath, "default-layout.html",
+    if problem_name:
+        problem_name = html.escape(problem_name)
+
+    statement_html = _substitute_template(templatepath, "default-layout.html",
            statement_html=statement_html,
            language=options.language,
            title=problem_name or "Missing problem name",
-           problemid=problembase)
+           problemid=problembase) # No need to escape problem shortname, the spec has tight restrictions directory names
 
     samples = statement_common.format_samples(problem, to_pdf=False)
 
     # Insert samples at {{nextsample}} and {{remainingsamples}}
-    html_template, remaining_samples = statement_common.inject_samples(html_template, samples, "")
+    statement_html, remaining_samples = statement_common.inject_samples(statement_html, samples, "")
 
     # Insert the remaining samples at the bottom
-    if FOOTNOTES_STRING in html_template:
-        pos = html_template.find(FOOTNOTES_STRING)
+    if FOOTNOTES_STRING in statement_html:
+        pos = statement_html.find(FOOTNOTES_STRING)
     else:
-        pos = html_template.find("</body>")
-    html_template = html_template[:pos] + "".join(remaining_samples) + html_template[pos:]
+        pos = statement_html.find("</body>")
+    statement_html = statement_html[:pos] + "".join(remaining_samples) + statement_html[pos:]
 
-    html_template = replace_hr_in_footnotes(html_template)
+    statement_html = replace_hr_in_footnotes(statement_html)
+    html_body = statement_html[statement_html.find("<body>"):]
+    statement_html = statement_html[:statement_html.find("<body>")]
+
+    allowed_classes = ("sample", "problemheader", "problembody",
+                       "sampleinteractionwrite", "sampleinteractionread")
+    def attribute_filter(tag, attribute, value):
+        if attribute == "class" and value in allowed_classes:
+            return value
+        if tag == "img" and attribute == "src":
+            return value
+        return None
+
+    html_body = nh3.clean(html_body,
+        link_rel="noopener nofollow noreferrer",
+        attribute_filter=attribute_filter,
+        tags=nh3.ALLOWED_TAGS | {"img"},
+        attributes={"table": {"class"}, "div": {"class"}, "img": {"src"}},
+    )
+    statement_html += html_body
 
     with open(destfile, "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
-        output_file.write(html_template)
+        output_file.write(statement_html)
 
     if options.css:
         with open("problem.css", "w") as output_file:

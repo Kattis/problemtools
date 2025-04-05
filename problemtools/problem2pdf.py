@@ -32,7 +32,6 @@ def md2pdf(options: argparse.Namespace) -> bool:
     statement_common.assert_images_are_valid_md(statement_path)
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_pdf'),
-                    os.path.join(os.path.dirname(__file__), '../templates/markdown_pdf'),
                     '/usr/lib/problemtools/templates/markdown_pdf']
     templatepath = next((p for p in templatepaths
                             if os.path.isdir(p) and os.path.isfile(os.path.join(p, "fix_tables.md"))),
@@ -48,7 +47,7 @@ def md2pdf(options: argparse.Namespace) -> bool:
     with open(statement_path, "r") as file:
         statement_md = file.read()
     
-    problem_name = statement_common.get_problem_name(problem_root, options.language)
+    problem_name = statement_common.get_yaml_problem_name(problem_root, options.language)
 
     # Add problem name and id to the top
     problem_id = os.path.basename(problem_root)
@@ -66,7 +65,7 @@ def md2pdf(options: argparse.Namespace) -> bool:
     with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
         temp_file.write(statement_md)
         temp_file.flush()
-        command = ["pandoc", temp_file.name, "-o", destfile, f"--resource-path={statement_dir}", "-f", "markdown-raw_html"]
+        command = ["pandoc", temp_file.name, "-o", destfile, f"--resource-path={statement_dir}"]
         try:
             return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
         except subprocess.CalledProcessError as e:
