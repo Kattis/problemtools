@@ -269,7 +269,7 @@ class TestCase(ProblemAspect):
         self.check_size_limits(self.ansfile)
         self._problem.getProblemPart(InputValidators).validate(self)
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
-        outputlim = self._problem.get(Config_Legacy)['limits']['output']
+        outputlim = self._problem.get(ProblemConfigLegacy)['limits']['output']
         if anssize > outputlim:
             self.error(f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit')
         elif 2 * anssize > outputlim:
@@ -338,7 +338,7 @@ class TestCase(ProblemAspect):
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
             status, runtime = sub.run(infile=self.infile, outfile=outfile, errfile=errfile,
                                       timelim=timelim_high+1,
-                                      memlim=self._problem.get(Config_Legacy)['limits']['memory'], work_dir=sub.path)
+                                      memlim=self._problem.get(ProblemConfigLegacy)['limits']['memory'], work_dir=sub.path)
             if is_TLE(status) or runtime > timelim_high:
                 res_high = SubmissionResult('TLE')
             elif is_RTE(status):
@@ -428,9 +428,9 @@ class TestCaseGroup(ProblemAspect):
                     self.config[field] = parent_value
 
         # Some deprecated properties are inherited from problem config during a transition period
-        problem_grading = problem.get(Config_Legacy)['grading']
+        problem_grading = problem.get(ProblemConfigLegacy)['grading']
         for key in ['accept_score', 'reject_score', 'range']:
-            if key in problem.get(Config_Legacy)['grading']:
+            if key in problem.get(ProblemConfigLegacy)['grading']:
                 self.config[key] = problem_grading[key]
 
         problem_on_reject = problem_grading.get('on_reject')
@@ -439,7 +439,7 @@ class TestCaseGroup(ProblemAspect):
         if problem_on_reject == 'grade':
             self.config['on_reject'] = 'continue'
 
-        if self._problem.get(Config_Legacy)['type'] == 'pass-fail':
+        if self._problem.get(ProblemConfigLegacy)['type'] == 'pass-fail':
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if key not in self.config:
                     self.config[key] = None
@@ -833,15 +833,15 @@ class ProblemConfigBase(ProblemPart):
 
 
     def check(self, context: Context) -> bool:
-        if self._check_res is not None:
+        if self._check_res is True:
             return self._check_res
-        self._check_res = True
+        elif self._check_res is not False:
+            self._check_res = True
         to_check = [prop for prop in dir(self) if prop.startswith('_check_') and callable(getattr(self, prop))]
         for prop in to_check:
             self.info(f'Checking "{prop}"')
             fun = getattr(self, prop)
             fun()
-            # TODO: if fatal has happened: abort
         return self._check_res
 
     @staticmethod
@@ -872,7 +872,7 @@ class ProblemConfigBase(ProblemPart):
                 best_dist = dist
         return best
 
-class Config_Legacy(ProblemConfigBase):
+class ProblemConfigLegacy(ProblemConfigBase):
     DEFAULT_LIMITS = {
         "time_multiplier": 5,
         "time_safety_margin": 2,
@@ -901,6 +901,7 @@ class Config_Legacy(ProblemConfigBase):
             if type(val) is not str:
                 self.warning(f'name should be of type string (got: "{val}")')
                 val = str(val)
+            # Ugly backwards compatibility hack?
             self._data['name'] = {'': val}
         self._data.setdefault('name', {})
         self._data['name'].update(self.problem.get(ProblemStatement))
@@ -1026,9 +1027,13 @@ class Config_Legacy(ProblemConfigBase):
         known = {'problem_format_version', 'type', 'name', 'uuid', 'author', 'source', 'source_url', 'license', 'rights_owner', 'limits', 'validation', 'validation-type', 'validation-params', 'validator_flags', 'grading', 'keywords'}
         for field in self._data.keys():
             if field not in known:
-                self.warning(f'unknown field "{field}"')
+                if field == 'scoring':
+                    self.warning('Field "scoring" is deprecated, use "grading" instead')
+                    continue
+                closest = self.smallest_edit_dist(field, known)
+                self.warning(f'Unknown field "{field}", did you mean "{closest}"?')
 
-class Config_2023_07(ProblemConfigBase):
+class ProblemConfig2023_07(ProblemConfigBase):
 
     DEFAULT_LIMITS = {
         "time_multipliers": {
@@ -1362,9 +1367,22 @@ class Config_2023_07(ProblemConfigBase):
 
     def _check_unknown_fields(self):
         known = {'problem_format_version', 'type', 'name', 'uuid', 'version', 'credits', 'source', 'license', 'rights_owner', 'embargo_until', 'limits', 'keywords', 'languages', 'allow_file_writing', 'constants'}
+        old_warning_help = {
+            'grading': ' and testdata.yaml is updated instead.',
+            'author': ', use "credits.authors" instead.',
+            'source_url': ', use "source.url" instead.',
+            'validation': ', look at Result Aggregation in the documentation.',
+            'validator_flags': '. Instead use either "output_validator_args" or "input_validator_args" in testdata.yaml',
+        }
         for field in self._data.keys():
+            field = field.lower().strip()
             if field not in known:
-                self.warning(f'unknown field "{field}"')
+                if field in old_warning_help:
+                    self.warning(f'Field "{field}" is removed in 2023-07'+old_warning_help[field])
+                    continue
+                else:
+                    closest = self.smallest_edit_dist(field, known)
+                    self.warning(f'Unknown field "{field}", did you mean "{closest}"?')
 
 class ProblemTestCases(ProblemPart):
     PART_NAME = 'testdata'
@@ -1377,8 +1395,8 @@ class ProblemTestCases(ProblemPart):
         self.testcase_by_infile = {}
         return {
                 'root_group': TestCaseGroup(self.problem, self.PART_NAME),
-                'is_interactive': 'interactive' in self.problem.get(Config_Legacy)['validation-params'],
-                'is_scoring': self.problem.get(Config_Legacy)['type'] == 'scoring'
+                'is_interactive': 'interactive' in self.problem.get(ProblemConfigLegacy)['validation-params'],
+                'is_scoring': self.problem.get(ProblemConfigLegacy)['type'] == 'scoring'
                 }
 
     def check(self, context: Context) -> bool:
@@ -1591,7 +1609,7 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self.problem.get(Config_Legacy)['type'] == 'pass-fail' and len(self._graders) > 0:
+        if self.problem.get(ProblemConfigLegacy)['type'] == 'pass-fail' and len(self._graders) > 0:
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
@@ -1698,12 +1716,12 @@ class OutputValidators(ProblemPart):
             if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
-        if self.problem.get(Config_Legacy)['validation-type'] == 'default' and self._validators:
+        if self.problem.get(ProblemConfigLegacy)['validation-type'] == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.get(Config_Legacy)['validation-type'] != 'default' and not self._validators:
+        elif self.problem.get(ProblemConfigLegacy)['validation-type'] != 'default' and not self._validators:
             self.error('problem.yaml specifies custom validator but no validator programs found')
 
-        if self.problem.get(Config_Legacy)['validation-type'] == 'default' and self._default_validator is None:
+        if self.problem.get(ProblemConfigLegacy)['validation-type'] == 'default' and self._default_validator is None:
             self.error('Unable to locate default validator')
 
         for val in self._validators[:]:
@@ -1716,7 +1734,7 @@ class OutputValidators(ProblemPart):
 
         # Only sanity check output validators if they all actually compiled
         if self._check_res:
-            flags = self.problem.get(Config_Legacy)['validator_flags']
+            flags = self.problem.get(ProblemConfigLegacy)['validator_flags']
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
@@ -1758,7 +1776,7 @@ class OutputValidators(ProblemPart):
 
 
     def _parse_validator_results(self, val, status: int, feedbackdir, testcase: TestCase) -> SubmissionResult:
-        custom_score = self.problem.get(Config_Legacy)['grading']['custom_scoring']
+        custom_score = self.problem.get(ProblemConfigLegacy)['grading']['custom_scoring']
         score = None
         # TODO: would be good to have some way of displaying the feedback for debugging uses
         score_file = os.path.join(feedbackdir, 'score.txt')
@@ -1793,7 +1811,7 @@ class OutputValidators(ProblemPart):
 
     def _actual_validators(self) -> list:
         vals = self._validators
-        if self.problem.get(Config_Legacy)['validation-type'] == 'default':
+        if self.problem.get(ProblemConfigLegacy)['validation-type'] == 'default':
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
 
@@ -1809,10 +1827,10 @@ class OutputValidators(ProblemPart):
         # file descriptor, wall time lim
         initargs = ['1', str(2 * timelim)]
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>']
-        submission_args = submission.get_runcmd(memlim=self.problem.get(Config_Legacy)['limits']['memory'])
+        submission_args = submission.get_runcmd(memlim=self.problem.get(ProblemConfigLegacy)['limits']['memory'])
 
-        val_timelim = self.problem.get(Config_Legacy)['limits']['validation_time']
-        val_memlim = self.problem.get(Config_Legacy)['limits']['validation_memory']
+        val_timelim = self.problem.get(ProblemConfigLegacy)['limits']['validation_time']
+        val_memlim = self.problem.get(ProblemConfigLegacy)['limits']['validation_memory']
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
@@ -1864,9 +1882,9 @@ class OutputValidators(ProblemPart):
 
     def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
         res = SubmissionResult('JE')
-        val_timelim = self.problem.get(Config_Legacy)['limits']['validation_time']
-        val_memlim = self.problem.get(Config_Legacy)['limits']['validation_memory']
-        flags = self.problem.get(Config_Legacy)['validator_flags'].split() + testcase.testcasegroup.config['output_validator_flags'].split()
+        val_timelim = self.problem.get(ProblemConfigLegacy)['limits']['validation_time']
+        val_memlim = self.problem.get(ProblemConfigLegacy)['limits']['validation_memory']
+        flags = self.problem.get(ProblemConfigLegacy)['validator_flags'].split() + testcase.testcasegroup.config['output_validator_flags'].split()
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
@@ -2075,14 +2093,14 @@ class Submissions(ProblemPart):
 
     def full_score_finite(self) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases)['root_group'].get_score_range()
-        if self.problem.get(Config_Legacy)['grading']['objective'] == 'min':
+        if self.problem.get(ProblemConfigLegacy)['grading']['objective'] == 'min':
             return min_score != float('-inf')
         else:
             return max_score != float('inf')
 
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases)['root_group'].get_score_range()
-        best_score = min_score if self.problem.get(Config_Legacy)['grading']['objective'] == 'min' else max_score
+        best_score = min_score if self.problem.get(ProblemConfigLegacy)['grading']['objective'] == 'min' else max_score
         return result.verdict == 'AC' and (not self.problem.get(ProblemTestCases)['is_scoring'] or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
@@ -2098,7 +2116,7 @@ class Submissions(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        limits = self.problem.get(Config_Legacy)['limits']
+        limits = self.problem.get(ProblemConfigLegacy)['limits']
         time_multiplier = limits['time_multiplier']
         safety_margin = limits['time_safety_margin']
 
@@ -2160,7 +2178,7 @@ class Submissions(ProblemPart):
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     formatversion.VERSION_LEGACY: {
         #'config':       [ProblemConfig],
-        'config':       [Config_Legacy],
+        'config':       [ProblemConfigLegacy],
         'statement':    [ProblemStatement, Attachments],
         'validators':   [InputValidators, OutputValidators],
         'graders':      [Graders],
@@ -2170,7 +2188,7 @@ PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     },
     formatversion.VERSION_2023_07: { # TODO: Add all the parts
         'statement':    [ProblemStatement, Attachments],
-        'config':       [Config_2023_07],
+        'config':       [ProblemConfig2023_07],
     }
 }
 
