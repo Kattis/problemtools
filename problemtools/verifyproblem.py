@@ -727,7 +727,9 @@ class ProblemStatement(ProblemPart):
         if os.path.isdir(dir):
             self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
         else:
-            self.error(f"No directory named {self.format_data.statement_directory} found")
+            folders_found = [os.path.basename(f) for f in glob.glob(os.path.join(self.problem.probdir)+'/*') if os.path.isdir(f)]
+            folders_found = "'" + "', '".join(folders_found) + "'"
+            self.error(f'No directory named "{self.format_data.statement_directory}" found. Found folders: {folders_found}')
             self.statements = []
         return self.get_config()
 
@@ -841,6 +843,34 @@ class ProblemConfigBase(ProblemPart):
             fun()
             # TODO: if fatal has happened: abort
         return self._check_res
+
+    @staticmethod
+    def smallest_edit_dist(a: str, b: list[str] | set[str]) -> str:
+        def edit_dist(a: str, b: str) -> int:
+            n = len(a)
+            m = len(b)
+            dp = [[0] * (m + 1) for _ in range(n + 1)]
+            for i in range(n + 1):
+                dp[i][0] = i
+            for j in range(m + 1):
+                dp[0][j] = j
+            for i in range(1, n + 1):
+                for j in range(1, m + 1):
+                    if a[i - 1] == b[j - 1]:
+                        dp[i][j] = dp[i - 1][j - 1]
+                    else:
+                        dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+            return dp[n][m]
+        if type(b) is set:
+            b = list(b)
+        best = b[0]
+        best_dist = edit_dist(a, best)
+        for s in b[1:]:
+            dist = edit_dist(a, s)
+            if dist < best_dist:
+                best = s
+                best_dist = dist
+        return best
 
 class Config_Legacy(ProblemConfigBase):
     DEFAULT_LIMITS = {
@@ -1055,16 +1085,20 @@ class Config_2023_07(ProblemConfigBase):
         if type(self._data['type']) is str:
             if self._data['type'] not in self._PROBLEM_TYPES:
                 val = self._data['type']
-                self.error(f'Type expected to be one of {self._PROBLEM_TYPES} (got: {val})')
+                err = f'Type expected to be one of: {self._PROBLEM_TYPES}, got: "{val}".'
+                if ' ' in val:
+                    err += f'\nIf you meant having multiple types: {val.split()}, use a YAML list instead of a string.'
+                self.fatal(err)
+                self._data['type'] = []
             else:
                 self._data['type'] = [self._data['type']]
 
         elif type(self._data['type']) is not list:
-            self.error(f'Type expected to be of type string or list (got: {self._data["type"]})')
+            self.fatal(f'Type expected to be of type string or list (got: {self._data["type"]})')
 
         types_chosen = set(self._data['type'])
         if len(types_chosen) == 0:
-            self.error('Type must contain at least one type')
+            self.fatal('Type must contain at least one valid type')
 
         elif len(types_chosen) != len(self._data['type']):
             self.error('Duplicates for field "type" is not allowed')
@@ -1215,13 +1249,13 @@ class Config_2023_07(ProblemConfigBase):
 
         if self._data['license'] != 'public domain':
             if len(self._data['rights_owner']) == 0:
-                self.error('No author, source or rights_owner provided')
+                self.error('No authors in "credits" and no "source" or "rights_owner" provided')
         else:
             if len(self._data['rights_owner']) != 0:
-                self.error('Can not have a rights_owner for a problem in public domain')
+                self.error('"rights_owner" is not allowed for a problem in with license "public domain"')
         
         if not self._data['license'] in ('unknown', 'public domain') and len(self._data['rights_owner']) == 0:
-            self.error('rights_owner needs to be defined when license is not "public domain" or "unknown"')
+            self.error('"rights_owner" needs to be defined when license is not "public domain" or "unknown"')
 
         if 'embargo_until' in self._data:
             val = self._data['embargo_until']
@@ -1246,11 +1280,12 @@ class Config_2023_07(ProblemConfigBase):
         allowed_in_time_multipliers = {'ac_to_time_limit', 'time_limit_to_tle'}
         for k in limits:
             if k not in allowed_keys_limits:
-                self.warning(f"Unknown property limits.{k} was given")
+                closest = self.smallest_edit_dist(k, allowed_keys_limits)
+                self.warning(f'Unknown property "limits.{k}" was given. Did you mean "limits.{closest}"?')
             if k == "time_multipliers":
                 for k2 in limits[k]:
                     if k2 not in allowed_in_time_multipliers:
-                        self.warning(f"Unknown property limits.time_multipliers.{k2} was given")
+                        self.warning(f'Unknown property "limits.time_multipliers.{k2}" was given. Allowed keys: {allowed_in_time_multipliers}')
 
         for i in ints:
             if i not in limits:
@@ -1281,7 +1316,7 @@ class Config_2023_07(ProblemConfigBase):
                         val = limits['time_multipliers'][k]
                         if type(val) not in (int, float) or val < 1:
                             self.fatal(f'limits.time_multipliers.{k} needs to be a float >= 1 (got: "{val}")')
-                        self._data['limits']['ac_to_time_limit'][k] = float(val)
+                        self._data['limits']['time_multipliers'][k] = float(val)
 
         self._data.setdefault('keywords', [])
         for kw in self._data['keywords']:
@@ -2135,6 +2170,7 @@ PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     },
     formatversion.VERSION_2023_07: { # TODO: Add all the parts
         'statement':    [ProblemStatement, Attachments],
+        'config':       [Config_2023_07],
     }
 }
 
