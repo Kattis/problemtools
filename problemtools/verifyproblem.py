@@ -372,17 +372,13 @@ class TestCase(ProblemAspect):
         res_high.set_ac_runtime()
         
         visualizer = self._problem.classes.get(OutputVisualizer.PART_NAME)    #TODO går att flytta ner men fult???
-        print("WHERE ARE YTOU " , os.getcwd())
         if visualizer.visualizer_exists():
-            print(" eh ", os.listdir(self._problem.tmpfeeddir))
-            for dir in os.listdir(self._problem.tmpfeeddir):
-                print("dir",dir)
-                for file in dir:
-                    print("Hi ", file, )
-                    if os.path.basename(file).endswith(".ans"):
-                        print("did it")
-                        visualizer.visualize(dir, file) 
-            # visualizer.visualize(feedbackdir, submission_output)
+            for dir in os.listdir(os.path.join(self._problem.tmpdir,'Feedback')):
+                for file in os.listdir(os.path.join(self._problem.tmpdir,'Feedback',dir)):
+                    file = os.path.join(self._problem.tmpdir,'Feedback',dir,file)
+                    if file.endswith(".ans"):
+                        visualizer.visualize(file , os.path.join(self._problem.tmpdir,'Feedback',dir), context)# TODO snygga till kan skicka med bara flaggan?
+
 
         return (res, res_low, res_high)
 
@@ -1483,8 +1479,8 @@ class OutputValidators(ProblemPart):
                 visualizer = self.problem.classes.get(OutputVisualizer.PART_NAME)    #TODO går att flytta ner men fult???
                 if visualizer.visualizer_exists(): #TODO rätt scope?
                     randomChars = ''.join(random.choices(string.ascii_letters + string.digits , k=16)) 
-                    shutil.copytree(os.path.realpath(feedbackdir) , os.path.join(self.problem.tmpfeeddir, randomChars))#TODO HITTA VAR JAG SKA LÄGGA
-                    shutil.copy(os.path.realpath(submission_output), os.path.join(self.problem.tmpfeeddir, randomChars))
+                    shutil.copytree(os.path.realpath(feedbackdir) , os.path.join(self.problem.tmpdir, 'Feedback', randomChars))#TODO HITTA VAR JAG SKA LÄGGA
+                    shutil.copy(os.path.realpath(submission_output), os.path.join(self.problem.tmpdir,'Feedback', randomChars))
                     
 
                 shutil.rmtree(feedbackdir)
@@ -1504,13 +1500,11 @@ class OutputVisualizer(ProblemPart):
         work_dir=self.problem.tmpdir,
         language_config=self.problem.language_config)
         self._has_precompiled = False
-        self._correct_amount_visualizers = (len(self._visualizer) == 1)
 
-        
+        self.counter = 0
         self._has_warned_amount = True #TODO borde dessa finnas
         self._missing_visualizer = False
-        self._has_created_folder = False
-        self._should_save_image = False #TODO nice to get flag here
+        self._should_save_image = False #TODO nice to get flag here, synd att check körs sent
     def __str__(self) -> str: 
         return 'output visualizer'
     
@@ -1525,7 +1519,6 @@ class OutputVisualizer(ProblemPart):
             self._has_precompiled = True
         
     def check(self, context: Context) -> bool: #TODO när körs den här? innan? Kolla dependencies kolla ordningen
-        self._should_save_image = context.save_output_visualizer_images
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
@@ -1535,14 +1528,14 @@ class OutputVisualizer(ProblemPart):
     def check_image_type(self, file) -> bool: #Checks the file type and returns bool 
         permitted_filetypes = [
         b'\x89PNG\r\n\x1a\n',  # PNG file header
-        b'\xff\xd8\xff\xe0\x10\x00JF',     # JPEG file header
+        b'\xff\xd8\xff\xe0\x10\x00JF',     # JPEG file header #TODO this and jpg same?
         b'\xFF\xD8\xFF'    # JPG file header
         ]
         simple_file_endings = ['.png','.jpg','.jpeg']
         file_name = os.path.basename(file)
 
         #If the file is not an svg it then reads in the first 8 bytes and checks them agains permitted_filetypes to se if it's an allowed signature
-        if any(file_name.endswith(end) for end in simple_file_endings):
+        if any(file_name.endswith(end) for end in simple_file_endings): #TODO document
             with open(file, "rb") as f:
                 file_signature = f.read(8)
             if any(file_signature.startswith(ft) for ft in permitted_filetypes):
@@ -1559,29 +1552,29 @@ class OutputVisualizer(ProblemPart):
             return False
  
     def save_image(self, file):
-            save_folder_path = os.getcwd()   
-            save_folder_path = save_folder_path + "/here" #TODO works but get correct path
-            # print("File is ", file ,"path ", save_folder_path)
 
-            
-            if  not self._has_created_folder and not os.path.exists(save_folder_path): #TODO check if directory exists #TODO subdirectories
-                self._has_created_folder = True
-                os.mkdir(save_folder_path)
+            save_folder_path = os.getcwd()   
+            save_folder_path = save_folder_path + f"/saved_images/output-{self.counter}" #TODO works but get correct path
+            if os.path.isdir(save_folder_path):
+                self.counter = self.counter +1
+                save_folder_path = os.getcwd()      #AWFUL PROGRAMMING
+                save_folder_path = save_folder_path + f"/saved_images/output-{self.counter}" #TODO works but get correct path
+            #TODO GET JUDGE NAME AND OUTPUT  from funbction call
+            os.makedirs(save_folder_path, exist_ok=True)
             shutil.copy(file, save_folder_path)
                     
-                # default_path = Path(problemname + "/"+ f"{submission_name}" + "/"+ f"{testcase}/randomchars8st.extension")
-                # shutil.copytree(inFromProblemTmpDir, onDiskPermanentDir) #TODO lägg på rätt plats byt namn som du vill :)
     def visualizer_exists(self)->bool:
         if not self._visualizer and not self._missing_visualizer: 
             self._missing_visualizer = True
             self.warning('No visualizer found')
         return bool(self._visualizer)
                         
-    def visualize(self, feedback_dir: str, submission_output: str): #TODO context istället för testcase för flaggan
+    def visualize(self, result_file: str, feedback_dir: str, context: Context): #TODO context istället för testcase för flaggan
         res = []
+        
         if not self.visualizer_exists():
             return
-        if self._correct_amount_visualizers: 
+        if len(self._visualizer)==1: 
             visualizer = self._visualizer[0] #Selects the visualizer 
         else:
             if self._has_warned_amount:
@@ -1589,36 +1582,30 @@ class OutputVisualizer(ProblemPart):
                 self.warning(f'Wrong amount of visualizer. \nExcpected: 1\nActual: {len(self._visualizer)}')
             return
 
-        #Tries to run the visualzier
-        try:
-            status, runtime = visualizer.run(args=[submission_output, feedback_dir])
+        #Tries to run the visualzier and raises a warning if failed
+        try:  
+            status, runtime = visualizer.run(args=[result_file,feedback_dir])           
             if status != 0:
                 self.warning(f'The output visualizer crashed, status: {status}')
         except Exception as e:
             self.warning(f'Error running output visualizer: {e}')
         
-        #Runs the check for image type on all files in the feedback directory
-        file_endings = [".png", ".jpg", ".jpeg", ".svg"]
-        for ending in file_endings:
-            for file in glob.glob(feedback_dir + "/*" + ending):
-                res.append(tuple((file, self.check_image_type)))
-                
-        if self._should_save_image:  #TODO True for testing
+        # Iterates through all the files in the feedback directory and performs a file header check on all files with the allowed file extensions
+        file_extensions = [".png", ".jpg", ".jpeg", ".svg"]
+        for file in os.listdir(feedback_dir):
+            file = os.path.join(feedback_dir,file) #TODO Gör snyggare
+            for ext in file_extensions:
+                if file.endswith(ext):
+                    res.append(tuple((file, self.check_image_type(file))))
+       
+        if context.save_output_visualizer_images:  #If the flag was raised all images are saved
             for i in range(len(res)):
                 if res[i][1]:
-                    # print("Old name ", res[i][0])
-                    # prefix, sufix = os.path.splitext(res[i][0])
-                    # os.rename(res[i][0],  os.path.join(prefix + str(i)+ sufix))
-                    # print("New file name ", res[i][0])
                     self.save_image(res[i][0])
- 
 
         #Raises a warning if the file signature is wrong or the list is empty
         if not any(res):
             self.warning("The visualizer did not generate an allowed image")
-       
-    
-
 
 
 class Runner:
@@ -1888,13 +1875,10 @@ PROBLEM_FORMATS = {
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
         'visualizers': [OutputVisualizer] #TODO for testing
-
-
     },
     '2023-07': { # TODO: Add all the parts
         'statement':    [ProblemStatement2023_07, Attachments],
         'visualizers': [OutputVisualizer]
-
     }
 }
 
@@ -1927,7 +1911,6 @@ class Problem(ProblemAspect):
 
     def __enter__(self) -> Problem:
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
-        self.tmpfeeddir = tempfile.mkdtemp(prefix=self.probdir, suffix='TempFeedDir') #TODO är de rätt?
         if not os.path.isdir(self.probdir):
             self.error(f"Problem directory '{self.probdir}' not found")
             self.shortname = None
@@ -1963,7 +1946,6 @@ class Problem(ProblemAspect):
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
         shutil.rmtree(self.tmpdir)
-        # shutil.rmtree(self.tmpfeeddir)
 
     def __str__(self) -> str:
         return str(self.shortname)
@@ -1989,7 +1971,7 @@ class Problem(ProblemAspect):
             run.limit.check_limit_capabilities(self)
             
             # Skip any parts that do not belong to the format
-            parts = [part for part in args.parts if part in self.part_mapping] #Checkar inte outvis? TODO
+            parts = [part for part in args.parts if part in self.part_mapping]
 
             if executor:
                 for part in parts:
@@ -2000,8 +1982,7 @@ class Problem(ProblemAspect):
                 self.msg(f'Checking {part}')
                 for item in self.part_mapping[part]:
                     self.classes[item.PART_NAME].check(context)
-                #TODO skapa mappsystemet här eventuellt
-
+                #TODO Dirsystem with multipass
         except VerifyError:
             pass
         finally:
