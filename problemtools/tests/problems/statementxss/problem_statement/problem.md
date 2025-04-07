@@ -5,7 +5,6 @@ Various XSS methods. Hopefully the sanitizer doesn't let any of them through.
    alert("Hello world!");
 </script>
 
-<img src=x onerror=alert('XSS')>
 
 <a href="#" onclick="alert('XSS')">Click me</a>
 

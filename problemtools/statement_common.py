@@ -39,7 +39,7 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
             extensions.append(ext)
     # At most one extension per language to avoid arbitrary/hidden priorities
     if len(extensions) > 1:
-        raise Exception(f"""Found more than one type of statement ({' and '.join(extensions)})
+        raise ValueError(f"""Found more than one type of statement ({' and '.join(extensions)})
                         for language {language or 'en'}""")
     if len(extensions) == 1:
         return extensions[0]
@@ -68,16 +68,17 @@ def foreach_image(statement_path, callback):
                                     text=True, shell=False, check=True).stdout
     json_dfs(json.loads(statement_json), callback)
 
-
-def assert_image_is_valid(problem_root: str, img_src: str) -> None:
+def is_image_valid(problem_root: str, img_src: str) -> str|None:
     # Check that the image exists and uses an allowed extension
     extension = Path(img_src).suffix
-    if extension not in (".png", ".jpg", ".jpeg", ".svg"):
-        raise Exception(f"Unsupported image extension {extension} for image {img_src}")
+    # TODO: fix svg sanitization and allow svg
+    if extension not in (".png", ".jpg", ".jpeg"): # ".svg"
+        return f"Unsupported image extension {extension} for image {img_src}"
 
-    source_name = os.path.join(problem_root, img_src)
-    if not os.path.isfile(source_name):
-        raise FileNotFoundError(f"Resource file {img_src} not found in problem_statement")
+    source_file = Path(problem_root) / "problem_statement" / img_src
+    if not source_file.exists():
+        return f"Resource file {img_src} not found in problem_statement"
+    return None
 
 
 def assert_images_are_valid_md(statement_path: str) -> None:
@@ -85,7 +86,7 @@ def assert_images_are_valid_md(statement_path: str) -> None:
     # use valid image extensions
     problem_root = os.path.dirname(statement_path)
     foreach_image(statement_path,
-                lambda img_name: assert_image_is_valid(problem_root, img_name))
+                lambda img_name: is_image_valid(problem_root, img_name))
 
 def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
 
@@ -97,12 +98,12 @@ def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str
         raise FileNotFoundError("No problem.yaml found")
 
     try:
-        with open(config_file) as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
         if config is None:
             config = {}
     except Exception as e:
-        raise Exception(f"Invalid problem.yaml: {e}")
+        raise ValueError(f"Invalid problem.yaml: {e}") from e
 
     if 'name' in config and not isinstance(config['name'], dict):
         config['name'] = {'': config['name']}
@@ -115,7 +116,7 @@ def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str
     if language is None:
         language = "en"
     if language not in names:
-        raise Exception(f"No problem name defined for language {language or 'en'}")
+        raise ValueError(f"No problem name defined for language {language or 'en'}")
     return names[language]
 
 
@@ -132,7 +133,7 @@ def inject_samples(statement_html, samples, sample_separator):
             break
         matched_text = match.group(1)
         if matched_text == "nextsample" and len(samples) == 0:
-            raise Exception("Error: called {{nextsample}} without any samples left")
+            raise ValueError("Error: called {{nextsample}} without any samples left")
 
         num_inject = 1 if matched_text == "nextsample" else len(samples)
         to_inject = sample_separator.join(samples[:num_inject])
@@ -259,7 +260,7 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int, to_pd
         sample_interaction = infile.readlines()
     lines = []
     for interaction in sample_interaction:
-        data = interaction[1:]
+        data = html.escape(interaction[1:])
         if to_pdf:
             if interaction[0] == '>':
                 left = True
