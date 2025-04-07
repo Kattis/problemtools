@@ -828,8 +828,8 @@ class ProblemConfigBase(ProblemPart):
         pass
 
     def check_uuid(self, uuid: str) -> None:
-        if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}+$', uuid):
-            self.error(f'UUID "{uuid}" is not a valid UUID')
+        if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', uuid):
+            self.error(f'"{uuid}" is not a valid UUID')
 
 
     def check(self, context: Context) -> bool:
