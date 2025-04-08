@@ -52,7 +52,7 @@ class Language(object):
         """
         return [file_name for file_name in file_list
                 if (any(fnmatch.fnmatch(file_name, glob)
-                        for glob in self.files)
+                        for glob in self.files) # type: ignore[union-attr]
                     and
                     self.__matches_shebang(file_name))]
 
@@ -105,18 +105,13 @@ class Language(object):
         """
         # Check that all mandatory fields are provided
         if self.name is None:
-            raise LanguageConfigError(
-                'Language %s has no name' % self.lang_id)
+            raise LanguageConfigError(f'Language {self.lang_id} has no name')
         if self.priority is None:
-            raise LanguageConfigError(
-                'Language %s has no priority' % self.lang_id)
+            raise LanguageConfigError(f'Language {self.lang_id} has no priority')
         if self.files is None:
-            raise LanguageConfigError(
-
-        'Language %s has no files glob' % self.lang_id)
+            raise LanguageConfigError(f'Language {self.lang_id} has no files glob')
         if self.run is None:
-            raise LanguageConfigError(
-                'Language %s has no run command' % self.lang_id)
+            raise LanguageConfigError(f'Language {self.lang_id} has no run command')
 
         # Check that all variables appearing are valid
         variables = Language.__variables_in_command(self.run)

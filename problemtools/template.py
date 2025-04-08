@@ -34,7 +34,7 @@ class Template:
         if glob.glob(os.path.join(stmtdir, 'problem.tex')):
             langs.append('')
         for f in glob.glob(os.path.join(stmtdir, 'problem.[a-z][a-z].tex')):
-            langs.append(re.search("problem.([a-z][a-z]).tex$", f).group(1))
+            langs.append(re.search("problem.([a-z][a-z]).tex$", f).group(1)) # type: ignore[union-attr]
         if len(langs) == 0:
             raise Exception('No problem statements available')
 
@@ -69,10 +69,10 @@ class Template:
         templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/latex'),
                          os.path.join(os.path.dirname(__file__), '../templates/latex'),
                          '/usr/lib/problemtools/templates/latex']
-        self.templatepath = next((p for p in templatepaths
-                                  if os.path.isdir(p) and os.path.isfile(os.path.join(p, self.templatefile))),
-                                 None)
-        if self.templatepath is None:
+        try:
+            self.templatepath = next((p for p in templatepaths
+                                  if os.path.isdir(p) and os.path.isfile(os.path.join(p, self.templatefile))))
+        except StopIteration:
             raise Exception('Could not find directory with latex template "%s"' % self.templatefile)
 
         self.basedir = os.path.dirname(problemdir)

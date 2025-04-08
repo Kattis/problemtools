@@ -34,7 +34,7 @@ class Program(ABC):
         Args:
             infile (str): name of file to pass on stdin
             outfile (str): name of file to send stdout to
-            errfile (str): name of file to send stderr ro
+            errfile (str): name of file to send stderr to
             args (list of str): additional command-line arguments to
                 pass to the program
             timelim (int): CPU time limit in seconds
