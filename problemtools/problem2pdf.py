@@ -27,7 +27,7 @@ def md2pdf(options: argparse.Namespace) -> bool:
     statement_path = statement_common.find_statement(problem_root, extension="md", language=options.language)
 
     if not os.path.isfile(statement_path):
-        raise Exception(f"Error! {statement_path} is not a file")
+        raise FileNotFoundError(f"Error! {statement_path} does not exist")
 
     statement_common.assert_images_are_valid_md(statement_path)
 
@@ -38,12 +38,12 @@ def md2pdf(options: argparse.Namespace) -> bool:
                             None)
     table_fix_path = os.path.join(templatepath, "fix_tables.md")
     if not os.path.isfile(table_fix_path):
-        raise Exception("Could not find markdown pdf template")
+        raise FileNotFoundError("Could not find markdown pdf template")
 
     with open(table_fix_path, "r") as file:
         table_fix = file.read()
 
-    statement_dir = os.path.join(problem_root, "problem_statement")
+    statement_dir = os.path.join(problem_root, "statement")
     with open(statement_path, "r") as file:
         statement_md = file.read()
     
@@ -62,16 +62,15 @@ def md2pdf(options: argparse.Namespace) -> bool:
     # If we don't add newline, the topmost table might get attached to a footnote
     statement_md += "\n" + "\n".join(remaining_samples)
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix=".md") as temp_file:
-        temp_file.write(statement_md)
-        temp_file.flush()
-        command = ["pandoc", temp_file.name, "-o", destfile, f"--resource-path={statement_dir}"]
-        try:
-            return subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error compiling Markdown to pdf: {e.stderr}")
-            return False
-
+    print("Rendering!")
+    command = ["pandoc", "-f", "markdown", "-o", destfile, f"--resource-path={statement_dir}"]
+    try:
+        return subprocess.run(command, input=statement_md, capture_output=True,
+            text=True, shell=False, check=True
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error compiling Markdown to pdf: {e.stderr}")
+        return False
 
 def latex2pdf(options: argparse.Namespace) -> bool:
     problem_root = os.path.realpath(options.problem)
