@@ -364,7 +364,7 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int, to_pd
                                 \hline
                             \end{tabular}
                         \end{table}""" % {"justify": "" if left else "\\hspace*{\\fill}\n",
-                                            "text": data})
+                                            "text": html.escape(data)})
         else:
             line_type = ""
             if interaction[0] == '>':
