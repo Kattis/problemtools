@@ -1,9 +1,10 @@
 import os
 from typing import Optional, List
 import html
-import subprocess
-import re
 import json
+import re
+import subprocess
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -63,8 +64,11 @@ def json_dfs(data, callback) -> None:
 def foreach_image(statement_path, callback):
     # Find all images in the statement and call callback for each one
     command = ["pandoc", statement_path, "-t" , "json"]
-    statement_json = subprocess.run(command, capture_output=True,
-                                    text=True, shell=False, check=True).stdout
+    # Must create a working directory for pytest to work
+    with tempfile.TemporaryDirectory() as dir:
+        statement_json = subprocess.run(command, capture_output=True, text=True,
+                                        shell=False, check=True, cwd=dir).stdout
+
     json_dfs(json.loads(statement_json), callback)
 
 def is_image_valid(problem_root: str, img_src: str) -> str|None:
@@ -79,13 +83,24 @@ def is_image_valid(problem_root: str, img_src: str) -> str|None:
         return f"Resource file {img_src} not found in statement"
     return None
 
+def assert_image_is_valid(problem_root: str, img_src: str) -> str|None:
+    # Check that the image exists and uses an allowed extension
+    extension = Path(img_src).suffix
+    # TODO: fix svg sanitization and allow svg
+    if extension not in (".png", ".jpg", ".jpeg"): # ".svg"
+        raise ValueError(f"Unsupported image extension {extension} for image {img_src}")
+
+    source_file = Path(problem_root) / "statement" / img_src
+    if not source_file.exists():
+        raise FileNotFoundError(f"Resource file {img_src} not found in statement")
+
 
 def assert_images_are_valid_md(statement_path: str) -> None:
     # Find all images in the statement and assert that they exist and
     # use valid image extensions
     problem_root = os.path.dirname(statement_path)
     foreach_image(statement_path,
-                lambda img_name: is_image_valid(problem_root, img_name))
+                lambda img_name: assert_image_is_valid(problem_root, img_name))
 
 def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
 

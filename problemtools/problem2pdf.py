@@ -40,13 +40,13 @@ def md2pdf(options: argparse.Namespace) -> bool:
     if not os.path.isfile(table_fix_path):
         raise FileNotFoundError("Could not find markdown pdf template")
 
-    with open(table_fix_path, "r") as file:
+    with open(table_fix_path, "r", encoding="utf-8") as file:
         table_fix = file.read()
 
     statement_dir = os.path.join(problem_root, "statement")
-    with open(statement_path, "r") as file:
+    with open(statement_path, "r", encoding="utf-8") as file:
         statement_md = file.read()
-    
+
     problem_name = statement_common.get_yaml_problem_name(problem_root, options.language)
 
     # Add problem name and id to the top
@@ -65,12 +65,22 @@ def md2pdf(options: argparse.Namespace) -> bool:
     print("Rendering!")
     command = ["pandoc", "-f", "markdown", "-o", destfile, f"--resource-path={statement_dir}"]
     try:
-        return subprocess.run(command, input=statement_md, capture_output=True,
+        subprocess.run(command, input=statement_md, capture_output=True,
             text=True, shell=False, check=True
         )
     except subprocess.CalledProcessError as e:
         print(f"Error compiling Markdown to pdf: {e.stderr}")
         return False
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as f:
+        command = ["gs", "-q", "-dBATCH", "-sDEVICE=pdfwrite", "-dNOPAUSE",
+                   "-dCompatibilityLevel=1.7", f"-sOutputFile={f.name}", destfile]
+        subprocess.run(command, capture_output=True,
+            text=True, shell=False, check=True
+        )
+        shutil.copy(f.name, destfile)
+
+    return True
 
 def latex2pdf(options: argparse.Namespace) -> bool:
     problem_root = os.path.realpath(options.problem)

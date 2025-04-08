@@ -91,7 +91,7 @@ def sanitize_html(problem: str, statement_html: str):
                     "footnotes")
 
     # Annoying: nh3 will ignore exceptions in attribute_filter
-    image_fail_reason = None
+    image_fail_reason: str|None = None
     def attribute_filter(tag, attribute, value):
         if attribute == "class" and value in allowed_classes:
             return value
@@ -118,7 +118,10 @@ def sanitize_html(problem: str, statement_html: str):
     )
 
     if image_fail_reason:
-        raise Exception(image_fail_reason)
+        assert isinstance(image_fail_reason, str)
+        if "Unsupported" in image_fail_reason:
+            raise ValueError(image_fail_reason)
+        raise FileNotFoundError(image_fail_reason)
 
     return statement_html
 

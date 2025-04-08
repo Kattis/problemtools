@@ -1,3 +1,3 @@
 Make web request via image
 
-<img src="http:picsum.photos/400">
+![Alt text](http:picsum.photos/400)

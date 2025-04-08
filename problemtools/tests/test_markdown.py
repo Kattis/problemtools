@@ -1,5 +1,5 @@
 from pathlib import Path
-from problemtools.tests.test_xss import render
+from problemtools.tests.test_xss import render, renderpdf
 from problemtools.md2html import FOOTNOTES_STRING
 import pytest
 
@@ -29,6 +29,13 @@ def test_footnotes_href():
 
 def test_invalid_image_throws():
     # If images can point to img that doesn't exist, it's arbitrary web request
-    problem_path = Path(__file__).parent / "problems" / "imgrequest"
-    with pytest.raises(Exception):
-        render(problem_path)
+    for problem in ("imgrequest", "imgrequest2"):
+        problem_path = Path(__file__).parent / "problems" / problem
+        with pytest.raises(ValueError):
+            render(problem_path)
+
+    # Pandoc won't make a web request for imgrequest2
+    with pytest.raises(ValueError):
+        renderpdf(Path(__file__).parent / "problems" / "imgrequest")
+
+
