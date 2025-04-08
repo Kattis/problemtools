@@ -32,7 +32,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
         raise FileNotFoundError('No markdown statement found')
 
     if not os.path.isfile(statement_path):
-        raise FileNotFoundError(f"Error! {statement_path} is not a file")
+        raise FileNotFoundError(f"Error! {statement_path} does not exist")
 
 
     command = ["pandoc", statement_path, "-t" , "html", "--mathjax"]
@@ -130,7 +130,7 @@ def copy_image(problem_root: str, img_src: str) -> None:
         img_src: the image source as in the Markdown statement
     """
 
-    source_name = os.path.join(problem_root, "problem_statement", img_src)
+    source_name = os.path.join(problem_root, "statement", img_src)
 
     if os.path.isfile(img_src): # already copied
         return

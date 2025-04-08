@@ -1,7 +1,6 @@
 import os
 from typing import Optional, List
 import html
-import tempfile
 import subprocess
 import re
 import json
@@ -14,14 +13,14 @@ SUPPORTED_EXTENSIONS = ("tex", "md")
 def find_statement(problem_root: str, extension: str, language: Optional[str]) -> Optional[str]:
     """Finds the "best" statement for given language and extension"""
     if language is None:
-        statement_path = os.path.join(problem_root, f"problem_statement/problem.en.{extension}")
+        statement_path = os.path.join(problem_root, f"statement/problem.en.{extension}")
         if os.path.isfile(statement_path):
             return statement_path
-        statement_path = os.path.join(problem_root, f"problem_statement/problem.{extension}")
+        statement_path = os.path.join(problem_root, f"statement/problem.{extension}")
         if os.path.isfile(statement_path):
             return statement_path
         return None
-    statement_path = os.path.join(problem_root, f"problem_statement/problem.{language}.{extension}")
+    statement_path = os.path.join(problem_root, f"statement/problem.{language}.{extension}")
     if os.path.isfile(statement_path):
         return statement_path
     return None
@@ -75,9 +74,9 @@ def is_image_valid(problem_root: str, img_src: str) -> str|None:
     if extension not in (".png", ".jpg", ".jpeg"): # ".svg"
         return f"Unsupported image extension {extension} for image {img_src}"
 
-    source_file = Path(problem_root) / "problem_statement" / img_src
+    source_file = Path(problem_root) / "statement" / img_src
     if not source_file.exists():
-        return f"Resource file {img_src} not found in problem_statement"
+        return f"Resource file {img_src} not found in statement"
     return None
 
 
@@ -182,6 +181,34 @@ def format_samples(problem_root: str, to_pdf: bool = False) -> List[str]:
 
     return samples
 
+def escape_latex_char(char: str) -> str:
+    if len(char) != 1:
+        raise ValueError("Input must be a single character.")
+
+    replacements = {
+        "\\": "\\textbackslash{}",
+        "^": "\\textasciicircum{}",
+        "~": "\\textasciitilde{}",
+        "#": "\\#",
+        "$": "\\$",
+        "%": "\\%",
+        "&": "\\&",
+        "_": "\\_",
+        "{": "\\{",
+        "}": "\\}",
+        "*": "\\*",
+        "<": "\\textless{}",
+        ">": "\\textgreater{}",
+        "|": "\\textbar{}",
+        "'": "\\textquotesingle{}",
+        "`": "\\textasciigrave{}",
+        "\"":"\\verb|\"|",
+        ",": "\\verb|,|",
+        "-": "\\verb|-|",
+        "[": "\\verb|[|",
+        "]": "\\verb|]|",
+    }
+    return replacements.get(char, char)  # Default: return unmodified char
 
 def format_normal_sample(sample_root: str, sample: str, casenum: int, to_pdf: bool) -> str:
     """
@@ -203,31 +230,91 @@ def format_normal_sample(sample_root: str, sample: str, casenum: int, to_pdf: bo
     with open(outpath, "r", encoding="utf-8") as outfile:
         sample_output = outfile.read()
 
-    sample = """
-        <table class="sample" summary="sample data">
-        <tbody>
-            <tr>
-                <th>Sample Input %(case)d</th>
-                <th>Sample Output %(case)d</th>
-            </tr>
-            <tr>
-                <td><pre>%(input)s</pre></td>
-                <td><pre>%(output)s</pre></td>
-            </tr>
-        </tbody>
-        </table>""" % ({"case": casenum, "input": html.escape(sample_input),
-                        "output": html.escape(sample_output)})
+    if not to_pdf:
+        return """
+            <table class="sample" summary="sample data">
+            <tbody>
+                <tr>
+                    <th>Sample Input %(case)d</th>
+                    <th>Sample Output %(case)d</th>
+                </tr>
+                <tr>
+                    <td><pre>%(input)s</pre></td>
+                    <td><pre>%(output)s</pre></td>
+                </tr>
+            </tbody>
+            </table>""" % ({"case": casenum, "input": html.escape(sample_input),
+                            "output": html.escape(sample_output)})
 
-    if to_pdf:
-        # If pdf, convert to markdown
-        with tempfile.NamedTemporaryFile(mode='w', suffix=".html") as temp_file:
-            temp_file.write(sample)
-            temp_file.flush()
-            command = ["pandoc", temp_file.name, "-t" , "markdown"]
-            return subprocess.run(command, capture_output=True, text=True,
-                                  shell=False, check=True).stdout
-    else:
-        return sample
+
+    # Try to pack input and output into a Markdown table like this
+    # Precompute characters widths in LaTeX, pack as much
+    # as possible without causing overflow in the LaTeX table
+    # Use an obscene number of columns so Markdown is not limiting
+    """
+    +---------------------------------+---------------------------------+
+    | Sample Input 1                  | Sample Output 1                 |
+    +=================================+=================================+
+    |0123456789abcdefghijklmnopqrstuv-|Nice!                            |
+    |wxyzABCDEFGHIJKLMNOPQRS-         |                                 |
+    |TUVWXYZ!"#$%&'()*+,-./:;<=>?-    |                                 |
+    |@[\]^_`{|}~                      |                                 |
+    +---------------------------------+---------------------------------+
+    """
+    # Need to account for if we have >= 10 samples
+    casenum_len = len(str(casenum))-1
+
+    # If there are lots of ^, we use lots of \\textasciicircum{}, and they must all fit
+    # Lower if debugging (or zoom out terminal veery far)
+    table_cols = 1000
+    row = f"|{' ' * (table_cols + 16)}|{' ' * (table_cols + 16)}|\n"
+    ascii_char_widths = {' ': 3.33333, '!': 3.2, '"': 6.2, '#': 9.6, '$': 5.9, '%': 9.6, '&': 9.0, "'": 3.2, '(': 4.5, ')': 4.5, '*': 5.8, '+': 9.0, ',': 6.2, '-': 6.5, '.': 5, '/': 5.8, '0': 5.8, '1': 5.8, '2': 5.8, '3': 5.8, '4': 5.8, '5': 5.8, '6': 5.8, '7': 5.8, '8': 5.8, '9': 5.8, ':': 3.2, ';': 3.2, '<': 8.9, '=': 8.9, '>': 8.9, '?': 5.4, '@': 8.9, 'A': 7.50002, 'B': 7.08336, 'C': 7.22223, 'D': 7.6389, 'E': 6.80557, 'F': 6.5278, 'G': 7.84723, 'H': 7.50002, 'I': 3.61111, 'J': 5.1389, 'K': 8.5, 'L': 6.25002, 'M': 9.16669, 'N': 7.50002, 'O': 8.5, 'P': 6.80557, 'Q': 8.5, 'R': 7.36111, 'S': 5.55557, 'T': 7.22223, 'U': 7.50002, 'V': 7.50002, 'W': 10.2778, 'X': 7.50002, 'Y': 7.50002, 'Z': 6.11111, '[': 6.2, '\\': 6.0, ']': 6.2, '^': 6.5, '_': 8.6, '`': 5.8, 'a': 5.8, 'b': 5.55557, 'c': 4.44444, 'd': 5.55557, 'e': 4.44444, 'f': 3.05557, 'g': 5.8, 'h': 5.55557, 'i': 3.2, 'j': 3.05557, 'k': 5.2778, 'l': 3.2, 'm': 9.6, 'n': 5.55557, 'o': 5.8, 'p': 5.55557, 'q': 5.27779, 'r': 3.91667, 's': 3.94444, 't': 4.5, 'u': 5.55557, 'v': 5.2778, 'w': 7.22223, 'x': 5.2778, 'y': 5.2778, 'z': 4.44444, '{': 5.8, '|': 3.3, '}': 5.8, '~': 6.5}
+    space_per_row = 160 # Number of LaTeX units of horizontal space available
+    chars_per_row = (table_cols + 16)-1 # Save one space for -
+    num_rows = 0
+    table = list(f"""
++----------------{'-' * table_cols}+----------------{'-' * table_cols}+
+| Sample Input {casenum} {' ' * (table_cols-casenum_len)}| Sample Output {casenum}{' ' * (table_cols-casenum_len)}|
++================{'=' * table_cols}+================{'=' * table_cols}+
+""")
+    base_table_offset = len(table)
+    def insert_into_table(offset, text):
+        nonlocal num_rows, table
+        curr_row = -1
+        for line in text.split("\n"):
+            while len(line):
+                curr_row += 1
+                if curr_row >= num_rows:
+                    num_rows+=1
+                    table += list(row)
+                    table += list(row)
+
+                # Add stuff to write to this line while it fits
+                curr_vspace = 0
+                curr_line = ""
+                # Must fit in both Markdown table and LaTeX table
+                while len(line) and \
+                    len(curr_line)+1<chars_per_row and \
+                    curr_vspace + ascii_char_widths[line[0]] < space_per_row:
+
+                    curr_vspace += ascii_char_widths[line[0]]
+                    curr_line += line[0]
+                    line = line[1:]
+
+                if len(line):
+                    curr_line += "-"
+
+                base = 0
+                for c in curr_line:
+                    ind = base_table_offset+2*curr_row* len(row)+base + offset+1
+                    num_c = len(escape_latex_char(c))
+                    table[ind:ind+num_c] = escape_latex_char(c)
+                    base += num_c
+    insert_into_table(1, sample_input)
+    insert_into_table(len(f"+================{'=' * table_cols}+"), sample_output)
+    table = "".join(table)
+    table += f"+----------------{'-' * table_cols}+----------------{'-' * table_cols}+\n"
+    return table
 
 
 def format_interactive_sample(sample_root: str, sample: str, casenum: int, to_pdf: bool) -> str:
@@ -286,7 +373,7 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int, to_pd
                 line_type = "sampleinteractionread"
             else:
                 print(f"Warning: Interaction had unknown prefix {interaction[0]}")
-            lines.append(f"""<div class="{line_type}"><pre>{data}</pre></div>""")
+            lines.append(f"""<div class="{line_type}"><pre>{html.escape(data)}</pre></div>""")
 
     if to_pdf:
         return line + '\\vspace{-15pt}'.join(lines)
