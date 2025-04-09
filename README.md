@@ -207,7 +207,7 @@ The dependencies needed to *build/install* problemtools can be installed with:
 
 And the dependencies needed to *run* problemtools can be installed with:
 
-    sudo apt install ghostscript libgmpxx4ldbl pandoc python3-minimal python-pkg-resources python3-plastex python3-yaml texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy
+    sudo apt install ghostscript libgmpxx4ldbl pandoc python3-minimal python-nh3 python-pkg-resources python3-plastex python3-yaml texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy
 
 ### Fedora
 
@@ -217,7 +217,7 @@ On Fedora, these dependencies can be installed with:
 
 Followed by:
 
-    pip3 install --user plastex
+    pip3 install --user plastex nh3
 
 ### Arch
 Package is available on the AUR [kattis-problemtools-git](https://aur.archlinux.org/packages/kattis-problemtools-git). Use your favorite AUR helper or follow the installation instructions found [here](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages).

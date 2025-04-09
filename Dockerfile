@@ -16,6 +16,7 @@ RUN apt-get update && \
             openjdk-8-jdk \
             pandoc \
             python3-minimal \
+            python-nh3 \
             python3-pip \
             python3-plastex \
             python3-yaml \
