@@ -95,18 +95,6 @@ def md2pdf(options: argparse.Namespace) -> bool:
     finally:
         temp_tex_file.unlink()
 
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as f:
-            command = ["gs", "-q", "-dBATCH", "-sDEVICE=pdfwrite", "-dNOPAUSE",
-                    "-dCompatibilityLevel=1.7", f"-sOutputFile={f.name}", destfile]
-            status = subprocess.run(command, capture_output=True,
-                text=True, shell=False, check=True
-            )
-            shutil.copy(f.name, destfile)
-    except subprocess.CalledProcessError as e:
-        print(f"Error sanitizing PDF: {e} {e.stderr}")
-        raise
-
     return status == 0
 
 def latex2pdf(options: argparse.Namespace) -> bool:
