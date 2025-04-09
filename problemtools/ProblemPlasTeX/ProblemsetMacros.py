@@ -69,7 +69,7 @@ class sampletableinteractive(Command):
     def read_sample_interaction(self, filename):
         data = io.open(filename, 'r', encoding='utf-8').read()
         messages = []
-        cur_msg = []
+        cur_msg: list[str] = []
         cur_mode = None
         for line in data.split('\n'):
             if not line: continue

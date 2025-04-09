@@ -98,14 +98,14 @@ c:
     name: 'C'
     priority: 950
     files: '*.c'
-    compile: '/usr/bin/gcc -g -O2 -std=gnu99 -static -o {binary} {files} -lm'
+    compile: '/usr/bin/gcc -g -O2 -std=gnu17 -static -o {binary} {files} -lm'
     run: '{binary}'
 
 cpp:
     name: 'C++'
     priority: 1000
     files: '*.cc *.C *.cpp *.cxx *.c++'
-    compile: '/usr/bin/g++ -g -O2 -std=gnu++17 -static -o {binary} {files}'
+    compile: '/usr/bin/g++ -g -O2 -std=gnu++23 -static -o {binary} {files} -lrt -Wl,--whole-archive  -lpthread -Wl,--no-whole-archive'
     run: '{binary}'
 
 csharp:
@@ -147,7 +147,7 @@ java:
     name: 'Java'
     priority: 800
     files: '*.java'
-    compile: '/usr/bin/javac -encoding UTF-8 -sourcepath {path} -d {path} {files}'
+    compile: '/usr/bin/javac -source 21 -encoding UTF-8 -sourcepath {path} -d {path} {files}'
     run: '/usr/bin/java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
 
 javascript:
@@ -161,7 +161,7 @@ kotlin:
     name: 'Kotlin'
     priority: 250
     files: '*.kt'
-    compile: '/usr/bin/kotlinc -d {path}/ -- {files}'
+    compile: '/usr/bin/kotlinc -language-version 1.3 -d {path}/ -- {files}'
     run: '/usr/bin/kotlin -Dfile.encoding=UTF-8 -J-XX:+UseSerialGC -J-Xss64m -J-Xms{memlim}m -J-Xmx{memlim}m -cp {path}/ {Mainclass}Kt'
 
 lisp:
@@ -209,27 +209,27 @@ prolog:
 
 # Python2 with shebang comes before default python3.
 python2_with_shebang:
-    name: 'Python 2'
+    name: 'Python 2 (w/PyPy)'
     priority: 860
     files: '*.py *.py2'
     shebang: '^#!.*python2\b'
-    compile: '/usr/bin/python2 -m py_compile {files}'
-    run: '/usr/bin/python2 "{mainfile}"'
+    compile: '/usr/bin/pypy -m py_compile {files}'
+    run: '/usr/bin/pypy "{mainfile}"'
 
 python3:
-    name: 'Python 3'
+    name: 'Python 3 (w/PyPy3)'
     priority: 850
     files: '*.py *.py3'
-    compile: '/usr/bin/python3 -m py_compile {files}'
-    run: '/usr/bin/python3 "{mainfile}"'
+    compile: '/usr/bin/pypy3 -m py_compile {files}'
+    run: '/usr/bin/pypy3 "{mainfile}"'
 
 # Python2 without shebang comes after python3.
 python2:
-    name: 'Python 2'
+    name: 'Python 2 (w/PyPy)'
     priority: 840
     files: '*.py2'
-    compile: '/usr/bin/python2 -m py_compile {files}'
-    run: '/usr/bin/python2 "{mainfile}"'
+    compile: '/usr/bin/pypy -m py_compile {files}'
+    run: '/usr/bin/pypy "{mainfile}"'
 
 ruby:
     name: 'Ruby'
@@ -245,8 +245,8 @@ rust:
     name: 'Rust'
     priority: 575
     files: '*.rs'
-    compile: '/usr/bin/rustc -o{binary} -O --crate-type bin --edition=2018 {files}'
-    run: '{binary}'
+    compile: '/usr/bin/rustc -C opt-level=3 -C target-cpu=native --crate-type bin --edition 2021 {mainfile} -o {mainfile}.out'
+    run: '{mainfile}.out'
 
 scala:
     name: 'Scala'

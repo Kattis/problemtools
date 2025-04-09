@@ -17,8 +17,8 @@ class ImageConverter(object):
     imageUnits = ''
 
     imageTypes = ['.png', '.jpg', '.jpeg', '.gif'] #, '.svg']
-    imageConversion = {'.pdf': ['.png',
-                                ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o']]}
+    imageConversion = {'.pdf': ('.png',
+                                ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o'])}
 
     def __init__(self, document):
         self.config = document.config

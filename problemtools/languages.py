@@ -186,7 +186,7 @@ class Languages(object):
             list of files did not match any language in the set.
         """
         result = None
-        src = []
+        src: list[str] = []
         prio = 1e99
         for lang in self.languages.values():
             lang_src = lang.get_source_files(file_list)
@@ -236,7 +236,7 @@ class Languages(object):
             else:
                 self.languages[lang_id].update(lang_spec)
 
-        priorities = {}
+        priorities: dict[int, Language] = {}
         for (lang_id, lang) in self.languages.items():
             if lang.priority in priorities:
                 raise LanguageConfigError(
