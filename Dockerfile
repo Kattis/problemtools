@@ -13,7 +13,6 @@ RUN apt-get update && \
             libgmp-dev \
             libgmp10 \
             libgmpxx4ldbl \
-            librsvg2-bin \
             openjdk-8-jdk \
             pandoc \
             python3-minimal \

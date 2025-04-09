@@ -19,7 +19,6 @@ RUN apt-get update && \
             gnustep-devel gnustep gnustep-make gnustep-common gobjc \
             libgmp3-dev \
             libmozjs-78-dev \
-            librsvg2-bin \
             lua5.4 \
             mono-complete \
             nodejs \
