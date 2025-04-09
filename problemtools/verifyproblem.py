@@ -28,7 +28,6 @@ import yaml
 
 from . import problem2pdf
 from . import problem2html
-from . import statement_common
 from . import formatversion
 
 from . import config

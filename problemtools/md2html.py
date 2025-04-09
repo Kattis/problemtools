@@ -3,6 +3,7 @@
 import argparse
 import html
 import os
+from pathlib import Path
 import re
 import shutil
 import string
@@ -10,7 +11,7 @@ import subprocess
 
 import nh3
 
-from . import statement_common
+from . import statement_util
 
 
 FOOTNOTES_STRING = '<section class="footnotes">'
@@ -25,7 +26,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
-    statement_path = statement_common.find_statement(problem, extension="md",
+    statement_path = statement_util.find_statement(problem, extension="md",
                                                      language=options.language)
 
     if statement_path is None:
@@ -50,18 +51,20 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     if templatepath is None:
         raise FileNotFoundError('Could not find directory with markdown templates')
 
-    problem_name = statement_common.get_yaml_problem_name(problem, options.language)
+    with open(Path(templatepath) / "default-layout.html", "r", encoding="utf-8") as template_file:
+        template = template_file.read()
 
-    statement_html = _substitute_template(templatepath, "default-layout.html",
-           statement_html=statement_html,
-           language=options.language,
-           title=html.escape(problem_name) if problem_name else "Missing problem name",
-           problemid=html.escape(problembase))
+    problem_name = statement_util.get_yaml_problem_name(problem, options.language)
+    substitution_params = {"statement_html": statement_html,
+           "language": options.language,
+           "title": html.escape(problem_name) if problem_name else "Missing problem name",
+           "problemid": html.escape(problembase)}
 
-    samples = statement_common.format_samples(problem)
+    statement_html = template % substitution_params
 
+    samples = statement_util.format_samples(problem)
     # Insert samples at {{nextsample}} and {{remainingsamples}}
-    statement_html, remaining_samples = statement_common.inject_samples(statement_html, samples, "")
+    statement_html, remaining_samples = statement_util.inject_samples(statement_html, samples, "")
 
     # Insert the remaining samples at the bottom
     # However, footnotes should be below samples
@@ -90,6 +93,18 @@ def sanitize_html(problem: str, statement_html: str):
                     "sampleinteractionwrite", "sampleinteractionread",
                     "footnotes")
 
+    def is_image_valid(problem_root: str, img_src: str) -> str|None:
+        # Check that the image exists and uses an allowed extension
+        extension = Path(img_src).suffix
+        # TODO: fix svg sanitization and allow svg
+        if extension not in statement_util.ALLOWED_IMAGE_EXTENSIONS:
+            return f"Unsupported image extension {extension} for image {img_src}"
+
+        source_file = Path(problem_root) / "statement" / img_src
+        if not source_file.exists():
+            return f"Resource file {img_src} not found in statement"
+        return None
+
     # Annoying: nh3 will ignore exceptions in attribute_filter
     image_fail_reason: str|None = None
     def attribute_filter(tag, attribute, value):
@@ -100,7 +115,7 @@ def sanitize_html(problem: str, statement_html: str):
         if tag in ("li", "a") and attribute == "id" and is_fn_id(value):
             return value
         if tag == "img" and attribute == "src":
-            fail = statement_common.is_image_valid(problem, value)
+            fail = is_image_valid(problem, value)
             if fail:
                 nonlocal image_fail_reason
                 image_fail_reason = fail
@@ -138,11 +153,3 @@ def copy_image(problem_root: str, img_src: str) -> None:
     if os.path.isfile(img_src): # already copied
         return
     shutil.copyfile(source_name, img_src)
-
-def _substitute_template(templatepath: str, templatefile: str, **params) -> str:
-    """Read the markdown template and substitute in things such as problem name,
-    statement etc using python's format syntax.
-    """
-    with open(os.path.join(templatepath, templatefile), "r", encoding="utf-8") as template_file:
-        html_template = template_file.read() % params
-    return html_template

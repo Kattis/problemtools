@@ -8,7 +8,7 @@ import subprocess
 
 from . import tex2html
 from . import md2html
-from . import statement_common
+from . import statement_util
 
 def convert(options: argparse.Namespace) -> None:
     problem = os.path.realpath(options.problem)
@@ -32,7 +32,7 @@ def convert(options: argparse.Namespace) -> None:
 
         origcwd = os.getcwd()
 
-        if statement_common.find_statement_extension(problem, options.language) == "tex":
+        if statement_util.find_statement_extension(problem, options.language) == "tex":
             tex2html.convert(problem, options)
         else:
             md2html.convert(problem, options)

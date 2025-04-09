@@ -17,7 +17,7 @@ ALLOWED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg") # ".svg"
 def find_statement(problem_root: str, extension: str, language: Optional[str]) -> Optional[str]:
     """Finds the "best" statement for given language and extension"""
     statement_dir = Path(problem_root) / formatversion.get_format_data(problem_root).statement_directory
-    
+
     candidates = []
     if language is None:
         candidates = [
@@ -32,7 +32,6 @@ def find_statement(problem_root: str, extension: str, language: Optional[str]) -
             return str(candidate)
 
     return None
-
 
 def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
     """Given a language, find whether the extension is tex or md
@@ -51,63 +50,6 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
     if len(extensions) == 1:
         return extensions[0]
     raise FileNotFoundError(f"No statement found for language {language or 'en'}")
-
-
-def json_dfs(data, callback) -> None:
-    """Traverse all items in a JSON tree, find all images, and call callback for each one"""
-    if isinstance(data, dict):
-        for key, value in data.items():
-            # Markdown-style images
-            if key == 't' and value == 'Image':
-                callback(data['c'][2][0])
-            else:
-                json_dfs(value, callback)
-
-    elif isinstance(data, list):
-        for item in data:
-            json_dfs(item, callback)
-
-
-def foreach_image(statement_path, callback):
-    # Find all images in the statement and call callback for each one
-    command = ["pandoc", statement_path, "-t" , "json"]
-    # Must create a working directory for pytest to work
-    with tempfile.TemporaryDirectory() as dir:
-        statement_json = subprocess.run(command, capture_output=True, text=True,
-                                        shell=False, check=True, cwd=dir).stdout
-
-    json_dfs(json.loads(statement_json), callback)
-
-def is_image_valid(problem_root: str, img_src: str) -> str|None:
-    # Check that the image exists and uses an allowed extension
-    extension = Path(img_src).suffix
-    # TODO: fix svg sanitization and allow svg
-    if extension not in ALLOWED_IMAGE_EXTENSIONS:
-        return f"Unsupported image extension {extension} for image {img_src}"
-
-    source_file = Path(problem_root) / "statement" / img_src
-    if not source_file.exists():
-        return f"Resource file {img_src} not found in statement"
-    return None
-
-def assert_image_is_valid(problem_root: str, img_src: str) -> str|None:
-    # Check that the image exists and uses an allowed extension
-    extension = Path(img_src).suffix
-    # TODO: fix svg sanitization and allow svg
-    if extension not in ALLOWED_IMAGE_EXTENSIONS: # ".svg"
-        raise ValueError(f"Unsupported image extension {extension} for image {img_src}")
-
-    source_file = Path(problem_root) / "statement" / img_src
-    if not source_file.exists():
-        raise FileNotFoundError(f"Resource file {img_src} not found in statement")
-
-
-def assert_images_are_valid_md(statement_path: str) -> None:
-    # Find all images in the statement and assert that they exist and
-    # use valid image extensions
-    problem_root = os.path.dirname(statement_path)
-    foreach_image(statement_path,
-                lambda img_name: assert_image_is_valid(problem_root, img_name))
 
 def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
 
@@ -140,6 +82,49 @@ def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str
         raise ValueError(f"No problem name defined for language {language or 'en'}")
     return names[language]
 
+def json_dfs(data, callback) -> None:
+    """Traverse all items in a JSON tree, find all images, and call callback for each one"""
+    if isinstance(data, dict):
+        for key, value in data.items():
+            # Markdown-style images
+            if key == 't' and value == 'Image':
+                callback(data['c'][2][0])
+            else:
+                json_dfs(value, callback)
+
+    elif isinstance(data, list):
+        for item in data:
+            json_dfs(item, callback)
+
+def foreach_image(statement_path, callback):
+    """ Find all images in the statement and call callback for each one """
+    command = ["pandoc", statement_path, "-t" , "json"]
+    # Must create a working directory for pytest to work
+    with tempfile.TemporaryDirectory() as work_dir:
+        statement_json = subprocess.run(command, capture_output=True, text=True,
+                                        shell=False, check=True, cwd=work_dir).stdout
+
+    json_dfs(json.loads(statement_json), callback)
+
+def assert_image_is_valid(problem_root: str, img_src: str) -> str|None:
+    """ Check that the image exists and uses an allowed extension """
+    extension = Path(img_src).suffix
+    # TODO: fix svg sanitization and allow svg
+    if extension not in ALLOWED_IMAGE_EXTENSIONS: # ".svg"
+        raise ValueError(f"Unsupported image extension {extension} for image {img_src}")
+
+    source_file = Path(problem_root) / img_src
+    if not source_file.exists():
+        raise FileNotFoundError(f"Resource file {img_src} not found in statement")
+
+def assert_images_are_valid_md(statement_path: str) -> None:
+    """ Find all images in the statement and assert that they exist and
+    use valid image extensions
+
+    """
+    problem_root = os.path.dirname(statement_path)
+    foreach_image(statement_path,
+                lambda img_name: assert_image_is_valid(problem_root, img_name))
 
 def inject_samples(statement_html, samples, sample_separator):
     """Injects samples at occurences of {{nextsample}} and {{remainingsamples}}
@@ -167,13 +152,11 @@ def inject_samples(statement_html, samples, sample_separator):
 
     return statement_html, samples
 
-
 def format_samples(problem_root: str) -> List[str]:
     """Read all samples from the problem directory and convert them to pandoc-valid markdown
 
     Args:
         problem_root: path to root of problem
-        to_pdf: whether the outputted samples should be valid for for html or pdf
 
     Returns:
         List[str]: All samples, converted to a format appropriate to be pasted into
@@ -237,7 +220,6 @@ def format_normal_sample(sample_root: str, sample: str, casenum: int) -> str:
         </table>""" % ({"case": casenum, "input": html.escape(sample_input),
                         "output": html.escape(sample_output)})
 
-
 def format_interactive_sample(sample_root: str, sample: str, casenum: int) -> str:
     """
 
@@ -245,7 +227,6 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int) -> st
         sample_root: root of the sample folder
         sample: file name of the sample
         casenum: which sample is this? (1, 2, 3...)
-        to_pdf: do we target pdf or html output
 
     Returns:
         str: the sample, ready to be pasted into a markdown doc and fed to pandoc
