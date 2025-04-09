@@ -58,7 +58,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
            title=html.escape(problem_name) if problem_name else "Missing problem name",
            problemid=html.escape(problembase))
 
-    samples = statement_common.format_samples(problem, to_pdf=False)
+    samples = statement_common.format_samples(problem)
 
     # Insert samples at {{nextsample}} and {{remainingsamples}}
     statement_html, remaining_samples = statement_common.inject_samples(statement_html, samples, "")

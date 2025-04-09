@@ -13,16 +13,14 @@ class FormatData:
     A class containing data specific to the format version.
     name: the version name.
     statement_directory: the directory where the statements should be found.
-    statement_extensions: the allowed extensions for the statements.
     """
     name: str
     statement_directory: str
-    statement_extensions: list[str]
 
 
 FORMAT_DATACLASSES = {
-    VERSION_LEGACY: FormatData(name=VERSION_LEGACY, statement_directory="problem_statement", statement_extensions=["tex"]),
-    VERSION_2023_07: FormatData(name=VERSION_2023_07, statement_directory="statement", statement_extensions=["md", "tex"])
+    VERSION_LEGACY: FormatData(name=VERSION_LEGACY, statement_directory="problem_statement"),
+    VERSION_2023_07: FormatData(name=VERSION_2023_07, statement_directory="statement")
 }
 
 

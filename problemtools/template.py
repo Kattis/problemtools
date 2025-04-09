@@ -16,18 +16,14 @@ def detect_version(problemdir, problemtex):
 
 
 class Template:
-    def __init__(self, problemdir, language=None, force_copy_cls=False, version="automatic"):
+    def __init__(self, problemdir, language=None, force_copy_cls=False):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
 
         if problemdir[-1] == '/':
             problemdir = problemdir[:-1]
 
-        if version == "automatic":
-            version_data = formatversion.get_format_data(problemdir)
-
-        else:
-            version_data = formatversion.get_format_data_by_name(version)
+        version_data = formatversion.get_format_data(problemdir)
 
         stmtdir = os.path.join(problemdir, version_data.statement_directory)
         langs = []
