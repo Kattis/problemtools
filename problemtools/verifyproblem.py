@@ -1546,11 +1546,11 @@ class OutputVisualizer(ProblemPart):
     #Gets a path to the folder where it should save
     #Then creates a new folder for this round of tests and copies over the file, then increments the folder counter by one
     def save_image(self, file): 
-            save_folder_path = os.getcwd() + f"/saved_images/output-{self.counter}" #TODO works but get correct path  #TODO GET JUDGE NAME AND OUTPUT  from funbction call
-            os.makedirs(save_folder_path, exist_ok=True)
-            shutil.copy(file, save_folder_path)
-            self.counter = self.counter + 1
-    
+        save_folder_path = os.getcwd() + f"/saved_images/output-{self.counter}" #TODO works but get correct path  #TODO GET JUDGE NAME AND OUTPUT  from funbction call
+        os.makedirs(save_folder_path, exist_ok=True)
+        shutil.copy(file, save_folder_path)
+        self.counter = self.counter + 1
+
     #Returns True if a visualizer exists
     #Otherwise False and changes the local variable if this already has been raised               
     def visualizer_exists(self)->bool: 
