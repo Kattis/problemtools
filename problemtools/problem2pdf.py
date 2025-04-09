@@ -4,6 +4,7 @@ import os.path
 import shutil
 import string
 import argparse
+from pathlib import Path
 import subprocess
 import tempfile
 
@@ -29,7 +30,29 @@ def md2pdf(options: argparse.Namespace) -> bool:
     if not os.path.isfile(statement_path):
         raise FileNotFoundError(f"Error! {statement_path} does not exist")
 
-    statement_common.assert_images_are_valid_md(statement_path)
+    #statement_common.assert_images_are_valid_md(statement_path)
+
+    fake_tex = Path(statement_path).parent / "problem.tex"
+    print(f"{fake_tex=} {statement_path=}")
+    command = ["pandoc", statement_path, "-o", fake_tex]
+    try:
+        subprocess.run(command, capture_output=True,
+            text=True, shell=False, check=True
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error compiling Markdown to pdf: {e.stderr}")
+        return False
+    
+    with open(fake_tex, "r") as f:
+        tex = f.read()
+    with open(fake_tex, "w") as f:
+        f.write('\\problemname{asd}\n'+tex)
+
+    try:
+        latex2pdf(options)
+    finally:
+        fake_tex.unlink()
+    return False
 
     templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_pdf'),
                     '/usr/lib/problemtools/templates/markdown_pdf']
@@ -102,6 +125,7 @@ def latex2pdf(options: argparse.Namespace) -> bool:
             params.append('-draftmode')
 
         params.append(texfile)
+        print(texfile)
 
         status = subprocess.call(params, stdout=output)
         if status == 0:
