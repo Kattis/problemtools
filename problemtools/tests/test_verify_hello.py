@@ -8,9 +8,10 @@ def test_load_hello():
 
     args = verify.argparser().parse_args([string])
     verify.initialize_logging(args)
+    context = verify.Context(args, None)
 
     with verify.Problem(string, args) as p:
         assert p.shortname == "hello"
         # pytest and fork don't go along very well, so just run aspects that work without run
-        assert p.getProblemPart(verify.ProblemConfigLegacy).check(args)
-        assert p.getProblemPart(verify.Attachments).check(args)
+        assert p.getProblemPart(verify.ProblemConfigLegacy).check(context)
+        assert p.getProblemPart(verify.Attachments).check(context)

@@ -717,7 +717,7 @@ class TestCaseGroup(ProblemAspect):
 
 class ProblemStatement(ProblemPart):
     PART_NAME = 'statement'
-    def setup(self):
+    def setup(self) -> dict[str, str]:
         self.format_data = formatversion.get_format_data(self.problem.probdir)
         if not self.format_data:
             raise NotImplementedError('No version selected.')
@@ -728,8 +728,8 @@ class ProblemStatement(ProblemPart):
             self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
         else:
             folders_found = [os.path.basename(f) for f in glob.glob(os.path.join(self.problem.probdir)+'/*') if os.path.isdir(f)]
-            folders_found = "'" + "', '".join(folders_found) + "'"
-            self.error(f'No directory named "{self.format_data.statement_directory}" found. Found folders: {folders_found}')
+            folders_found_str = "'" + "', '".join(folders_found) + "'"
+            self.error(f'No directory named "{self.format_data.statement_directory}" found. Found folders: {folders_found_str}')
             self.statements = []
         return self.get_config()
 
@@ -773,8 +773,8 @@ class ProblemStatement(ProblemPart):
     def __str__(self) -> str:
         return 'problem statement'
 
-    def get_config(self) -> dict[str, dict[str, str]]:
-        ret: dict[str, dict[str, str]] = {}
+    def get_config(self) -> dict[str, str]:
+        ret: dict[str, str] = {}
         for filename, lang in self.statements:
             dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
             with open(os.path.join(dir, filename)) as f:
@@ -782,7 +782,10 @@ class ProblemStatement(ProblemPart):
             hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
             if hit:
                 problem_name = hit.group(1).strip()
+                assert type(problem_name) is str
                 ret[lang] = problem_name
+            else:
+                self.error(f'Problem name not found in {filename}')
         return ret
 
 
@@ -798,7 +801,7 @@ class ProblemConfigBase(ProblemPart):
     def setup(self):
         self.debug('  Loading problem config')
         self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-        self._data = {}
+        self._data : dict[str, Any] = {}
 
         if os.path.isfile(self.configfile):
             try:
@@ -816,6 +819,8 @@ class ProblemConfigBase(ProblemPart):
         for field, value in self._data.items():
             if value is None:
                 self.error(f"Field '{field}' provided in problem.yaml but is empty")
+            elif type(value) is str:
+                self._data[field] = value.strip()
 
         self._data.setdefault('license', 'unknown')
         if type(self._data['license']) is str:
@@ -863,6 +868,7 @@ class ProblemConfigBase(ProblemPart):
             return dp[n][m]
         if type(b) is set:
             b = list(b)
+        assert type(b) is list
         best = b[0]
         best_dist = edit_dist(a, best)
         for s in b[1:]:
@@ -1055,7 +1061,7 @@ class ProblemConfig2023_07(ProblemConfigBase):
 
     _REQUIRED_FIELDS = ['problem_format_version', 'name', 'uuid']
     _PROBLEM_TYPES = {'pass-fail', 'scoring', 'interactive', 'multi-pass', 'submit-answer'}
-    _statement_languages = set()
+    _statement_languages : set[str] = set() 
     def fix_config_structure(self):
         self._statement_languages = set(self.problem.get(ProblemStatement).keys())
         for REQUIRED_FIELD in self._REQUIRED_FIELDS:
@@ -1235,7 +1241,7 @@ class ProblemConfig2023_07(ProblemConfigBase):
                 for i, val in enumerate(self._data['source']):
                     if type(val) is str:
                         self._data['source'][i] = {'name': val}
-                    elif type(val) is dict:
+                    elif isinstance(val, dict):
                         if 'name' not in val:
                             self.error(f'source needs to have key name (got: {val})')
 
@@ -1292,21 +1298,22 @@ class ProblemConfig2023_07(ProblemConfigBase):
                     if k2 not in allowed_in_time_multipliers:
                         self.warning(f'Unknown property "limits.time_multipliers.{k2}" was given. Allowed keys: {allowed_in_time_multipliers}')
 
-        for i in ints:
-            if i not in limits:
+        for int_field in ints:
+            if int_field not in limits:
                 continue
-            val = limits[i]
-            if type(val) is float:
-                val = int(val)
-                self.warning(f'limits.{i} was given as a float ({limits[i]}), interpreting as {val}')
-            elif type(val) is not int:
-                self.fatal(f'limits.{i} was of incorrect type, expected int (got: "{val}")')
+            intfield_val = limits[int_field]
+            if type(intfield_val) is float:
+                intfield_val = int(intfield_val)
+                
+                self.warning(f'limits.{int_field} was given as a float ({limits[int_field]}), interpreting as {intfield_val}')
+            elif type(intfield_val) is not int:
+                self.fatal(f'limits.{int_field} was of incorrect type, expected int (got: "{intfield_val}")')
 
-            if i == 'validation_passes' and val < 2:
-                self.fatal(f'limits.validation_passes should be >= 2 (got: "{val}")')
-            elif val <= 0:
-                self.fatal(f'limits.{i} needs to be > 0 (got: {val})')
-            self._data['limits'][i] = limits[i]
+            if int_field == 'validation_passes' and intfield_val < 2:
+                self.fatal(f'limits.validation_passes should be >= 2 (got: "{intfield_val}")')
+            elif intfield_val <= 0:
+                self.fatal(f'limits.{int_field} needs to be > 0 (got: {intfield_val})')
+            self._data['limits'][int_field] = intfield_val
 
         for f in ('time_resolution', 'time_limit'):
             if f in limits:
@@ -1318,10 +1325,10 @@ class ProblemConfig2023_07(ProblemConfigBase):
             if type(limits['time_multipliers']) is dict:
                 for k in ('ac_to_time_limit', 'time_limit_to_tle'):
                     if k in limits['time_multipliers']:
-                        val = limits['time_multipliers'][k]
-                        if type(val) not in (int, float) or val < 1:
-                            self.fatal(f'limits.time_multipliers.{k} needs to be a float >= 1 (got: "{val}")')
-                        self._data['limits']['time_multipliers'][k] = float(val)
+                        mult_val = limits['time_multipliers'][k]
+                        if type(mult_val) not in (int, float) or mult_val < 1:
+                            self.fatal(f'limits.time_multipliers.{k} needs to be a float >= 1 (got: "{mult_val}")')
+                        self._data['limits']['time_multipliers'][k] = float(mult_val)
 
         self._data.setdefault('keywords', [])
         for kw in self._data['keywords']:

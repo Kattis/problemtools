@@ -34,7 +34,7 @@ class Language_test(TestCase):
         assert lang.files == ['*']
 
         lang.update({'shebang': 'new.*end'})
-        assert lang.shebang.match('newfilend')
+        assert lang.shebang is not None and lang.shebang.match('newfilend')
 
         with pytest.raises(languages.LanguageConfigError):
             # ambiguous entry point
@@ -52,9 +52,9 @@ class Language_test(TestCase):
     def test_invalid_id(self):
         vals = self.__language_dict()
         with pytest.raises(TypeError):
-            languages.Language(None, vals)
+            languages.Language(None, vals) # type: ignore
         with pytest.raises(TypeError):
-            languages.Language(42, vals)
+            languages.Language(42, vals) # type: ignore
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('åäö', vals)
         with pytest.raises(languages.LanguageConfigError):
