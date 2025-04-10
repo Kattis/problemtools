@@ -577,7 +577,7 @@ class TestCaseGroup(ProblemAspect):
                 for filename in files:
                     filepath = os.path.join(root, filename)
                     if filepath.endswith('.in') and not os.path.islink(filepath):
-                        md5 = hashlib.md5()
+                        md5 = hashlib.md5(usedforsecurity=False)
                         with open(filepath, 'rb') as f:
                             for buf in iter(lambda: f.read(1024), b''):
                                 md5.update(buf)
@@ -961,6 +961,8 @@ class ProblemConfigLegacy(ProblemConfigBase):
             elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
                 self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
         else:
+            if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._data.get('grading', {}):
+                self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
             self._data['grading']['show_test_data_groups'] = False
 
         if 'on_reject' in self._data['grading']:
@@ -1023,11 +1025,6 @@ class ProblemConfigLegacy(ProblemConfigBase):
             if 'source_url' in self._data:
                 self.error('source needs to be defined when source_url is defined')
 
-    def _check_custom_groups(self):
-        # TODO: implement the check
-        pass
-        #if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
-        #    self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
 
     def _check_unknown_fields(self):
         known = {'problem_format_version', 'type', 'name', 'uuid', 'author', 'source', 'source_url', 'license', 'rights_owner', 'limits', 'validation', 'validation-type', 'validation-params', 'validator_flags', 'grading', 'keywords'}
@@ -2211,7 +2208,7 @@ class Problem(ProblemAspect):
     problem are listed. These should all be a subclass of ProblemPart. The dictionary is in the form
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
-    def __init__(self, probdir: str,  args: argparse.Namespace, parts: dict[str, list[type]] = PROBLEM_FORMATS[formatversion.VERSION_LEGACY]) -> None:
+    def __init__(self, probdir: str, args: argparse.Namespace, parts: dict[str, list[type]] = PROBLEM_FORMATS[formatversion.VERSION_LEGACY]) -> None:
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
