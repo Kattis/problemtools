@@ -11,6 +11,7 @@ import string
 import hashlib
 import collections
 import os
+from pathlib import Path
 import signal
 import re
 import shutil
@@ -323,8 +324,16 @@ class TestCase(ProblemAspect):
 
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
+
+        feedbackdir = os.path.join(self._problem.tmpdir, f"feedback-{self.counter}")
+        # The problem directory persists long enough that reuse is a problem
+        if os.path.exists(feedbackdir):
+            shutil.rmtree(feedbackdir)
+        os.makedirs(feedbackdir)
+
+        outfile = "" # TODO: what should we do for interactive/multipass?
         if self._problem.get(ProblemTestCases)['is_interactive']:
-            res_high = self._problem.classes[OutputValidators.PART_NAME].validate_interactive(self, sub, timelim_high, self._problem.classes[Submissions.PART_NAME])
+            res_high = self._problem.classes[OutputValidators.PART_NAME].validate_interactive(self, sub, timelim_high, self._problem.classes[Submissions.PART_NAME], feedbackdir)
         else:
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
@@ -342,7 +351,7 @@ class TestCase(ProblemAspect):
                     info = None
                 res_high = SubmissionResult('RTE', additional_info=info)
             else:
-                res_high = self._problem.classes[OutputValidators.PART_NAME].validate(self, outfile)               
+                res_high = self._problem.classes[OutputValidators.PART_NAME].validate(self, outfile, feedbackdir)
             res_high.runtime = runtime
 
         if res_high.runtime <= timelim_low:
@@ -367,15 +376,10 @@ class TestCase(ProblemAspect):
         res_low.set_ac_runtime()
         res_high.set_ac_runtime()
         
-        #For every subdirectory in the feedbackdirectory in Problem it iterates through all files and on those with the file extension .ans it runs the visualizer
         visualizer = self._problem.classes.get(OutputVisualizer.PART_NAME)
-        if visualizer.visualizer_exists():
-            for dir in os.listdir(os.path.join(self._problem.tmpdir,'Feedback')): #Ref till 1481 får feedbackdir kopieras från tmp i val till tmp i problem
-                for file in os.listdir(os.path.join(self._problem.tmpdir,'Feedback',dir)):
-                    file = os.path.join(self._problem.tmpdir,'Feedback',dir,file)
-                    if file.endswith(".ans"):
-                        visualizer.visualize(file , os.path.join(self._problem.tmpdir,'Feedback',dir), context)# TODO snygga till 
-                        
+        if visualizer.visualizer_exists() and outfile:
+            visualizer.visualize(outfile , feedbackdir, context)
+
         return (res, res_low, res_high)
 
     def _init_result_for_testcase(self, res: SubmissionResult) -> SubmissionResult:
@@ -1379,7 +1383,15 @@ class OutputValidators(ProblemPart):
         return [val for val in vals if val is not None]
 
 
-    def validate_interactive(self, testcase: TestCase, submission, timelim: int, errorhandler: Submissions) -> SubmissionResult:
+    def validate_interactive(self, testcase: TestCase, submission, timelim: int, errorhandler: Submissions, feedbackdir: str) -> SubmissionResult:
+        """
+        Validate a submission against all output validators.
+
+        Parameters:
+            testcase: The test case we are validating.
+            submission: The submission to validate.
+            feedback_dir_path: Path to feedback directory. If None, a temporary directory will be created and cleaned up.
+        """
         # This may be called off-main thread.
         interactive_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+ (validator|submission)'
         res = SubmissionResult('JE')
@@ -1394,13 +1406,23 @@ class OutputValidators(ProblemPart):
 
         val_timelim = self.problem.get(ProblemConfig)['limits']['validation_time']
         val_memlim = self.problem.get(ProblemConfig)['limits']['validation_memory']
+        first_validator = True
         for val in self._actual_validators():
             if val.compile()[0]:
-                feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
+                # Subtle point: if we're running multipass, we must ensure feedback dir is not reset
+                # If we're running multipass, there exists exactly one output validator
+                # Only deleting on second iteration is still fine with legacy and multiple output validators
+                if not first_validator:
+                    feedback_path = Path(feedbackdir)
+                    shutil.rmtree(feedback_path)
+                    feedback_path.mkdir()
+                first_validator = False
+
                 validator_args[2] = feedbackdir + os.sep
                 f = tempfile.NamedTemporaryFile(delete=False)
                 interactive_out = f.name
                 f.close()
+
                 i_status, _ = interactive.run(outfile=interactive_out,
                                               args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args, work_dir=submission.path)
                 if is_RTE(i_status):
@@ -1436,25 +1458,48 @@ class OutputValidators(ProblemPart):
                         res.validator_first = (first == 'validator')
 
                 os.unlink(interactive_out)
-                shutil.rmtree(feedbackdir)
                 if res.verdict != 'AC':
+                    res.from_validator = True
                     return res
         # TODO: check that all output validators give same result
         return res
 
 
-    def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
+    def validate(self, testcase: TestCase, submission_output: str, feedback_dir_path: str|None = None) -> SubmissionResult:
+        """
+        Run all output validators on the given test case and submission output.
+
+        Parameters:
+            testcase: The test case we are validating.
+            submission_output: Path to out file of submission.
+            feedback_dir_path: Path to feedback directory. If None, a temporary directory will be created and cleaned up.
+        """
         res = SubmissionResult('JE')
+        res.from_validator = True
         val_timelim = self.problem.get(ProblemConfig)['limits']['validation_time']
         val_memlim = self.problem.get(ProblemConfig)['limits']['validation_memory']
         flags = self.problem.get(ProblemConfig)['validator_flags'].split() + testcase.testcasegroup.config['output_validator_flags'].split()
+
+        first_validator = True
         for val in self._actual_validators():
             if val.compile()[0]:
-                feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
+                # Subtle point: if we're running multipass, we must ensure feedback dir is not reset
+                # If we're running multipass, there exists exactly one output validator
+                # Only deleting on second iteration is still fine with legacy and multiple output validators
+                if not first_validator:
+                    feedback_path = Path(feedbackdir)
+                    shutil.rmtree(feedback_path)
+                    feedback_path.mkdir()
+                first_validator = False
+
+                if feedback_dir_path:
+                    feedbackdir = feedback_dir_path
+                else:
+                    feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
                 validator_output = tempfile.mkdtemp(prefix='checker_out', dir=self.problem.tmpdir)
                 outfile = validator_output + "/out.txt"
                 errfile = validator_output + "/err.txt"
-                status, runtime = val.run(submission_output,
+                status, runtime = val.run(infile=submission_output,
                                           args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
                                           timelim=val_timelim, memlim=val_memlim,
                                           outfile=outfile, errfile=errfile)
@@ -1471,16 +1516,10 @@ class OutputValidators(ProblemPart):
                     except IOError as e:
                         self.info("Failed to read validator output: %s", e)
                 res = self._parse_validator_results(val, status, feedbackdir, testcase)
-
-                visualizer = self.problem.classes.get(OutputVisualizer.PART_NAME)    #TODO CHANGE METHOD AS TO feedbackdir josh method
-                if visualizer.visualizer_exists():
-                    randomChars = ''.join(random.choices(string.ascii_letters + string.digits , k=16)) 
-                    shutil.copytree(os.path.realpath(feedbackdir) , os.path.join(self.problem.tmpdir, 'Feedback', randomChars)) #TODO ref från rad 374
-                    shutil.copy(os.path.realpath(submission_output), os.path.join(self.problem.tmpdir,'Feedback', randomChars))
-                    
-
-                shutil.rmtree(feedbackdir)
-                shutil.rmtree(validator_output)    
+                shutil.rmtree(validator_output)
+                if feedback_dir_path is None:
+                    shutil.rmtree(feedbackdir)
+                res.from_validator = True
                 if res.verdict != 'AC':
                     return res
 
