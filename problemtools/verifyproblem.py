@@ -378,7 +378,8 @@ class TestCase(ProblemAspect):
         
         visualizer = self._problem.classes.get(OutputVisualizer.PART_NAME)
         if visualizer.visualizer_exists() and outfile:
-            visualizer.visualize(outfile , feedbackdir, context)
+            output_path = Path(f"{self._problem.shortname}_images") / Path(sub.path).name / Path(self.infile).stem
+            visualizer.visualize(outfile, feedbackdir, output_path, context)
 
         return (res, res_low, res_high)
 
@@ -1526,93 +1527,99 @@ class OutputValidators(ProblemPart):
         # TODO: check that all output validators give same result
         return res
 
-    #Class for handeling Output Visualizers
-class OutputVisualizer(ProblemPart): 
+
+class OutputVisualizer(ProblemPart):
+    """Handles output visualizers. Runs an output visualizer for each
+    testcase on each submission. Always runs visualizer to sanity check
+    output, saves images to disk if flag is passed.
+    
+    Example of created file structure when run on different:
+    different_images
+    ├── different.c
+    │   ├── 01
+    │   │   └── visualizer_output.png
+    │   ├── 02_extreme_cases
+    │   │   └── visualizer_output.png
+    │   └── 1
+    │       └── visualizer_output.png
+    └── different.cc
+        ├── 01
+        │   └── visualizer_output.png
+        ├── 02_extreme_cases
+        │   └── visualizer_output.png
+        └── 1
+            └── visualizer_output.png
+    """
     PART_NAME = 'output_visualizer'
+
+    ALLOWED_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".svg"]
 
     def setup(self):       
         self._visualizer = run.find_programs(os.path.join(self.problem.probdir,'output_visualizer'), 
-        work_dir=self.problem.tmpdir,
-        language_config=self.problem.language_config)
-        self._has_precompiled = False
+                                        work_dir=self.problem.tmpdir,
+                                        language_config=self.problem.language_config)
 
-        self.counter = 0
-        self._has_warned_amount = True      #Boolean value regarding correct amount of visualizers is only raised once
-        self._missing_visualizer = False    #Boolean value regarding visualizer warning is only raised once
+        self.count = 0
+        self._has_precompiled = False
+        
     def __str__(self) -> str: 
         return 'output visualizer'
-    
+
     @staticmethod
     def setup_dependencies():
         return [OutputValidators]
 
-    #Does an early compilatilation of the visualizer
+    # Does an early compilatilation of the visualizer
     def start_background_work(self, context: Context) -> None: #kan
         if not self._has_precompiled:
             context.submit_background_work(lambda v: v.compile(), self._visualizer)
             self._has_precompiled = True
         
     def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
+        if len(self._visualizer) != 1:
+            self.warning(f'Wrong amount of visualizers. \nExcpected: 1\nActual: {len(self._visualizer)}')
 
-
-    #Checks the file extension of the given file and then tries to validate if the given file is one of the permitted ones
-    def check_image_type(self, file) -> bool: 
-        permitted_filetypes = [
-        b'\x89PNG\r\n\x1a\n',  # PNG file header
-        b'\xff\xd8\xff\xe0\x10\x00JF',     # JPEG and JPG file header
+    # Checks if a file's extension is allowed, and if so validates its header
+    def check_is_valid_image(self, file) -> bool:
+        simple_header_formats = [
+            ('.png', b'\x89PNG\r\n\x1a\n'), # PNG file header
+            ('jpg',  b'\xff\xd8\xff\xe0\x10\x00JF') # JPEG and JPG file header
         ]
-        simple_file_endings = ['.png','.jpg','.jpeg']
-        #If the file is not an svg it then reads in the first 8 bytes and checks them agains permitted_filetypes to se if it's an allowed signature
-        if any(file.endswith(end) for end in simple_file_endings): 
+        simple_header_formats.append(('jpeg', simple_header_formats[1][1]))
+        # If the file is not an svg it then reads in the first 8 bytes and checks
+        # that its header / magic number is as expected
+        if any(file.suffix == end for end, _ in simple_header_formats):
+            header = [header for end, header in simple_header_formats if file.suffix == end][0]
             with open(file, "rb") as f:
                 file_signature = f.read(8)
-            if any(file_signature.startswith(ft) for ft in permitted_filetypes):
-                return True
+            if not file_signature.startswith(header):
+                self.warning(f"File {file} has incorrect file header")
+                return False
+            return True
         elif file.endswith('.svg'):
             try:
+                #TODO make this more robust
+                # Reads the XML declaration and first 256 characters, as <svg has a high probability of existing here
+                # If this breaks due to svg appearing further in, either increase bytes read or do this properly
                 with open(file, 'r', encoding='utf-8') as f:
-                    content = f.read(256)          #Reads the XML declaration and first 500 characters. Then checks if the declaration is correct and if the <svg> tag is present
+                    content = f.read(256)
                 if content.startswith('<?xml') and '<svg' in content:
                     return True
             except Exception as e:
                 self.warning(f"Error checking SVG: {e}")
         else:
             return False        
-    
-    #Gets a path to the folder where it should save
-    #Then creates a new folder for this round of tests and copies over the file, then increments the folder counter by one
-    def save_image(self, file): 
-        save_folder_path = os.getcwd() + f"/saved_images/output-{self.counter}" #TODO works but get correct path  #TODO GET JUDGE NAME AND OUTPUT  from funbction call
-        os.makedirs(save_folder_path, exist_ok=True)
-        shutil.copy(file, save_folder_path)
-        self.counter = self.counter + 1
 
-    #Returns True if a visualizer exists
-    #Otherwise False and changes the local variable if this already has been raised               
-    def visualizer_exists(self)->bool: 
-        if not self._visualizer and not self._missing_visualizer: 
-            self._missing_visualizer = True
-            self.warning('No visualizer found')
+    def visualizer_exists(self)->bool:
         return bool(self._visualizer)
-                        
-    def visualize(self, result_file: str, feedback_dir: str, context: Context): #TODO context istället för testcase för flaggan
-        res = []
+
+    def visualize(self, result_file: str, feedback_dir: str, output_dir: Path, context: Context):
+        """Run visualizer on result_file, and optionally save it to disk"""
+        generated_image_paths = []
         
         if not self.visualizer_exists():
             return
-        
-        #Checks if there is only one validator and then selects it
-        #Otherwise raises warning 
-        if len(self._visualizer) == 1:  
-            visualizer = self._visualizer[0] 
-        else:
-            if self._has_warned_amount:
-                self._has_warned_amount = False
-                self.warning(f'Wrong amount of visualizer. \nExcpected: 1\nActual: {len(self._visualizer)}')
-            return
+        visualizer = self._visualizer[0]
 
         #Tries to run the visualzier and raises a warning if failed
         try:  
@@ -1622,22 +1629,26 @@ class OutputVisualizer(ProblemPart):
         except Exception as e:
             self.warning(f'Error running output visualizer: {e}')
         
-        # Iterates through all the files in the feedback directory and performs a file header check on all files with the allowed file extensions
-        file_extensions = [".png", ".jpg", ".jpeg", ".svg"]
-        for file in os.listdir(feedback_dir):
-            file = os.path.join(feedback_dir,file) #TODO Gör snyggare
-            for ext in file_extensions:
-                if file.endswith(ext):
-                    res.append(tuple((file, self.check_image_type(file))))
-       
-        if context.save_output_visualizer_images:  #If the flag was raised all images are saved
-            for i in range(len(res)):
-                if res[i][1]:
-                    self.save_image(res[i][0])
+        any_invalid_headers = False
+
+        for file in Path(feedback_dir).iterdir():
+            if file.is_file() and file.suffix in self.ALLOWED_FILE_EXTENSIONS:
+                if self.check_is_valid_image(file):
+                    generated_image_paths.append(file)
+                else:
+                    any_invalid_headers = True
+
+        if context.save_output_visualizer_images:
+            for image in generated_image_paths:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy(file, output_dir / Path(file).name)
 
         #Raises a warning if the file signature is wrong or the list is empty
-        if not any(res):
-            self.warning("The visualizer did not generate an allowed image")
+        if not generated_image_paths:
+            if any_invalid_headers:
+                self.warning("The visualizer did not generate images with proper file headers")
+            else:
+                self.warning("The visualizer did not generate any images")
 
 
 class Runner:
@@ -1906,11 +1917,11 @@ PROBLEM_FORMATS = {
         'graders':      [Graders],
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
-        'visualizers': [OutputVisualizer] #TODO for testing
+        'visualizers':  [OutputVisualizer] #TODO for testing
     },
     '2023-07': { # TODO: Add all the parts
         'statement':    [ProblemStatement2023_07, Attachments],
-        'visualizers': [OutputVisualizer]
+        'visualizers':  [OutputVisualizer]
     }
 }
 
@@ -2080,9 +2091,8 @@ def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
                         help='which problem format should the package be interpreted as, or "automatic" if it should be figured out from problem.yaml')
 
     parser.add_argument('-sv', '--save_visualizer',
-                        #type=bool,
                         action='store_true',
-                        help="Pass to save visualizer outputs to disk")
+                        help="Save visualizer outputs to disk")
 
 def argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Validate a problem package in the Kattis problem format.')
