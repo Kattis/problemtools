@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageFont
 def main():
     if not len(sys.argv) == 3:
         print("Usage: output_visualizer.py <submission_output> <feedback_dir>")
-        sys.exit(15)
+        sys.exit(1)
     
     with open (sys.argv[1], 'r') as f:
         submission_output = f.read()
