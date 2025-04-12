@@ -377,9 +377,13 @@ class TestCase(ProblemAspect):
         res_high.set_ac_runtime()
         
         visualizer = self._problem.classes.get(OutputVisualizer.PART_NAME)
-        if visualizer.visualizer_exists() and outfile:
+        if visualizer.visualizer_exists():
             output_path = Path(f"{self._problem.shortname}_images") / Path(sub.path).name / Path(self.infile).stem
-            visualizer.visualize(outfile, feedbackdir, output_path, context)
+            if outfile:
+                visualizer.visualize(outfile, feedbackdir, output_path, context)
+            else:
+                with tempfile.NamedTemporaryFile() as f:
+                    visualizer.visualize(f.name, feedbackdir, output_path, context)
 
         return (res, res_low, res_high)
 
@@ -1641,7 +1645,7 @@ class OutputVisualizer(ProblemPart):
         if context.save_output_visualizer_images:
             for image in generated_image_paths:
                 output_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy(file, output_dir / Path(file).name)
+                shutil.copy(image, output_dir / Path(image).name)
 
         #Raises a warning if the file signature is wrong or the list is empty
         if not generated_image_paths:
