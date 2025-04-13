@@ -32,10 +32,3 @@ def test_no_xss_sample():
     problem_path = Path(__file__).parent / "problems" / "samplexss"
     html = render(problem_path)
     assert "<script>" not in html
-
-# TODO: I can't even pass the path properly kinda??
-# def test_no_xss_problem_id():
-#     problem_path = Path(__file__).parent / "problems" / '<img src=x onerror=alert(1)>'
-#     html = render(problem_path)
-#     assert "alert" not in html
-
