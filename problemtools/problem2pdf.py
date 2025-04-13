@@ -23,6 +23,9 @@ def convert(options: argparse.Namespace) -> bool:
 
 
 def md2pdf(options: argparse.Namespace) -> bool:
+    """Renders a Markdown document to pdf. Uses pandoc md -> tex, then
+    reuses the normal tex -> pdf pipeline
+    """
     problem_root = os.path.realpath(options.problem)
     statement_path = statement_util.find_statement(problem_root, extension="md", language=options.language)
 
@@ -129,7 +132,24 @@ def latex2pdf(options: argparse.Namespace) -> bool:
         if status == 0 and not options.nopdf:
             shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
 
-    return status == 0
+    if status:
+        return False
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.pdf') as f:
+            command = ["gs", "-q", "-dBATCH", "-sDEVICE=pdfwrite", "-dNOPAUSE",
+                       "-dCompatibilityLevel=1.7", f"-sOutputFile={f.name}", destfile]
+            gs_status = subprocess.run(command, capture_output=True,
+                text=True, shell=False, check=True
+            )
+            if gs_status:
+                return False
+            shutil.copy(f.name, destfile)
+    except subprocess.CalledProcessError as e:
+        print(f"Error sanitizing PDF: {e} {e.stderr}")
+        raise
+
+    return True
 
 
 def get_parser() -> argparse.ArgumentParser:
