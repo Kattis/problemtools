@@ -1,5 +1,5 @@
 import os
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import html
 import json
 import re
@@ -12,7 +12,8 @@ import yaml
 from . import formatversion
 
 SUPPORTED_EXTENSIONS = ("tex", "md")
-ALLOWED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg") # ".svg"
+ALLOWED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")  # ".svg"
+
 
 def find_statement(problem_root: str, extension: str, language: Optional[str]) -> Optional[str]:
     """Finds the "best" statement for given language and extension"""
@@ -33,6 +34,7 @@ def find_statement(problem_root: str, extension: str, language: Optional[str]) -
 
     return None
 
+
 def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
     """Given a language, find whether the extension is tex or md
 
@@ -51,8 +53,9 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
         return extensions[0]
     raise FileNotFoundError(f"No statement found for language {language or 'en'}")
 
-def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str]:
 
+def get_yaml_problem_name(problem: str, language: Optional[str]) -> str:
+    """Finds the problem name from the problem.yaml file"""
     # TODO: getting this should be done using verifyproblem
     # Wait until new config parsing system is in place
     config_file = Path(problem) / 'problem.yaml'
@@ -82,6 +85,7 @@ def get_yaml_problem_name(problem: str, language: Optional[str]) -> Optional[str
         raise ValueError(f"No problem name defined for language {language or 'en'}")
     return names[language]
 
+
 def json_dfs(data, callback) -> None:
     """Traverse all items in a JSON tree, find all images, and call callback for each one"""
     if isinstance(data, dict):
@@ -96,9 +100,10 @@ def json_dfs(data, callback) -> None:
         for item in data:
             json_dfs(item, callback)
 
+
 def foreach_image(statement_path, callback):
     """ Find all images in the statement and call callback for each one """
-    command = ["pandoc", statement_path, "-t" , "json"]
+    command = ["pandoc", statement_path, "-t", "json"]
     # Must create a working directory for pytest to work
     with tempfile.TemporaryDirectory() as work_dir:
         statement_json = subprocess.run(command, capture_output=True, text=True,
@@ -106,16 +111,18 @@ def foreach_image(statement_path, callback):
 
     json_dfs(json.loads(statement_json), callback)
 
-def assert_image_is_valid(problem_root: str, img_src: str) -> str|None:
+
+def assert_image_is_valid(problem_root: str, img_src: str) -> None:
     """ Check that the image exists and uses an allowed extension """
     extension = Path(img_src).suffix
     # TODO: fix svg sanitization and allow svg
-    if extension not in ALLOWED_IMAGE_EXTENSIONS: # ".svg"
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
         raise ValueError(f"Unsupported image extension {extension} for image {img_src}")
 
     source_file = Path(problem_root) / img_src
     if not source_file.exists():
         raise FileNotFoundError(f"Resource file {img_src} not found in statement")
+
 
 def assert_images_are_valid_md(statement_path: str) -> None:
     """ Find all images in the statement and assert that they exist and
@@ -124,14 +131,16 @@ def assert_images_are_valid_md(statement_path: str) -> None:
     """
     problem_root = os.path.dirname(statement_path)
     foreach_image(statement_path,
-                lambda img_name: assert_image_is_valid(problem_root, img_name))
+                  lambda img_name: assert_image_is_valid(problem_root, img_name))
 
-def inject_samples(statement_html, samples, sample_separator):
+
+def inject_samples(statement_html: str, samples: List[str]) -> Tuple[str, List[str]]:
     """Injects samples at occurences of {{nextsample}} and {{remainingsamples}}
-    Non-destructive, returns the new html and all left-over samples
+    Non-destructive
 
     Returns:
-        """
+        Statement with samples inject and left-over samples.
+    """
 
     while True:
         match = re.search(r'\{\{(nextsample|remainingsamples)\}\}', statement_html)
@@ -142,7 +151,7 @@ def inject_samples(statement_html, samples, sample_separator):
             raise ValueError("Error: called {{nextsample}} without any samples left")
 
         num_inject = 1 if matched_text == "nextsample" else len(samples)
-        to_inject = sample_separator.join(samples[:num_inject])
+        to_inject = "".join(samples[:num_inject])
         samples = samples[num_inject:]
 
         # Always inject, even if to_inject is empty
@@ -151,6 +160,7 @@ def inject_samples(statement_html, samples, sample_separator):
         statement_html = statement_html[:match.start()] + to_inject + statement_html[match.end():]
 
     return statement_html, samples
+
 
 def format_samples(problem_root: str) -> List[str]:
     """Read all samples from the problem directory and convert them to pandoc-valid markdown
@@ -186,6 +196,7 @@ def format_samples(problem_root: str) -> List[str]:
 
     return samples
 
+
 def format_normal_sample(sample_root: str, sample: str, casenum: int) -> str:
     """
 
@@ -219,6 +230,7 @@ def format_normal_sample(sample_root: str, sample: str, casenum: int) -> str:
         </tbody>
         </table>""" % ({"case": casenum, "input": html.escape(sample_input),
                         "output": html.escape(sample_output)})
+
 
 def format_interactive_sample(sample_root: str, sample: str, casenum: int) -> str:
     """

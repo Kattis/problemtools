@@ -16,6 +16,7 @@ from . import statement_util
 
 FOOTNOTES_STRING = '<section class="footnotes">'
 
+
 def convert(problem: str, options: argparse.Namespace) -> bool:
     """Convert a Markdown statement to HTML
 
@@ -27,7 +28,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
     statement_path = statement_util.find_statement(problem, extension="md",
-                                                     language=options.language)
+                                                   language=options.language)
 
     if statement_path is None:
         raise FileNotFoundError('No markdown statement found')
@@ -35,10 +36,9 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     if not os.path.isfile(statement_path):
         raise FileNotFoundError(f"Error! {statement_path} does not exist")
 
-
-    command = ["pandoc", statement_path, "-t" , "html", "--mathjax"]
+    command = ["pandoc", statement_path, "-t", "html", "--mathjax"]
     statement_html = subprocess.run(command, capture_output=True, text=True,
-        shell=False, check=True).stdout
+                                    shell=False, check=True).stdout
 
     statement_html = sanitize_html(problem, statement_html)
 
@@ -56,15 +56,15 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
     problem_name = statement_util.get_yaml_problem_name(problem, options.language)
     substitution_params = {"statement_html": statement_html,
-           "language": options.language,
-           "title": html.escape(problem_name) if problem_name else "Missing problem name",
-           "problemid": html.escape(problembase)}
+        "language": options.language,
+        "title": html.escape(problem_name) if problem_name else "Missing problem name",
+        "problemid": html.escape(problembase)}
 
     statement_html = template % substitution_params
 
     samples = statement_util.format_samples(problem)
     # Insert samples at {{nextsample}} and {{remainingsamples}}
-    statement_html, remaining_samples = statement_util.inject_samples(statement_html, samples, "")
+    statement_html, remaining_samples = statement_util.inject_samples(statement_html, samples)
 
     # Insert the remaining samples at the bottom
     # However, footnotes should be below samples
@@ -82,6 +82,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
     return True
 
+
 def sanitize_html(problem: str, statement_html: str):
     # Allow footnote ids (the anchor points you jump to)
     def is_fn_id(s):
@@ -90,10 +91,10 @@ def sanitize_html(problem: str, statement_html: str):
         return bool(re.fullmatch(pattern_id_top, s)) or bool(re.fullmatch(pattern_id_bottom, s))
 
     allowed_classes = ("sample", "problemheader", "problembody",
-                    "sampleinteractionwrite", "sampleinteractionread",
-                    "footnotes")
+                       "sampleinteractionwrite", "sampleinteractionread",
+                       "footnotes")
 
-    def is_image_valid(problem_root: str, img_src: str) -> str|None:
+    def is_image_valid(problem_root: str, img_src: str) -> str | None:
         # Check that the image exists and uses an allowed extension
         extension = Path(img_src).suffix
         # TODO: fix svg sanitization and allow svg
@@ -106,7 +107,8 @@ def sanitize_html(problem: str, statement_html: str):
         return None
 
     # Annoying: nh3 will ignore exceptions in attribute_filter
-    image_fail_reason: str|None = None
+    image_fail_reason: str | None = None
+
     def attribute_filter(tag, attribute, value):
         if attribute == "class" and value in allowed_classes:
             return value
@@ -140,6 +142,7 @@ def sanitize_html(problem: str, statement_html: str):
 
     return statement_html
 
+
 def copy_image(problem_root: str, img_src: str) -> None:
     """Copy image to output directory
 
@@ -150,6 +153,6 @@ def copy_image(problem_root: str, img_src: str) -> None:
 
     source_name = os.path.join(problem_root, "statement", img_src)
 
-    if os.path.isfile(img_src): # already copied
+    if os.path.isfile(img_src):  # already copied
         return
     shutil.copyfile(source_name, img_src)

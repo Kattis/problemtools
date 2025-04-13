@@ -23,7 +23,6 @@ def convert(problem: str, options: argparse.Namespace) -> None:
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
     imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problembase)
 
-    texfile = problem
     # Set up template if necessary
     with template.Template(problem, language=options.language) as templ:
         texfile = open(templ.get_file_name(), 'r')

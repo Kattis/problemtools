@@ -12,6 +12,7 @@ from pathlib import Path
 from . import template
 from . import statement_util
 
+
 def convert(options: argparse.Namespace) -> bool:
     problem_root = os.path.realpath(options.problem)
 
@@ -23,12 +24,9 @@ def convert(options: argparse.Namespace) -> bool:
 
 def md2pdf(options: argparse.Namespace) -> bool:
     problem_root = os.path.realpath(options.problem)
-    problembase = os.path.splitext(os.path.basename(problem_root))[0]
-    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
-
     statement_path = statement_util.find_statement(problem_root, extension="md", language=options.language)
 
-    if not os.path.isfile(statement_path):
+    if not statement_path or not os.path.isfile(statement_path):
         raise FileNotFoundError(f"Error! {statement_path} does not exist")
 
     statement_util.assert_images_are_valid_md(statement_path)
@@ -37,11 +35,11 @@ def md2pdf(options: argparse.Namespace) -> bool:
     if not language:
         language = "en"
     temp_tex_file = Path(statement_path).parent / f"problem.{language}.tex"
-    command = ["pandoc", statement_path, "-o", temp_tex_file]
+    command = ["pandoc", statement_path, "-o", str(temp_tex_file)]
     try:
         subprocess.run(command, capture_output=True,
-            text=True, shell=False, check=True
-        )
+                       text=True, shell=False, check=True
+                       )
     except subprocess.CalledProcessError as e:
         print(f"Error compiling Markdown to pdf: {e.stderr}")
         return False
@@ -51,7 +49,7 @@ def md2pdf(options: argparse.Namespace) -> bool:
             tex = f.read()
 
         def format_latex_tables(latex_doc):
-            # Match table environments with column specs between @{...@{}}
+            # Match table environments produced by pandoc
             pattern = r'''
                 (\\begin\{longtable\}\[\]\{@\{\})
                 ([a-z])
@@ -85,17 +83,18 @@ def md2pdf(options: argparse.Namespace) -> bool:
         tex = tex.replace(r"\{\{remainingsamples\}\}", r"\remainingsamples")
 
         problem_name = statement_util.get_yaml_problem_name(problem_root, options.language)
-        tex = '\\problemname{' + problem_name + '}\n' + tex
+        tex = r'\problemname{' + problem_name + '}\n' + tex
         with open(temp_tex_file, "w", encoding="utf-8") as f:
             f.write(tex)
 
         status = latex2pdf(options)
         if status != 0:
-            return status
+            return False
     finally:
         temp_tex_file.unlink()
 
     return status == 0
+
 
 def latex2pdf(options: argparse.Namespace) -> bool:
     problem_root = os.path.realpath(options.problem)
@@ -117,7 +116,6 @@ def latex2pdf(options: argparse.Namespace) -> bool:
             params.append('-draftmode')
 
         params.append(texfile)
-        print(texfile)
 
         status = subprocess.call(params, stdout=output)
         if status == 0:
