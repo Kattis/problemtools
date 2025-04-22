@@ -31,20 +31,15 @@ A few examples of problem packages can be found in [examples](examples).
 There are four supported ways of installing and running problemtools.
 (For non-Linux users, "Method 2" below, to use Docker, is probably the least painful.)
 
-### Method 1: Install the Python package
+### Method 1: Install the Python package using pipx
 
 Run
 ```
-sudo pip3 install git+https://github.com/kattis/problemtools
+pipx install git+https://github.com/kattis/problemtools
 ```
 
-Or if you don't want a system-wide installation,
-```
-pip3 install --user git+https://github.com/kattis/problemtools
-```
-With this second option, in order to get the command line scripts, you need
-to make sure that the local user bin path used (e.g., on Linux,
-`$HOME/.local/bin`) is in your `$PATH`.
+In order to get the command line scripts, you need to make sure that the local
+user bin path used (e.g., on Linux, `$HOME/.local/bin`) is in your `$PATH`.
 
 In order for problemtools to build and run properly, you also need to have LaTeX
 and various LaTeX packages installed.  See [Requirements and
@@ -95,22 +90,30 @@ Hub, these are only updated sporadically for testing purposes and not
 kept up to date).
 
 
-### Method 3: Run directly from the repository.
+### Method 3: Install into a venv using pip
 
-If you intend to help develop problemtools, or if you just want a
-bare-bones way of running them, this is your option.
+If you intend to help develop problemtools, if you intend to use problemtools
+as a python library, or if you just want a bare-bones way of running them, this
+is your option.
 
 For this method, you need to clone the repository (just downloading a
 zip archive of it does not work because the project has submodules
 that are not included in that zip archive).
 
-In order for the tools to work, you first have to compile the various
-support programs, which can be done by running `make` in the root
-directory of problemtools.
+Start by setting up and activating your venv, e.g.,
 
-When this is done, you can run the three programs
-`bin/verifyproblem.sh`, `bin/problem2pdf.sh`, and
-`bin/problem2html.sh` directly from the repository.
+    python3 -m venv venv
+    source venv/bin/activate
+
+For development use, then run:
+
+    pip install -e .
+
+The commands are now available as
+
+    venv/bin/verifyproblem
+    venv/bin/problem2pdf
+    venv/bin/problem2html
 
 See [Requirements and compatibility](#requirements-and-compatibility)
 below for what other software needs to be installed on your machine in
@@ -134,7 +137,7 @@ root of the repository).
 Apart from the build dependencies listed [below](#ubuntu), building
 the Debian package requires that the following tools are installed:
 
-    debhelper dh-python dpkg-dev
+    debhelper dh-virtualenv dpkg-dev
 
 The package can then be installed using (replace `<version>` as appropriate):
 
@@ -203,11 +206,11 @@ and a LaTeX installation.
 
 The dependencies needed to *build/install* problemtools can be installed with:
 
-    sudo apt install automake g++ make libboost-regex-dev libgmp-dev libgmp10 libgmpxx4ldbl python3 python3-pytest python3-setuptools python3-yaml python3-plastex
+    sudo apt install automake g++ make libboost-regex-dev libgmp-dev python3 git
 
 And the dependencies needed to *run* problemtools can be installed with:
 
-    sudo apt install ghostscript libgmpxx4ldbl python3-minimal python-pkg-resources python3-plastex python3-yaml texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy
+    sudo apt install ghostscript python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy dvisvgm
 
 ### Fedora
 
