@@ -8,3 +8,7 @@ checktestdata: support/checktestdata/bootstrap
 
 support/checktestdata/bootstrap:
 	git submodule update --init
+
+clean:
+	make -C support clean
+	rm -rf problemtools.egg-info build
