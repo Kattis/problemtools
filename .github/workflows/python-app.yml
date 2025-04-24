@@ -26,7 +26,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install apt packages (for debbuild)
-      run: sudo apt-get install debhelper dh-python python3-pytest libboost-regex-dev build-essential
+      run: sudo apt-get install debhelper dh-virtualenv dpkg-dev python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git build-essential
       shell: bash
     - name: Install dependencies
       run: |
