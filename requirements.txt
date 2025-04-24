@@ -1,1 +1,2 @@
--e .
+PyYAML
+plasTeX>=3.0

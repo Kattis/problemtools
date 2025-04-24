@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools >= 77.0.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "problemtools"
+authors = [
+    {name = "Per Austrin", email = "austrin@kattis.com"},
+]
+description = "Kattis Problem Tools"
+readme = "README.md"
+license = "MIT"
+dependencies = [
+    "PyYAML",
+    "plasTeX>=3.0",
+]
+dynamic = [ "version" ]
+
+[project.scripts]
+verifyproblem = "problemtools.verifyproblem:main"
+problem2html = "problemtools.problem2html:main"
+problem2pdf = "problemtools.problem2pdf:main"
+
+[project.urls]
+Repository = "https://github.com/Kattis/problemtools"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["problemtools", "problemtools.*"]
+
+[tool.setuptools_scm]
+version_file = "problemtools/_version.py"

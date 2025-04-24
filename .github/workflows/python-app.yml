@@ -13,8 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
-
+  pythontests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,9 +24,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install apt packages (for debbuild)
-      run: sudo apt-get install debhelper dh-python python3-pytest libboost-regex-dev build-essential
-      shell: bash
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -40,10 +36,18 @@ jobs:
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude examples/
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude examples/
-    - name: Build debian packages
-      run:  make builddeb
     - name: Test with pytest
       run:  pytest
     - name: Run mypy
       run: |
         mypy --non-interactive --config-file mypy.ini -p problemtools
+
+  packages: # Use a separate job to test debian packaging to speed things up (no need to test this for every python version above)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install apt packages (for debbuild)
+      run: sudo apt-get install debhelper dh-virtualenv dpkg-dev python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git build-essential
+      shell: bash
+    - name: Build debian packages
+      run:  make builddeb

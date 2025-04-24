@@ -1,0 +1,3 @@
+opt/venvs/kattis-problemtools/bin/verifyproblem usr/bin/verifyproblem
+opt/venvs/kattis-problemtools/bin/problem2pdf usr/bin/problem2pdf
+opt/venvs/kattis-problemtools/bin/problem2html usr/bin/problem2html
