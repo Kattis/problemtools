@@ -39,7 +39,9 @@ pipx install git+https://github.com/kattis/problemtools
 ```
 
 In order to get the command line scripts, you need to make sure that the local
-user bin path used (e.g., on Linux, `$HOME/.local/bin`) is in your `$PATH`.
+user bin path used (e.g., on Linux, `$HOME/.local/bin`) is in your `$PATH`. See
+[pipx' installation instructions](https://pipx.pypa.io/stable/installation/)
+for information on how to install `pipx` and set up your `$PATH`.
 
 In order for problemtools to build and run properly, you also need to have LaTeX
 and various LaTeX packages installed.  See [Requirements and
@@ -90,30 +92,27 @@ Hub, these are only updated sporadically for testing purposes and not
 kept up to date).
 
 
-### Method 3: Install into a venv using pip
+### Method 3: Run directly from the repository
 
-If you intend to help develop problemtools, if you intend to use problemtools
-as a python library, or if you just want a bare-bones way of running them, this
-is your option.
+If you intend to help develop problemtools, or if you just want a bare-bones
+way of running them, this is your option.
 
 For this method, you need to clone the repository (just downloading a
 zip archive of it does not work because the project has submodules
 that are not included in that zip archive).
 
-Start by setting up and activating your venv, e.g.,
+Start by setting up your venv, e.g.,
 
     python3 -m venv venv
-    source venv/bin/activate
+    venv/bin/pip install -r requirements.txt
 
-For development use, then run:
+In order for the tools to work, you first have to compile the various
+support programs, which can be done by running `make` in the root
+directory of problemtools.
 
-    pip install -e .
-
-The commands are now available as
-
-    venv/bin/verifyproblem
-    venv/bin/problem2pdf
-    venv/bin/problem2html
+When this is done, you can run the three programs
+`bin/verifyproblem.sh`, `bin/problem2pdf.sh`, and
+`bin/problem2html.sh` directly from the repository.
 
 See [Requirements and compatibility](#requirements-and-compatibility)
 below for what other software needs to be installed on your machine in
@@ -206,7 +205,7 @@ and a LaTeX installation.
 
 The dependencies needed to *build/install* problemtools can be installed with:
 
-    sudo apt install automake g++ make libboost-regex-dev libgmp-dev python3 git
+    sudo apt install python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git
 
 And the dependencies needed to *run* problemtools can be installed with:
 
