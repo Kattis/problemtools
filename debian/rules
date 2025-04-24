@@ -8,7 +8,7 @@
 	dh $@ --with python-virtualenv
 
 override_dh_virtualenv:
-	dh_virtualenv --builtin-venv
+	dh_virtualenv --builtin-venv --python /usr/bin/python3
 
 override_dh_strip:
 	dh_strip --exclude=/PIL/ --exclude=/pillow.libs/
