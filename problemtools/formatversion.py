@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 
 VERSION_LEGACY = "legacy"
-VERSION_2023_07 = "2023-07"
+VERSION_2023_07 = "2023-07-draft"
 
 
 @dataclass(frozen=True)
@@ -24,9 +24,10 @@ FORMAT_DATACLASSES = {
     VERSION_LEGACY: FormatData(name=VERSION_LEGACY, statement_directory="problem_statement", statement_extensions=["tex"]),
     VERSION_2023_07: FormatData(name=VERSION_2023_07, statement_directory="statement", statement_extensions=["md", "tex"])
 }
+FORMAT_DATACLASSES['2023-07'] = FORMAT_DATACLASSES[VERSION_2023_07] # Accept non-draft version string too
 
 
-def detect_problem_version(path) -> str:
+def detect_problem_version(path: str) -> str:
     """
     Returns the problem version value of problem.yaml or throws an error if it is unable to read the file.
     Args:
@@ -45,7 +46,7 @@ def detect_problem_version(path) -> str:
     return config.get('problem_format_version', VERSION_LEGACY)
 
 
-def get_format_data(path):
+def get_format_data(path: str) -> FormatData:
     """
     Gets the dataclass object containing the necessary data for a problem format.
     Args:
@@ -58,7 +59,7 @@ def get_format_data(path):
     return get_format_data_by_name(detect_problem_version(path))
 
 
-def get_format_data_by_name(name):
+def get_format_data_by_name(name: str) -> FormatData:
     """
     Gets the dataclass object containing the necessary data for a problem format given the format name.
     Args:

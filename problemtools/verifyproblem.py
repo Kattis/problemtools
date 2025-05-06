@@ -1729,7 +1729,7 @@ class Submissions(ProblemPart):
         return self._check_res
 
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
-    'legacy': {
+    formatversion.VERSION_LEGACY: {
         'config':       [ProblemConfig],
         'statement':    [ProblemStatement, Attachments],
         'validators':   [InputValidators, OutputValidators],
@@ -1737,7 +1737,7 @@ PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
     },
-    '2023-07': { # TODO: Add all the parts
+    formatversion.VERSION_2023_07: { # TODO: Add all the parts
         'statement':    [ProblemStatement, Attachments],
     }
 }
@@ -1754,7 +1754,7 @@ class Problem(ProblemAspect):
     problem are listed. These should all be a subclass of ProblemPart. The dictionary is in the form
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
-    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS['legacy']):
+    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS[formatversion.VERSION_LEGACY]):
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
@@ -1942,15 +1942,6 @@ def initialize_logging(args: argparse.Namespace) -> None:
                         format=fmt,
                         level=getattr(logging, args.log_level.upper()))
 
-def detect_problem_version(path) -> str:
-    config_path = os.path.join(path, 'problem.yaml')
-    try:
-        with open(config_path) as f:
-            config: dict = yaml.safe_load(f) or {}
-    except Exception as e:
-        raise VerifyError(str(e))
-    return config.get('problem_format_version', 'legacy')
-
 def main() -> None:
     args = argparser().parse_args()
 
@@ -1959,17 +1950,18 @@ def main() -> None:
     total_errors = 0
     try:
         for problemdir in args.problemdir:
-            problem_version = args.problem_format
-            if problem_version == 'automatic':
-                try:
-                    problem_version = detect_problem_version(problemdir)
-                except VerifyError as e:
-                    total_errors += 1
-                    print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
-                    continue
+            try:
+                if args.problem_format == 'automatic':
+                    version_data = formatversion.get_format_data(problemdir)
+                else:
+                    version_data = formatversion.get_format_data_by_name(args.problem_format)
+            except formatversion.VersionError as e:
+                total_errors += 1
+                print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
+                continue
             
-            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {problem_version}')
-            format = PROBLEM_FORMATS[problem_version]
+            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {version_data.name}')
+            format = PROBLEM_FORMATS[version_data.name]
             with Problem(problemdir, format) as prob:
                 errors, warnings = prob.check(args)
                 p = lambda x: '' if x == 1 else 's'
