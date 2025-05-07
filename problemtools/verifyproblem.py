@@ -26,16 +26,17 @@ import shlex
 
 import yaml
 
-from . import problem2pdf
-from . import problem2html
-from . import formatversion
-
 from . import config
 from . import languages
+from . import formatversion
+from . import metadata
+from . import problem2html
+from . import problem2pdf
 from . import run
 
 from abc import ABC
 from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, Type, TypeVar
+from pydantic import ValidationError
 
 log = logging.getLogger(__name__)
 
@@ -262,7 +263,7 @@ class TestCase(ProblemAspect):
         self.check_size_limits(self.ansfile)
         self._problem.getProblemPart(InputValidators).validate(self)
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
-        outputlim = self._problem.get(ProblemConfig)['limits']['output']
+        outputlim = self._problem.getMetadata().limits.output
         if anssize > outputlim:
             self.error(f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit')
         elif 2 * anssize > outputlim:
@@ -331,7 +332,7 @@ class TestCase(ProblemAspect):
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
             status, runtime = sub.run(infile=self.infile, outfile=outfile, errfile=errfile,
                                       timelim=timelim_high+1,
-                                      memlim=self._problem.get(ProblemConfig)['limits']['memory'], work_dir=sub.path)
+                                      memlim=self._problem.getMetadata().limits.memory, work_dir=sub.path)
             if is_TLE(status) or runtime > timelim_high:
                 res_high = SubmissionResult('TLE')
             elif is_RTE(status):
@@ -422,18 +423,18 @@ class TestCaseGroup(ProblemAspect):
 
         # TODO: Decide if these should stay
         # Some deprecated properties are inherited from problem config during a transition period
-        problem_grading = problem.get(ProblemConfig)['grading']
+        legacy_grading = problem.getMetadata().legacy_grading
         for key in ['accept_score', 'reject_score', 'range']:
-            if key in problem.get(ProblemConfig)['grading']:
-                self.config[key] = problem_grading[key]
+            if getattr(legacy_grading, key) is not None:
+                self.config[key] = getattr(legacy_grading, key)
 
-        problem_on_reject = problem_grading.get('on_reject')
+        problem_on_reject = legacy_grading.on_reject
         if problem_on_reject == 'first_error':
             self.config['on_reject'] = 'break'
         if problem_on_reject == 'grade':
             self.config['on_reject'] = 'continue'
 
-        if self._problem.get(ProblemConfig)['type'] == 'pass-fail':
+        if self._problem.getMetadata().is_pass_fail():
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if key not in self.config:
                     self.config[key] = None
@@ -789,15 +790,11 @@ class ProblemConfig(ProblemPart):
     def setup_dependencies():
         return {ProblemStatement}
 
-    _MANDATORY_CONFIG = ['name']
-    _OPTIONAL_CONFIG = config.load_config('problem.yaml')
-    _VALID_LICENSES = ['unknown', 'public domain', 'cc0', 'cc by', 'cc by-sa', 'educational', 'permission']
-
     def setup(self):
         self.debug('  Loading problem config')
         self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-        self._data = {}
 
+        self._data = {}
         if os.path.isfile(self.configfile):
             try:
                 with open(self.configfile) as f:
@@ -807,44 +804,24 @@ class ProblemConfig(ProblemPart):
                     self._data = {}
             except Exception as e:
                 self.error(str(e))
-
-        # Add config items from problem statement e.g. name
-        self._data.update(self.problem.get(ProblemStatement))
-
-        # Populate rights_owner unless license is public domain
-        if 'rights_owner' not in self._data and self._data.get('license') != 'public domain':
-            if 'author' in self._data:
-                self._data['rights_owner'] = self._data['author']
-            elif 'source' in self._data:
-                self._data['rights_owner'] = self._data['source']
-
-        if 'license' in self._data:
-            self._data['license'] = self._data['license'].lower()
-
-        # Ugly backwards compatibility hack
-        if 'name' in self._data and not isinstance(self._data['name'], dict):
-            self._data['name'] = {'': self._data['name']}
+        else:
+            # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
+            self.error(f"No config file {self.configfile} found")
 
         self._origdata = copy.deepcopy(self._data)
 
-        for field, default in copy.deepcopy(ProblemConfig._OPTIONAL_CONFIG).items():
-            if not field in self._data:
-                self._data[field] = default
-            elif isinstance(default, dict) and isinstance(self._data[field], dict):
-                self._data[field] = dict(list(default.items()) + list(self._data[field].items()))
-
-        val = self._data['validation'].split()
-        self._data['validation-type'] = val[0]
-        self._data['validation-params'] = val[1:]
-
-        self._data['grading']['custom_scoring'] = False
-        for param in self._data['validation-params']:
-            if param == 'score':
-                self._data['grading']['custom_scoring'] = True
-            elif param == 'interactive':
-                pass
-
-        return self._data
+        try:
+            self._metadata = metadata.parse_metadata(
+                    formatversion.get_format_data(self.problem.probdir),
+                    self._data,
+                    self.problem.get(ProblemStatement).get('name', {}),
+            )
+            self.problem.setMetadata(self._metadata)
+        except ValidationError as e:
+            # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
+            error_str = '\n'.join([f"    {'->'.join(str(err['loc']))}: {err['msg']}" for err in e.errors()])
+            self.error(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
+        return {}
 
 
     def __str__(self) -> str:
@@ -855,84 +832,48 @@ class ProblemConfig(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if not os.path.isfile(self.configfile):
-            self.error(f"No config file {self.configfile} found")
-
-        for field in ProblemConfig._MANDATORY_CONFIG:
-            if not field in self._data:
-                self.error(f"Mandatory field '{field}' not provided")
-
-        for field, value in self._origdata.items():
-            if field not in ProblemConfig._OPTIONAL_CONFIG.keys() and field not in ProblemConfig._MANDATORY_CONFIG:
-                self.warning(f"Unknown field '{field}' provided in problem.yaml")
-
-        for field, value in self._data.items():
-            if value is None:
-                self.error(f"Field '{field}' provided in problem.yaml but is empty")
-                self._data[field] = ProblemConfig._OPTIONAL_CONFIG.get(field, '')
-
-        # Check type
-        if not self._data['type'] in ['pass-fail', 'scoring']:
-            self.error(f"Invalid value '{self._data['type']}' for type")
-
         # Check rights_owner
-        if self._data['license'] == 'public domain':
-            if self._data['rights_owner'].strip() != '':
+        if self._metadata.license == metadata.License.PUBLIC_DOMAIN:
+            if self._metadata.rights_owner:
                 self.error('Can not have a rights_owner for a problem in public domain')
-        elif self._data['license'] != 'unknown':
-            if self._data['rights_owner'].strip() == '':
+        elif self._metadata.license != metadata.License.UNKNOWN:
+            if not self._metadata.rights_owner and not self._metadata.source and not self._metadata.credits.authors:
                 self.error('No author, source or rights_owner provided')
 
-        # Check source_url
-        if (self._data['source_url'].strip() != '' and
-            self._data['source'].strip() == ''):
-            self.error('Can not provide source_url without also providing source')
-
         # Check license
-        if not self._data['license'] in ProblemConfig._VALID_LICENSES:
-            self.error(f"Invalid value for license: {self._data['license']}.\n  Valid licenses are {ProblemConfig._VALID_LICENSES}")
-        elif self._data['license'] == 'unknown':
+        if self._metadata.license == metadata.License.UNKNOWN:
             self.warning("License is 'unknown'")
 
-        if self._data['grading']['show_test_data_groups'] not in [True, False]:
-            self.error(f"Invalid value for grading.show_test_data_groups: {self._data['grading']['show_test_data_groups']}")
-        elif self._data['grading']['show_test_data_groups'] and self._data['type'] == 'pass-fail':
+        if self._metadata.legacy_grading.show_test_data_groups and self._metadata.is_pass_fail():
             self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
-        if self._data['type'] != 'pass-fail' and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
+        if not self._metadata.is_pass_fail() and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
             self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
 
-        if 'on_reject' in self._data['grading']:
-            if self._data['type'] == 'pass-fail' and self._data['grading']['on_reject'] == 'grade':
-                self.error(f"Invalid on_reject policy '{self._data['grading']['on_reject']}' for problem type '{self._data['type']}'")
-            if not self._data['grading']['on_reject'] in ['first_error', 'worst_error', 'grade']:
-                self.error(f"Invalid value '{self._data['grading']['on_reject']}' for on_reject policy")
-
-        if self._data['grading']['objective'] not in ['min', 'max']:
-            self.error(f"Invalid value '{self._data['grading']['objective']}' for objective")
+        if self._metadata.legacy_grading.on_reject is not None:
+            if self._metadata.is_pass_fail() and self._metadata.legacy_grading.on_reject == 'grade':
+                self.error("Invalid on_reject policy 'grade' for problem type 'pass-fail'")
 
         for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
-            if deprecated_grading_key in self._data['grading']:
+            if getattr(self._metadata.legacy_grading, deprecated_grading_key) is not None:
                 self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
 
-        if not self._data['validation-type'] in ['default', 'custom']:
-            self.error(f"Invalid value '{self._data['validation']}' for validation, first word must be 'default' or 'custom'")
+        if self._metadata.legacy_validation:
+            val = self._metadata.legacy_validation.split()
+            validation_type = val[0]
+            validation_params = val[1:]
+            if not validation_type in ['default', 'custom']:
+                self.error(f"Invalid value '{validation_type}' for validation, first word must be 'default' or 'custom'")
 
-        if self._data['validation-type'] == 'default' and len(self._data['validation-params']) > 0:
-            self.error(f"Invalid value '{self._data['validation']}' for validation")
+            if validation_type == 'default' and len(validation_params) > 0:
+                self.error(f"Invalid value '{self._metadata.legacy_validation}' for validation")
 
-        if self._data['validation-type'] == 'custom':
-            for param in self._data['validation-params']:
-                if param not in['score', 'interactive']:
-                    self.error(f"Invalid parameter '{param}' for custom validation")
+            if validation_type == 'custom':
+                for param in validation_params:
+                    if param not in ['score', 'interactive']:
+                        self.error(f"Invalid parameter '{param}' for custom validation")
 
-        # Check limits
-        if not isinstance(self._data['limits'], dict):
-            self.error('Limits key in problem.yaml must specify a dict')
-            self._data['limits'] = ProblemConfig._OPTIONAL_CONFIG['limits']
-
-        # Some things not yet implemented
-        if self._data['libraries'] != '':
-            self.error("Libraries not yet supported")
+        if self._metadata.limits.time_limit is not None and not self._metadata.limits.time_limit.is_integer():
+            self.warning(f'Time limit configured to non-integer value. Problemtools does not yet support non-integer time limits, and will truncate')
 
         return self._check_res
 
@@ -948,8 +889,8 @@ class ProblemTestCases(ProblemPart):
         self.testcase_by_infile = {}
         return {
                 'root_group': TestCaseGroup(self.problem, self.PART_NAME),
-                'is_interactive': 'interactive' in self.problem.get(ProblemConfig)['validation-params'],
-                'is_scoring': self.problem.get(ProblemConfig)['type'] == 'scoring'
+                'is_interactive': self.problem.getMetadata().is_interactive(),
+                'is_scoring': self.problem.getMetadata().is_scoring(),
                 }
 
     def check(self, context: Context) -> bool:
@@ -1162,7 +1103,7 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self.problem.get(ProblemConfig)['type'] == 'pass-fail' and len(self._graders) > 0:
+        if self.problem.getMetadata().is_pass_fail() and len(self._graders) > 0:
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
@@ -1269,12 +1210,12 @@ class OutputValidators(ProblemPart):
             if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
-        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._validators:
+        if self.problem.getMetadata().legacy_validation == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.get(ProblemConfig)['validation'] != 'default' and not self._validators:
+        elif self.problem.getMetadata().legacy_validation != 'default' and not self._validators:
             self.error('problem.yaml specifies custom validator but no validator programs found')
 
-        if self.problem.get(ProblemConfig)['validation'] == 'default' and self._default_validator is None:
+        if self.problem.getMetadata().legacy_validation == 'default' and self._default_validator is None:
             self.error('Unable to locate default validator')
 
         for val in self._validators[:]:
@@ -1287,7 +1228,7 @@ class OutputValidators(ProblemPart):
 
         # Only sanity check output validators if they all actually compiled
         if self._check_res:
-            flags = self.problem.get(ProblemConfig)['validator_flags']
+            flags = self.problem.getMetadata().legacy_validator_flags
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
@@ -1329,7 +1270,7 @@ class OutputValidators(ProblemPart):
 
 
     def _parse_validator_results(self, val, status: int, feedbackdir, testcase: TestCase) -> SubmissionResult:
-        custom_score = self.problem.get(ProblemConfig)['grading']['custom_scoring']
+        custom_score = self.problem.getMetadata().legacy_custom_score
         score = None
         # TODO: would be good to have some way of displaying the feedback for debugging uses
         score_file = os.path.join(feedbackdir, 'score.txt')
@@ -1364,7 +1305,7 @@ class OutputValidators(ProblemPart):
 
     def _actual_validators(self) -> list:
         vals = self._validators
-        if self.problem.get(ProblemConfig)['validation'] == 'default':
+        if self.problem.getMetadata().legacy_validation == 'default':
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
 
@@ -1380,10 +1321,10 @@ class OutputValidators(ProblemPart):
         # file descriptor, wall time lim
         initargs = ['1', str(2 * timelim)]
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>']
-        submission_args = submission.get_runcmd(memlim=self.problem.get(ProblemConfig)['limits']['memory'])
+        submission_args = submission.get_runcmd(memlim=self.problem.getMetadata().limits.memory)
 
-        val_timelim = self.problem.get(ProblemConfig)['limits']['validation_time']
-        val_memlim = self.problem.get(ProblemConfig)['limits']['validation_memory']
+        val_timelim = self.problem.getMetadata().limits.validation_time
+        val_memlim = self.problem.getMetadata().limits.validation_memory
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
@@ -1435,9 +1376,9 @@ class OutputValidators(ProblemPart):
 
     def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
         res = SubmissionResult('JE')
-        val_timelim = self.problem.get(ProblemConfig)['limits']['validation_time']
-        val_memlim = self.problem.get(ProblemConfig)['limits']['validation_memory']
-        flags = self.problem.get(ProblemConfig)['validator_flags'].split() + testcase.testcasegroup.config['output_validator_flags'].split()
+        val_timelim = self.problem.getMetadata().limits.validation_time
+        val_memlim = self.problem.getMetadata().limits.validation_memory
+        flags = self.problem.getMetadata().legacy_validator_flags.split() + testcase.testcasegroup.config['output_validator_flags'].split()
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
@@ -1646,14 +1587,14 @@ class Submissions(ProblemPart):
 
     def full_score_finite(self) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases)['root_group'].get_score_range()
-        if self.problem.get(ProblemConfig)['grading']['objective'] == 'min':
+        if self.problem.getMetadata().legacy_grading.objective == 'min':
             return min_score != float('-inf')
         else:
             return max_score != float('inf')
 
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases)['root_group'].get_score_range()
-        best_score = min_score if self.problem.get(ProblemConfig)['grading']['objective'] == 'min' else max_score
+        best_score = min_score if self.problem.getMetadata().legacy_grading.objective == 'min' else max_score
         return result.verdict == 'AC' and (not self.problem.get(ProblemTestCases)['is_scoring'] or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
@@ -1669,16 +1610,16 @@ class Submissions(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        limits = self.problem.get(ProblemConfig)['limits']
-        time_multiplier = limits['time_multiplier']
-        safety_margin = limits['time_safety_margin']
+        limits = self.problem.getMetadata().limits
+        time_multiplier = limits.time_multipliers.ac_to_time_limit
+        safety_margin = limits.time_multipliers.time_limit_to_tle
 
         timelim_margin_lo = 300  # 5 minutes
         timelim_margin = 300
         timelim = 300
 
-        if 'time_for_AC_submissions' in limits:
-            timelim = timelim_margin = limits['time_for_AC_submissions']
+        if limits.time_limit is not None:
+            timelim = timelim_margin = int(limits.time_limit) # TODO: Support non-integer time limits
         if context.fixed_timelim is not None:
             timelim = context.fixed_timelim
             timelim_margin = int(round(timelim * safety_margin))
@@ -1695,8 +1636,8 @@ class Submissions(ProblemPart):
                 if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     self.info(f'Check {acr} submission {sub}')
 
-                    if sub.code_size() > 1024*limits['code']:
-                        self.error(f'{acr} submission {sub} has size {sub.code_size() / 1024.0:.1f} kiB, exceeds code size limit of {limits["code"]} kiB')
+                    if sub.code_size() > 1024*limits.code:
+                        self.error(f'{acr} submission {sub} has size {sub.code_size() / 1024.0:.1f} kiB, exceeds code size limit of {limits.code} kiB')
                         continue
 
                     success, msg = sub.compile()
@@ -1721,15 +1662,14 @@ class Submissions(ProblemPart):
                 if context.fixed_timelim is not None and context.fixed_timelim != timelim:
                     self.msg(f"   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {context.fixed_timelim} seconds instead")
                     timelim = context.fixed_timelim
-                    timelim_margin = timelim * safety_margin
+                    timelim_margin = round(timelim * safety_margin) # TODO: properly support 2023-07 time limit computation
 
                 self.msg(f"   Slowest AC runtime: {max_runtime_str}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs")
-            limits['time'] = timelim
 
         return self._check_res
 
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
-    'legacy': {
+    formatversion.VERSION_LEGACY: {
         'config':       [ProblemConfig],
         'statement':    [ProblemStatement, Attachments],
         'validators':   [InputValidators, OutputValidators],
@@ -1737,7 +1677,8 @@ PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
         'data':         [ProblemTestCases],
         'submissions':  [Submissions],
     },
-    '2023-07': { # TODO: Add all the parts
+    formatversion.VERSION_2023_07: { # TODO: Add all the parts
+        'config':       [ProblemConfig],
         'statement':    [ProblemStatement, Attachments],
     }
 }
@@ -1754,7 +1695,7 @@ class Problem(ProblemAspect):
     problem are listed. These should all be a subclass of ProblemPart. The dictionary is in the form
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
-    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS['legacy']):
+    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS[formatversion.VERSION_LEGACY]):
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
@@ -1762,6 +1703,7 @@ class Problem(ProblemAspect):
         super().__init__(self.shortname)
         self.language_config = languages.load_language_config()
         self._data: dict[str, dict] = {}
+        self._metadata: metadata.Metadata | None = None
         self.debug(f'Problem-format: {parts}')
 
     def get(self, part) -> dict:
@@ -1769,6 +1711,14 @@ class Problem(ProblemAspect):
             part = part.PART_NAME
         assert part in self._data
         return self._data[part]
+
+    def getMetadata(self) -> metadata.Metadata:
+        assert self._metadata is not None, 'Attempted to access Config before it was set'
+        return self._metadata
+
+    def setMetadata(self, metadata: metadata.Metadata) -> None:
+        assert self._metadata is None, 'Attempted to set Config twice'
+        self._metadata = metadata
 
     def getProblemPart(self, part: Type[_ProblemPartT]) -> _ProblemPartT:
         return self._classes[part.PART_NAME] # type: ignore
@@ -1942,15 +1892,6 @@ def initialize_logging(args: argparse.Namespace) -> None:
                         format=fmt,
                         level=getattr(logging, args.log_level.upper()))
 
-def detect_problem_version(path) -> str:
-    config_path = os.path.join(path, 'problem.yaml')
-    try:
-        with open(config_path) as f:
-            config: dict = yaml.safe_load(f) or {}
-    except Exception as e:
-        raise VerifyError(str(e))
-    return config.get('problem_format_version', 'legacy')
-
 def main() -> None:
     args = argparser().parse_args()
 
@@ -1959,17 +1900,18 @@ def main() -> None:
     total_errors = 0
     try:
         for problemdir in args.problemdir:
-            problem_version = args.problem_format
-            if problem_version == 'automatic':
-                try:
-                    problem_version = detect_problem_version(problemdir)
-                except VerifyError as e:
-                    total_errors += 1
-                    print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
-                    continue
+            try:
+                if args.problem_format == 'automatic':
+                    version_data = formatversion.get_format_data(problemdir)
+                else:
+                    version_data = formatversion.get_format_data_by_name(args.problem_format)
+            except formatversion.VersionError as e:
+                total_errors += 1
+                print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
+                continue
             
-            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {problem_version}')
-            format = PROBLEM_FORMATS[problem_version]
+            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {version_data.name}')
+            format = PROBLEM_FORMATS[version_data.name]
             with Problem(problemdir, format) as prob:
                 errors, warnings = prob.check(args)
                 p = lambda x: '' if x == 1 else 's'

@@ -180,7 +180,7 @@ problemtools' configuration:
    are not sure whether you should use it, then you probably shouldn't.
    This file can be used to specify the system defaults for those
    problem limits which are not given a fixed default value in the
-   [problem format specification](http://www.problemarchive.org/wiki/index.php/Problem_Format#limits).
+   [problem format specification](https://www.kattis.com/problem-package-format/spec/2023-07-draft.html#limits).
    The system defaults assumed by problemtools can be found in
    (problemtools/config/problem.yaml).  For instance, if you are
    primarily working against a system with a default memory limit of 2 GiB,
@@ -190,10 +190,6 @@ problemtools' configuration:
    limits:
        memory: 2048 # (unit is MiB)
    ```
-
-   (In principle, it is possible to override the defaults of other values than the
-   system-dependent defaults in the problem.yaml metadata files this way, but such
-   usage is very strongly discouraged.)
 
 
 ## Requirements and compatibility
