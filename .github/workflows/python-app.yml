@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["pypy3.10", "3.10"] # Arbitrary pick of one pypy and one Cpython version
+        python-version: ["pypy3.11", "3.11"] # 3.11 is the lowest we support, since we want StrEnum
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
