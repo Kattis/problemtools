@@ -19,7 +19,7 @@ class Language_test(TestCase):
                 }
 
     def test_create(self):
-        lang = languages.Language('langid', self.__language_dict())
+        languages.Language('langid', self.__language_dict())
 
     def test_update(self):
         lang = languages.Language('langid', self.__language_dict())
