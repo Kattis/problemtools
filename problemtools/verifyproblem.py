@@ -22,7 +22,6 @@ import random
 import traceback
 
 import argparse
-import shlex
 
 import yaml
 
@@ -418,7 +417,7 @@ class TestCaseGroup(ProblemAspect):
         # For non-root groups, missing properties are inherited from the parent group
         if parent:
             for field, parent_value in parent.config.items():
-                if not field in self.config:
+                if field not in self.config:
                     self.config[field] = parent_value
 
         # TODO: Decide if these should stay
@@ -498,7 +497,7 @@ class TestCaseGroup(ProblemAspect):
             score_range = self.config['range']
             min_score, max_score = list(map(float, score_range.split()))
             return (min_score, max_score)
-        except:
+        except Exception:
             return (float('-inf'), float('inf'))
 
 
@@ -586,12 +585,14 @@ class TestCaseGroup(ProblemAspect):
         ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
 
         for infile in infiles:
-            if os.path.isdir(infile): continue
-            if not f'{infile[:-3]}.ans' in ansfiles:
+            if os.path.isdir(infile):
+                continue
+            if f'{infile[:-3]}.ans' not in ansfiles:
                 self.error(f"No matching answer file for input '{infile}'")
         for ansfile in ansfiles:
-            if os.path.isdir(ansfile): continue
-            if not f'{ansfile[:-4]}.in' in infiles:
+            if os.path.isdir(ansfile):
+                continue
+            if f'{ansfile[:-4]}.in' not in infiles:
                 self.error(f"No matching input file for answer '{ansfile}'")
 
         if not self.get_subgroups() and not self.get_testcases():
@@ -861,7 +862,7 @@ class ProblemConfig(ProblemPart):
             val = self._metadata.legacy_validation.split()
             validation_type = val[0]
             validation_params = val[1:]
-            if not validation_type in ['default', 'custom']:
+            if validation_type not in ['default', 'custom']:
                 self.error(f"Invalid value '{validation_type}' for validation, first word must be 'default' or 'custom'")
 
             if validation_type == 'default' and len(validation_params) > 0:
@@ -873,7 +874,7 @@ class ProblemConfig(ProblemPart):
                         self.error(f"Invalid parameter '{param}' for custom validation")
 
         if self._metadata.limits.time_limit is not None and not self._metadata.limits.time_limit.is_integer():
-            self.warning(f'Time limit configured to non-integer value. Problemtools does not yet support non-integer time limits, and will truncate')
+            self.warning('Time limit configured to non-integer value. Problemtools does not yet support non-integer time limits, and will truncate')
 
         return self._check_res
 
@@ -1323,7 +1324,6 @@ class OutputValidators(ProblemPart):
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>']
         submission_args = submission.get_runcmd(memlim=self.problem.getMetadata().limits.memory)
 
-        val_timelim = self.problem.getMetadata().limits.validation_time
         val_memlim = self.problem.getMetadata().limits.validation_memory
         for val in self._actual_validators():
             if val.compile()[0]:
@@ -1914,7 +1914,8 @@ def main() -> None:
             format = PROBLEM_FORMATS[version_data.name]
             with Problem(problemdir, format) as prob:
                 errors, warnings = prob.check(args)
-                p = lambda x: '' if x == 1 else 's'
+                def p(x: int) -> str:
+                    return '' if x == 1 else 's'
                 print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
                 total_errors += errors
 
