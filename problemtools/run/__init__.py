@@ -6,12 +6,11 @@ import os
 
 from .buildrun import BuildRun
 from .checktestdata import Checktestdata
-from .errors import ProgramError
-from .executable import Executable
+from .errors import ProgramError as ProgramError
 from .program import Program
 from .source import SourceCode
 from .viva import Viva
-from .tools import get_tool_path, get_tool
+from .tools import get_tool as get_tool
 from . import rutil
 
 
