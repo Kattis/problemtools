@@ -15,7 +15,7 @@ def test_parse_empty_legacy():
 
 def test_parse_empty_2023_fails():
     with pytest.raises(ValidationError):
-        m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), {}, {'en': 'Hello World!'})
+        metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), {}, {'en': 'Hello World!'})
 
 @pytest.fixture
 def minimal_2023_conf():
@@ -35,7 +35,7 @@ def test_parse_typo_fails(minimal_2023_conf):
     c = minimal_2023_conf
     c['limits'] = { 'typo': 1 }
     with pytest.raises(ValidationError):
-        m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), c, {'en': 'Hello World!'})
+        metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), c, {'en': 'Hello World!'})
 
 def test_parse_single_author_2023(minimal_2023_conf):
     c = minimal_2023_conf

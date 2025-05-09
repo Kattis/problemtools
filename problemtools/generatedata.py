@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
-import glob
 import tempfile
 import shutil
 import yaml

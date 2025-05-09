@@ -33,3 +33,10 @@ include = ["problemtools", "problemtools.*"]
 
 [tool.setuptools_scm]
 version_file = "problemtools/_version.py"
+
+[tool.ruff]
+line-length = 130
+exclude = [ "examples" ]
+
+[tool.ruff.format]
+quote-style = "single"

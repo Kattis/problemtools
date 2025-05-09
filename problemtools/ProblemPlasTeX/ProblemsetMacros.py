@@ -1,12 +1,10 @@
 import sys
 import os
 import os.path
-import io
 from plasTeX.DOM import Node
 from plasTeX.Base import Command
 from plasTeX.Base import DimenCommand
 from plasTeX.Logging import getLogger
-import plasTeX.Packages.graphics as graphics
 
 log = getLogger()
 status = getLogger('status')
@@ -33,7 +31,7 @@ class problemheader(Command):
     args = 'title id:str'
 
     def invoke(self, tex):
-        res = Command.invoke(self, tex)
+        super().invoke(tex)
         timelimfile = os.path.join(os.path.dirname(tex.filename),
                                    '..', '.timelimit')
         if os.path.isfile(timelimfile):
@@ -45,10 +43,10 @@ class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
     def read_sample_file(self, filename):
-        return io.open(filename, 'r', encoding='utf-8').read()
+        return open(filename, 'r', encoding='utf-8').read()
 
     def invoke(self, tex):
-        res = Command.invoke(self, tex)
+        super().invoke(tex)
         dir = os.path.dirname(tex.filename)
         file1 = os.path.join(dir, self.attributes['file1'])
         file2 = os.path.join(dir, self.attributes['file2'])
@@ -67,28 +65,32 @@ class sampletableinteractive(Command):
     args = 'header read write file:str'
 
     def read_sample_interaction(self, filename):
-        data = io.open(filename, 'r', encoding='utf-8').read()
+        data = open(filename, 'r', encoding='utf-8').read()
         messages = []
         cur_msg: list[str] = []
         cur_mode = None
         for line in data.split('\n'):
-            if not line: continue
-            if line[0] == '<': mode = 'read'
-            elif line[0] == '>': mode = 'write'
-            else: continue
+            if not line:
+                continue
+            if line[0] == '<':
+                mode = 'read'
+            elif line[0] == '>':
+                mode = 'write'
+            else:
+                continue
             line = line[1:]
             if mode != cur_mode:
-                if cur_mode: messages.append({'mode': cur_mode,
-                                              'data': '\n'.join(cur_msg)})
+                if cur_mode:
+                    messages.append({'mode': cur_mode, 'data': '\n'.join(cur_msg)})
                 cur_msg = []
             cur_msg.append(line)
             cur_mode = mode
-        if cur_mode: messages.append({'mode': cur_mode,
-                                      'data': '\n'.join(cur_msg)})
+        if cur_mode:
+            messages.append({'mode': cur_mode, 'data': '\n'.join(cur_msg)})
         return messages
 
     def invoke(self, tex):
-        res = Command.invoke(self, tex)
+        super().invoke(tex)
         dir = os.path.dirname(tex.filename)
         file = os.path.join(dir, self.attributes['file'])
         try:
@@ -104,7 +106,7 @@ class sampletableinteractive(Command):
 # \includegraphics implementation)
 class _graphics_command(Command):
     def invoke(self, tex):
-        res = Command.invoke(self, tex)
+        res = super().invoke(tex)
 
         # Overcome plasTeX bug by looking for love in the right place
         basetex = self.ownerDocument.userdata['base_tex_instance']
