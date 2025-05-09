@@ -2,7 +2,6 @@ import re
 import os
 import shutil
 import subprocess
-import plasTeX.Renderers
 from plasTeX.Renderers.PageTemplate import Renderer
 from plasTeX.Filenames import Filenames
 from plasTeX.Imagers import Image
@@ -92,7 +91,7 @@ class ProblemRenderer(Renderer):
             if os.path.isdir(p):
                 templatepath = p
                 break
-        if templatepath == None:
+        if templatepath is None:
             raise Exception('Could not find templates needed for conversion to HTML')
 
         # Ugly but unfortunately PlasTeX is quite inflexible when it comes to
