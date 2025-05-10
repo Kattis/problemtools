@@ -11,12 +11,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from . import config
 from . import formatversion
 
+
 class ProblemType(StrEnum):
     PASS_FAIL = 'pass-fail'
     SCORING = 'scoring'
     MULTI_PASS = 'multi-pass'
     INTERACTIVE = 'interactive'
     SUBMIT_ANSWER = 'submit-answer'
+
 
 class License(StrEnum):
     UNKNOWN = 'unknown'
@@ -26,6 +28,7 @@ class License(StrEnum):
     CC_BY_SA = 'cc by-sa'
     EDUCATIONAL = 'educational'
     PERMISSION = 'permission'
+
 
 @dataclass
 class Person:
@@ -38,18 +41,21 @@ class Person:
     def from_string(cls: Type[Self], s: str) -> Self:
         match = re.match(r'^(.*?)\s+<(.*)>$', s.strip())
         if match:
-            return cls(name = match.group(1), email = match.group(2))
-        return cls(name = s)
+            return cls(name=match.group(1), email=match.group(2))
+        return cls(name=s)
+
 
 @dataclass
 class Source:
     name: str
     url: str | None = None
 
+
 @dataclass
 class TimeMultipliers:
     ac_to_time_limit: float = 2.0
     time_limit_to_tle: float = 1.5
+
 
 @dataclass
 class Limits:
@@ -66,12 +72,14 @@ class Limits:
     time_resolution: float = 1.0
     validation_passes: int = 2
 
+
 @dataclass
 class Credits:
     """
     Credits format where all persons have been converted to Person objects.
     For use in our internal representation.
     """
+
     authors: list[Person] = field(default_factory=list)
     contributors: list[Person] = field(default_factory=list)
     testers: list[Person] = field(default_factory=list)
@@ -79,12 +87,14 @@ class Credits:
     packagers: list[Person] = field(default_factory=list)
     acknowledgements: list[Person] = field(default_factory=list)
 
+
 @dataclass
 class InputCredits:
     """
     A more permissive dataclass for credits, as the input in 2023-07 looks.
     For use when validating input.
     """
+
     # Type in the input format is messy
     PersonOrPersons = Union[str | list[Union[Person, str]]]
 
@@ -94,6 +104,7 @@ class InputCredits:
     translators: dict[str, PersonOrPersons] = field(default_factory=dict)
     packagers: PersonOrPersons = field(default_factory=list)
     acknowledgements: PersonOrPersons = field(default_factory=list)
+
 
 class Metadata2023_07(BaseModel):
     """
@@ -118,6 +129,7 @@ class Metadata2023_07(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
+
 @dataclass
 class LegacyGrading:
     objective: Literal['max', 'min'] = 'max'
@@ -127,6 +139,7 @@ class LegacyGrading:
     reject_score: float | None = None
     range: str | None = None
     on_reject: Literal['first_error', 'worst_error', 'grade'] | None = None
+
 
 @dataclass
 class LegacyLimits:
@@ -140,6 +153,7 @@ class LegacyLimits:
     validation_output: int
     time_multiplier: float = 5.0
     time_safety_margin: float = 2.0
+
 
 class MetadataLegacy(BaseModel):
     """
@@ -164,6 +178,7 @@ class MetadataLegacy(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
+
 class Metadata(BaseModel):
     """
     The metadata for a problem, as used internally in problemtools. Closely
@@ -175,7 +190,7 @@ class Metadata(BaseModel):
 
     problem_format_version: str
     type: list[str]
-    name: dict[str,str]
+    name: dict[str, str]
     uuid: UUID | None
     version: str | None
     credits: Credits
@@ -189,9 +204,9 @@ class Metadata(BaseModel):
     allow_file_writing: bool
     constants: dict
     legacy_grading: LegacyGrading = Field(default_factory=LegacyGrading, exclude=True)
-    legacy_validation: str = Field(default = '', exclude=True)
-    legacy_validator_flags: str = Field(default = '', exclude=True)
-    legacy_custom_score: bool = Field(default = False, exclude=True) # True iff legacy_validation is custom and score.
+    legacy_validation: str = Field(default='', exclude=True)
+    legacy_validator_flags: str = Field(default='', exclude=True)
+    legacy_custom_score: bool = Field(default=False, exclude=True)  # True iff legacy_validation is custom and score.
 
     model_config = ConfigDict(extra='forbid')
 
@@ -253,7 +268,7 @@ class Metadata(BaseModel):
     def from_2023_07(cls: Type[Self], md2023_07: Metadata2023_07) -> Self:
         metadata = md2023_07.model_dump()
         metadata['type'] = [metadata['type']] if isinstance(metadata['type'], str) else metadata['type']
-        metadata['name'] = {'en' : metadata['name']} if isinstance(metadata['name'], str) else metadata['name']
+        metadata['name'] = {'en': metadata['name']} if isinstance(metadata['name'], str) else metadata['name']
 
         def parse_source(source: str | Source) -> Source:
             return Source(name=source, url=None) if isinstance(source, str) else source
@@ -277,14 +292,17 @@ class Metadata(BaseModel):
             metadata['credits'] = {'authors': [parse_person(metadata['credits'])]}
         else:
             for key in metadata['credits']:
-                if key == 'translators': # special case, we nest deeper here
+                if key == 'translators':  # special case, we nest deeper here
                     for lang in metadata['credits'][key]:
                         metadata['credits'][key][lang] = parse_list(parse_person, metadata['credits'][key][lang])
                 else:
                     metadata['credits'][key] = parse_list(parse_person, metadata['credits'][key])
         return cls.model_validate(metadata)
 
-def parse_metadata(version: formatversion.FormatData, problem_yaml_data: dict[str, Any], names_from_statements: dict[str, str]) -> Metadata:
+
+def parse_metadata(
+    version: formatversion.FormatData, problem_yaml_data: dict[str, Any], names_from_statements: dict[str, str]
+) -> Metadata:
     """
     Parses a data structure from problem.yaml into a Metadata model
     :raises pydantic.ValidationError: We intentionally leak pydantic's exception on errors, as it's well designed

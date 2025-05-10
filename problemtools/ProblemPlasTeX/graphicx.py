@@ -4,6 +4,7 @@ from ProblemsetMacros import _graphics_command, clean_width
 # Reimplementation of graphicx package because plasTeX is broken and
 # annoying.
 
+
 class includegraphics(_graphics_command):
     args = '* [ options:dict ] file:str'
     packageName = 'graphicx'
@@ -21,8 +22,10 @@ class includegraphics(_graphics_command):
                 self.style['width'] = clean_width(width)
         return res
 
+
 class DeclareGraphicsExtensions(graphics.DeclareGraphicsExtensions):
     packageName = 'graphicx'
+
 
 class graphicspath(graphics.graphicspath):
     packageName = 'graphicx'

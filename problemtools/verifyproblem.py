@@ -41,26 +41,28 @@ log = logging.getLogger(__name__)
 
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
-def is_TLE(status: int, may_signal_with_usr1: bool=False) -> bool:
-    return (os.WIFSIGNALED(status) and
-            (os.WTERMSIG(status) == signal.SIGXCPU or
-             (may_signal_with_usr1 and os.WTERMSIG(status) == signal.SIGUSR1)))
+
+def is_TLE(status: int, may_signal_with_usr1: bool = False) -> bool:
+    return os.WIFSIGNALED(status) and (
+        os.WTERMSIG(status) == signal.SIGXCPU or (may_signal_with_usr1 and os.WTERMSIG(status) == signal.SIGUSR1)
+    )
 
 
 def is_RTE(status: int) -> bool:
     return not os.WIFEXITED(status) or bool(os.WEXITSTATUS(status))
 
+
 class SubmissionResult:
-    def __init__(self, verdict: str, score: float|None=None, reason: str|None=None, additional_info: str|None=None):
+    def __init__(self, verdict: str, score: float | None = None, reason: str | None = None, additional_info: str | None = None):
         self.verdict = verdict
         self.score = score
         self.reason = reason
         self.additional_info = additional_info
-        self.testcase: TestCase|None = None
-        self.runtime_testcase: TestCase|None = None
+        self.testcase: TestCase | None = None
+        self.runtime_testcase: TestCase | None = None
         self.runtime = -1.0
         self.ac_runtime = -1.0
-        self.ac_runtime_testcase: TestCase|None = None
+        self.ac_runtime_testcase: TestCase | None = None
         self.validator_first = False
         self.sample_failures: list[SubmissionResult] = []
 
@@ -88,19 +90,19 @@ class SubmissionResult:
         return f'{verdict} [{", ".join(details)}]'
 
 
-
 class VerifyError(Exception):
     pass
 
 
-_T = TypeVar("_T")
-_P = ParamSpec("_P")
+_T = TypeVar('_T')
+_P = ParamSpec('_P')
+
 
 class Context:
-    def __init__(self, args: argparse.Namespace, executor: ThreadPoolExecutor|None) -> None:
+    def __init__(self, args: argparse.Namespace, executor: ThreadPoolExecutor | None) -> None:
         self.data_filter: Pattern[str] = args.data_filter
         self.submission_filter: Pattern[str] = args.submission_filter
-        self.fixed_timelim: int|None = args.fixed_timelim
+        self.fixed_timelim: int | None = args.fixed_timelim
         self.executor = executor
         self._background_work: list[concurrent.futures.Future[object]] = []
 
@@ -117,13 +119,13 @@ class ProblemAspect(ABC):
     errors = 0
     warnings = 0
     bail_on_error = False
-    _check_res: bool|None = None
+    _check_res: bool | None = None
     consider_warnings_errors = False
     basename_regex = re.compile('^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9]$')
     name: str
 
     @staticmethod
-    def __append_additional_info(msg: str, additional_info: str|None) -> str:
+    def __append_additional_info(msg: str, additional_info: str | None) -> str:
         if additional_info is None or ProblemAspect.max_additional_info <= 0:
             return msg
         additional_info = additional_info.rstrip()
@@ -133,22 +135,23 @@ class ProblemAspect(ABC):
         if len(lines) == 1:
             return f'{msg} ({lines[0]})'
         if len(lines) > ProblemAspect.max_additional_info:
-            lines = lines[:ProblemAspect.max_additional_info] \
-                + [f'[.....truncated to {ProblemAspect.max_additional_info} lines.....]']
+            lines = lines[: ProblemAspect.max_additional_info] + [
+                f'[.....truncated to {ProblemAspect.max_additional_info} lines.....]'
+            ]
 
-        return f'{msg}:\n' + '\n'.join(' '*8 + line for line in lines)
+        return f'{msg}:\n' + '\n'.join(' ' * 8 + line for line in lines)
 
     def __init__(self, name: str) -> None:
         self.log = log.getChild(name)
 
-    def error(self, msg: str, additional_info: str|None=None, *args) -> None:
+    def error(self, msg: str, additional_info: str | None = None, *args) -> None:
         self._check_res = False
         ProblemAspect.errors += 1
         self.log.error(ProblemAspect.__append_additional_info(msg, additional_info), *args)
         if ProblemAspect.bail_on_error:
             raise VerifyError(msg)
 
-    def warning(self, msg: str, additional_info: str|None=None, *args) -> None:
+    def warning(self, msg: str, additional_info: str | None = None, *args) -> None:
         if ProblemAspect.consider_warnings_errors:
             self.error(msg, additional_info, *args)
             return
@@ -170,9 +173,9 @@ class ProblemAspect(ABC):
         if not self.basename_regex.match(basename):
             self.error(f"Invalid name '{basename}' (should match '{self.basename_regex.pattern}')")
 
+
 class ProblemPart(ProblemAspect):
-    """Baseclass for all parts that can be included in a problem-format.
-    """
+    """Baseclass for all parts that can be included in a problem-format."""
 
     """Should always be overridden by the subclass. Specifies the name that will be used to refer
     to the part e.g for logs.
@@ -186,14 +189,15 @@ class ProblemPart(ProblemAspect):
     Note that this will only ensure that the specified classes are initialized before this one, but
     they might be checked in a different order.
     """
+
     @staticmethod
     def setup_dependencies() -> set[type]:
         return set()
-    
+
     def __init__(self, problem: Problem) -> None:
         if self.PART_NAME is None:
             raise NotImplementedError('Every problem-part must override PART_NAME')
-        super().__init__(f"{problem.shortname}.{self.PART_NAME}")
+        super().__init__(f'{problem.shortname}.{self.PART_NAME}')
         self.problem = problem
 
     """Override to setup data about this problem-part. The order in which problem-parts are setup 
@@ -201,26 +205,28 @@ class ProblemPart(ProblemAspect):
 
     Return value is the data made available by initializing this part.
     """
+
     def setup(self) -> dict:
         return {}
 
     def start_background_work(self, context: Context) -> None:
         pass
 
-    def check(self, context: Context) -> bool: 
+    def check(self, context: Context) -> bool:
         return True
+
 
 class TestCase(ProblemAspect):
     Result = tuple[SubmissionResult, SubmissionResult, SubmissionResult]
 
     def __init__(self, problem: Problem, aspect_name: str, base: str, testcasegroup: TestCaseGroup) -> None:
-        super().__init__(f"{problem.shortname}.{aspect_name}.{testcasegroup.name}.{os.path.basename(base)}")
+        super().__init__(f'{problem.shortname}.{aspect_name}.{testcasegroup.name}.{os.path.basename(base)}')
         self._base = base
         self.infile = f'{base}.in'
         self.ansfile = f'{base}.ans'
         self._problem = problem
         self.testcasegroup = testcasegroup
-        self.reuse_result_from: TestCase|None = None
+        self.reuse_result_from: TestCase | None = None
         self.counter = len(problem.getProblemPart(ProblemTestCases).testcase_by_infile)
         problem.getProblemPart(ProblemTestCases).testcase_by_infile[self.infile] = self
 
@@ -240,9 +246,11 @@ class TestCase(ProblemAspect):
     def check_size_limits(self, filename: str) -> None:
         filesize = os.path.getsize(filename) / 1024.0 / 1024.0
         if filesize > 1000:
-             self.error(f'The file {filename} ({filesize:.1f} Mb) is larger than 1000 Mb and can not be installed.')
+            self.error(f'The file {filename} ({filesize:.1f} Mb) is larger than 1000 Mb and can not be installed.')
         elif filesize > 100:
-            self.warning(f'The file {filename} ({filesize:.1f} Mb) is larger than 100 Mb. This may cause performance issues and is not recommended.')
+            self.warning(
+                f'The file {filename} ({filesize:.1f} Mb) is larger than 100 Mb. This may cause performance issues and is not recommended.'
+            )
 
     def strip_path_prefix(self, path: str) -> str:
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
@@ -264,9 +272,13 @@ class TestCase(ProblemAspect):
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
         outputlim = self._problem.getMetadata().limits.output
         if anssize > outputlim:
-            self.error(f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit')
+            self.error(
+                f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit'
+            )
         elif 2 * anssize > outputlim:
-            self.warning(f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit')
+            self.warning(
+                f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit'
+            )
         if not self._problem.get(ProblemTestCases)['is_interactive']:
             val_res = self._problem.getProblemPart(OutputValidators).validate(self, self.ansfile)
             if val_res.verdict != 'AC':
@@ -305,7 +317,10 @@ class TestCase(ProblemAspect):
         if self.reuse_result_from is None:
             self.error(f"Symbolic link points outside data/ directory for file '{nicepath}'")
             return False
-        if self.testcasegroup.config['output_validator_flags'] != self.reuse_result_from.testcasegroup.config['output_validator_flags']:
+        if (
+            self.testcasegroup.config['output_validator_flags']
+            != self.reuse_result_from.testcasegroup.config['output_validator_flags']
+        ):
             self.error(f"Symbolic link '{nicepath}' points to testcase with different output validator flags")
             return False
         return True
@@ -315,7 +330,7 @@ class TestCase(ProblemAspect):
         res = self._init_result_for_testcase(res)
         res_low = self._init_result_for_testcase(res_low)
         res_high = self._init_result_for_testcase(res_high)
-        msg = "Reused test file result" if reused else "Test file result"
+        msg = 'Reused test file result' if reused else 'Test file result'
         self.info(f'{msg}: {res}')
         if res.verdict != 'AC' and self.is_in_sample_group():
             res.sample_failures.append(res)
@@ -325,21 +340,28 @@ class TestCase(ProblemAspect):
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
         if self._problem.get(ProblemTestCases)['is_interactive']:
-            res_high = self._problem.getProblemPart(OutputValidators).validate_interactive(self, sub, timelim_high, self._problem.getProblemPart(Submissions))
+            res_high = self._problem.getProblemPart(OutputValidators).validate_interactive(
+                self, sub, timelim_high, self._problem.getProblemPart(Submissions)
+            )
         else:
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
             errfile = os.path.join(self._problem.tmpdir, f'error-{self.counter}')
-            status, runtime = sub.run(infile=self.infile, outfile=outfile, errfile=errfile,
-                                      timelim=timelim_high+1,
-                                      memlim=self._problem.getMetadata().limits.memory, work_dir=sub.path)
+            status, runtime = sub.run(
+                infile=self.infile,
+                outfile=outfile,
+                errfile=errfile,
+                timelim=timelim_high + 1,
+                memlim=self._problem.getMetadata().limits.memory,
+                work_dir=sub.path,
+            )
             if is_TLE(status) or runtime > timelim_high:
                 res_high = SubmissionResult('TLE')
             elif is_RTE(status):
                 try:
-                    with open(errfile, mode="rt") as f:
+                    with open(errfile, mode='rt') as f:
                         info = f.read()
                 except IOError:
-                    self.info("Failed to read error file %s", errfile)
+                    self.info('Failed to read error file %s', errfile)
                     info = None
                 res_high = SubmissionResult('RTE', additional_info=info)
             else:
@@ -391,15 +413,14 @@ class TestCaseGroup(ProblemAspect):
     _DEFAULT_CONFIG = config.load_config('testdata.yaml')
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
-    def __init__(self, problem: Problem, aspect_name: str, datadir: str|None=None, parent: TestCaseGroup|None=None):
+    def __init__(self, problem: Problem, aspect_name: str, datadir: str | None = None, parent: TestCaseGroup | None = None):
         self._parent = parent
         self._problem = problem
         datadir = datadir or os.path.join(problem.probdir, 'data')
         self._datadir = datadir
-        self.name = os.path.relpath(os.path.abspath(self._datadir),
-                                    os.path.abspath(self._problem.probdir)).replace("/", ".")
+        self.name = os.path.relpath(os.path.abspath(self._datadir), os.path.abspath(self._problem.probdir)).replace('/', '.')
 
-        super().__init__(f"{problem.shortname}.{aspect_name}.{self.name}")
+        super().__init__(f'{problem.shortname}.{aspect_name}.{self.name}')
 
         self._seen_oob_scores = False
         self.debug('Loading test data group %s', datadir)
@@ -442,7 +463,7 @@ class TestCaseGroup(ProblemAspect):
             if field not in self.config:
                 self.config[field] = default
 
-        self._items: list[TestCaseGroup|TestCase] = []
+        self._items: list[TestCaseGroup | TestCase] = []
         if os.path.isdir(datadir):
             for filename in sorted(os.listdir(datadir)):
                 filename = os.path.join(datadir, filename)
@@ -456,7 +477,6 @@ class TestCaseGroup(ProblemAspect):
         if not parent:
             self.set_symlinks()
 
-
     def __str__(self) -> str:
         return f'testcase group {self.name}'
 
@@ -464,10 +484,8 @@ class TestCaseGroup(ProblemAspect):
         for sub in self._items:
             sub.set_symlinks()
 
-
     def matches_filter(self, filter_re: Pattern[str]) -> bool:
         return True
-
 
     def get_all_testcases(self) -> list:
         res: list = []
@@ -475,22 +493,20 @@ class TestCaseGroup(ProblemAspect):
             res += child.get_all_testcases()
         return res
 
-
     def get_testcases(self) -> list[TestCase]:
         return [child for child in self._items if isinstance(child, TestCase)]
-
 
     def get_subgroups(self) -> list[TestCaseGroup]:
         return [child for child in self._items if isinstance(child, TestCaseGroup)]
 
-
-    def get_subgroup(self, name: str) -> TestCaseGroup|None:
-        return next((child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name), None)
-
+    def get_subgroup(self, name: str) -> TestCaseGroup | None:
+        return next(
+            (child for child in self._items if isinstance(child, TestCaseGroup) and os.path.basename(child._datadir) == name),
+            None,
+        )
 
     def has_custom_groups(self) -> bool:
         return any(group.get_subgroups() for group in self.get_subgroups())
-
 
     def get_score_range(self) -> tuple[float, float]:
         try:
@@ -500,7 +516,6 @@ class TestCaseGroup(ProblemAspect):
         except Exception:
             return (float('-inf'), float('inf'))
 
-
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
@@ -509,7 +524,7 @@ class TestCaseGroup(ProblemAspect):
         self.check_basename(self._datadir)
 
         if self.config['grading'] not in ['default', 'custom']:
-            self.error("Invalid grading policy in testdata.yaml")
+            self.error('Invalid grading policy in testdata.yaml')
 
         if self.config['grading'] == 'custom' and len(self._problem.getProblemPart(Graders)._graders) == 0:
             self._problem.getProblemPart(Graders).error(f'{self} has custom grading but no custom graders provided')
@@ -520,7 +535,9 @@ class TestCaseGroup(ProblemAspect):
             if self._parent is not None:
                 self.error("'grader_flags: ignore_sample' is specified, but that flag is only allowed at top level")
             elif self.config['on_reject'] == 'break':
-                self.error("'grader_flags: ignore_sample' is specified, but 'on_reject: break' may cause secret data not to be judged")
+                self.error(
+                    "'grader_flags: ignore_sample' is specified, but 'on_reject: break' may cause secret data not to be judged"
+                )
 
         for field in self.config.keys():
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
@@ -559,12 +576,12 @@ class TestCaseGroup(ProblemAspect):
                     elif name == 'sample':
                         seen_sample = True
                     else:
-                        self.error("Test data at top level can only have the groups sample and secret")
+                        self.error('Test data at top level can only have the groups sample and secret')
                         self.debug(str(self._items))
             if not seen_secret:
-                self.error("No secret data provided")
+                self.error('No secret data provided')
             if not seen_sample:
-                self.warning("No sample data provided")
+                self.warning('No sample data provided')
 
             hashes = collections.defaultdict(list)
             for root, dirs, files in os.walk(self._datadir):
@@ -607,16 +624,18 @@ class TestCaseGroup(ProblemAspect):
             a += '\0'
             b += '\0'
             i = j = 0
+
             def parse_num(s: str, i: int) -> tuple[int, int]:
                 ret = 0
                 while ord('0') <= ord(s[i]) <= ord('9'):
                     ret = ret * 10 + ord(s[i]) - ord('0')
                     i += 1
                 return ret, i
+
             while i < len(a) and j < len(b):
                 if ord('0') <= ord(a[i]) <= ord('9') and ord('0') <= ord(b[i]) <= ord('9'):
-                    anum,i = parse_num(a, i)
-                    bnum,j = parse_num(b, j)
+                    anum, i = parse_num(a, i)
+                    bnum, j = parse_num(b, j)
                     if anum == bnum:
                         continue
                     return anum < bnum
@@ -666,12 +685,13 @@ class TestCaseGroup(ProblemAspect):
 
         runner.mark_group_done(self, broken)
 
-        return (self.aggregate_results(sub, subres),
-                self.aggregate_results(sub, subres_low, shadow_result=True),
-                self.aggregate_results(sub, subres_high, shadow_result=True))
+        return (
+            self.aggregate_results(sub, subres),
+            self.aggregate_results(sub, subres_low, shadow_result=True),
+            self.aggregate_results(sub, subres_high, shadow_result=True),
+        )
 
-
-    def aggregate_results(self, sub, sub_results: list[SubmissionResult], shadow_result: bool=False) -> SubmissionResult:
+    def aggregate_results(self, sub, sub_results: list[SubmissionResult], shadow_result: bool = False) -> SubmissionResult:
         res = SubmissionResult('JE')
 
         for r in sub_results:
@@ -702,7 +722,9 @@ class TestCaseGroup(ProblemAspect):
                     # to have the same error.
                     self._seen_oob_scores = True
                     groupname = os.path.relpath(self._datadir, self._problem.probdir)
-                    self.error(f'submission {sub} got {res} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]')
+                    self.error(
+                        f'submission {sub} got {res} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]'
+                    )
         return res
 
     def all_datasets(self) -> list:
@@ -720,12 +742,16 @@ class ProblemStatement(ProblemPart):
         if not self.format_data:
             raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
-        self.statement_regex = re.compile(r"problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$" % ('|'.join(self.format_data.statement_extensions)))
+        self.statement_regex = re.compile(
+            r'problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$' % ('|'.join(self.format_data.statement_extensions))
+        )
         dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
         if os.path.isdir(dir):
-            self.statements = [(m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))]
+            self.statements = [
+                (m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))
+            ]
         else:
-            self.error(f"No directory named {self.format_data.statement_directory} found")
+            self.error(f'No directory named {self.format_data.statement_directory} found')
             self.statements = []
 
         return self.get_config()
@@ -736,8 +762,12 @@ class ProblemStatement(ProblemPart):
         self._check_res = True
 
         if not self.statements:
-            allowed_statements = ', '.join(f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.format_data.statement_extensions)
-            self.error(f'No problem statements found (expected file of one of following forms in directory {self.format_data.statement_directory}/: {allowed_statements})')
+            allowed_statements = ', '.join(
+                f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.format_data.statement_extensions
+            )
+            self.error(
+                f'No problem statements found (expected file of one of following forms in directory {self.format_data.statement_directory}/: {allowed_statements})'
+            )
 
         langs = [lang or 'en' for _, lang in self.statements]
         for lang, count in collections.Counter(langs).items():
@@ -746,18 +776,20 @@ class ProblemStatement(ProblemPart):
 
         for _, lang in self.statements:
             try:
-                options = problem2pdf.get_parser().parse_args([""])
+                options = problem2pdf.get_parser().parse_args([''])
                 options.problem = self.problem.probdir
                 options.language = lang
                 options.nopdf = True
                 options.quiet = True
                 if not problem2pdf.convert(options):
                     langparam = f' --language {lang}' if lang != '' else ''
-                    self.error(f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.')
+                    self.error(
+                        f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.'
+                    )
             except Exception as e:
                 self.error(f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}')
             try:
-                options = problem2html.get_parser().parse_args([""])
+                options = problem2html.get_parser().parse_args([''])
                 options.problem = self.problem.probdir
                 options.destdir = os.path.join(self.problem.tmpdir, 'html')
                 options.language = lang
@@ -765,14 +797,16 @@ class ProblemStatement(ProblemPart):
                 problem2html.convert(options)
             except Exception as e:
                 langparam = f' --language {lang}' if lang != '' else ''
-                self.error(f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.\n{e}\n{traceback.format_exc()}')
+                self.error(
+                    f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.\n{e}\n{traceback.format_exc()}'
+                )
         return self._check_res
 
     def __str__(self) -> str:
         return 'problem statement'
 
     def get_config(self) -> dict[str, dict[str, str]]:
-        ret: dict[str, dict[str, str]] = {'name':{}}
+        ret: dict[str, dict[str, str]] = {'name': {}}
         for filename, lang in self.statements:
             dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
             with open(os.path.join(dir, filename)) as f:
@@ -807,23 +841,22 @@ class ProblemConfig(ProblemPart):
                 self.error(str(e))
         else:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
-            self.error(f"No config file {self.configfile} found")
+            self.error(f'No config file {self.configfile} found')
 
         self._origdata = copy.deepcopy(self._data)
 
         try:
             self._metadata = metadata.parse_metadata(
-                    formatversion.get_format_data(self.problem.probdir),
-                    self._data,
-                    self.problem.get(ProblemStatement).get('name', {}),
+                formatversion.get_format_data(self.problem.probdir),
+                self._data,
+                self.problem.get(ProblemStatement).get('name', {}),
             )
             self.problem.setMetadata(self._metadata)
         except ValidationError as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
-            error_str = '\n'.join([f"    {'->'.join(str(err['loc']))}: {err['msg']}" for err in e.errors()])
+            error_str = '\n'.join([f'    {"->".join(str(err["loc"]))}: {err["msg"]}' for err in e.errors()])
             self.error(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
         return {}
-
 
     def __str__(self) -> str:
         return 'problem configuration'
@@ -846,9 +879,15 @@ class ProblemConfig(ProblemPart):
             self.warning("License is 'unknown'")
 
         if self._metadata.legacy_grading.show_test_data_groups and self._metadata.is_pass_fail():
-            self.error("Showing test data groups is only supported for scoring problems, this is a pass-fail problem")
-        if not self._metadata.is_pass_fail() and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups() and 'show_test_data_groups' not in self._origdata.get('grading', {}):
-            self.warning("Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false")
+            self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
+        if (
+            not self._metadata.is_pass_fail()
+            and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups()
+            and 'show_test_data_groups' not in self._origdata.get('grading', {})
+        ):
+            self.warning(
+                'Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false'
+            )
 
         if self._metadata.legacy_grading.on_reject is not None:
             if self._metadata.is_pass_fail() and self._metadata.legacy_grading.on_reject == 'grade':
@@ -856,7 +895,9 @@ class ProblemConfig(ProblemPart):
 
         for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
             if getattr(self._metadata.legacy_grading, deprecated_grading_key) is not None:
-                self.warning(f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead")
+                self.warning(
+                    f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead"
+                )
 
         if self._metadata.legacy_validation:
             val = self._metadata.legacy_validation.split()
@@ -874,14 +915,16 @@ class ProblemConfig(ProblemPart):
                         self.error(f"Invalid parameter '{param}' for custom validation")
 
         if self._metadata.limits.time_limit is not None and not self._metadata.limits.time_limit.is_integer():
-            self.warning('Time limit configured to non-integer value. Problemtools does not yet support non-integer time limits, and will truncate')
+            self.warning(
+                'Time limit configured to non-integer value. Problemtools does not yet support non-integer time limits, and will truncate'
+            )
 
         return self._check_res
 
+
 class ProblemTestCases(ProblemPart):
-    
     PART_NAME = 'testdata'
-    
+
     @staticmethod
     def setup_dependencies():
         return {ProblemConfig}
@@ -889,14 +932,13 @@ class ProblemTestCases(ProblemPart):
     def setup(self):
         self.testcase_by_infile = {}
         return {
-                'root_group': TestCaseGroup(self.problem, self.PART_NAME),
-                'is_interactive': self.problem.getMetadata().is_interactive(),
-                'is_scoring': self.problem.getMetadata().is_scoring(),
-                }
+            'root_group': TestCaseGroup(self.problem, self.PART_NAME),
+            'is_interactive': self.problem.getMetadata().is_interactive(),
+            'is_scoring': self.problem.getMetadata().is_scoring(),
+        }
 
     def check(self, context: Context) -> bool:
         return self.problem.get(ProblemTestCases)['root_group'].check(context)
-
 
 
 class Attachments(ProblemPart):
@@ -913,7 +955,9 @@ class Attachments(ProblemPart):
         attachments_path = os.path.join(self.problem.probdir, 'attachments')
         self.attachments: list[str] = []
         if os.path.isdir(attachments_path):
-            self.attachments = [os.path.join(attachments_path, attachment_name) for attachment_name in os.listdir(attachments_path)]
+            self.attachments = [
+                os.path.join(attachments_path, attachment_name) for attachment_name in os.listdir(attachments_path)
+            ]
 
         self.debug(f'Adding attachments {str(self.attachments)}')
 
@@ -930,10 +974,8 @@ class Attachments(ProblemPart):
 
         return self._check_res
 
-
     def get_attachment_paths(self):
         return self.attachments
-
 
     def __str__(self) -> str:
         return 'attachments'
@@ -943,20 +985,34 @@ _JUNK_CASES = [
     ('an empty file', b''),
     ('a binary file with random bytes', bytearray(random.Random(0).randbytes(1024))),
     ('a text file with the ASCII characters 32 up to 127', bytearray(x for x in range(32, 127))),
-    ('a random text file with printable ASCII characters', bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200))),
+    (
+        'a random text file with printable ASCII characters',
+        bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200)),
+    ),
 ]
 
-def _build_junk_modifier(desc: str, pattern: str, repl: str|Callable[[Match[str]], str]) -> tuple[str, Callable, Callable[[str], str]]:
+
+def _build_junk_modifier(
+    desc: str, pattern: str, repl: str | Callable[[Match[str]], str]
+) -> tuple[str, Callable, Callable[[str], str]]:
     p = re.compile(pattern)
     return (desc, p.search, lambda text: p.sub(repl, text))
 
+
 _JUNK_MODIFICATIONS = [
-    _build_junk_modifier('spaces added where there already is whitespace', r'\s', lambda m: m.group(0) + ' ' * random.randint(1, 5)),
+    _build_junk_modifier(
+        'spaces added where there already is whitespace', r'\s', lambda m: m.group(0) + ' ' * random.randint(1, 5)
+    ),
     _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n' * random.randint(2, 5)),
     _build_junk_modifier('leading zeros added to integers', r'(^|[^.]\b)([0-9]+)\b', r'\g<1>0000000000\g<2>'),
     _build_junk_modifier('trailing zeros added to real number decimal portion', r'\.[0-9]+\b', r'\g<0>0000000000'),
-    ('random junk added to the end of the file', lambda f: True, lambda f: f + ''.join(random.choice(string.printable) for _ in range(200))),
+    (
+        'random junk added to the end of the file',
+        lambda f: True,
+        lambda f: f + ''.join(random.choice(string.printable) for _ in range(200)),
+    ),
 ]
+
 
 class InputValidators(ProblemPart):
     PART_NAME = 'input_validator'
@@ -970,23 +1026,22 @@ class InputValidators(ProblemPart):
             new_input_validators_path = os.path.join(self.problem.probdir, 'input_validators')
             if os.path.isdir(new_input_validators_path):
                 input_validators_path = new_input_validators_path
-        self._validators = run.find_programs(input_validators_path,
-                                             language_config=self.problem.language_config,
-                                             allow_validation_script=True,
-                                             work_dir=self.problem.tmpdir)
+        self._validators = run.find_programs(
+            input_validators_path,
+            language_config=self.problem.language_config,
+            allow_validation_script=True,
+            work_dir=self.problem.tmpdir,
+        )
         return {}
-
 
     def __str__(self) -> str:
         return 'input format validators'
-
 
     def start_background_work(self, context: Context) -> None:
         for val in self._validators:
             context.submit_background_work(lambda v: v.compile(), val)
 
-
-    def check(self, context: Context|None) -> bool:
+    def check(self, context: Context | None) -> bool:
         if self._check_res is not None:
             return self._check_res
         if self._uses_old_path:
@@ -1007,17 +1062,19 @@ class InputValidators(ProblemPart):
         # Only sanity check input validators if they all actually compiled
         if self._check_res:
             all_flags: set[str] = set()
+
             def collect_flags(group: TestCaseGroup, flags: set[str]) -> None:
                 if len(group.get_testcases()) > 0:
                     flags.add(group.config['input_validator_flags'])
                 for subgroup in group.get_subgroups():
                     collect_flags(subgroup, flags)
+
             collect_flags(self.problem.get(ProblemTestCases)['root_group'], all_flags)
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
-            for (desc, case) in _JUNK_CASES:
-                f = open(file_name, "wb")
+            for desc, case in _JUNK_CASES:
+                f = open(file_name, 'wb')
                 f.write(case)
                 f.close()
                 for flags_str in all_flags:
@@ -1036,7 +1093,7 @@ class InputValidators(ProblemPart):
                     if not applicable(infile_data):
                         continue
 
-                    with open(file_name, "wb") as f:
+                    with open(file_name, 'wb') as f:
                         f.write(modifier(infile_data).encode('utf8'))
 
                     for flags_str in all_flags:
@@ -1054,14 +1111,13 @@ class InputValidators(ProblemPart):
                 # no files were modifiable
                 return False
 
-            for (desc, applicable, modifier) in _JUNK_MODIFICATIONS:
+            for desc, applicable, modifier in _JUNK_MODIFICATIONS:
                 if modified_input_validates(applicable, modifier):
                     self.warning(f'No validator rejects {desc}')
 
             os.unlink(file_name)
 
         return self._check_res
-
 
     def validate(self, testcase: TestCase) -> None:
         flags = testcase.testcasegroup.config['input_validator_flags'].split()
@@ -1080,8 +1136,7 @@ class InputValidators(ProblemPart):
                     continue
                 validator_stdout = outfile.read().decode('utf-8', 'replace')
                 validator_stderr = errfile.read().decode('utf-8', 'replace')
-                validator_output = "\n".join(
-                    out for out in [validator_stdout, validator_stderr] if out)
+                validator_output = '\n'.join(out for out in [validator_stdout, validator_stderr] if out)
                 testcase.error(emsg, validator_output)
 
 
@@ -1091,9 +1146,11 @@ class Graders(ProblemPart):
     PART_NAME = 'grader'
 
     def setup(self):
-        self._graders: list = run.find_programs(os.path.join(self.problem.probdir, 'graders'),
-                                          language_config=self.problem.language_config,
-                                          work_dir=self.problem.tmpdir)
+        self._graders: list = run.find_programs(
+            os.path.join(self.problem.probdir, 'graders'),
+            language_config=self.problem.language_config,
+            work_dir=self.problem.tmpdir,
+        )
         return {}
 
     def __str__(self) -> str:
@@ -1113,8 +1170,9 @@ class Graders(ProblemPart):
                 self.error(f'Compile error for {grader}', msg)
         return self._check_res
 
-    def grade(self, sub_results: list[SubmissionResult], testcasegroup: TestCaseGroup, shadow_result: bool=False) -> tuple[Verdict, float|None]:
-
+    def grade(
+        self, sub_results: list[SubmissionResult], testcasegroup: TestCaseGroup, shadow_result: bool = False
+    ) -> tuple[Verdict, float | None]:
         if testcasegroup.config['grading'] == 'default':
             graders = [self._default_grader]
         else:
@@ -1142,8 +1200,7 @@ class Graders(ProblemPart):
 
                 open(infile, 'w').write(grader_input)
 
-                status, runtime = grader.run(infile, outfile,
-                                             args=grader_flags)
+                status, runtime = grader.run(infile, outfile, args=grader_flags)
 
                 grader_output = open(outfile, 'r').read()
                 os.remove(infile)
@@ -1177,28 +1234,26 @@ class Graders(ProblemPart):
 
 class OutputValidators(ProblemPart):
     _default_validator = run.get_tool('default_validator')
-    
+
     PART_NAME = 'output_validator'
 
     def setup(self):
-        self._validators = run.find_programs(os.path.join(self.problem.probdir,
-                                                          'output_validators'),
-                                             language_config=self.problem.language_config,
-                                             work_dir=self.problem.tmpdir)
+        self._validators = run.find_programs(
+            os.path.join(self.problem.probdir, 'output_validators'),
+            language_config=self.problem.language_config,
+            work_dir=self.problem.tmpdir,
+        )
         self._has_precompiled = False
         return {}
 
-
     def __str__(self) -> str:
         return 'output validators'
-
 
     def start_background_work(self, context: Context) -> None:
         if not self._has_precompiled:
             for val in self._actual_validators():
                 context.submit_background_work(lambda v: v.compile(), val)
             self._has_precompiled = True
-
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
@@ -1233,8 +1288,8 @@ class OutputValidators(ProblemPart):
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
-            for (desc, case) in _JUNK_CASES:
-                f = open(file_name, "wb")
+            for desc, case in _JUNK_CASES:
+                f = open(file_name, 'wb')
                 f.write(case)
                 f.close()
                 rejected = False
@@ -1252,7 +1307,7 @@ class OutputValidators(ProblemPart):
         return self._check_res
 
     @staticmethod
-    def _get_feedback(feedback_dir: str) -> str|None:
+    def _get_feedback(feedback_dir: str) -> str | None:
         all_feedback = []
         for feedback_file in os.listdir(feedback_dir):
             feedback_path = os.path.join(feedback_dir, feedback_file)
@@ -1260,15 +1315,14 @@ class OutputValidators(ProblemPart):
                 continue
             all_feedback.append(f'=== {feedback_file}: ===')
             # Note: The file could contain non-unicode characters, "replace" to be on the safe side
-            with open(feedback_path, 'r', errors="replace") as feedback:
+            with open(feedback_path, 'r', errors='replace') as feedback:
                 # Cap amount of feedback per file at some high-ish
                 # size, so that a buggy validator spewing out lots of
                 # data doesn't kill us.
-                all_feedback.append(feedback.read(128*1024))
+                all_feedback.append(feedback.read(128 * 1024))
         if all_feedback:
             return '\n'.join(all_feedback)
         return None
-
 
     def _parse_validator_results(self, val, status: int, feedbackdir, testcase: TestCase) -> SubmissionResult:
         custom_score = self.problem.getMetadata().legacy_custom_score
@@ -1276,17 +1330,23 @@ class OutputValidators(ProblemPart):
         # TODO: would be good to have some way of displaying the feedback for debugging uses
         score_file = os.path.join(feedbackdir, 'score.txt')
         if not custom_score and os.path.isfile(score_file):
-            return SubmissionResult('JE', reason='validator produced "score.txt" but problem does not have custom scoring activated')
+            return SubmissionResult(
+                'JE', reason='validator produced "score.txt" but problem does not have custom scoring activated'
+            )
 
         if not os.WIFEXITED(status):
-            return SubmissionResult('JE',
-                                    reason=f'output validator {val} crashed, status {status}',
-                                    additional_info=OutputValidators._get_feedback(feedbackdir))
+            return SubmissionResult(
+                'JE',
+                reason=f'output validator {val} crashed, status {status}',
+                additional_info=OutputValidators._get_feedback(feedbackdir),
+            )
         ret = os.WEXITSTATUS(status)
         if ret not in [42, 43]:
-            return SubmissionResult('JE',
-                                    reason=f'output validator {val} exited with status {ret}',
-                                    additional_info=OutputValidators._get_feedback(feedbackdir))
+            return SubmissionResult(
+                'JE',
+                reason=f'output validator {val} exited with status {ret}',
+                additional_info=OutputValidators._get_feedback(feedbackdir),
+            )
 
         if ret == 43:
             return SubmissionResult('WA', additional_info=OutputValidators._get_feedback(feedbackdir))
@@ -1303,13 +1363,11 @@ class OutputValidators(ProblemPart):
 
         return SubmissionResult('AC', score=score)
 
-
     def _actual_validators(self) -> list:
         vals = self._validators
         if self.problem.getMetadata().legacy_validation == 'default':
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
-
 
     def validate_interactive(self, testcase: TestCase, submission, timelim: int, errorhandler: Submissions) -> SubmissionResult:
         # This may be called off-main thread.
@@ -1332,15 +1390,20 @@ class OutputValidators(ProblemPart):
                 f = tempfile.NamedTemporaryFile(delete=False)
                 interactive_out = f.name
                 f.close()
-                i_status, _ = interactive.run(outfile=interactive_out,
-                                              args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args, work_dir=submission.path)
+                i_status, _ = interactive.run(
+                    outfile=interactive_out,
+                    args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args,
+                    work_dir=submission.path,
+                )
                 if is_RTE(i_status):
                     errorhandler.error(f'Interactive crashed, status {i_status}')
                 else:
                     interactive_output = open(interactive_out).read()
                     errorhandler.debug(f'Interactive output: "{interactive_output}"')
                     if not re.match(interactive_output_re, interactive_output):
-                        errorhandler.error(f'Output from interactive does not follow expected format, got output "{interactive_output}"')
+                        errorhandler.error(
+                            f'Output from interactive does not follow expected format, got output "{interactive_output}"'
+                        )
                     else:
                         val_status_str, _, sub_status_str, sub_runtime_str, first = interactive_output.split()
                         sub_status = int(sub_status_str)
@@ -1364,7 +1427,7 @@ class OutputValidators(ProblemPart):
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
 
                         res.runtime = sub_runtime
-                        res.validator_first = (first == 'validator')
+                        res.validator_first = first == 'validator'
 
                 os.unlink(interactive_out)
                 shutil.rmtree(feedbackdir)
@@ -1373,34 +1436,40 @@ class OutputValidators(ProblemPart):
         # TODO: check that all output validators give same result
         return res
 
-
     def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
         res = SubmissionResult('JE')
         val_timelim = self.problem.getMetadata().limits.validation_time
         val_memlim = self.problem.getMetadata().limits.validation_memory
-        flags = self.problem.getMetadata().legacy_validator_flags.split() + testcase.testcasegroup.config['output_validator_flags'].split()
+        flags = (
+            self.problem.getMetadata().legacy_validator_flags.split()
+            + testcase.testcasegroup.config['output_validator_flags'].split()
+        )
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
                 validator_output = tempfile.mkdtemp(prefix='checker_out', dir=self.problem.tmpdir)
-                outfile = validator_output + "/out.txt"
-                errfile = validator_output + "/err.txt"
-                status, runtime = val.run(submission_output,
-                                          args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
-                                          timelim=val_timelim, memlim=val_memlim,
-                                          outfile=outfile, errfile=errfile)
+                outfile = validator_output + '/out.txt'
+                errfile = validator_output + '/err.txt'
+                status, runtime = val.run(
+                    submission_output,
+                    args=[testcase.infile, testcase.ansfile, feedbackdir] + flags,
+                    timelim=val_timelim,
+                    memlim=val_memlim,
+                    outfile=outfile,
+                    errfile=errfile,
+                )
                 if self.log.isEnabledFor(logging.DEBUG):
                     try:
-                        with open(outfile, mode="rt") as f:
+                        with open(outfile, mode='rt') as f:
                             output = f.read()
                         if output:
-                            self.log.debug("Validator output:\n%s", output)
-                        with open(errfile, mode="rt") as f:
+                            self.log.debug('Validator output:\n%s', output)
+                        with open(errfile, mode='rt') as f:
                             error = f.read()
                         if error:
-                            self.log.debug("Validator stderr:\n%s", error)
+                            self.log.debug('Validator stderr:\n%s', error)
                     except IOError as e:
-                        self.info("Failed to read validator output: %s", e)
+                        self.info('Failed to read validator output: %s', e)
                 res = self._parse_validator_results(val, status, feedbackdir, testcase)
                 shutil.rmtree(feedbackdir)
                 shutil.rmtree(validator_output)
@@ -1416,7 +1485,7 @@ class Runner:
         self._problem = problem
         self._sub = sub
         self._context = context
-        self._multithreaded = (context.executor is not None)
+        self._multithreaded = context.executor is not None
         self._timelim = timelim
         self._timelim_low = timelim_low
         self._timelim_high = timelim_high
@@ -1480,7 +1549,7 @@ class Runner:
             res = self._run_submission_real(item)
             self._queues[item].put(res)
 
-    def _gather_testcases(self, item: TestCase|TestCaseGroup) -> list[TestCase]:
+    def _gather_testcases(self, item: TestCase | TestCaseGroup) -> list[TestCase]:
         if not item.matches_filter(self._context.data_filter):
             return []
         if isinstance(item, TestCase):
@@ -1496,7 +1565,7 @@ class Runner:
         else:
             return []
 
-    def _next_job(self) -> TestCase|None:
+    def _next_job(self) -> TestCase | None:
         with self._lock:
             if self._remaining_jobs:
                 job = self._remaining_jobs.pop()
@@ -1536,18 +1605,21 @@ class Submissions(ProblemPart):
         srcdir = os.path.join(self.problem.probdir, 'submissions')
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
-            self._submissions[acr] = run.find_programs(os.path.join(srcdir, verdict[1]),
-                                                       language_config=self.problem.language_config,
-                                                       pattern=Submissions._SUB_REGEXP,
-                                                       work_dir=self.problem.tmpdir,
-                                                       include_dir=os.path.join(self.problem.probdir,
-                                                                                    'include'))
+            self._submissions[acr] = run.find_programs(
+                os.path.join(srcdir, verdict[1]),
+                language_config=self.problem.language_config,
+                pattern=Submissions._SUB_REGEXP,
+                work_dir=self.problem.tmpdir,
+                include_dir=os.path.join(self.problem.probdir, 'include'),
+            )
         return {}
 
     def __str__(self) -> str:
         return 'submissions'
 
-    def check_submission(self, sub, context: Context, expected_verdict: Verdict, timelim: int, timelim_low: int, timelim_high: int) -> SubmissionResult:
+    def check_submission(
+        self, sub, context: Context, expected_verdict: Verdict, timelim: int, timelim_low: int, timelim_high: int
+    ) -> SubmissionResult:
         desc = f'{expected_verdict} submission {sub}'
         partial = False
         if expected_verdict == 'PAC':
@@ -1559,23 +1631,29 @@ class Submissions(ProblemPart):
             timelim_low = timelim
 
         with Runner(self.problem, sub, context, timelim, timelim_low, timelim_high) as runner:
-            result, result_low, result_high = self.problem.get(ProblemTestCases)['root_group'].run_submission(sub, runner, context)
+            result, result_low, result_high = self.problem.get(ProblemTestCases)['root_group'].run_submission(
+                sub, runner, context
+            )
 
         if result.verdict == 'AC' and expected_verdict == 'AC' and not partial and result.sample_failures:
             res = result.sample_failures[0]
             self.warning(f'{desc} got {res.verdict} on sample: {res}')
 
         if result_low.verdict != result_high.verdict or result_low.score != result_high.score:
-            r1, r2 = (result_low, result_high) if result_low.verdict == result_high.verdict else (result_low.verdict, result_high.verdict)
-            self.warning(f'{desc} sensitive to time limit: limit of {timelim_low} secs -> {r1}, limit of {timelim_high} secs -> {r2}')
+            r1, r2 = (
+                (result_low, result_high)
+                if result_low.verdict == result_high.verdict
+                else (result_low.verdict, result_high.verdict)
+            )
+            self.warning(
+                f'{desc} sensitive to time limit: limit of {timelim_low} secs -> {r1}, limit of {timelim_high} secs -> {r2}'
+            )
 
         if partial and self.fully_accepted(result):
             self.warning(f'{desc} got {result}')
         elif result.verdict == expected_verdict:
             self.msg(f'   {desc} OK: {result}')
-            if (expected_verdict == 'AC' and not partial
-                    and not self.fully_accepted(result)
-                    and self.full_score_finite()):
+            if expected_verdict == 'AC' and not partial and not self.fully_accepted(result) and self.full_score_finite():
                 # For some heuristic problems, this is expected. Thus, only warn.
                 self.warning(f'{desc} did not attain full score (consider moving it to partially_accepted)')
         elif result_high.verdict == expected_verdict and not (partial and self.fully_accepted(result_high)):
@@ -1619,7 +1697,7 @@ class Submissions(ProblemPart):
         timelim = 300
 
         if limits.time_limit is not None:
-            timelim = timelim_margin = int(limits.time_limit) # TODO: Support non-integer time limits
+            timelim = timelim_margin = int(limits.time_limit)  # TODO: Support non-integer time limits
         if context.fixed_timelim is not None:
             timelim = context.fixed_timelim
             timelim_margin = int(round(timelim * safety_margin))
@@ -1636,8 +1714,10 @@ class Submissions(ProblemPart):
                 if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     self.info(f'Check {acr} submission {sub}')
 
-                    if sub.code_size() > 1024*limits.code:
-                        self.error(f'{acr} submission {sub} has size {sub.code_size() / 1024.0:.1f} kiB, exceeds code size limit of {limits.code} kiB')
+                    if sub.code_size() > 1024 * limits.code:
+                        self.error(
+                            f'{acr} submission {sub} has size {sub.code_size() / 1024.0:.1f} kiB, exceeds code size limit of {limits.code} kiB'
+                        )
                         continue
 
                     success, msg = sub.compile()
@@ -1655,38 +1735,44 @@ class Submissions(ProblemPart):
                     max_runtime_str = f'{max_runtime:.3f}'
                     timelim = max(1, int(0.5 + exact_timelim))
                     timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
-                    timelim_margin = max(timelim + 1,
-                                         int(0.5 + exact_timelim * safety_margin))
+                    timelim_margin = max(timelim + 1, int(0.5 + exact_timelim * safety_margin))
                 else:
                     max_runtime_str = None
                 if context.fixed_timelim is not None and context.fixed_timelim != timelim:
-                    self.msg(f"   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {context.fixed_timelim} seconds instead")
+                    self.msg(
+                        f'   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {context.fixed_timelim} seconds instead'
+                    )
                     timelim = context.fixed_timelim
-                    timelim_margin = round(timelim * safety_margin) # TODO: properly support 2023-07 time limit computation
+                    timelim_margin = round(timelim * safety_margin)  # TODO: properly support 2023-07 time limit computation
 
-                self.msg(f"   Slowest AC runtime: {max_runtime_str}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs")
+                self.msg(
+                    f'   Slowest AC runtime: {max_runtime_str}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs'
+                )
 
         return self._check_res
 
+
 PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     formatversion.VERSION_LEGACY: {
-        'config':       [ProblemConfig],
-        'statement':    [ProblemStatement, Attachments],
-        'validators':   [InputValidators, OutputValidators],
-        'graders':      [Graders],
-        'data':         [ProblemTestCases],
-        'submissions':  [Submissions],
+        'config': [ProblemConfig],
+        'statement': [ProblemStatement, Attachments],
+        'validators': [InputValidators, OutputValidators],
+        'graders': [Graders],
+        'data': [ProblemTestCases],
+        'submissions': [Submissions],
     },
-    formatversion.VERSION_2023_07: { # TODO: Add all the parts
-        'config':       [ProblemConfig],
-        'statement':    [ProblemStatement, Attachments],
-    }
+    formatversion.VERSION_2023_07: {  # TODO: Add all the parts
+        'config': [ProblemConfig],
+        'statement': [ProblemStatement, Attachments],
+    },
 }
 
 # parts tested in alphabetical order
 PROBLEM_PARTS = [*sorted({part for format in PROBLEM_FORMATS.values() for part in format})]
 
-_ProblemPartT = TypeVar("_ProblemPartT", bound=ProblemPart)
+_ProblemPartT = TypeVar('_ProblemPartT', bound=ProblemPart)
+
+
 class Problem(ProblemAspect):
     """Represents a checkable problem"""
 
@@ -1695,11 +1781,12 @@ class Problem(ProblemAspect):
     problem are listed. These should all be a subclass of ProblemPart. The dictionary is in the form
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
+
     def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS[formatversion.VERSION_LEGACY]):
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
-        self.shortname: str|None = os.path.basename(self.probdir)
+        self.shortname: str | None = os.path.basename(self.probdir)
         super().__init__(self.shortname)
         self.language_config = languages.load_language_config()
         self._data: dict[str, dict] = {}
@@ -1721,7 +1808,7 @@ class Problem(ProblemAspect):
         self._metadata = metadata
 
     def getProblemPart(self, part: Type[_ProblemPartT]) -> _ProblemPartT:
-        return self._classes[part.PART_NAME] # type: ignore
+        return self._classes[part.PART_NAME]  # type: ignore
 
     def __enter__(self) -> Problem:
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
@@ -1746,7 +1833,9 @@ class Problem(ProblemAspect):
                         init(cl)
                         cnt += 1
                 if cnt != 1:
-                    raise NotImplementedError(f'Part "{_class.PART_NAME}" depends on part "{dependency.PART_NAME}" which showed up {cnt} times in problem-format (should have showed up exactly once)')
+                    raise NotImplementedError(
+                        f'Part "{_class.PART_NAME}" depends on part "{dependency.PART_NAME}" which showed up {cnt} times in problem-format (should have showed up exactly once)'
+                    )
             self.debug(f'Initializing {_class.PART_NAME} ({_class})')
             assert _class.PART_NAME not in initialized
             self._classes[_class.PART_NAME] = _class(self)
@@ -1755,7 +1844,7 @@ class Problem(ProblemAspect):
 
         for c in self.aspects:
             init(c)
-        
+
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
@@ -1783,7 +1872,7 @@ class Problem(ProblemAspect):
             self._check_symlinks()
 
             run.limit.check_limit_capabilities(self)
-            
+
             # Skip any parts that do not belong to the format
             parts = [part for part in args.parts if part in self.part_mapping]
 
@@ -1802,7 +1891,7 @@ class Problem(ProblemAspect):
             # Wait for background work to finish before performing an rmtree on
             # the directory tree it uses.
             context.wait_for_background_work()
-        
+
         return ProblemAspect.errors, ProblemAspect.warnings
 
     def _check_symlinks(self):
@@ -1818,17 +1907,14 @@ class Problem(ProblemAspect):
                     # reltarget is what the symlink points to (absolute, or relative to where the symlink is)
                     reltarget = os.readlink(filename)
                     if not os.path.exists(target):
-                        self.error(
-                            f"Symlink {relfile} links to {reltarget} which does not exist"
-                        )
+                        self.error(f'Symlink {relfile} links to {reltarget} which does not exist')
                     if os.path.commonpath([probdir, target]) != probdir:
-                        self.error(
-                            f"Symlink {relfile} links to {reltarget} which is outside of problem package"
-                        )
+                        self.error(f'Symlink {relfile} links to {reltarget} which is outside of problem package')
                     if os.path.isabs(reltarget):
                         self.error(
-                            f"Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative."
+                            f'Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative.'
                         )
+
 
 def re_argument(s: str) -> Pattern[str]:
     try:
@@ -1840,43 +1926,69 @@ def re_argument(s: str) -> Pattern[str]:
 
 def part_argument(s: str) -> str:
     if s not in PROBLEM_PARTS:
-        raise argparse.ArgumentTypeError(f"Invalid problem part specified: {s}")
+        raise argparse.ArgumentTypeError(f'Invalid problem part specified: {s}')
     return s
 
+
 def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('-b', '--bail_on_error',
-                        action='store_true',
-                        help='bail verification on first error')
-    parser.add_argument('-l', '--log_level',
-                        default='warning',
-                        help='set log level (debug, info, warning, error, critical)')
-    parser.add_argument('-e', '--werror',
-                        action='store_true',
-                        help='consider warnings as errors')
-    parser.add_argument('--max_additional_info',
-                        type=int, default=15,
-                        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)')
-    parser.add_argument('-v', '--problem_format',
-                        default='automatic', choices=list(PROBLEM_FORMATS.keys()) + ['automatic'],
-                        help='which problem format should the package be interpreted as, or "automatic" if it should be figured out from problem.yaml')
+    parser.add_argument('-b', '--bail_on_error', action='store_true', help='bail verification on first error')
+    parser.add_argument('-l', '--log_level', default='warning', help='set log level (debug, info, warning, error, critical)')
+    parser.add_argument('-e', '--werror', action='store_true', help='consider warnings as errors')
+    parser.add_argument(
+        '--max_additional_info',
+        type=int,
+        default=15,
+        help='maximum number of lines of additional info (e.g. compiler output or validator feedback) to display about an error (set to 0 to disable additional info)',
+    )
+    parser.add_argument(
+        '-v',
+        '--problem_format',
+        default='automatic',
+        choices=list(PROBLEM_FORMATS.keys()) + ['automatic'],
+        help='which problem format should the package be interpreted as, or "automatic" if it should be figured out from problem.yaml',
+    )
 
 
 def argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Validate a problem package in the Kattis problem format.')
-    parser.add_argument('-s', '--submission_filter', metavar='SUBMISSIONS',
-                        type=re_argument, default=re.compile('.*'),
-                        help='run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. "accepted/hello.java" (for a single file submission) or "wrong_answer/hello" (for a directory submission)')
-    parser.add_argument('-d', '--data_filter', metavar='DATA',
-                        type=re_argument, default=re.compile('.*'),
-                        help='use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. "sample/hello" for a sample data file')
-    parser.add_argument('-t', '--fixed_timelim',
-                        type=int,
-                        help='use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)')
-    parser.add_argument('-p', '--parts', metavar='PROBLEM_PART',
-                        type=part_argument, nargs='+', default=PROBLEM_PARTS,
-                        help=f'only test the indicated parts of the problem.  Each PROBLEM_PART can be one of {PROBLEM_PARTS}.')
-    parser.add_argument('-j', '--threads', type=int, default=1,
-                        help='run validation using multiple threads. This will make timings less reliable, but can be convenient during development')
+    parser.add_argument(
+        '-s',
+        '--submission_filter',
+        metavar='SUBMISSIONS',
+        type=re_argument,
+        default=re.compile('.*'),
+        help='run only submissions whose name contains this regex.  The name includes category (accepted, wrong_answer, etc), e.g. "accepted/hello.java" (for a single file submission) or "wrong_answer/hello" (for a directory submission)',
+    )
+    parser.add_argument(
+        '-d',
+        '--data_filter',
+        metavar='DATA',
+        type=re_argument,
+        default=re.compile('.*'),
+        help='use only data files whose name contains this regex.  The name includes path relative to the data directory but not the extension, e.g. "sample/hello" for a sample data file',
+    )
+    parser.add_argument(
+        '-t',
+        '--fixed_timelim',
+        type=int,
+        help='use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)',
+    )
+    parser.add_argument(
+        '-p',
+        '--parts',
+        metavar='PROBLEM_PART',
+        type=part_argument,
+        nargs='+',
+        default=PROBLEM_PARTS,
+        help=f'only test the indicated parts of the problem.  Each PROBLEM_PART can be one of {PROBLEM_PARTS}.',
+    )
+    parser.add_argument(
+        '-j',
+        '--threads',
+        type=int,
+        default=1,
+        help='run validation using multiple threads. This will make timings less reliable, but can be convenient during development',
+    )
 
     argparser_basic_arguments(parser)
 
@@ -1887,10 +1999,9 @@ def argparser() -> argparse.ArgumentParser:
 def initialize_logging(args: argparse.Namespace) -> None:
     ProblemAspect.max_additional_info = args.max_additional_info
 
-    fmt = "%(levelname)s %(message)s"
-    logging.basicConfig(stream=sys.stdout,
-                        format=fmt,
-                        level=getattr(logging, args.log_level.upper()))
+    fmt = '%(levelname)s %(message)s'
+    logging.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
+
 
 def main() -> None:
     args = argparser().parse_args()
@@ -1909,13 +2020,15 @@ def main() -> None:
                 total_errors += 1
                 print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
                 continue
-            
+
             print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {version_data.name}')
             format = PROBLEM_FORMATS[version_data.name]
             with Problem(problemdir, format) as prob:
                 errors, warnings = prob.check(args)
+
                 def p(x: int) -> str:
                     return '' if x == 1 else 's'
+
                 print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
                 total_errors += errors
 
@@ -1924,6 +2037,7 @@ def main() -> None:
     finally:
         if total_errors > 0:
             sys.exit(1)
+
 
 if __name__ == '__main__':
     main()

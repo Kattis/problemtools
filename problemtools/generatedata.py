@@ -12,24 +12,14 @@ from .verifyproblem import Generators, ProblemAspect, Problem, is_RTE, argparser
 
 ALL_EXTENSIONS = ['in', 'ans'] + Generators._VISUALIZER_EXTENSIONS
 
+
 def argparser() -> ArgumentParser:
     parser = ArgumentParser(description='Generate test data for a problem package in the Kattis problem format.')
-    parser.add_argument('-g', '--generate',
-                        action='store_true',
-                        help='generate test data')
-    parser.add_argument('-c', '--clean',
-                        action='store_true',
-                        help='clean up generated files')
-    parser.add_argument('-C', '--clean_all',
-                        action='store_true',
-                        help='clean up generated and unrecognized files')
-    parser.add_argument('-n', '--dry_run',
-                        action='store_true',
-                        help='don\'t actually do anything')
-    parser.add_argument('-j', '--parallelism',
-                        type=int,
-                        default=None,
-                        help='level of parallelism')
+    parser.add_argument('-g', '--generate', action='store_true', help='generate test data')
+    parser.add_argument('-c', '--clean', action='store_true', help='clean up generated files')
+    parser.add_argument('-C', '--clean_all', action='store_true', help='clean up generated and unrecognized files')
+    parser.add_argument('-n', '--dry_run', action='store_true', help="don't actually do anything")
+    parser.add_argument('-j', '--parallelism', type=int, default=None, help='level of parallelism')
 
     argparser_basic_arguments(parser)
 
@@ -42,7 +32,7 @@ def clean(prob, args):
     ProblemAspect.warnings = 0
     base_path = os.path.join(prob.probdir, 'data')
 
-    testcases = { case['path']: case for case in prob.generators._testcases }
+    testcases = {case['path']: case for case in prob.generators._testcases}
 
     def walk(name, path):
         case_count = 0
@@ -105,6 +95,7 @@ class GenerateState:
     prob = None
     args = None
 
+
 def generate_case(case_idx):
     ProblemAspect.errors = 0
     ProblemAspect.warnings = 0
@@ -125,7 +116,7 @@ def generate_case(case_idx):
         out_dir = os.path.join(*([prob.probdir] + case['path'].split('/')[:-1]))
         name = case['path'].split('/')[-1]
         ok = args.dry_run or os.path.isdir(out_dir)
-        for (gen_type, mandatory, in_ext, out_ext) in steps:
+        for gen_type, mandatory, in_ext, out_ext in steps:
             if not ok:
                 break
             prog = case.get(gen_type)
@@ -221,7 +212,7 @@ def generate(prob, args):
         # Use async polling for better KeyboardInterrupt handling
         res.wait(1)
     res = res.get()
-    return [ sum( r[tp] for r in res ) for tp in range(3) ]
+    return [sum(r[tp] for r in res) for tp in range(3)]
 
 
 def main():
@@ -263,10 +254,11 @@ def main():
                 errors += gen_errors
                 warnings += gen_warnings
 
-            print("%s processed: %s%d error%s, %d warning%s" % (prob.shortname, status, errors, p(errors), warnings, p(warnings)))
+            print('%s processed: %s%d error%s, %d warning%s' % (prob.shortname, status, errors, p(errors), warnings, p(warnings)))
             total_errors += errors
 
     sys.exit(1 if total_errors > 0 else 0)
+
 
 if __name__ == '__main__':
     main()

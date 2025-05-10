@@ -9,6 +9,7 @@ import subprocess
 
 from . import template
 
+
 def convert(options: argparse.Namespace) -> None:
     # PlasTeX.Logging statically overwrites logging and formatting, so delay loading
     import plasTeX.TeX
@@ -90,9 +91,9 @@ def convert(options: argparse.Namespace) -> None:
                 for f in files:
                     file_size_kib = os.stat(os.path.join(path, f)).st_size // 1024
                     if file_size_kib > 1024:
-                        print(f"WARNING: FILE {f} HAS SIZE {file_size_kib} KiB; CONSIDER REDUCING IT")
+                        print(f'WARNING: FILE {f} HAS SIZE {file_size_kib} KiB; CONSIDER REDUCING IT')
                     elif file_size_kib > 300:
-                        print(f"Warning: file {f} has size {file_size_kib} KiB; consider reducing it")
+                        print(f'Warning: file {f} has size {file_size_kib} KiB; consider reducing it')
 
         if options.bodyonly:
             content = open(destfile).read()
@@ -107,20 +108,36 @@ def convert(options: argparse.Namespace) -> None:
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('-b', '--body-only', dest='bodyonly', action='store_true', help='only generate HTML body, no HTML headers', default=False)
-    parser.add_argument('-c', '--no-css', dest='css', action='store_false', help="don't copy CSS file to output directory", default=True)
-    parser.add_argument('-H', '--headers', dest='headers', action='store_false', help="don't generate problem headers (title, problem id, time limit)", default=True)
-    parser.add_argument('-m', '--messy', dest='tidy', action='store_false', help="don't run tidy to postprocess the HTML", default=True)
-    parser.add_argument('-d', '--dest-dir', dest='destdir', help="output directory", default='${problem}_html')
-    parser.add_argument('-f', '--dest-file', dest='destfile', help="output file name", default='index.html')
+    parser.add_argument(
+        '-b', '--body-only', dest='bodyonly', action='store_true', help='only generate HTML body, no HTML headers', default=False
+    )
+    parser.add_argument(
+        '-c', '--no-css', dest='css', action='store_false', help="don't copy CSS file to output directory", default=True
+    )
+    parser.add_argument(
+        '-H',
+        '--headers',
+        dest='headers',
+        action='store_false',
+        help="don't generate problem headers (title, problem id, time limit)",
+        default=True,
+    )
+    parser.add_argument(
+        '-m', '--messy', dest='tidy', action='store_false', help="don't run tidy to postprocess the HTML", default=True
+    )
+    parser.add_argument('-d', '--dest-dir', dest='destdir', help='output directory', default='${problem}_html')
+    parser.add_argument('-f', '--dest-file', dest='destfile', help='output file name', default='index.html')
     parser.add_argument('-l', '--language', dest='language', help='choose alternate language (2-letter code)', default=None)
-    parser.add_argument('-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning')
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help="quiet", default=False)
+    parser.add_argument(
+        '-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning'
+    )
+    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help='quiet', default=False)
     parser.add_argument('-i', '--imgbasedir', dest='imgbasedir', default='')
-    parser.add_argument('-v', '--format-version', dest='format_version', help='choose format version', default="automatic")
+    parser.add_argument('-v', '--format-version', dest='format_version', help='choose format version', default='automatic')
     parser.add_argument('problem', help='the problem to convert')
 
     return parser
+
 
 def main() -> None:
     parser = get_parser()

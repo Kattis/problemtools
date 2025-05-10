@@ -9,6 +9,7 @@ from plasTeX.Logging import getLogger
 log = getLogger()
 status = getLogger('status')
 
+
 # Ugly hack: assume textwidth is 600pt.  True for Kattis but not in
 # general.
 class textwidth(DimenCommand):
@@ -23,7 +24,7 @@ def clean_width(width):
     nodes = width.childNodes
     if len(nodes) != 2 or nodes[1].nodeName != 'textwidth':
         return width
-    return '%.2f%%' % (100*float(nodes[0]))
+    return '%.2f%%' % (100 * float(nodes[0]))
 
 
 # \problemheader
@@ -32,8 +33,7 @@ class problemheader(Command):
 
     def invoke(self, tex):
         super().invoke(tex)
-        timelimfile = os.path.join(os.path.dirname(tex.filename),
-                                   '..', '.timelimit')
+        timelimfile = os.path.join(os.path.dirname(tex.filename), '..', '.timelimit')
         if os.path.isfile(timelimfile):
             self.attributes['timelim'] = open(timelimfile, 'r').read()
 
@@ -111,16 +111,13 @@ class _graphics_command(Command):
         # Overcome plasTeX bug by looking for love in the right place
         basetex = self.ownerDocument.userdata['base_tex_instance']
         f = self.attributes['file']
-        ext = self.ownerDocument.userdata.getPath(
-                      'packages/graphicx/extensions',
-                      ['.png', '.jpg', '.jpeg', '.gif', '.pdf'])
-        paths = self.ownerDocument.userdata.getPath(
-                        'packages/graphicx/paths', [os.path.dirname(basetex.filename)])
+        ext = self.ownerDocument.userdata.getPath('packages/graphicx/extensions', ['.png', '.jpg', '.jpeg', '.gif', '.pdf'])
+        paths = self.ownerDocument.userdata.getPath('packages/graphicx/paths', [os.path.dirname(basetex.filename)])
         img = None
         # Check for file using graphicspath
         for p in paths:
-            for e in ['']+ext:
-                fname = os.path.join(p, f+e)
+            for e in [''] + ext:
+                fname = os.path.join(p, f + e)
                 if os.path.isfile(fname):
                     img = os.path.abspath(fname)
                     break
@@ -129,9 +126,9 @@ class _graphics_command(Command):
 
         # Check for file using kpsewhich
         if img is None:
-            for e in ['']+ext:
+            for e in [''] + ext:
                 try:
-                    img = os.path.abspath(basetex.kpsewhich(f+e))
+                    img = os.path.abspath(basetex.kpsewhich(f + e))
                     break
                 except (OSError, IOError):
                     pass
@@ -149,16 +146,19 @@ class illustration(_graphics_command):
 
     def invoke(self, tex):
         res = _graphics_command.invoke(self, tex)
-        self.style['width'] = '%.2f%%' % (100*self.attributes['width'])
+        self.style['width'] = '%.2f%%' % (100 * self.attributes['width'])
         return res
+
 
 # Dummy for \fontencoding to suppress warnings
 class fontencoding(Command):
     args = 'charset:str'
 
+
 # Dummy for \selectfont to suppress warnings.
 class selectfont(Command):
     pass
+
 
 # Dummy for \ExecuteOptions to suppress warnings.
 class ExecuteOptions(Command):

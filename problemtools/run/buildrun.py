@@ -16,8 +16,7 @@ log = logging.getLogger(__file__)
 
 
 class BuildRun(Program):
-    """Class for build/run-script program.
-    """
+    """Class for build/run-script program."""
 
     def __init__(self, path, work_dir=None, include_dir=None):
         """Instantiate BuildRun object.
@@ -59,8 +58,7 @@ class BuildRun(Program):
         """String representation"""
         return '%s/' % (self.path)
 
-
-    def do_compile(self) -> tuple[bool, str|None]:
+    def do_compile(self) -> tuple[bool, str | None]:
         """Run the build script."""
         with open(os.devnull, 'w') as devnull:
             status = subprocess.call(['./build'], stdout=devnull, stderr=devnull, cwd=self.path)
@@ -74,7 +72,6 @@ class BuildRun(Program):
         else:
             return (True, None)
 
-
     def get_runcmd(self, cwd=None, memlim=None) -> list[str]:
         """Run command for the program.
 
@@ -84,7 +81,6 @@ class BuildRun(Program):
         """
         path = self.path if cwd is None else os.path.relpath(self.path, cwd)
         return [os.path.join(path, 'run')]
-
 
     def should_skip_memory_rlimit(self) -> bool:
         """Ugly hack (see program.py for details)."""
