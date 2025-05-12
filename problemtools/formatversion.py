@@ -3,8 +3,8 @@ import yaml
 from dataclasses import dataclass
 
 
-VERSION_LEGACY = "legacy"
-VERSION_2023_07 = "2023-07-draft"
+VERSION_LEGACY = 'legacy'
+VERSION_2023_07 = '2023-07-draft'
 
 
 @dataclass(frozen=True)
@@ -15,16 +15,17 @@ class FormatData:
     statement_directory: the directory where the statements should be found.
     statement_extensions: the allowed extensions for the statements.
     """
+
     name: str
     statement_directory: str
     statement_extensions: list[str]
 
 
 FORMAT_DATACLASSES = {
-    VERSION_LEGACY: FormatData(name=VERSION_LEGACY, statement_directory="problem_statement", statement_extensions=["tex"]),
-    VERSION_2023_07: FormatData(name=VERSION_2023_07, statement_directory="statement", statement_extensions=["md", "tex"])
+    VERSION_LEGACY: FormatData(name=VERSION_LEGACY, statement_directory='problem_statement', statement_extensions=['tex']),
+    VERSION_2023_07: FormatData(name=VERSION_2023_07, statement_directory='statement', statement_extensions=['md', 'tex']),
 }
-FORMAT_DATACLASSES['2023-07'] = FORMAT_DATACLASSES[VERSION_2023_07] # Accept non-draft version string too
+FORMAT_DATACLASSES['2023-07'] = FORMAT_DATACLASSES[VERSION_2023_07]  # Accept non-draft version string too
 
 
 def detect_problem_version(path: str) -> str:
@@ -42,7 +43,7 @@ def detect_problem_version(path: str) -> str:
         with open(config_path) as f:
             config: dict = yaml.safe_load(f) or {}
     except Exception as e:
-        raise VersionError(f"Error reading problem.yaml: {e}")
+        raise VersionError(f'Error reading problem.yaml: {e}')
     return config.get('problem_format_version', VERSION_LEGACY)
 
 
@@ -71,11 +72,10 @@ def get_format_data_by_name(name: str) -> FormatData:
     """
     data = FORMAT_DATACLASSES.get(name)
     if not data:
-        raise VersionError(f"No version found with name {name}")
+        raise VersionError(f'No version found with name {name}')
     else:
         return data
 
 
 class VersionError(Exception):
     pass
-

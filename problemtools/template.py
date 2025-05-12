@@ -16,14 +16,14 @@ def detect_version(problemdir, problemtex):
 
 
 class Template:
-    def __init__(self, problemdir, language=None, force_copy_cls=False, version="automatic"):
+    def __init__(self, problemdir, language=None, force_copy_cls=False, version='automatic'):
         if not os.path.isdir(problemdir):
             raise Exception('%s is not a directory' % problemdir)
 
         if problemdir[-1] == '/':
             problemdir = problemdir[:-1]
 
-        if version == "automatic":
+        if version == 'automatic':
             version_data = formatversion.get_format_data(problemdir)
 
         else:
@@ -34,7 +34,7 @@ class Template:
         if glob.glob(os.path.join(stmtdir, 'problem.tex')):
             langs.append('')
         for f in glob.glob(os.path.join(stmtdir, 'problem.[a-z][a-z].tex')):
-            langs.append(re.search("problem.([a-z][a-z]).tex$", f).group(1)) # type: ignore[union-attr]
+            langs.append(re.search('problem.([a-z][a-z]).tex$', f).group(1))  # type: ignore[union-attr]
         if len(langs) == 0:
             raise Exception('No problem statements available')
 
@@ -65,28 +65,35 @@ class Template:
             self.templatefile = 'template_%s.tex' % version
             self.clsfile = 'problemset_%s.cls' % version
 
-        templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/latex'),
-                         os.path.join(os.path.dirname(__file__), '../templates/latex'),
-                         '/usr/lib/problemtools/templates/latex']
+        templatepaths = [
+            os.path.join(os.path.dirname(__file__), 'templates/latex'),
+            os.path.join(os.path.dirname(__file__), '../templates/latex'),
+            '/usr/lib/problemtools/templates/latex',
+        ]
         try:
-            self.templatepath = next((p for p in templatepaths
-                                  if os.path.isdir(p) and os.path.isfile(os.path.join(p, self.templatefile))))
+            self.templatepath = next(
+                (p for p in templatepaths if os.path.isdir(p) and os.path.isfile(os.path.join(p, self.templatefile)))
+            )
         except StopIteration:
             raise Exception('Could not find directory with latex template "%s"' % self.templatefile)
 
         self.basedir = os.path.dirname(problemdir)
         self.shortname = os.path.basename(problemdir)
         sample_dir = os.path.join(problemdir, 'data', 'sample')
-        self.samples = sorted(set([os.path.splitext(os.path.basename(f))[0]
-                                   for f in (glob.glob(os.path.join(sample_dir, '*.in')) +
-                                             glob.glob(os.path.join(sample_dir, '*.interaction')))]))
+        self.samples = sorted(
+            set(
+                [
+                    os.path.splitext(os.path.basename(f))[0]
+                    for f in (glob.glob(os.path.join(sample_dir, '*.in')) + glob.glob(os.path.join(sample_dir, '*.interaction')))
+                ]
+            )
+        )
         self.problemset_cls = os.path.join(self.basedir, 'problemset.cls')
 
         self.copy_cls = True
         if os.path.isfile(self.problemset_cls) and not force_copy_cls:
             print('%s exists, will not copy it -- in case of weirdness this is likely culprit' % self.problemset_cls)
             self.copy_cls = False
-
 
     def __enter__(self):
         if self.copy_cls:
@@ -95,8 +102,7 @@ class Template:
         (templfd, self.filename) = tempfile.mkstemp(suffix='.tex', dir=self.basedir)
         templout = os.fdopen(templfd, 'w')
         templin = open(os.path.join(self.templatepath, self.templatefile))
-        data = {'language': self.language,
-                'shortname': self.shortname}
+        data = {'language': self.language, 'shortname': self.shortname}
         for line in templin:
             try:
                 templout.write(line % data)
@@ -122,4 +128,3 @@ class Template:
     def get_file_name(self):
         assert os.path.isfile(self.filename)
         return self.filename
-

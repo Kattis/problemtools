@@ -4,6 +4,7 @@ Module for dealing with resource limits for problemtools runs.
 
 import resource
 
+
 def check_limit_capabilities(logger):
     """Check if the problemtools process is run with appropriate
     capabilities to set rlimits, and if not, issue warnings.
@@ -16,19 +17,21 @@ def check_limit_capabilities(logger):
     """
     (_, cpu_hard) = resource.getrlimit(resource.RLIMIT_CPU)
     if cpu_hard != resource.RLIM_INFINITY:
-        logger.warning("Hard CPU rlimit of %d, runs involving higher CPU limits than this may behave incorrectly."
-                       % cpu_hard)
+        logger.warning('Hard CPU rlimit of %d, runs involving higher CPU limits than this may behave incorrectly.' % cpu_hard)
 
     (_, stack_hard) = resource.getrlimit(resource.RLIMIT_STACK)
     if stack_hard != resource.RLIM_INFINITY:
-        logger.warning("Hard stack rlimit of %d so I can't set it to unlimited. I will keep it at %d. If you experience unexpected issues (in particular run-time errors) this may be the cause."
-                       % (stack_hard, stack_hard))
+        logger.warning(
+            "Hard stack rlimit of %d so I can't set it to unlimited. I will keep it at %d. If you experience unexpected issues (in particular run-time errors) this may be the cause."
+            % (stack_hard, stack_hard)
+        )
 
     (_, mem_hard) = resource.getrlimit(resource.RLIMIT_AS)
     if mem_hard != resource.RLIM_INFINITY:
-        logger.warning("Hard memory rlimit of %.0f MB, runs involving a higher memory limit may behave incorrectly.  If you experience unexpected issues (in particular run-time errors) this may be the cause."
-                       % (mem_hard/1024.0/1024.0))
-
+        logger.warning(
+            'Hard memory rlimit of %.0f MB, runs involving a higher memory limit may behave incorrectly.  If you experience unexpected issues (in particular run-time errors) this may be the cause.'
+            % (mem_hard / 1024.0 / 1024.0)
+        )
 
 
 def try_limit(limit, soft, hard):
@@ -47,7 +50,6 @@ def try_limit(limit, soft, hard):
     if not __limit_less(hard, cur_hard):
         hard = cur_hard
     resource.setrlimit(limit, (soft, hard))
-
 
 
 def __limit_less(lim1, lim2):

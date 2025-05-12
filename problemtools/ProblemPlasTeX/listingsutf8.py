@@ -9,6 +9,7 @@ log = getLogger()
 # Implementation of (parts) of listingsutf8 package since PlasTeX does
 # not have one
 
+
 class lstinputlisting(Command):
     args = '* [ options:dict ] file:str'
 
