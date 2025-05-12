@@ -279,7 +279,7 @@ class TestCase(ProblemAspect):
             self.warning(
                 f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit'
             )
-        if not self._problem.get(ProblemTestCases)['is_interactive']:
+        if not self._problem.getMetadata().is_interactive():
             val_res = self._problem.getProblemPart(OutputValidators).validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
@@ -339,7 +339,7 @@ class TestCase(ProblemAspect):
 
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
-        if self._problem.get(ProblemTestCases)['is_interactive']:
+        if self._problem.getMetadata().is_interactive():
             res_high = self._problem.getProblemPart(OutputValidators).validate_interactive(
                 self, sub, timelim_high, self._problem.getProblemPart(Submissions)
             )
@@ -543,7 +543,7 @@ class TestCaseGroup(ProblemAspect):
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
 
-        if not self._problem.get(ProblemTestCases)['is_scoring']:
+        if not self._problem.getMetadata().is_scoring():
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if self.config.get(key) is not None:
                     self.error(f"Key '{key}' is only applicable for scoring problems, this is a pass-fail problem")
@@ -551,7 +551,7 @@ class TestCaseGroup(ProblemAspect):
         if self.config['on_reject'] not in ['break', 'continue']:
             self.error(f"Invalid value '{self.config['on_reject']}' for on_reject policy")
 
-        if self._problem.get(ProblemTestCases)['is_scoring']:
+        if self._problem.getMetadata().is_scoring():
             # Check grading
             try:
                 score_range = self.config['range']
@@ -714,7 +714,7 @@ class TestCaseGroup(ProblemAspect):
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
-            if self._problem.get(ProblemTestCases)['is_scoring']:
+            if self._problem.getMetadata().is_scoring():
                 res.score = score
                 min_score, max_score = self.get_score_range()
                 if score is not None and not (min_score <= score <= max_score) and not self._seen_oob_scores:
@@ -927,14 +927,12 @@ class ProblemTestCases(ProblemPart):
 
     @staticmethod
     def setup_dependencies():
-        return {ProblemConfig}
+        return {ProblemConfig}  # We need this as the TestCaseGroup constructor reads config
 
     def setup(self):
         self.testcase_by_infile = {}
         return {
             'root_group': TestCaseGroup(self.problem, self.PART_NAME),
-            'is_interactive': self.problem.getMetadata().is_interactive(),
-            'is_scoring': self.problem.getMetadata().is_scoring(),
         }
 
     def check(self, context: Context) -> bool:
@@ -1673,7 +1671,7 @@ class Submissions(ProblemPart):
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.get(ProblemTestCases)['root_group'].get_score_range()
         best_score = min_score if self.problem.getMetadata().legacy_grading.objective == 'min' else max_score
-        return result.verdict == 'AC' and (not self.problem.get(ProblemTestCases)['is_scoring'] or result.score == best_score)
+        return result.verdict == 'AC' and (not self.problem.getMetadata().is_scoring() or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
