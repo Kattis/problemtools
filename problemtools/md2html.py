@@ -14,9 +14,6 @@ import nh3
 from . import statement_util
 
 
-FOOTNOTES_STRING = '<section class="footnotes">'
-
-
 def convert(problem: str, options: argparse.Namespace) -> bool:
     """Convert a Markdown statement to HTML
 
@@ -70,11 +67,13 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
 
     # Insert the remaining samples at the bottom
     # However, footnotes should be below samples
-    if FOOTNOTES_STRING in statement_html:
-        pos = statement_html.find(FOOTNOTES_STRING)
-    else:
-        pos = statement_html.rfind('</body>')
-    statement_html = statement_html[:pos] + ''.join(remaining_samples) + statement_html[pos:]
+    sample_insertion_position = statement_util.find_footnotes(statement_html)
+    if sample_insertion_position is None:
+        # No footnotes, so insert at the end
+        sample_insertion_position = statement_html.rfind('</body>')
+    statement_html = (
+        statement_html[:sample_insertion_position] + ''.join(remaining_samples) + statement_html[sample_insertion_position:]
+    )
 
     with open(destfile, 'w', encoding='utf-8', errors='xmlcharrefreplace') as output_file:
         output_file.write(statement_html)
@@ -92,7 +91,7 @@ def sanitize_html(problem: str, statement_html: str):
         pattern_id_bottom = r'^fnref\d+$'
         return bool(re.fullmatch(pattern_id_top, s)) or bool(re.fullmatch(pattern_id_bottom, s))
 
-    allowed_classes = ('sample', 'problemheader', 'problembody', 'sampleinteractionwrite', 'sampleinteractionread', 'footnotes')
+    allowed_classes = ('sample', 'problemheader', 'problembody', 'sampleinteractionwrite', 'sampleinteractionread')
 
     def is_image_valid(problem_root: str, img_src: str) -> str | None:
         # Check that the image exists and uses an allowed extension
@@ -112,6 +111,10 @@ def sanitize_html(problem: str, statement_html: str):
     def attribute_filter(tag, attribute, value):
         if attribute == 'class' and value in allowed_classes:
             return value
+        # Never versions of Pandoc will give class="footnotes footnotes-end-of-document"
+        # We don't want to blindly allow any class with footnotes in it, so only allow footnotes
+        if attribute == 'class' and 'footnotes' in value:
+            return 'footnotes'
         if tag == 'a' and attribute == 'href':
             return value
         if tag in ('li', 'a') and attribute == 'id' and is_fn_id(value):
@@ -133,6 +136,7 @@ def sanitize_html(problem: str, statement_html: str):
         tags=nh3.ALLOWED_TAGS | {'img', 'a', 'section'},
         attributes={
             'table': {'class'},
+            'aside': {'class'},
             'div': {'class'},
             'section': {'class'},
             'img': {'src'},

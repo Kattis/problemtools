@@ -7,12 +7,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import yaml
-
 from . import formatversion
+from . import verifyproblem
 
-SUPPORTED_EXTENSIONS = ('tex', 'md')
 ALLOWED_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')  # ".svg"
+FOOTNOTES_STRINGS = ['<section class="footnotes">', '<aside class="footnotes">']
 
 
 def find_statement(problem_root: str, extension: str, language: Optional[str]) -> Optional[str]:
@@ -42,7 +41,7 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
         problem_root: path to problem root
     """
     extensions = []
-    for ext in SUPPORTED_EXTENSIONS:
+    for ext in formatversion.get_format_data(problem_root).statement_extensions:
         if find_statement(problem_root, ext, language) is not None:
             extensions.append(ext)
     # At most one extension per language to avoid arbitrary/hidden priorities
@@ -56,25 +55,14 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
 
 def get_yaml_problem_name(problem: str, language: Optional[str]) -> str:
     """Finds the problem name from the problem.yaml file"""
-    # TODO: getting this should be done using verifyproblem
-    # Wait until new config parsing system is in place
-    config_file = Path(problem) / 'problem.yaml'
 
-    if not config_file.is_file():
-        raise FileNotFoundError('No problem.yaml found')
+    # Minimal setup to get the problem name
+    problem_obj = verifyproblem.Problem(problem)
+    statement_obj = verifyproblem.ProblemStatement(problem_obj)
+    problem_obj._data[statement_obj.PART_NAME] = statement_obj.setup()
+    verifyproblem.ProblemConfig(problem_obj).setup()
 
-    try:
-        with open(config_file, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
-        if config is None:
-            config = {}
-    except Exception as e:
-        raise ValueError(f'Invalid problem.yaml: {e}') from e
-
-    if 'name' in config and not isinstance(config['name'], dict):
-        config['name'] = {'': config['name']}
-
-    names = config.get('name')
+    names = problem_obj.getMetadata().name
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
         return next(iter(names.values()))
@@ -130,6 +118,14 @@ def assert_images_are_valid_md(statement_path: str) -> None:
     """
     problem_root = os.path.dirname(statement_path)
     foreach_image(statement_path, lambda img_name: assert_image_is_valid(problem_root, img_name))
+
+
+def find_footnotes(statement_html: str) -> Optional[int]:
+    """Find the position of the footnotes in the statement and return it or None"""
+    for footnote_string in FOOTNOTES_STRINGS:
+        if footnote_string in statement_html:
+            return statement_html.find(footnote_string)
+    return None
 
 
 def inject_samples(statement_html: str, samples: List[str]) -> Tuple[str, List[str]]:

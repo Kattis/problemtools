@@ -1,6 +1,6 @@
 from pathlib import Path
 from tests.test_xss import render, renderpdf
-from problemtools.md2html import FOOTNOTES_STRING
+from problemtools.statement_util import find_footnotes
 import pytest
 
 
@@ -8,6 +8,10 @@ def test_sample_escaping():
     problem_path = Path(__file__).parent / 'problems' / 'specialcharacterssample'
     html = render(problem_path)
     all_printable = r"""0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
+    # nh3 will escape &, < and >
+    all_printable = all_printable.replace('&', '&amp;')
+    all_printable = all_printable.replace('<', '&lt;')
+    all_printable = all_printable.replace('>', '&gt;')
     assert all_printable in html
 
 
@@ -17,11 +21,11 @@ def test_footnotes():
     # To do this, we search for a string (very fragile)
     problem_path = Path(__file__).parent / 'problems' / 'footnote'
     html = render(problem_path)
-    assert FOOTNOTES_STRING in html
+    assert find_footnotes(html) is not None
 
     problem_path = Path(__file__).parent / 'problems' / 'twofootnotes'
     html = render(problem_path)
-    assert FOOTNOTES_STRING in html
+    assert find_footnotes(html) is not None
 
 
 def test_footnotes_href():

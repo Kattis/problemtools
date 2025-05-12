@@ -113,7 +113,7 @@ class Metadata2023_07(BaseModel):
 
     problem_format_version: str
     name: dict[str, str] | str
-    uuid: UUID
+    uuid: UUID | None = None  # UUID *is* mandatory, but we deal with that in verifyproblem for better UX
     type: list[ProblemType] | ProblemType = ProblemType.PASS_FAIL
     version: str | None = None
     credits: dict | str | None = None

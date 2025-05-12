@@ -50,8 +50,8 @@
 \RequirePackage{url}              % Urls
 \RequirePackage[normalem]{ulem}   % \sout
 \RequirePackage[colorlinks=true,implicit=false]{hyperref}
-\RequirePackage{longtable}            % TODO: needed by Pandoc, but what do they do?
-\RequirePackage{booktabs}             % -||-
+\RequirePackage{longtable}        % Used by Pandoc
+\RequirePackage{booktabs}         % Used by Pandoc
 \ifplastex\else
 \RequirePackage{xstring}
 \RequirePackage{pgffor}

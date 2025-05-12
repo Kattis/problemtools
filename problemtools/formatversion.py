@@ -13,6 +13,7 @@ class FormatData:
     A class containing data specific to the format version.
     name: the version name.
     statement_directory: the directory where the statements should be found.
+    statement_extensions: the allowed extensions for the statements.
     """
 
     name: str
