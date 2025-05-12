@@ -4,12 +4,17 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-# Uncomment this to turn off cleanup.
-export PYBUILD_DISABLE=clean
-
-export PYBUILD_AFTER_CLEAN=make -C support distclean
-export PYBUILD_TEST_PYTEST=1
-export no_proxy=github.com
-
 %:
-	dh $@ --with python3 --buildsystem=pybuild
+	dh $@ --with python-virtualenv
+
+override_dh_virtualenv:
+	dh_virtualenv --builtin-venv --python /usr/bin/python3
+
+override_dh_strip:
+	dh_strip --exclude=/PIL/ --exclude=/pillow.libs/
+
+override_dh_shlibdeps:
+	dh_shlibdeps -X/x86/ -X/PIL/.libs/ -X/pillow.libs/
+
+override_dh_dwz:
+	dh_dwz --exclude=/PIL/ --exclude=/pillow.libs/

@@ -31,20 +31,17 @@ A few examples of problem packages can be found in [examples](examples).
 There are four supported ways of installing and running problemtools.
 (For non-Linux users, "Method 2" below, to use Docker, is probably the least painful.)
 
-### Method 1: Install the Python package
+### Method 1: Install the Python package using pipx
 
 Run
 ```
-sudo pip3 install git+https://github.com/kattis/problemtools
+pipx install git+https://github.com/kattis/problemtools
 ```
 
-Or if you don't want a system-wide installation,
-```
-pip3 install --user git+https://github.com/kattis/problemtools
-```
-With this second option, in order to get the command line scripts, you need
-to make sure that the local user bin path used (e.g., on Linux,
-`$HOME/.local/bin`) is in your `$PATH`.
+In order to get the command line scripts, you need to make sure that the local
+user bin path used (e.g., on Linux, `$HOME/.local/bin`) is in your `$PATH`. See
+[pipx' installation instructions](https://pipx.pypa.io/stable/installation/)
+for information on how to install `pipx` and set up your `$PATH`.
 
 In order for problemtools to build and run properly, you also need to have LaTeX
 and various LaTeX packages installed.  See [Requirements and
@@ -95,14 +92,19 @@ Hub, these are only updated sporadically for testing purposes and not
 kept up to date).
 
 
-### Method 3: Run directly from the repository.
+### Method 3: Run directly from the repository
 
-If you intend to help develop problemtools, or if you just want a
-bare-bones way of running them, this is your option.
+If you intend to help develop problemtools, or if you just want a bare-bones
+way of running them, this is your option.
 
 For this method, you need to clone the repository (just downloading a
 zip archive of it does not work because the project has submodules
 that are not included in that zip archive).
+
+Start by setting up your venv, e.g.,
+
+    python3 -m venv venv
+    venv/bin/pip install -r requirements.txt
 
 In order for the tools to work, you first have to compile the various
 support programs, which can be done by running `make` in the root
@@ -134,7 +136,7 @@ root of the repository).
 Apart from the build dependencies listed [below](#ubuntu), building
 the Debian package requires that the following tools are installed:
 
-    debhelper dh-python dpkg-dev
+    debhelper dh-virtualenv dpkg-dev
 
 The package can then be installed using (replace `<version>` as appropriate):
 
@@ -178,7 +180,7 @@ problemtools' configuration:
    are not sure whether you should use it, then you probably shouldn't.
    This file can be used to specify the system defaults for those
    problem limits which are not given a fixed default value in the
-   [problem format specification](http://www.problemarchive.org/wiki/index.php/Problem_Format#limits).
+   [problem format specification](https://www.kattis.com/problem-package-format/spec/2023-07-draft.html#limits).
    The system defaults assumed by problemtools can be found in
    (problemtools/config/problem.yaml).  For instance, if you are
    primarily working against a system with a default memory limit of 2 GiB,
@@ -188,10 +190,6 @@ problemtools' configuration:
    limits:
        memory: 2048 # (unit is MiB)
    ```
-
-   (In principle, it is possible to override the defaults of other values than the
-   system-dependent defaults in the problem.yaml metadata files this way, but such
-   usage is very strongly discouraged.)
 
 
 ## Requirements and compatibility
@@ -203,11 +201,11 @@ and a LaTeX installation.
 
 The dependencies needed to *build/install* problemtools can be installed with:
 
-    sudo apt install automake g++ make libboost-regex-dev libgmp-dev libgmp10 libgmpxx4ldbl python3 python3-pytest python3-setuptools python3-yaml python3-plastex
+    sudo apt install python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git
 
 And the dependencies needed to *run* problemtools can be installed with:
 
-    sudo apt install ghostscript libgmpxx4ldbl pandoc python3-minimal python-nh3 python-pkg-resources python3-plastex python3-yaml texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy
+    sudo apt install ghostscript pandoc python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy dvisvgm
 
 ### Fedora
 

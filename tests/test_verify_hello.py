@@ -3,14 +3,15 @@ import problemtools.verifyproblem as verify
 
 
 def test_load_hello():
-    directory = pathlib.Path(__file__).parent / "hello"
+    directory = pathlib.Path(__file__).parent / 'hello'
     string = str(directory.resolve())
 
     args = verify.argparser().parse_args([string])
     verify.initialize_logging(args)
+    context = verify.Context(args, None)
 
     with verify.Problem(string) as p:
-        assert p.shortname == "hello"
+        assert p.shortname == 'hello'
         # pytest and fork don't go along very well, so just run aspects that work without run
-        assert p.getProblemPart(verify.ProblemConfig).check(args)
-        assert p.getProblemPart(verify.Attachments).check(args)
+        assert p.getProblemPart(verify.ProblemConfig).check(context)
+        assert p.getProblemPart(verify.Attachments).check(context)

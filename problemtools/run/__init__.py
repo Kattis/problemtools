@@ -1,22 +1,23 @@
 """Package for managing execution of external programs in Kattis
 Problemtools.
 """
+
 import re
 import os
 
 from .buildrun import BuildRun
 from .checktestdata import Checktestdata
-from .errors import ProgramError
-from .executable import Executable
+from .errors import ProgramError as ProgramError
 from .program import Program
 from .source import SourceCode
 from .viva import Viva
-from .tools import get_tool_path, get_tool
+from .tools import get_tool as get_tool
 from . import rutil
 
 
-def find_programs(path, pattern='.*', language_config=None, work_dir=None,
-                  include_dir=None, allow_validation_script=False) -> list[Program]:
+def find_programs(
+    path, pattern='.*', language_config=None, work_dir=None, include_dir=None, allow_validation_script=False
+) -> list[Program]:
     """Find all programs in a directory.
 
     Args:
@@ -51,18 +52,19 @@ def find_programs(path, pattern='.*', language_config=None, work_dir=None,
     for name in sorted(os.listdir(path)):
         if re.match(pattern, name):
             fullpath = os.path.join(path, name)
-            run = get_program(fullpath,
-                              language_config=language_config,
-                              work_dir=work_dir,
-                              include_dir=include_dir,
-                              allow_validation_script=allow_validation_script)
+            run = get_program(
+                fullpath,
+                language_config=language_config,
+                work_dir=work_dir,
+                include_dir=include_dir,
+                allow_validation_script=allow_validation_script,
+            )
             if run is not None:
                 ret.append(run)
     return ret
 
 
-def get_program(path, language_config=None, work_dir=None, include_dir=None,
-                allow_validation_script=False) -> Program|None:
+def get_program(path, language_config=None, work_dir=None, include_dir=None, allow_validation_script=False) -> Program | None:
     """Get a Program object for a program
 
     Args:

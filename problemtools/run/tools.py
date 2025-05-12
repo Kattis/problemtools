@@ -1,6 +1,7 @@
 import os
 from .executable import Executable
 
+
 def get_tool_path(name):
     """Find the path to one of problemtools' external tools.
 
@@ -11,11 +12,12 @@ def get_tool_path(name):
     Returns:
         str, path to the tool, or None if the tool was not found.
     """
-    return __locate_executable([os.path.join(os.path.dirname(__file__),
-                                             '..', 'support', name),
-                                os.path.join(os.path.dirname(__file__),
-                                             '..', '..', 'support',
-                                             os.path.splitext(name)[0], name)])
+    return __locate_executable(
+        [
+            os.path.join(os.path.dirname(__file__), '..', 'support', name),
+            os.path.join(os.path.dirname(__file__), '..', '..', 'support', os.path.splitext(name)[0], name),
+        ]
+    )
 
 
 def get_tool(name):
@@ -43,5 +45,4 @@ def __locate_executable(candidate_paths):
         str, first entry of candidate_paths that is an executable
             file, or None if no such entry.
     """
-    return next((p for p in candidate_paths
-                 if os.path.isfile(p) and os.access(p, os.X_OK)), None)
+    return next((p for p in candidate_paths if os.path.isfile(p) and os.access(p, os.X_OK)), None)

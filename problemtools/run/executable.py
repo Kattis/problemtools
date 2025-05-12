@@ -1,13 +1,15 @@
 """
 Implementation of programs provided by an executable file.
 """
+
 import os
 from .program import Program
 from .errors import ProgramError
 
+
 class Executable(Program):
-    """Class for executable files.
-    """
+    """Class for executable files."""
+
     def __init__(self, path, args=None):
         """Instantiate executable object.
 
@@ -29,8 +31,7 @@ class Executable(Program):
         return '%s' % (self.path)
 
     def get_runcmd(self, cwd=None, memlim=None):
-        """Command to run the program.
-        """
+        """Command to run the program."""
         return [self.path] + self.args
 
     def should_skip_memory_rlimit(self):

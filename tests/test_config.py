@@ -3,10 +3,11 @@ import pytest
 
 from problemtools import config
 
+
 def config_paths_mock():
     import os
-    return [os.path.join(os.path.dirname(__file__), 'config1'),
-            os.path.join(os.path.dirname(__file__), 'config2')]
+
+    return [os.path.join(os.path.dirname(__file__), 'config1'), os.path.join(os.path.dirname(__file__), 'config2')]
 
 
 def test_load_basic_config(monkeypatch):
