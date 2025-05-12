@@ -738,20 +738,17 @@ class ProblemStatement(ProblemPart):
     PART_NAME = 'statement'
 
     def setup(self):
-        self.format_data = formatversion.get_format_data(self.problem.probdir)
-        if not self.format_data:
-            raise NotImplementedError('No version selected.')
         self.debug('  Loading problem statement')
         self.statement_regex = re.compile(
-            r'problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$' % ('|'.join(self.format_data.statement_extensions))
+            r'problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$' % ('|'.join(self.problem.format.statement_extensions))
         )
-        dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
+        dir = os.path.join(self.problem.probdir, self.problem.format.statement_directory)
         if os.path.isdir(dir):
             self.statements = [
                 (m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))
             ]
         else:
-            self.error(f'No directory named {self.format_data.statement_directory} found')
+            self.error(f'No directory named {self.problem.format.statement_directory} found')
             self.statements = []
 
         return self.get_config()
@@ -763,10 +760,10 @@ class ProblemStatement(ProblemPart):
 
         if not self.statements:
             allowed_statements = ', '.join(
-                f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.format_data.statement_extensions
+                f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.problem.format.statement_extensions
             )
             self.error(
-                f'No problem statements found (expected file of one of following forms in directory {self.format_data.statement_directory}/: {allowed_statements})'
+                f'No problem statements found (expected file of one of following forms in directory {self.problem.format.statement_directory}/: {allowed_statements})'
             )
 
         langs = [lang or 'en' for _, lang in self.statements]
@@ -808,7 +805,7 @@ class ProblemStatement(ProblemPart):
     def get_config(self) -> dict[str, dict[str, str]]:
         ret: dict[str, dict[str, str]] = {'name': {}}
         for filename, lang in self.statements:
-            dir = os.path.join(self.problem.probdir, self.format_data.statement_directory)
+            dir = os.path.join(self.problem.probdir, self.problem.format.statement_directory)
             with open(os.path.join(dir, filename)) as f:
                 stmt = f.read()
             hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
@@ -847,7 +844,7 @@ class ProblemConfig(ProblemPart):
 
         try:
             self._metadata = metadata.parse_metadata(
-                formatversion.get_format_data(self.problem.probdir),
+                self.problem.format,
                 self._data,
                 self.problem.get(ProblemStatement).get('name', {}),
             )
@@ -1787,6 +1784,7 @@ class Problem(ProblemAspect):
         self.shortname: str | None = os.path.basename(self.probdir)
         super().__init__(self.shortname)
         self.language_config = languages.load_language_config()
+        self.format = formatversion.get_format_data(self.probdir)
         self._data: dict[str, dict] = {}
         self._metadata: metadata.Metadata | None = None
         self.debug(f'Problem-format: {parts}')
@@ -1866,6 +1864,8 @@ class Problem(ProblemAspect):
         try:
             if not re.match('^[a-z0-9]+$', self.shortname):
                 self.error(f"Invalid shortname '{self.shortname}' (must be [a-z0-9]+)")
+            if self.format.name == formatversion.VERSION_2023_07:
+                self.warning(f'Support for version {self.format.name} is very incomplete. Verification may not work as expected.')
 
             self._check_symlinks()
 
