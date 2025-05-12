@@ -15,7 +15,7 @@ def convert(options: argparse.Namespace) -> None:
     problem = os.path.realpath(options.problem)
 
     if not os.path.isdir(problem):
-        raise Exception(f"Problem does not exist: {problem}")
+        raise Exception(f'Problem does not exist: {problem}')
 
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
@@ -33,7 +33,7 @@ def convert(options: argparse.Namespace) -> None:
 
         origcwd = os.getcwd()
 
-        if statement_util.find_statement_extension(problem, options.language) == "tex":
+        if statement_util.find_statement_extension(problem, options.language) == 'tex':
             tex2html.convert(problem, options)
         else:
             md2html.convert(problem, options)

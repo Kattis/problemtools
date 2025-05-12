@@ -16,7 +16,7 @@ from . import statement_util
 def convert(options: argparse.Namespace) -> bool:
     problem_root = os.path.realpath(options.problem)
 
-    if statement_util.find_statement_extension(problem_root, language=options.language) == "md":
+    if statement_util.find_statement_extension(problem_root, language=options.language) == 'md':
         return md2pdf(options)
     else:
         return latex2pdf(options)
@@ -27,38 +27,36 @@ def md2pdf(options: argparse.Namespace) -> bool:
     reuses the normal tex -> pdf pipeline
     """
     problem_root = os.path.realpath(options.problem)
-    statement_path = statement_util.find_statement(problem_root, extension="md", language=options.language)
+    statement_path = statement_util.find_statement(problem_root, extension='md', language=options.language)
 
     if not statement_path or not os.path.isfile(statement_path):
-        raise FileNotFoundError(f"Error! {statement_path} does not exist")
+        raise FileNotFoundError(f'Error! {statement_path} does not exist')
 
     statement_util.assert_images_are_valid_md(statement_path)
 
     language = options.language
     if not language:
-        language = "en"
-    temp_tex_file = Path(statement_path).parent / f"problem.{language}.tex"
-    command = ["pandoc", statement_path, "-o", str(temp_tex_file)]
+        language = 'en'
+    temp_tex_file = Path(statement_path).parent / f'problem.{language}.tex'
+    command = ['pandoc', statement_path, '-o', str(temp_tex_file)]
     try:
-        subprocess.run(command, capture_output=True,
-                       text=True, shell=False, check=True
-                       )
+        subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error compiling Markdown to pdf: {e.stderr}")
+        print(f'Error compiling Markdown to pdf: {e.stderr}')
         return False
 
     try:
-        with open(temp_tex_file, "r", encoding="utf-8") as f:
+        with open(temp_tex_file, 'r', encoding='utf-8') as f:
             tex = f.read()
 
         def format_latex_tables(latex_doc):
             # Match table environments produced by pandoc
-            pattern = r'''
+            pattern = r"""
                 (\\begin\{longtable\}\[\]\{@\{\})
                 ([a-z])
                 ([a-z]*)
                 (@\{\}\})
-            '''
+            """
 
             def replacer(match):
                 prefix = match.group(1)[:-3]
@@ -74,20 +72,20 @@ def md2pdf(options: argparse.Namespace) -> bool:
 
         # Add solid outline to tables
         tex = format_latex_tables(tex)
-        tex = tex.replace(r"\toprule", "")
-        tex = tex.replace(r"\midrule", "")
-        tex = tex.replace(r"\endhead", "")
-        tex = tex.replace(r"\bottomrule", "")
-        tex = tex.replace(r"\tabularnewline", r"\\ \hline")
+        tex = tex.replace(r'\toprule', '')
+        tex = tex.replace(r'\midrule', '')
+        tex = tex.replace(r'\endhead', '')
+        tex = tex.replace(r'\bottomrule', '')
+        tex = tex.replace(r'\tabularnewline', r'\\ \hline')
 
         # Fix sample inclusions commands
         # Currently does not work, as normal problemtools tex -> pdf does not support it
-        tex = tex.replace(r"\{\{nextsample\}\}", r"\nextsample")
-        tex = tex.replace(r"\{\{remainingsamples\}\}", r"\remainingsamples")
+        tex = tex.replace(r'\{\{nextsample\}\}', r'\nextsample')
+        tex = tex.replace(r'\{\{remainingsamples\}\}', r'\remainingsamples')
 
         problem_name = statement_util.get_yaml_problem_name(problem_root, options.language)
         tex = r'\problemname{' + problem_name + '}\n' + tex
-        with open(temp_tex_file, "w", encoding="utf-8") as f:
+        with open(temp_tex_file, 'w', encoding='utf-8') as f:
             f.write(tex)
 
         status = latex2pdf(options)
@@ -137,20 +135,25 @@ def latex2pdf(options: argparse.Namespace) -> bool:
 
     try:
         with tempfile.NamedTemporaryFile(suffix='.pdf') as f:
-            command = ["gs", "-q", "-dBATCH", "-sDEVICE=pdfwrite", "-dNOPAUSE",
-                       "-dCompatibilityLevel=1.7", f"-sOutputFile={f.name}", destfile]
-            gs_status = subprocess.run(command, capture_output=True,
-                text=True, shell=False, check=True
-            )
+            command = [
+                'gs',
+                '-q',
+                '-dBATCH',
+                '-sDEVICE=pdfwrite',
+                '-dNOPAUSE',
+                '-dCompatibilityLevel=1.7',
+                f'-sOutputFile={f.name}',
+                destfile,
+            ]
+            gs_status = subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
             if gs_status:
                 return False
             shutil.copy(f.name, destfile)
     except subprocess.CalledProcessError as e:
-        print(f"Error sanitizing PDF: {e} {e.stderr}")
+        print(f'Error sanitizing PDF: {e} {e.stderr}')
         raise
 
     return True
-
 
 
 def get_parser() -> argparse.ArgumentParser:

@@ -27,38 +27,40 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     problembase = os.path.splitext(os.path.basename(problem))[0]
     destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
 
-    statement_path = statement_util.find_statement(problem, extension="md",
-                                                   language=options.language)
+    statement_path = statement_util.find_statement(problem, extension='md', language=options.language)
 
     if statement_path is None:
         raise FileNotFoundError('No markdown statement found')
 
     if not os.path.isfile(statement_path):
-        raise FileNotFoundError(f"Error! {statement_path} does not exist")
+        raise FileNotFoundError(f'Error! {statement_path} does not exist')
 
-    command = ["pandoc", statement_path, "-t", "html", "--mathjax"]
-    statement_html = subprocess.run(command, capture_output=True, text=True,
-                                    shell=False, check=True).stdout
+    command = ['pandoc', statement_path, '-t', 'html', '--mathjax']
+    statement_html = subprocess.run(command, capture_output=True, text=True, shell=False, check=True).stdout
 
     statement_html = sanitize_html(problem, statement_html)
 
-    templatepaths = [os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
-                     '/usr/lib/problemtools/templates/markdown_html']
-    templatepath = next((p for p in templatepaths
-        if os.path.isdir(p) and os.path.isfile(os.path.join(p, "default-layout.html"))),
-        None)
+    templatepaths = [
+        os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
+        '/usr/lib/problemtools/templates/markdown_html',
+    ]
+    templatepath = next(
+        (p for p in templatepaths if os.path.isdir(p) and os.path.isfile(os.path.join(p, 'default-layout.html'))), None
+    )
 
     if templatepath is None:
         raise FileNotFoundError('Could not find directory with markdown templates')
 
-    with open(Path(templatepath) / "default-layout.html", "r", encoding="utf-8") as template_file:
+    with open(Path(templatepath) / 'default-layout.html', 'r', encoding='utf-8') as template_file:
         template = template_file.read()
 
     problem_name = statement_util.get_yaml_problem_name(problem, options.language)
-    substitution_params = {"statement_html": statement_html,
-        "language": options.language,
-        "title": html.escape(problem_name) if problem_name else "Missing problem name",
-        "problemid": html.escape(problembase)}
+    substitution_params = {
+        'statement_html': statement_html,
+        'language': options.language,
+        'title': html.escape(problem_name) if problem_name else 'Missing problem name',
+        'problemid': html.escape(problembase),
+    }
 
     statement_html = template % substitution_params
 
@@ -71,14 +73,14 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     if FOOTNOTES_STRING in statement_html:
         pos = statement_html.find(FOOTNOTES_STRING)
     else:
-        pos = statement_html.rfind("</body>")
-    statement_html = statement_html[:pos] + "".join(remaining_samples) + statement_html[pos:]
+        pos = statement_html.rfind('</body>')
+    statement_html = statement_html[:pos] + ''.join(remaining_samples) + statement_html[pos:]
 
-    with open(destfile, "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
+    with open(destfile, 'w', encoding='utf-8', errors='xmlcharrefreplace') as output_file:
         output_file.write(statement_html)
 
     if options.css:
-        shutil.copyfile(os.path.join(templatepath, "problem.css"), "problem.css")
+        shutil.copyfile(os.path.join(templatepath, 'problem.css'), 'problem.css')
 
     return True
 
@@ -90,33 +92,31 @@ def sanitize_html(problem: str, statement_html: str):
         pattern_id_bottom = r'^fnref\d+$'
         return bool(re.fullmatch(pattern_id_top, s)) or bool(re.fullmatch(pattern_id_bottom, s))
 
-    allowed_classes = ("sample", "problemheader", "problembody",
-                       "sampleinteractionwrite", "sampleinteractionread",
-                       "footnotes")
+    allowed_classes = ('sample', 'problemheader', 'problembody', 'sampleinteractionwrite', 'sampleinteractionread', 'footnotes')
 
     def is_image_valid(problem_root: str, img_src: str) -> str | None:
         # Check that the image exists and uses an allowed extension
         extension = Path(img_src).suffix
         # TODO: fix svg sanitization and allow svg
         if extension not in statement_util.ALLOWED_IMAGE_EXTENSIONS:
-            return f"Unsupported image extension {extension} for image {img_src}"
+            return f'Unsupported image extension {extension} for image {img_src}'
 
-        source_file = Path(problem_root) / "statement" / img_src
+        source_file = Path(problem_root) / 'statement' / img_src
         if not source_file.exists():
-            return f"Resource file {img_src} not found in statement"
+            return f'Resource file {img_src} not found in statement'
         return None
 
     # Annoying: nh3 will ignore exceptions in attribute_filter
     image_fail_reason: str | None = None
 
     def attribute_filter(tag, attribute, value):
-        if attribute == "class" and value in allowed_classes:
+        if attribute == 'class' and value in allowed_classes:
             return value
-        if tag == "a" and attribute == "href":
+        if tag == 'a' and attribute == 'href':
             return value
-        if tag in ("li", "a") and attribute == "id" and is_fn_id(value):
+        if tag in ('li', 'a') and attribute == 'id' and is_fn_id(value):
             return value
-        if tag == "img" and attribute == "src":
+        if tag == 'img' and attribute == 'src':
             fail = is_image_valid(problem, value)
             if fail:
                 nonlocal image_fail_reason
@@ -126,17 +126,24 @@ def sanitize_html(problem: str, statement_html: str):
             return value
         return None
 
-    statement_html = nh3.clean(statement_html,
-        link_rel="noopener nofollow noreferrer",
+    statement_html = nh3.clean(
+        statement_html,
+        link_rel='noopener nofollow noreferrer',
         attribute_filter=attribute_filter,
-        tags=nh3.ALLOWED_TAGS | {"img", "a", "section"},
-        attributes={"table": {"class"}, "div": {"class"}, "section": {"class"}, "img": {"src"},
-                    "a": {"href", "id"}, "li": {"id"}},
+        tags=nh3.ALLOWED_TAGS | {'img', 'a', 'section'},
+        attributes={
+            'table': {'class'},
+            'div': {'class'},
+            'section': {'class'},
+            'img': {'src'},
+            'a': {'href', 'id'},
+            'li': {'id'},
+        },
     )
 
     if image_fail_reason:
         assert isinstance(image_fail_reason, str)
-        if "Unsupported" in image_fail_reason:
+        if 'Unsupported' in image_fail_reason:
             raise ValueError(image_fail_reason)
         raise FileNotFoundError(image_fail_reason)
 
@@ -151,7 +158,7 @@ def copy_image(problem_root: str, img_src: str) -> None:
         img_src: the image source as in the Markdown statement
     """
 
-    source_name = os.path.join(problem_root, "statement", img_src)
+    source_name = os.path.join(problem_root, 'statement', img_src)
 
     if os.path.isfile(img_src):  # already copied
         return
