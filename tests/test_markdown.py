@@ -1,5 +1,5 @@
 from pathlib import Path
-from problemtools.tests.test_xss import render, renderpdf
+from tests.test_xss import render, renderpdf
 from problemtools.md2html import FOOTNOTES_STRING
 import pytest
 
