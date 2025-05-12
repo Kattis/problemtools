@@ -19,11 +19,22 @@ class FormatData:
     name: str
     statement_directory: str
     statement_extensions: list[str]
+    output_validator_directory: str
 
 
 FORMAT_DATACLASSES = {
-    VERSION_LEGACY: FormatData(name=VERSION_LEGACY, statement_directory='problem_statement', statement_extensions=['tex']),
-    VERSION_2023_07: FormatData(name=VERSION_2023_07, statement_directory='statement', statement_extensions=['md', 'tex']),
+    VERSION_LEGACY: FormatData(
+        name=VERSION_LEGACY,
+        statement_directory='problem_statement',
+        statement_extensions=['tex'],
+        output_validator_directory='output_validators',
+    ),
+    VERSION_2023_07: FormatData(
+        name=VERSION_2023_07,
+        statement_directory='statement',
+        statement_extensions=['md', 'tex'],
+        output_validator_directory='output_validator',
+    ),
 }
 FORMAT_DATACLASSES['2023-07'] = FORMAT_DATACLASSES[VERSION_2023_07]  # Accept non-draft version string too
 
