@@ -854,7 +854,7 @@ class ProblemConfig(ProblemPart):
             self.problem.setMetadata(self._metadata)
         except ValidationError as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
-            error_str = '\n'.join([f'    {"->".join(str(err["loc"]))}: {err["msg"]}' for err in e.errors()])
+            error_str = '\n'.join([f'    {"->".join((str(loc) for loc in err["loc"]))}: {err["msg"]}' for err in e.errors()])
             self.error(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
         return {}
 
