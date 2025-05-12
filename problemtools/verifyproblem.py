@@ -1234,7 +1234,7 @@ class OutputValidators(ProblemPart):
 
     def setup(self):
         self._validators = run.find_programs(
-            os.path.join(self.problem.probdir, 'output_validators'),
+            os.path.join(self.problem.probdir, self.problem.format.output_validator_directory),
             language_config=self.problem.language_config,
             work_dir=self.problem.tmpdir,
         )
@@ -1263,7 +1263,7 @@ class OutputValidators(ProblemPart):
 
         if self.problem.getMetadata().legacy_validation == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.getMetadata().legacy_validation != 'default' and not self._validators:
+        elif self.problem.getMetadata().legacy_validation.startswith('custom') and not self._validators:
             self.error('problem.yaml specifies custom validator but no validator programs found')
 
         if self.problem.getMetadata().legacy_validation == 'default' and self._default_validator is None:
@@ -1360,7 +1360,9 @@ class OutputValidators(ProblemPart):
 
     def _actual_validators(self) -> list:
         vals = self._validators
-        if self.problem.getMetadata().legacy_validation == 'default':
+        if self.problem.getMetadata().legacy_validation == 'default' or (
+            self.problem.format.name == formatversion.VERSION_2023_07 and not vals
+        ):
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
 
@@ -1759,6 +1761,10 @@ PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
     formatversion.VERSION_2023_07: {  # TODO: Add all the parts
         'config': [ProblemConfig],
         'statement': [ProblemStatement, Attachments],
+        'validators': [InputValidators, OutputValidators],
+        'graders': [Graders],
+        'data': [ProblemTestCases],
+        'submissions': [Submissions],
     },
 }
 
