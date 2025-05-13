@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import argparse
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -20,8 +21,7 @@ import sys
 import copy
 import random
 import traceback
-
-import argparse
+import uuid
 
 import yaml
 
@@ -874,6 +874,13 @@ class ProblemConfig(ProblemPart):
         # Check license
         if self._metadata.license == metadata.License.UNKNOWN:
             self.warning("License is 'unknown'")
+
+        if self._metadata.uuid is None:
+            uuid_msg = f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.'
+            if self.problem.format.name == formatversion.VERSION_LEGACY:
+                self.warning(uuid_msg)
+            else:
+                self.error(uuid_msg)
 
         if self._metadata.legacy_grading.show_test_data_groups and self._metadata.is_pass_fail():
             self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
