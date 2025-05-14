@@ -258,6 +258,6 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int) -> st
             line_type = 'sampleinteractionread'
         else:
             print(f'Warning: Interaction had unknown prefix {interaction[0]}')
-        lines.append(f"""<div class="{line_type}"><pre>{html.escape(data)}</pre></div>""")
+        lines.append(f"""<div class="{line_type}"><pre>{data}</pre></div>""")
 
     return line + ''.join(lines)

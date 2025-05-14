@@ -8,7 +8,7 @@ def test_sample_escaping():
     problem_path = Path(__file__).parent / 'problems' / 'specialcharacterssample'
     html = render(problem_path)
     all_printable = r"""0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""
-    # nh3 will escape &, < and >
+    # We escape &, < and >
     all_printable = all_printable.replace('&', '&amp;')
     all_printable = all_printable.replace('<', '&lt;')
     all_printable = all_printable.replace('>', '&gt;')
