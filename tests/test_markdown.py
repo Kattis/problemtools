@@ -1,7 +1,17 @@
 from pathlib import Path
+
+import pytest
 from tests.test_xss import render, renderpdf
 from problemtools.statement_util import find_footnotes
-import pytest
+
+# TODO: add when guess is updated to 2023-07
+# def test_pdf_render():
+#     with tempfile.TemporaryDirectory() as temp_dir:
+#         problem_path = Path(__file__).parent / '..' / 'examples' / 'guess'
+#         args, _unknown = problem2pdf.get_parser().parse_known_args(
+#                 ['--problem', str(problem_path.resolve()), '-l', 'sv', '--dest-dir', str(temp_dir)]
+#             )
+#         problem2pdf.convert(args)
 
 
 def test_sample_escaping():

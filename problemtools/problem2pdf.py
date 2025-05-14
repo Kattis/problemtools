@@ -133,25 +133,27 @@ def latex2pdf(options: argparse.Namespace) -> bool:
     if status:
         return False
 
-    try:
-        with tempfile.NamedTemporaryFile(suffix='.pdf') as f:
-            command = [
-                'gs',
-                '-q',
-                '-dBATCH',
-                '-sDEVICE=pdfwrite',
-                '-dNOPAUSE',
-                '-dCompatibilityLevel=1.7',
-                f'-sOutputFile={f.name}',
-                destfile,
-            ]
-            gs_status = subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
-            if gs_status:
-                return False
-            shutil.copy(f.name, destfile)
-    except subprocess.CalledProcessError as e:
-        print(f'Error sanitizing PDF: {e} {e.stderr}')
-        raise
+    # We only sanitize if a PDF was created
+    if not options.nopdf:
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.pdf') as f:
+                command = [
+                    'gs',
+                    '-q',
+                    '-dBATCH',
+                    '-sDEVICE=pdfwrite',
+                    '-dNOPAUSE',
+                    '-dCompatibilityLevel=1.7',
+                    f'-sOutputFile={f.name}',
+                    destfile,
+                ]
+                gs_status = subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
+                if gs_status.returncode != 0:
+                    return False
+                shutil.copy(f.name, destfile)
+        except subprocess.CalledProcessError as e:
+            print(f'Error sanitizing PDF: {e} {e.stderr}')
+            raise
 
     return True
 
