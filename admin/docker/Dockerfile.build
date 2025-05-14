@@ -25,6 +25,7 @@ RUN apt update && \
         libgmp-dev \
         libgmp10 \
         libgmpxx4ldbl \
+        pandoc \
         python3 \
         python3-pytest \
         python3-setuptools \

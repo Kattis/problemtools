@@ -29,6 +29,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install mypy ruff pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        sudo apt-get install pandoc tidy ghostscript python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic
     - name: Lint with ruff
       run: ruff check --output-format=github
     - name: Check ruff formatting

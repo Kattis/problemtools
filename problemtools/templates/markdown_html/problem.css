@@ -1,0 +1,128 @@
+.problemheader {
+    text-align: center;
+}
+
+.problembody {
+    font-family: 'Times New Roman', Georgia, serif;
+    font-size: 1.1em;
+    text-align: justify;
+    padding-top: 1.5em;
+}
+
+.problembody h2, .problembody h3, .problembody table.sample th {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/*Style all tables except sample*/
+table:not(.sample) {
+    border-collapse: collapse;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    margin: 20px auto;
+}
+
+table:not(.sample) td, table:not(.sample) th {
+    text-align: left;
+    padding: 12px;
+    border: 1px solid #d6d6d6;
+}
+
+table:not(.sample) th {
+    background-color: #eeeeee;
+    font-weight: bold;
+}
+
+table:not(.sample) td {
+    margin: 0px;
+}
+
+/*Style sample in its own way*/
+.sample {
+    font-family: Arial, Helvetica, sans-serif;
+    width: 100%;
+}
+
+.sample th {
+    padding: 0px;
+    border: 0px;
+    background-color: #ffffff;
+    text-align: left;
+    width: 50%;
+    font-size: 16px;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.sample td {
+    vertical-align: top;
+    border: 1px solid black;
+}
+
+.sample pre {
+    margin: 0px;
+}
+
+code {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+pre code {
+    background-color: #eeeeee;
+    padding: 15px 20px;
+    border: 2px solid #dddddd;
+    font-size: 16px;
+    display: inline-block;
+    margin: 10px 0;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+div.minipage { 
+    display: inline-block;
+}
+
+div.illustration {
+    float: right;
+    padding-left: 20px;
+}
+
+img.illustration {
+    width: 100%;
+}
+
+div.figure {
+  display: block;
+  float: none;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.illustration div.description {
+    font-size: 8pt;
+    text-align: right;
+}
+
+.problembody p {
+  text-align: justify;
+}
+
+div.sampleinteractionread {
+    border: 1px solid black;
+    width: 60%;
+    float: left;
+    margin: 3px 0px;
+}
+
+.sampleinteractionread pre {
+    margin: 1px 5px;
+}
+
+div.sampleinteractionwrite {
+    border: 1px solid black;
+    width: 60%;
+    float: right;
+    margin: 3px 0px;
+}
+
+.sampleinteractionwrite pre {
+    margin: 1px 5px;
+}

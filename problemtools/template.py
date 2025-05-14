@@ -25,7 +25,6 @@ class Template:
 
         if version == 'automatic':
             version_data = formatversion.get_format_data(problemdir)
-
         else:
             version_data = formatversion.get_format_data_by_name(version)
 

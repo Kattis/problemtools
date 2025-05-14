@@ -205,17 +205,17 @@ The dependencies needed to *build/install* problemtools can be installed with:
 
 And the dependencies needed to *run* problemtools can be installed with:
 
-    sudo apt install ghostscript python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy dvisvgm
+    sudo apt install ghostscript pandoc python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy dvisvgm
 
 ### Fedora
 
 On Fedora, these dependencies can be installed with:
 
-    sudo dnf install boost-regex gcc gmp-devel gmp-c++ python3 python3-pyyaml texlive-latex texlive-collection-fontsrecommended texlive-fancyhdr texlive-subfigure texlive-wrapfig texlive-import texlive-ulem texlive-xifthen texlive-overpic texlive-pbox tidy ghostscript
+    sudo dnf install boost-regex gcc gmp-devel gmp-c++ pandoc python3 python3-pyyaml texlive-latex texlive-collection-fontsrecommended texlive-fancyhdr texlive-subfigure texlive-wrapfig texlive-import texlive-ulem texlive-xifthen texlive-overpic texlive-pbox tidy ghostscript
 
 Followed by:
 
-    pip3 install --user plastex
+    pip3 install --user plastex nh3
 
 ### Arch
 Package is available on the AUR [kattis-problemtools-git](https://aur.archlinux.org/packages/kattis-problemtools-git). Use your favorite AUR helper or follow the installation instructions found [here](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages).

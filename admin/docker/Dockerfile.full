@@ -23,6 +23,7 @@ RUN apt-get update && \
             mono-complete \
             nodejs \
             ocaml-nox \
+            pandoc \
             php-cli \
             pypy \
             rustc \

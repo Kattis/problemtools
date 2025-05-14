@@ -50,6 +50,8 @@
 \RequirePackage{url}              % Urls
 \RequirePackage[normalem]{ulem}   % \sout
 \RequirePackage[colorlinks=true,implicit=false]{hyperref}
+\RequirePackage{longtable}        % Used by Pandoc
+\RequirePackage{booktabs}         % Used by Pandoc
 \ifplastex\else
 \RequirePackage{xstring}
 \RequirePackage{pgffor}
@@ -85,6 +87,9 @@
   \addtolength{\textheight}{-\headheight}
 }
 
+% Pandoc outputs these
+\newcommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
 
 % Typesetting sections in a problem
