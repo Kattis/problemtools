@@ -7,14 +7,6 @@ import shutil
 from . import formatversion
 
 
-# For backwards compatibility, remove in bright and shiny future.
-def detect_version(problemdir, problemtex):
-    # Check for 0.1 - lack of \problemname
-    if open(problemtex).read().find(r'\problemname') < 0:
-        return '0.1'
-    return ''  # Current
-
-
 class Template:
     def __init__(self, problemdir, language=None, force_copy_cls=False, version='automatic'):
         if not os.path.isdir(problemdir):
@@ -58,11 +50,6 @@ class Template:
 
         self.templatefile = 'template.tex'
         self.clsfile = 'problemset.cls'
-        version = detect_version(problemdir, problemtex)
-        if version != '':
-            print('Note: problem is in an old version (%s) of problem format, you should consider updating it' % version)
-            self.templatefile = 'template_%s.tex' % version
-            self.clsfile = 'problemset_%s.cls' % version
 
         templatepaths = [
             os.path.join(os.path.dirname(__file__), 'templates/latex'),
