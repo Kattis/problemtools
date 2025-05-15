@@ -45,6 +45,8 @@ def md2pdf(options: argparse.Namespace) -> bool:
         print(f'Error compiling Markdown to pdf: {e.stderr}')
         return False
 
+    # If success is not assigned somehow, it is considered a failure
+    success = False
     try:
         with open(temp_tex_file, 'r', encoding='utf-8') as f:
             tex = f.read()
@@ -88,13 +90,11 @@ def md2pdf(options: argparse.Namespace) -> bool:
         with open(temp_tex_file, 'w', encoding='utf-8') as f:
             f.write(tex)
 
-        status = latex2pdf(options)
-        if status != 0:
-            return False
+        success = latex2pdf(options)
     finally:
         temp_tex_file.unlink()
 
-    return status == 0
+    return success
 
 
 def latex2pdf(options: argparse.Namespace) -> bool:

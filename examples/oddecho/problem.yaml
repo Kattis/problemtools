@@ -1,7 +1,6 @@
+problem_format_version: 2023-07-draft
 license: cc by-sa
-author: Johan Sannemo
+credits: Johan Sannemo
 source: Principles of Algorithmic Problem Solving
 type: scoring
 name: Odd Echo
-grading:
-    show_test_data_groups: true
