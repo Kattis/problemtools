@@ -14,28 +14,19 @@ import nh3
 from . import statement_util
 
 
-def convert(problem: str, options: argparse.Namespace) -> bool:
+def convert(problem_root: Path, options: argparse.Namespace, statement_file: Path) -> bool:
     """Convert a Markdown statement to HTML
 
     Args:
         problem: path to problem directory
         options: command-line arguments. See problem2html.py
     """
-    problembase = os.path.splitext(os.path.basename(problem))[0]
-    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+    destfile = string.Template(options.destfile).safe_substitute(problem=problem_root.name)
 
-    statement_path = statement_util.find_statement(problem, extension='md', language=options.language)
-
-    if statement_path is None:
-        raise FileNotFoundError('No markdown statement found')
-
-    if not os.path.isfile(statement_path):
-        raise FileNotFoundError(f'Error! {statement_path} does not exist')
-
-    command = ['pandoc', statement_path, '-t', 'html', '--mathjax']
+    command = ['pandoc', str(statement_file), '-t', 'html', '--mathjax']
     statement_html = subprocess.run(command, capture_output=True, text=True, shell=False, check=True).stdout
 
-    statement_html = sanitize_html(problem, statement_html)
+    statement_html = sanitize_html(statement_file.parent, statement_html)
 
     templatepaths = [
         os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
@@ -51,17 +42,17 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     with open(Path(templatepath) / 'default-layout.html', 'r', encoding='utf-8') as template_file:
         template = template_file.read()
 
-    problem_name = statement_util.get_yaml_problem_name(problem, options.language)
+    problem_name = statement_util.get_yaml_problem_name(problem_root, options.language)
     substitution_params = {
         'statement_html': statement_html,
         'language': options.language,
         'title': html.escape(problem_name) if problem_name else 'Missing problem name',
-        'problemid': html.escape(problembase),
+        'problemid': html.escape(problem_root.name),
     }
 
     statement_html = template % substitution_params
 
-    samples = statement_util.format_samples(problem)
+    samples = statement_util.format_samples(problem_root)
     # Insert samples at {{nextsample}} and {{remainingsamples}}
     statement_html, remaining_samples = statement_util.inject_samples(statement_html, samples)
 
@@ -84,7 +75,7 @@ def convert(problem: str, options: argparse.Namespace) -> bool:
     return True
 
 
-def sanitize_html(problem: str, statement_html: str):
+def sanitize_html(statement_dir: Path, statement_html: str) -> str:
     # Allow footnote ids (the anchor points you jump to)
     def is_fn_id(s):
         pattern_id_top = r'^fn\d+$'
@@ -92,18 +83,6 @@ def sanitize_html(problem: str, statement_html: str):
         return bool(re.fullmatch(pattern_id_top, s)) or bool(re.fullmatch(pattern_id_bottom, s))
 
     allowed_classes = ('sample', 'problemheader', 'problembody', 'sampleinteractionwrite', 'sampleinteractionread')
-
-    def is_image_valid(problem_root: str, img_src: str) -> str | None:
-        # Check that the image exists and uses an allowed extension
-        extension = Path(img_src).suffix
-        # TODO: fix svg sanitization and allow svg
-        if extension not in statement_util.ALLOWED_IMAGE_EXTENSIONS:
-            return f'Unsupported image extension {extension} for image {img_src}'
-
-        source_file = Path(problem_root) / 'statement' / img_src
-        if not source_file.exists():
-            return f'Resource file {img_src} not found in statement'
-        return None
 
     # Annoying: nh3 will ignore exceptions in attribute_filter
     image_fail_reason: str | None = None
@@ -120,12 +99,13 @@ def sanitize_html(problem: str, statement_html: str):
         if tag in ('li', 'a') and attribute == 'id' and is_fn_id(value):
             return value
         if tag == 'img' and attribute == 'src':
-            fail = is_image_valid(problem, value)
-            if fail:
+            try:
+                statement_util.assert_image_is_valid(statement_dir, value)
+            except Exception as e:
                 nonlocal image_fail_reason
-                image_fail_reason = fail
+                image_fail_reason = str(e)
                 return None
-            copy_image(problem, value)
+            copy_image(statement_dir, value)
             return value
         return None
 
@@ -154,16 +134,14 @@ def sanitize_html(problem: str, statement_html: str):
     return statement_html
 
 
-def copy_image(problem_root: str, img_src: str) -> None:
+def copy_image(statement_dir: Path, img_src: str) -> None:
     """Copy image to output directory
 
     Args:
-        problem_root: the root of the problem directory
+        statement_dir: the directory with problem statement files
         img_src: the image source as in the Markdown statement
     """
 
-    source_name = os.path.join(problem_root, 'statement', img_src)
-
     if os.path.isfile(img_src):  # already copied
         return
-    shutil.copyfile(source_name, img_src)
+    shutil.copyfile(statement_dir / img_src, img_src)

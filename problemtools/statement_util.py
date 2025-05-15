@@ -49,58 +49,33 @@ def load_names_from_statements(problem_root: Path, version: formatversion.Format
     return ret
 
 
-def find_statement(problem_root: str, extension: str, language: Optional[str]) -> Optional[str]:
-    """Finds the "best" statement for given language and extension"""
-    statement_dir = Path(problem_root) / formatversion.get_format_data(problem_root).statement_directory
+def find_statement(problem_root: Path, language: str) -> Path:
+    """Finds the statement in a given language.
 
-    candidates = []
-    if language is None:
-        candidates = [
-            statement_dir / f'problem.en.{extension}',
-            statement_dir / f'problem.{extension}',
-        ]
-    else:
-        candidates = [statement_dir / f'problem.{language}.{extension}']
-
-    for candidate in candidates:
-        if candidate.is_file():
-            return str(candidate)
-
-    return None
-
-
-def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
-    """Given a language, find whether the extension is tex or md
-
-    Args:
-        problem_root: path to problem root
+    Raises
+        ValueError: if there are multiple statements in language.
+        FileNotFoundError: if there are no statements in language.
     """
-    extensions = []
-    for ext in formatversion.get_format_data(problem_root).statement_extensions:
-        if find_statement(problem_root, ext, language) is not None:
-            extensions.append(ext)
-    # At most one extension per language to avoid arbitrary/hidden priorities
-    if len(extensions) > 1:
-        raise ValueError(f"""Found more than one type of statement ({' and '.join(extensions)})
-                        for language {language or 'en'}""")
-    if len(extensions) == 1:
-        return extensions[0]
-    raise FileNotFoundError(f'No statement found for language {language or "en"}')
+    candidates = find_statements(problem_root, formatversion.get_format_data(str(problem_root)))
+    if language not in candidates:
+        raise FileNotFoundError(f'No statement found in language {language}. Found languages: {", ".join(candidates)}')
+    elif len(candidates[language]) > 1:
+        raise ValueError(f'Multiple statements in language {language}: {", ".join((file.name for file in candidates[language]))}')
+    else:
+        return candidates[language][0]
 
 
-def get_yaml_problem_name(problem: str, language: Optional[str]) -> str:
+def get_yaml_problem_name(problem_root: Path, language: str) -> str:
     """Finds the problem name from the problem.yaml file"""
 
-    problem_metadata, _ = metadata.load_metadata(Path(problem))
+    problem_metadata, _ = metadata.load_metadata(problem_root)
     names = problem_metadata.name
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
         return next(iter(names.values()))
 
-    if language is None:
-        language = 'en'
     if language not in names:
-        raise ValueError(f'No problem name defined for language {language or "en"}')
+        raise ValueError(f'No problem name defined for language {language}')
     return names[language]
 
 
@@ -119,9 +94,9 @@ def json_dfs(data, callback) -> None:
             json_dfs(item, callback)
 
 
-def foreach_image(statement_path, callback):
+def foreach_image(statement_path: Path, callback):
     """Find all images in the statement and call callback for each one"""
-    command = ['pandoc', statement_path, '-t', 'json']
+    command = ['pandoc', str(statement_path), '-t', 'json']
     # Must create a working directory for pytest to work
     with tempfile.TemporaryDirectory() as work_dir:
         statement_json = subprocess.run(command, capture_output=True, text=True, shell=False, check=True, cwd=work_dir).stdout
@@ -129,25 +104,23 @@ def foreach_image(statement_path, callback):
     json_dfs(json.loads(statement_json), callback)
 
 
-def assert_image_is_valid(problem_root: str, img_src: str) -> None:
+def assert_image_is_valid(statement_dir: Path, img_src: str) -> None:
     """Check that the image exists and uses an allowed extension"""
     extension = Path(img_src).suffix
     # TODO: fix svg sanitization and allow svg
     if extension not in ALLOWED_IMAGE_EXTENSIONS:
         raise ValueError(f'Unsupported image extension {extension} for image {img_src}')
 
-    source_file = Path(problem_root) / img_src
+    source_file = statement_dir / img_src
     if not source_file.exists():
         raise FileNotFoundError(f'Resource file {img_src} not found in statement')
 
 
-def assert_images_are_valid_md(statement_path: str) -> None:
+def assert_images_are_valid_md(statement_path: Path) -> None:
     """Find all images in the statement and assert that they exist and
-    use valid image extensions
-
-    """
-    problem_root = os.path.dirname(statement_path)
-    foreach_image(statement_path, lambda img_name: assert_image_is_valid(problem_root, img_name))
+    use valid image extensions"""
+    statement_dir = statement_path.parent
+    foreach_image(statement_path, lambda img_name: assert_image_is_valid(statement_dir, img_name))
 
 
 def find_footnotes(statement_html: str) -> Optional[int]:
@@ -186,7 +159,7 @@ def inject_samples(statement_html: str, samples: List[str]) -> Tuple[str, List[s
     return statement_html, samples
 
 
-def format_samples(problem_root: str) -> List[str]:
+def format_samples(problem_root: Path) -> List[str]:
     """Read all samples from the problem directory and convert them to pandoc-valid markdown
 
     Args:
@@ -197,7 +170,7 @@ def format_samples(problem_root: str) -> List[str]:
         a markdown file. Ordered lexicographically by file names
     """
 
-    sample_path = os.path.join(problem_root, 'data', 'sample')
+    sample_path = os.path.join(str(problem_root), 'data', 'sample')
     if not os.path.isdir(sample_path):
         return []
     samples = []

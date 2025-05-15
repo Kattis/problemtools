@@ -1,25 +1,28 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-import re
-import os.path
-import string
 import argparse
+import os.path
+import re
+import string
 import subprocess
+import sys
+from pathlib import Path
 
 from . import tex2html
 from . import md2html
 from . import statement_util
 
 
-def convert(options: argparse.Namespace) -> None:
-    problem = os.path.realpath(options.problem)
+def convert(options: argparse.Namespace, force_statement_file: Path | None = None) -> None:
+    problem_root = Path(options.problem).resolve(strict=True)
 
-    if not os.path.isdir(problem):
-        raise Exception(f'Problem does not exist: {problem}')
+    if force_statement_file:  # Used by verifyproblem to test rendering even if there are multiple statements in a language
+        statement_file = force_statement_file
+    else:
+        statement_file = statement_util.find_statement(problem_root, options.language)
 
-    problembase = os.path.splitext(os.path.basename(problem))[0]
-    destdir = string.Template(options.destdir).safe_substitute(problem=problembase)
-    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+    destdir = string.Template(options.destdir).safe_substitute(problem=problem_root.name)
+    destfile = string.Template(options.destfile).safe_substitute(problem=problem_root.name)
 
     # Go to destdir
     if destdir:
@@ -33,10 +36,13 @@ def convert(options: argparse.Namespace) -> None:
 
         origcwd = os.getcwd()
 
-        if statement_util.find_statement_extension(problem, options.language) == 'tex':
-            tex2html.convert(problem, options)
-        else:
-            md2html.convert(problem, options)
+        match statement_file.suffix:
+            case '.md':
+                md2html.convert(problem_root, options, statement_file)
+            case '.tex':
+                tex2html.convert(problem_root, options, statement_file)
+            case _:
+                raise NotImplementedError('Unsupported file type, expected md or tex: {statement_file.name}')
 
         if options.tidy:
             with open(os.devnull, 'w') as devnull:
@@ -102,7 +108,11 @@ def get_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = get_parser()
     options = parser.parse_args()
-    convert(options)
+    try:
+        convert(options)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

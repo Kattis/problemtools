@@ -1,11 +1,12 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
-import os.path
+import os
 import re
 import shutil
 import string
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -13,32 +14,38 @@ from . import template
 from . import statement_util
 
 
-def convert(options: argparse.Namespace) -> bool:
-    problem_root = os.path.realpath(options.problem)
+def convert(options: argparse.Namespace, force_statement_file: Path | None = None) -> bool:
+    problem_root = Path(options.problem).resolve(strict=True)
 
-    if statement_util.find_statement_extension(problem_root, language=options.language) == 'md':
-        return md2pdf(options)
+    if force_statement_file:  # Used by verifyproblem to test rendering even if there are multiple statements in a language
+        statement_file = force_statement_file
     else:
-        return latex2pdf(options)
+        statement_file = statement_util.find_statement(problem_root, options.language)
+
+    match statement_file.suffix:
+        case '.md':
+            return md2pdf(options, statement_file)
+        case '.tex':
+            return latex2pdf(options, statement_file)
+        case _:
+            raise NotImplementedError('Unsupported file type, expected md or tex: {statement_file.name}')
 
 
-def md2pdf(options: argparse.Namespace) -> bool:
+def md2pdf(options: argparse.Namespace, statement_file: Path) -> bool:  # TODO: Fix
     """Renders a Markdown document to pdf. Uses pandoc md -> tex, then
     reuses the normal tex -> pdf pipeline
     """
-    problem_root = os.path.realpath(options.problem)
-    statement_path = statement_util.find_statement(problem_root, extension='md', language=options.language)
+    problem_root = Path(options.problem).resolve(strict=True)
 
-    if not statement_path or not os.path.isfile(statement_path):
-        raise FileNotFoundError(f'Error! {statement_path} does not exist')
+    statement_util.assert_images_are_valid_md(statement_file)
 
-    statement_util.assert_images_are_valid_md(statement_path)
+    def make_temp_tex_file() -> Path:
+        tempfd, temp_filename = tempfile.mkstemp(suffix='.tex', dir=statement_file.parent)
+        os.close(tempfd)  # We'll re-open later, we just need the file name for now
+        return Path(temp_filename)
 
-    language = options.language
-    if not language:
-        language = 'en'
-    temp_tex_file = Path(statement_path).parent / f'problem.{language}.tex'
-    command = ['pandoc', statement_path, '-o', str(temp_tex_file)]
+    temp_tex_file = make_temp_tex_file()
+    command = ['pandoc', str(statement_file), '-o', str(temp_tex_file)]
     try:
         subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
     except subprocess.CalledProcessError as e:
@@ -97,13 +104,12 @@ def md2pdf(options: argparse.Namespace) -> bool:
     return success
 
 
-def latex2pdf(options: argparse.Namespace) -> bool:
-    problem_root = os.path.realpath(options.problem)
-    problembase = os.path.splitext(os.path.basename(problem_root))[0]
-    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
+def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
+    problem_root = Path(options.problem).resolve(strict=True)
+    destfile = string.Template(options.destfile).safe_substitute(problem=problem_root.name)
 
     # Set up template if necessary
-    with template.Template(problem_root, language=options.language) as templ:
+    with template.Template(problem_root, statement_file, options.language) as templ:
         texfile = templ.get_file_name()
 
         origcwd = os.getcwd()
@@ -173,7 +179,11 @@ def get_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = get_parser()
     options = parser.parse_args()
-    convert(options)
+    try:
+        convert(options)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
