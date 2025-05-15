@@ -109,6 +109,7 @@ class _graphics_command(Command):
         res = super().invoke(tex)
 
         # Overcome plasTeX bug by looking for love in the right place
+        assert self.ownerDocument is not None  # Keep mypy happy
         basetex = self.ownerDocument.userdata['base_tex_instance']
         f = self.attributes['file']
         ext = self.ownerDocument.userdata.getPath('packages/graphicx/extensions', ['.png', '.jpg', '.jpeg', '.gif', '.pdf'])

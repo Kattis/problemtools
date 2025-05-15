@@ -83,7 +83,7 @@ class ProblemRenderer(Renderer):
     imageTypes = ['.png', '.jpg', '.jpeg', '.gif']
     vectorImageTypes = ['.svg']
 
-    def render(self, document):
+    def render(self, document, postProcess=None):
         templatepaths = [
             os.path.join(os.path.dirname(__file__), '../templates/html'),
             os.path.join(os.path.dirname(__file__), '../../templates/html'),
