@@ -1,17 +1,52 @@
-import os
-from typing import Optional, List, Tuple
+import collections
 import html
 import json
+import os
 import re
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import Optional, List, Tuple
 
 from . import formatversion
 from . import verifyproblem
 
 ALLOWED_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')  # ".svg"
 FOOTNOTES_STRINGS = ['<section class="footnotes">', '<aside class="footnotes">']
+
+
+def find_statements(problem_root: Path, version: formatversion.FormatData) -> dict[str, list[Path]]:
+    """Returns a dict mapping language code to a list of paths to statements (relative to problem_root)
+
+    Note that in well-formed problem packages, there should only be a single
+    statement for each language, but this function returns all found
+    statements, to let the caller inform the user of errors.
+    """
+
+    directory = problem_root / version.statement_directory
+    ret = collections.defaultdict(list)
+    if directory.is_dir():
+        filename_re = re.compile(r'^problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$' % ('|'.join(version.statement_extensions)))
+        for file in directory.iterdir():
+            if m := filename_re.search(file.name):
+                if m.group(2) is None:  # problem.tex is allowed and assumed to be 'en' in legacy. We ignore it in newer formats.
+                    if version.name == formatversion.VERSION_LEGACY:
+                        ret['en'].append(file)
+                else:
+                    ret[m.group(2)].append(file)
+    return dict(ret)
+
+
+def load_names_from_statements(problem_root: Path, version: formatversion.FormatData) -> dict[str, str]:
+    """Returns a dict mapping language code => problem name"""
+
+    assert version.name == formatversion.VERSION_LEGACY, 'load_names_from_statements only makes sense for legacy format'
+    ret: dict[str, str] = {}
+    for lang, files in find_statements(problem_root, version).items():
+        hit = re.search(r'\\problemname{(.*)}', files[0].read_text(), re.MULTILINE)
+        if hit:
+            ret[lang] = hit.group(1).strip()
+    return ret
 
 
 def find_statement(problem_root: str, extension: str, language: Optional[str]) -> Optional[str]:

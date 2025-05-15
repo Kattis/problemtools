@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from pathlib import Path
+
 import pytest
 
 from pydantic import ValidationError
@@ -8,7 +10,7 @@ from problemtools import formatversion, metadata
 
 
 def test_parse_empty_legacy():
-    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {}, {})
+    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {})
     # Just check off a few random things
     assert not m.name
     assert not m.source
@@ -83,3 +85,18 @@ def test_parse_multi_source(minimal_2023_conf):
     assert m.source[1].url is None
     assert m.source[2].name == 'SEERC 2024'
     assert m.source[2].url is None
+
+
+def test_load_hello():
+    m, _ = metadata.load_metadata(Path(__file__).parent / 'hello')
+    assert m.name['en'] == 'Hello World!'
+    assert m.name['sv'] == 'Hej Världen!'
+    assert len(m.source) == 1
+    assert m.source[0].name == 'Kattis'
+    assert m.source[0].url is None
+    assert m.license is metadata.License.PUBLIC_DOMAIN
+    assert len(m.type) == 1
+    assert m.type[0] is metadata.ProblemType.PASS_FAIL
+    assert m.is_pass_fail()
+    assert not m.is_scoring()
+    assert not m.is_interactive()

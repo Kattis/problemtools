@@ -3,13 +3,16 @@ import datetime
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Literal, Self, Type, Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+import yaml
 
 from . import config
 from . import formatversion
+from . import statement_util
 
 
 class ProblemType(StrEnum):
@@ -189,7 +192,7 @@ class Metadata(BaseModel):
     """
 
     problem_format_version: str
-    type: list[str]
+    type: list[ProblemType]
     name: dict[str, str]
     uuid: UUID | None
     version: str | None
@@ -227,7 +230,7 @@ class Metadata(BaseModel):
         if names_from_statements:
             metadata['name'] = names_from_statements
         elif metadata['name']:
-            metadata['name'] = {'': metadata['name']}
+            metadata['name'] = {'en': metadata['name']}
         else:
             metadata['name'] = {}
         metadata['version'] = None
@@ -306,7 +309,9 @@ class Metadata(BaseModel):
 
 
 def parse_metadata(
-    version: formatversion.FormatData, problem_yaml_data: dict[str, Any], names_from_statements: dict[str, str]
+    version: formatversion.FormatData,
+    problem_yaml_data: dict[str, Any],
+    names_from_statements: dict[str, str] | None = None,
 ) -> Metadata:
     """
     Parses a data structure from problem.yaml into a Metadata model
@@ -323,8 +328,28 @@ def parse_metadata(
 
     if version.name == formatversion.VERSION_LEGACY:
         legacy_model = MetadataLegacy.model_validate(data)
-        return Metadata.from_legacy(legacy_model, names_from_statements)
+        return Metadata.from_legacy(legacy_model, names_from_statements or {})
     else:
         assert version.name == formatversion.VERSION_2023_07
         model_2023_07 = Metadata2023_07.model_validate(data)
         return Metadata.from_2023_07(model_2023_07)
+
+
+def load_metadata(problem_root: Path) -> tuple[Metadata, dict]:
+    """
+    Loads metadata from a problem directory.
+
+    Returns Metadata as well as the raw parsed yaml. The latter is likely only of use to verifyproblem.
+    Leaks exceptions, which is a bit of a mess. Unclear how to best deal with error handling.
+    """
+    with (problem_root / 'problem.yaml').open() as f:
+        data = yaml.safe_load(f)
+        if data is None:  # Loading empty yaml returns None
+            data = {}
+
+    version = formatversion.get_format_data_by_name(data.get('problem_format_version', formatversion.VERSION_LEGACY))
+    if version.name == formatversion.VERSION_LEGACY:
+        names_from_statements = statement_util.load_names_from_statements(problem_root, version)
+    else:
+        names_from_statements = None
+    return parse_metadata(version, data, names_from_statements), data
