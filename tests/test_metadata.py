@@ -8,11 +8,16 @@ from problemtools import formatversion, metadata
 
 
 def test_parse_empty_legacy():
-    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {}, {'en': 'Hello World!'})
+    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {}, {})
     # Just check off a few random things
-    assert m.name['en'] == 'Hello World!'
+    assert not m.name
     assert not m.source
     assert not m.credits.authors
+
+
+def test_parse_legacy_with_problem_names():
+    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {}, {'en': 'Hello World!'})
+    assert m.name['en'] == 'Hello World!'
 
 
 def test_parse_empty_2023_fails():

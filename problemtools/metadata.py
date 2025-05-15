@@ -224,7 +224,12 @@ class Metadata(BaseModel):
         metadata = legacy.model_dump()
         metadata['type'] = [metadata['type']]
         # Support for *ancient* problems where names_from_statements is empty
-        metadata['name'] = names_from_statements if names_from_statements else {'': metadata['name']}
+        if names_from_statements:
+            metadata['name'] = names_from_statements
+        elif metadata['name']:
+            metadata['name'] = {'': metadata['name']}
+        else:
+            metadata['name'] = {}
         metadata['version'] = None
 
         def parse_author_field(author: str) -> list[Person]:
