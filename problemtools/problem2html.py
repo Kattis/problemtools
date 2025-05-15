@@ -88,13 +88,12 @@ def get_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument('-d', '--dest-dir', dest='destdir', help='output directory', default='${problem}_html')
     parser.add_argument('-f', '--dest-file', dest='destfile', help='output file name', default='index.html')
-    parser.add_argument('-l', '--language', dest='language', help='choose alternate language (2-letter code)', default=None)
+    parser.add_argument('-l', '--language', dest='language', help='choose language (2-letter code)', default='en')
     parser.add_argument(
         '-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning'
     )
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help='quiet', default=False)
     parser.add_argument('-i', '--imgbasedir', dest='imgbasedir', default='')
-    parser.add_argument('-v', '--format-version', dest='format_version', help='choose format version', default='automatic')
     parser.add_argument('problem', help='the problem to convert')
 
     return parser
