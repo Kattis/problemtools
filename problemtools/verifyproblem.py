@@ -33,6 +33,7 @@ from . import metadata
 from . import problem2html
 from . import problem2pdf
 from . import run
+from . import statement_util
 
 from abc import ABC
 from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, Type, TypeVar
@@ -740,19 +741,11 @@ class ProblemStatement(ProblemPart):
 
     def setup(self):
         self.debug('  Loading problem statement')
-        self.statement_regex = re.compile(
-            r'problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$' % ('|'.join(self.problem.format.statement_extensions))
-        )
-        dir = os.path.join(self.problem.probdir, self.problem.format.statement_directory)
-        if os.path.isdir(dir):
-            self.statements = [
-                (m.group(0), m.group(2) or '') for file in os.listdir(dir) if (m := re.search(self.statement_regex, file))
-            ]
-        else:
-            self.error(f'No directory named {self.problem.format.statement_directory} found')
-            self.statements = []
-
-        return self.get_config()
+        try:
+            self.statements = statement_util.find_statements(Path(self.problem.probdir), self.problem.format)
+        except OSError as e:
+            self.error(f'Failed locating problem statements: {e}')
+            self.statements = {}
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
@@ -767,53 +760,49 @@ class ProblemStatement(ProblemPart):
                 f'No problem statements found (expected file of one of following forms in directory {self.problem.format.statement_directory}/: {allowed_statements})'
             )
 
-        langs = [lang or 'en' for _, lang in self.statements]
-        for lang, count in collections.Counter(langs).items():
-            if count > 1:
-                self.error(f"Can't supply multiple statements of the same language ({lang}).")
+        for lang, files in self.statements.items():
+            if len(files) > 1:
+                self.error(f'Found multiple statements in the same language {lang}: {", ".join((file.name for file in files))}')
 
-        for _, lang in self.statements:
-            try:
-                options = problem2pdf.get_parser().parse_args([''])
-                options.problem = self.problem.probdir
-                options.language = lang
-                options.nopdf = True
-                options.quiet = True
-                if not problem2pdf.convert(options):
-                    langparam = f' --language {lang}' if lang != '' else ''
+            if lang not in self.problem.getMetadata().name:
+                self.error(f'No problem name given in language {lang}')
+            elif not self.problem.getMetadata().name[lang]:
+                self.error(f'Problem name in language {lang} is empty')
+            elif not self.problem.getMetadata().name[lang].strip():
+                self.error(f'Problem name in language {lang} contains only whitespace')
+
+            for file in files:
+                try:
+                    options = problem2pdf.get_parser().parse_args([''])
+                    options.problem = self.problem.probdir
+                    options.language = lang
+                    options.nopdf = True
+                    options.quiet = True
+                    if not problem2pdf.convert(options, file):
+                        self.error(
+                            f'Could not compile problem statement for language "{lang}".  Run problem2pdf --language {lang} on the problem to diagnose.'
+                        )
+                except Exception as e:
                     self.error(
-                        f'Could not compile problem statement for language "{lang}".  Run problem2pdf{langparam} on the problem to diagnose.'
+                        f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}'
                     )
-            except Exception as e:
-                self.error(f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}')
-            try:
-                options = problem2html.get_parser().parse_args([''])
-                options.problem = self.problem.probdir
-                options.destdir = os.path.join(self.problem.tmpdir, 'html')
-                options.language = lang
-                options.quiet = True
-                problem2html.convert(options)
-            except Exception as e:
-                langparam = f' --language {lang}' if lang != '' else ''
-                self.error(
-                    f'Could not convert problem statement to html for language "{lang}".  Run problem2html{langparam} on the problem to diagnose.\n{e}\n{traceback.format_exc()}'
-                )
+
+                try:
+                    options = problem2html.get_parser().parse_args([''])
+                    options.problem = self.problem.probdir
+                    options.destdir = os.path.join(self.problem.tmpdir, 'html')
+                    options.language = lang
+                    options.quiet = True
+                    problem2html.convert(options, file)
+                except Exception as e:
+                    self.error(
+                        f'Could not convert problem statement to html for language "{lang}".  Run problem2html --language {lang} on the problem to diagnose.\n{e}\n{traceback.format_exc()}'
+                    )
+
         return self._check_res
 
     def __str__(self) -> str:
         return 'problem statement'
-
-    def get_config(self) -> dict[str, dict[str, str]]:
-        ret: dict[str, dict[str, str]] = {'name': {}}
-        for filename, lang in self.statements:
-            dir = os.path.join(self.problem.probdir, self.problem.format.statement_directory)
-            with open(os.path.join(dir, filename)) as f:
-                stmt = f.read()
-            hit = re.search(r'\\problemname{(.*)}', stmt, re.MULTILINE)
-            if hit:
-                problem_name = hit.group(1).strip()
-                ret['name'][lang] = problem_name
-        return ret if ret['name'] else {}
 
 
 class ProblemConfig(ProblemPart):
