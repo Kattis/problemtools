@@ -12,6 +12,7 @@ import string
 import hashlib
 import collections
 import os
+from pathlib import Path
 import signal
 import re
 import shutil
@@ -1240,10 +1241,11 @@ class OutputValidators(ProblemPart):
     PART_NAME = 'output_validator'
 
     def setup(self):
-        if self.problem.format.name != formatversion.VERSION_LEGACY and os.path.exists(
-            os.path.join(self.problem.probdir, 'output_validators')
+        if (
+            self.problem.format.name != formatversion.VERSION_LEGACY
+            and (Path(self.problem.probdir) / 'output_validators').exists()
         ):
-            self.warning('output_validators is a deprecated name; please use output_validator instead')
+            self.error('output_validators is not supported after Legacy; please use output_validator instead')
 
         self._validators = run.find_programs(
             os.path.join(self.problem.probdir, self.problem.format.output_validator_directory),
