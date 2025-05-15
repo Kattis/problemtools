@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, List, Tuple
 
 from . import formatversion
-from . import verifyproblem
+from . import metadata
 
 ALLOWED_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')  # ".svg"
 FOOTNOTES_STRINGS = ['<section class="footnotes">', '<aside class="footnotes">']
@@ -91,13 +91,8 @@ def find_statement_extension(problem_root: str, language: Optional[str]) -> str:
 def get_yaml_problem_name(problem: str, language: Optional[str]) -> str:
     """Finds the problem name from the problem.yaml file"""
 
-    # Minimal setup to get the problem name
-    problem_obj = verifyproblem.Problem(problem)
-    statement_obj = verifyproblem.ProblemStatement(problem_obj)
-    problem_obj._data[statement_obj.PART_NAME] = statement_obj.setup()
-    verifyproblem.ProblemConfig(problem_obj).setup()
-
-    names = problem_obj.getMetadata().name
+    problem_metadata, _ = metadata.load_metadata(Path(problem))
+    names = problem_metadata.name
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
         return next(iter(names.values()))
