@@ -875,6 +875,7 @@ class ProblemConfig(ProblemPart):
             not self._metadata.is_pass_fail()
             and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups()
             and 'show_test_data_groups' not in self._origdata.get('grading', {})
+            and self.problem.format.name == formatversion.VERSION_LEGACY
         ):
             self.warning(
                 'Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false'
