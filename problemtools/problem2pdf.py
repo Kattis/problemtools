@@ -31,7 +31,7 @@ def convert(options: argparse.Namespace, force_statement_file: Path | None = Non
             raise NotImplementedError('Unsupported file type, expected md or tex: {statement_file.name}')
 
 
-def md2pdf(options: argparse.Namespace, statement_file: Path) -> bool:  # TODO: Fix
+def md2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
     """Renders a Markdown document to pdf. Uses pandoc md -> tex, then
     reuses the normal tex -> pdf pipeline
     """
@@ -39,69 +39,55 @@ def md2pdf(options: argparse.Namespace, statement_file: Path) -> bool:  # TODO: 
 
     statement_util.assert_images_are_valid_md(statement_file)
 
-    def make_temp_tex_file() -> Path:
-        tempfd, temp_filename = tempfile.mkstemp(suffix='.tex', dir=statement_file.parent)
-        os.close(tempfd)  # We'll re-open later, we just need the file name for now
-        return Path(temp_filename)
-
-    temp_tex_file = make_temp_tex_file()
-    command = ['pandoc', str(statement_file), '-o', str(temp_tex_file)]
+    command = ['pandoc', str(statement_file), '-t', 'latex']
     try:
-        subprocess.run(command, capture_output=True, text=True, shell=False, check=True)
+        tex = subprocess.run(command, capture_output=True, text=True, shell=False, check=True).stdout
     except subprocess.CalledProcessError as e:
         print(f'Error compiling Markdown to pdf: {e.stderr}')
         return False
 
-    # If success is not assigned somehow, it is considered a failure
-    success = False
-    try:
-        with open(temp_tex_file, 'r', encoding='utf-8') as f:
-            tex = f.read()
+    def format_latex_tables(latex_doc):
+        # Match table environments produced by pandoc
+        pattern = r"""
+            (\\begin\{longtable\}\[\]\{@\{\})
+            ([a-z])
+            ([a-z]*)
+            (@\{\}\})
+        """
 
-        def format_latex_tables(latex_doc):
-            # Match table environments produced by pandoc
-            pattern = r"""
-                (\\begin\{longtable\}\[\]\{@\{\})
-                ([a-z])
-                ([a-z]*)
-                (@\{\}\})
-            """
+        def replacer(match):
+            prefix = match.group(1)[:-3]
+            first_col = match.group(2)
+            other_cols = match.group(3)
+            suffix = match.group(4)[3:]
 
-            def replacer(match):
-                prefix = match.group(1)[:-3]
-                first_col = match.group(2)
-                other_cols = match.group(3)
-                suffix = match.group(4)[3:]
+            # Combine columns with | separators
+            cols = [first_col] + list(other_cols)
+            return f'{prefix}|{"|".join(cols)}|{suffix} \\hline'
 
-                # Combine columns with | separators
-                cols = [first_col] + list(other_cols)
-                return f'{prefix}|{"|".join(cols)}|{suffix} \\hline'
+        return re.sub(pattern, replacer, latex_doc, flags=re.VERBOSE)
 
-            return re.sub(pattern, replacer, latex_doc, flags=re.VERBOSE)
+    # Add solid outline to tables
+    tex = format_latex_tables(tex)
+    tex = tex.replace(r'\toprule', '')
+    tex = tex.replace(r'\midrule', '')
+    tex = tex.replace(r'\endhead', '')
+    tex = tex.replace(r'\bottomrule', '')
+    tex = tex.replace(r'\tabularnewline', r'\\ \hline')
 
-        # Add solid outline to tables
-        tex = format_latex_tables(tex)
-        tex = tex.replace(r'\toprule', '')
-        tex = tex.replace(r'\midrule', '')
-        tex = tex.replace(r'\endhead', '')
-        tex = tex.replace(r'\bottomrule', '')
-        tex = tex.replace(r'\tabularnewline', r'\\ \hline')
+    # Fix sample inclusions commands
+    # Currently does not work, as normal problemtools tex -> pdf does not support it
+    tex = tex.replace(r'\{\{nextsample\}\}', r'\nextsample')
+    tex = tex.replace(r'\{\{remainingsamples\}\}', r'\remainingsamples')
 
-        # Fix sample inclusions commands
-        # Currently does not work, as normal problemtools tex -> pdf does not support it
-        tex = tex.replace(r'\{\{nextsample\}\}', r'\nextsample')
-        tex = tex.replace(r'\{\{remainingsamples\}\}', r'\remainingsamples')
+    problem_name = statement_util.get_yaml_problem_name(problem_root, options.language)
+    tex = r'\problemname{' + problem_name + '}\n' + tex
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.tex', dir=statement_file.parent) as temp_tex_file:
+        temp_tex_file.write(tex)
+        temp_tex_file.flush()
+        return latex2pdf(options, Path(temp_tex_file.name))
 
-        problem_name = statement_util.get_yaml_problem_name(problem_root, options.language)
-        tex = r'\problemname{' + problem_name + '}\n' + tex
-        with open(temp_tex_file, 'w', encoding='utf-8') as f:
-            f.write(tex)
-
-        success = latex2pdf(options)
-    finally:
-        temp_tex_file.unlink()
-
-    return success
+    return False
 
 
 def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
