@@ -18,6 +18,7 @@ class lstinputlisting(Command):
 
     def invoke(self, tex) -> None:
         super().invoke(tex)
+        assert self.ownerDocument is not None  # Keep mypy happy
         basetex = self.ownerDocument.userdata['base_tex_instance']
         f = self.attributes['file']
         # Maybe more paths to look in?

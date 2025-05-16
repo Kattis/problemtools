@@ -1,68 +1,38 @@
-import re
 import os.path
 import glob
 import tempfile
 import shutil
-
-from . import formatversion
-
-
-# For backwards compatibility, remove in bright and shiny future.
-def detect_version(problemdir, problemtex):
-    # Check for 0.1 - lack of \problemname
-    if open(problemtex).read().find(r'\problemname') < 0:
-        return '0.1'
-    return ''  # Current
+from pathlib import Path
 
 
 class Template:
-    def __init__(self, problemdir, language=None, force_copy_cls=False, version='automatic'):
-        if not os.path.isdir(problemdir):
-            raise Exception('%s is not a directory' % problemdir)
+    """Deals with the temporary .tex file template needed to render a LaTeX problem statement
 
-        if problemdir[-1] == '/':
-            problemdir = problemdir[:-1]
+    Our problemset.cls latex class was originally written to make it easy to
+    render a problemset pdf from a bunch of problems for a contest. When we
+    want to render a pdf for a single problem, we need to dump a small,
+    temporary tex file in the parent directory (essentially a minified
+    problemset with just one problem). This class deals with creating and
+    cleaning up that template. The template has to be written in the parent
+    directory of problem_root.
 
-        if version == 'automatic':
-            version_data = formatversion.get_format_data(problemdir)
-        else:
-            version_data = formatversion.get_format_data_by_name(version)
+    Usage:
+        with Template(problem_root, texfile) as templ:
+            texfile = templ.get_file_name()
+            os.chdir(os.path.dirname(texfile))
+            subprocess.call(['pdflatex', texfile])
+    """
 
-        stmtdir = os.path.join(problemdir, version_data.statement_directory)
-        langs = []
-        if glob.glob(os.path.join(stmtdir, 'problem.tex')):
-            langs.append('')
-        for f in glob.glob(os.path.join(stmtdir, 'problem.[a-z][a-z].tex')):
-            langs.append(re.search('problem.([a-z][a-z]).tex$', f).group(1))  # type: ignore[union-attr]
-        if len(langs) == 0:
-            raise Exception('No problem statements available')
+    def __init__(self, problem_root: Path, texfile: Path, language: str, force_copy_cls=False):
+        assert texfile.suffix == '.tex', f'Template asked to render {texfile}, which does not end in .tex'
+        assert texfile.is_relative_to(problem_root), f'Template called with tex {texfile} outside of problem {problem_root}'
 
-        dotlang = ''
-        # If language unspec., use first available one (will be
-        # problem.tex if exists)
-        if language is None:
-            language = langs[0]
-        if language != '':
-            if len(language) != 2 or not language.isalpha():
-                raise Exception('Invalid language code "%s"' % language)
-            if language not in langs:
-                raise Exception('No problem statement for language "%s" available' % language)
-            dotlang = '.' + language
-
-        # Used in the template.tex variable substitution.
-        self.language = dotlang
-        problemtex = os.path.join(stmtdir, 'problem' + dotlang + '.tex')
-
-        if not os.path.isfile(problemtex):
-            raise Exception('Unable to find problem statement, was looking for "%s"' % problemtex)
-
+        self.problem_root = problem_root
+        self.statement_directory = texfile.relative_to(problem_root).parent
+        self.statement_filename = texfile.name
         self.templatefile = 'template.tex'
         self.clsfile = 'problemset.cls'
-        version = detect_version(problemdir, problemtex)
-        if version != '':
-            print('Note: problem is in an old version (%s) of problem format, you should consider updating it' % version)
-            self.templatefile = 'template_%s.tex' % version
-            self.clsfile = 'problemset_%s.cls' % version
+        self.language = language
 
         templatepaths = [
             os.path.join(os.path.dirname(__file__), 'templates/latex'),
@@ -76,32 +46,31 @@ class Template:
         except StopIteration:
             raise Exception('Could not find directory with latex template "%s"' % self.templatefile)
 
-        self.basedir = os.path.dirname(problemdir)
-        self.shortname = os.path.basename(problemdir)
-        sample_dir = os.path.join(problemdir, 'data', 'sample')
-        self.samples = sorted(
-            set(
-                [
-                    os.path.splitext(os.path.basename(f))[0]
-                    for f in (glob.glob(os.path.join(sample_dir, '*.in')) + glob.glob(os.path.join(sample_dir, '*.interaction')))
-                ]
-            )
-        )
-        self.problemset_cls = os.path.join(self.basedir, 'problemset.cls')
+        sample_dir = problem_root / 'data' / 'sample'
+        if sample_dir.is_dir():
+            self.samples = sorted({file.stem for file in sample_dir.iterdir() if file.suffix in ['in', 'interaction']})
+        else:
+            self.samples = []
 
+        self.problemset_cls = problem_root.parent / 'problemset.cls'
         self.copy_cls = True
-        if os.path.isfile(self.problemset_cls) and not force_copy_cls:
-            print('%s exists, will not copy it -- in case of weirdness this is likely culprit' % self.problemset_cls)
+        if self.problemset_cls.is_file() and not force_copy_cls:
+            print(f'{self.problemset_cls} exists, will not copy it -- in case of weirdness this is likely culprit')
             self.copy_cls = False
 
     def __enter__(self):
         if self.copy_cls:
             shutil.copyfile(os.path.join(self.templatepath, self.clsfile), self.problemset_cls)
 
-        (templfd, self.filename) = tempfile.mkstemp(suffix='.tex', dir=self.basedir)
+        (templfd, self.filename) = tempfile.mkstemp(suffix='.tex', dir=self.problem_root.parent)
         templout = os.fdopen(templfd, 'w')
         templin = open(os.path.join(self.templatepath, self.templatefile))
-        data = {'language': self.language, 'shortname': self.shortname}
+        data = {
+            'directory': self.problem_root.name,
+            'statement_directory': self.statement_directory,
+            'statement_filename': self.statement_filename,
+            'language': self.language,
+        }
         for line in templin:
             try:
                 templout.write(line % data)
@@ -124,6 +93,6 @@ class Template:
                 if os.path.isfile(f):
                     os.remove(f)
 
-    def get_file_name(self):
+    def get_file_name(self) -> str:  # We should later change this to a Path
         assert os.path.isfile(self.filename)
         return self.filename

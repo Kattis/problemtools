@@ -2,40 +2,33 @@ import os
 import logging
 import string
 import argparse
+from pathlib import Path
 
 from . import template
 
 
-def convert(problem: str, options: argparse.Namespace) -> None:
+def convert(problem_root: Path, options: argparse.Namespace, statement_file: Path) -> None:
     # PlasTeX.Logging statically overwrites logging and formatting, so delay loading
     import plasTeX.TeX
     import plasTeX.Logging
     from .ProblemPlasTeX import ProblemRenderer
     from .ProblemPlasTeX import ProblemsetMacros
 
-    problembase = os.path.splitext(os.path.basename(problem))[0]
     if options.quiet:
         plasTeX.Logging.disableLogging()
     else:
         plasTeX.Logging.getLogger().setLevel(getattr(logging, options.loglevel.upper()))
         plasTeX.Logging.getLogger('status').setLevel(getattr(logging, options.loglevel.upper()))
 
-    destfile = string.Template(options.destfile).safe_substitute(problem=problembase)
-    imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problembase)
+    destfile = string.Template(options.destfile).safe_substitute(problem=problem_root.name)
+    imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problem_root.name)
 
     # Set up template if necessary
-    with template.Template(problem, language=options.language) as templ:
+    with template.Template(problem_root, statement_file, options.language) as templ:
         texfile = open(templ.get_file_name(), 'r')
 
         # Setup parser and renderer etc
-
-        # plasTeX version 3 changed the name of this argument (and guarding against this
-        # by checking plasTeX.__version__ fails on plastex v3.0 which failed to update
-        # __version__)
-        try:
-            tex = plasTeX.TeX.TeX(myfile=texfile)
-        except Exception:
-            tex = plasTeX.TeX.TeX(file=texfile)
+        tex = plasTeX.TeX.TeX(file=texfile)
 
         ProblemsetMacros.init(tex)
 
