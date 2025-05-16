@@ -4,4 +4,6 @@ license: cc by-sa
 credits: Johan Sannemo
 source: Principles of Algorithmic Problem Solving
 type: scoring
-name: Odd Echo
+name:
+  en: Odd Echo
+  sv: Udda eko
