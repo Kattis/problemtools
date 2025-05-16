@@ -4,13 +4,14 @@ from pathlib import Path
 import pytest
 
 from pydantic import ValidationError
-from problemtools import formatversion, metadata
+from problemtools import metadata
+from problemtools.formatversion import FormatVersion
 
 # A few quick tests of config parsing. pytest structure isn't great here, so code gets repetitive, but I wanted *something* basic in place at least.
 
 
 def test_parse_empty_legacy():
-    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {})
+    m = metadata.parse_metadata(FormatVersion.LEGACY, {})
     # Just check off a few random things
     assert not m.name
     assert not m.source
@@ -18,13 +19,13 @@ def test_parse_empty_legacy():
 
 
 def test_parse_legacy_with_problem_names():
-    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {}, {'en': 'Hello World!'})
+    m = metadata.parse_metadata(FormatVersion.LEGACY, {}, {'en': 'Hello World!'})
     assert m.name['en'] == 'Hello World!'
 
 
 def test_parse_empty_2023_fails():
     with pytest.raises(ValidationError):
-        metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), {}, {'en': 'Hello World!'})
+        metadata.parse_metadata(FormatVersion.V_2023_07, {}, {'en': 'Hello World!'})
 
 
 @pytest.fixture
@@ -37,9 +38,7 @@ def minimal_2023_conf():
 
 
 def test_parse_minimal_2023(minimal_2023_conf):
-    m = metadata.parse_metadata(
-        formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), minimal_2023_conf, {'en': 'Hello World!'}
-    )
+    m = metadata.parse_metadata(FormatVersion.V_2023_07, minimal_2023_conf, {'en': 'Hello World!'})
     assert m.name['en'] == 'Hello World!'
     assert not m.source
     assert not m.credits.authors
@@ -49,13 +48,13 @@ def test_parse_typo_fails(minimal_2023_conf):
     c = minimal_2023_conf
     c['limits'] = {'typo': 1}
     with pytest.raises(ValidationError):
-        metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), c, {'en': 'Hello World!'})
+        metadata.parse_metadata(FormatVersion.V_2023_07, c, {'en': 'Hello World!'})
 
 
 def test_parse_single_author_2023(minimal_2023_conf):
     c = minimal_2023_conf
     c['credits'] = ' \t  Authy McAuth \t <authy@mcauth.example> \t\t  '  # Add some extra whitespace to check that we strip
-    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), c, {'en': 'Hello World!'})
+    m = metadata.parse_metadata(FormatVersion.V_2023_07, c, {'en': 'Hello World!'})
     assert len(m.credits.authors) == 1
     assert m.credits.authors[0].name == 'Authy McAuth'
     assert m.credits.authors[0].email == 'authy@mcauth.example'
@@ -64,7 +63,7 @@ def test_parse_single_author_2023(minimal_2023_conf):
 def test_parse_single_source_2023(minimal_2023_conf):
     c = minimal_2023_conf
     c['source'] = 'NWERC 2024'
-    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), c, {'en': 'Hello World!'})
+    m = metadata.parse_metadata(FormatVersion.V_2023_07, c, {'en': 'Hello World!'})
     assert len(m.source) == 1
     assert m.source[0].name == 'NWERC 2024'
     assert m.source[0].url is None
@@ -77,7 +76,7 @@ def test_parse_multi_source(minimal_2023_conf):
         'SWERC 2024',
         {'name': 'SEERC 2024'},
     ]
-    m = metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_2023_07), c, {'en': 'Hello World!'})
+    m = metadata.parse_metadata(FormatVersion.V_2023_07, c, {'en': 'Hello World!'})
     assert len(m.source) == 3
     assert m.source[0].name == 'NWERC 2024'
     assert m.source[0].url == 'https://2024.nwerc.example/contest'

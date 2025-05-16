@@ -8,14 +8,14 @@ import tempfile
 from pathlib import Path
 from typing import Optional, List, Tuple
 
-from . import formatversion
 from . import metadata
+from .formatversion import FormatVersion, get_format_version
 
 ALLOWED_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')  # ".svg"
 FOOTNOTES_STRINGS = ['<section class="footnotes">', '<aside class="footnotes">']
 
 
-def find_statements(problem_root: Path, version: formatversion.FormatData) -> dict[str, list[Path]]:
+def find_statements(problem_root: Path, version: FormatVersion) -> dict[str, list[Path]]:
     """Returns a dict mapping language code to a list of paths to statements (relative to problem_root)
 
     Note that in well-formed problem packages, there should only be a single
@@ -30,17 +30,17 @@ def find_statements(problem_root: Path, version: formatversion.FormatData) -> di
         for file in directory.iterdir():
             if m := filename_re.search(file.name):
                 if m.group(2) is None:  # problem.tex is allowed and assumed to be 'en' in legacy. We ignore it in newer formats.
-                    if version.name == formatversion.VERSION_LEGACY:
+                    if version is FormatVersion.LEGACY:
                         ret['en'].append(file)
                 else:
                     ret[m.group(2)].append(file)
     return dict(ret)
 
 
-def load_names_from_statements(problem_root: Path, version: formatversion.FormatData) -> dict[str, str]:
+def load_names_from_statements(problem_root: Path, version: FormatVersion) -> dict[str, str]:
     """Returns a dict mapping language code => problem name"""
 
-    assert version.name == formatversion.VERSION_LEGACY, 'load_names_from_statements only makes sense for legacy format'
+    assert version is FormatVersion.LEGACY, 'load_names_from_statements only makes sense for legacy format'
     ret: dict[str, str] = {}
     for lang, files in find_statements(problem_root, version).items():
         hit = re.search(r'\\problemname{(.*)}', files[0].read_text(), re.MULTILINE)
@@ -56,7 +56,7 @@ def find_statement(problem_root: Path, language: str) -> Path:
         ValueError: if there are multiple statements in language.
         FileNotFoundError: if there are no statements in language.
     """
-    candidates = find_statements(problem_root, formatversion.get_format_data(str(problem_root)))
+    candidates = find_statements(problem_root, get_format_version(problem_root))
     if language not in candidates:
         raise FileNotFoundError(f'No statement found in language {language}. Found languages: {", ".join(candidates)}')
     elif len(candidates[language]) > 1:

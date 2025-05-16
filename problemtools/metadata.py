@@ -11,8 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 import yaml
 
 from . import config
-from . import formatversion
 from . import statement_util
+from .formatversion import FormatVersion
 
 
 class ProblemType(StrEnum):
@@ -164,7 +164,7 @@ class MetadataLegacy(BaseModel):
     which pre-date the version called legacy).
     """
 
-    problem_format_version: str = formatversion.VERSION_LEGACY
+    problem_format_version: FormatVersion = FormatVersion.LEGACY
     type: Literal['pass-fail'] | Literal['scoring'] = 'pass-fail'
     name: str | None = None
     uuid: UUID | None = None
@@ -191,7 +191,7 @@ class Metadata(BaseModel):
     Metadata serializes to a valid 2023-07-draft configuration.
     """
 
-    problem_format_version: str
+    problem_format_version: FormatVersion
     type: list[ProblemType]
     name: dict[str, str]
     uuid: UUID | None
@@ -309,7 +309,7 @@ class Metadata(BaseModel):
 
 
 def parse_metadata(
-    version: formatversion.FormatData,
+    version: FormatVersion,
     problem_yaml_data: dict[str, Any],
     names_from_statements: dict[str, str] | None = None,
 ) -> Metadata:
@@ -326,11 +326,11 @@ def parse_metadata(
         system_defaults = config.load_config('problem.yaml')
         data['limits'] = system_defaults['limits'] | data.get('limits', {})
 
-    if version.name == formatversion.VERSION_LEGACY:
+    if version is FormatVersion.LEGACY:
         legacy_model = MetadataLegacy.model_validate(data)
         return Metadata.from_legacy(legacy_model, names_from_statements or {})
     else:
-        assert version.name == formatversion.VERSION_2023_07
+        assert version is FormatVersion.V_2023_07
         model_2023_07 = Metadata2023_07.model_validate(data)
         return Metadata.from_2023_07(model_2023_07)
 
@@ -347,8 +347,8 @@ def load_metadata(problem_root: Path) -> tuple[Metadata, dict]:
         if data is None:  # Loading empty yaml returns None
             data = {}
 
-    version = formatversion.get_format_data_by_name(data.get('problem_format_version', formatversion.VERSION_LEGACY))
-    if version.name == formatversion.VERSION_LEGACY:
+    version = FormatVersion(data.get('problem_format_version', FormatVersion.LEGACY))
+    if version is FormatVersion.LEGACY:
         names_from_statements = statement_util.load_names_from_statements(problem_root, version)
     else:
         names_from_statements = None
