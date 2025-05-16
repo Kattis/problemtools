@@ -24,6 +24,7 @@ import traceback
 import uuid
 from pathlib import Path
 
+import colorlog
 import yaml
 
 from . import config
@@ -753,9 +754,13 @@ class ProblemStatement(ProblemPart):
         self._check_res = True
 
         if not self.statements:
-            allowed_statements = ', '.join(
-                f'problem.{ext}, problem.[a-z][a-z].{ext}' for ext in self.problem.format.statement_extensions
-            )
+            if self.problem.format is FormatVersion.LEGACY:
+                allowed_statements = ', '.join(
+                    f'problem.{ext}, problem.<language>.{ext}' for ext in self.problem.format.statement_extensions
+                )
+            else:
+                allowed_statements = ', '.join(f'problem.<language>.{ext}' for ext in self.problem.format.statement_extensions)
+
             self.error(
                 f'No problem statements found (expected file of one of following forms in directory {self.problem.format.statement_directory}/: {allowed_statements})'
             )
@@ -1986,8 +1991,8 @@ def argparser() -> argparse.ArgumentParser:
 def initialize_logging(args: argparse.Namespace) -> None:
     ProblemAspect.max_additional_info = args.max_additional_info
 
-    fmt = '%(levelname)s %(message)s'
-    logging.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
+    fmt = '%(log_color)s%(levelname)s %(message)s'
+    colorlog.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
 
 
 def main() -> None:
