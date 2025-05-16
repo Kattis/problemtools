@@ -12,7 +12,6 @@ import string
 import hashlib
 import collections
 import os
-from pathlib import Path
 import signal
 import re
 import shutil
