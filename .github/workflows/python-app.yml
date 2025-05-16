@@ -29,6 +29,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install mypy ruff pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        sudo apt-get update
         sudo apt-get install pandoc tidy ghostscript python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic
     - name: Lint with ruff
       run: ruff check --output-format=github
@@ -45,7 +46,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install apt packages (for debbuild)
-      run: sudo apt-get install debhelper dh-virtualenv dpkg-dev python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git build-essential
+      run: |
+        sudo apt-get update
+        sudo apt-get install debhelper dh-virtualenv dpkg-dev python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git build-essential
       shell: bash
     - name: Build debian packages
       run:  make builddeb
