@@ -24,6 +24,7 @@ import traceback
 import uuid
 from pathlib import Path
 
+import colorlog
 import yaml
 
 from . import config
@@ -1986,8 +1987,8 @@ def argparser() -> argparse.ArgumentParser:
 def initialize_logging(args: argparse.Namespace) -> None:
     ProblemAspect.max_additional_info = args.max_additional_info
 
-    fmt = '%(levelname)s %(message)s'
-    logging.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
+    fmt = '%(log_color)s%(levelname)s %(message)s'
+    colorlog.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
 
 
 def main() -> None:
