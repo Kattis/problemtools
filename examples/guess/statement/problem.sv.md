@@ -4,7 +4,7 @@ var för stor, för liten eller rätt. Du får bara $10$ gissningar, använd
 dem klokt!
 
 
-## Interaktion
+# Interaktion
 Ditt program ska skriva ut gissningar om talet.
 En gissning är en rad som enbart innehåller ett heltal mellan $1$ och $1000$.
 Efter varje gissning måste du flusha standard out.

@@ -1227,6 +1227,12 @@ class OutputValidators(ProblemPart):
     PART_NAME = 'output_validator'
 
     def setup(self):
+        if (
+            self.problem.format.name != formatversion.VERSION_LEGACY
+            and (Path(self.problem.probdir) / 'output_validators').exists()
+        ):
+            self.error('output_validators is not supported after Legacy; please use output_validator instead')
+
         self._validators = run.find_programs(
             os.path.join(self.problem.probdir, self.problem.format.output_validator_directory),
             language_config=self.problem.language_config,
