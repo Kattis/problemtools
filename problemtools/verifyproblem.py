@@ -28,12 +28,12 @@ import yaml
 
 from . import config
 from . import languages
-from . import formatversion
 from . import metadata
 from . import problem2html
 from . import problem2pdf
 from . import run
 from . import statement_util
+from .formatversion import FormatVersion, get_format_version
 
 from abc import ABC
 from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, Type, TypeVar
@@ -819,16 +819,12 @@ class ProblemConfig(ProblemPart):
             error_str = '\n'.join([f'    {"->".join((str(loc) for loc in err["loc"]))}: {err["msg"]}' for err in e.errors()])
             self.error(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
             # For now, set metadata to an empty legacy config to avoid crashing.
-            self.problem.setMetadata(
-                metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {})
-            )
+            self.problem.setMetadata(metadata.parse_metadata(FormatVersion.LEGACY, {}))
         except Exception as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
             self.error(f'Failed loading problem configuration: {e}')
             # For now, set metadata to an empty legacy config to avoid crashing.
-            self.problem.setMetadata(
-                metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {})
-            )
+            self.problem.setMetadata(metadata.parse_metadata(FormatVersion.LEGACY, {}))
         return {}
 
     def __str__(self) -> str:
@@ -853,7 +849,7 @@ class ProblemConfig(ProblemPart):
 
         if self._metadata.uuid is None:
             uuid_msg = f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.'
-            if self.problem.format.name == formatversion.VERSION_LEGACY:
+            if self.problem.format is FormatVersion.LEGACY:
                 self.warning(uuid_msg)
             else:
                 self.error(uuid_msg)
@@ -864,7 +860,7 @@ class ProblemConfig(ProblemPart):
             not self._metadata.is_pass_fail()
             and self.problem.get(ProblemTestCases)['root_group'].has_custom_groups()
             and 'show_test_data_groups' not in self._origdata.get('grading', {})
-            and self.problem.format.name == formatversion.VERSION_LEGACY
+            and self.problem.format is FormatVersion.LEGACY
         ):
             self.warning(
                 'Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false'
@@ -1217,10 +1213,7 @@ class OutputValidators(ProblemPart):
     PART_NAME = 'output_validator'
 
     def setup(self):
-        if (
-            self.problem.format.name != formatversion.VERSION_LEGACY
-            and (Path(self.problem.probdir) / 'output_validators').exists()
-        ):
+        if self.problem.format is FormatVersion.LEGACY and (Path(self.problem.probdir) / 'output_validators').exists():
             self.error('output_validators is not supported after Legacy; please use output_validator instead')
 
         self._validators = run.find_programs(
@@ -1351,7 +1344,7 @@ class OutputValidators(ProblemPart):
     def _actual_validators(self) -> list:
         vals = self._validators
         if self.problem.getMetadata().legacy_validation == 'default' or (
-            self.problem.format.name == formatversion.VERSION_2023_07 and not vals
+            self.problem.format is FormatVersion.V_2023_07 and not vals
         ):
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
@@ -1739,8 +1732,8 @@ class Submissions(ProblemPart):
         return self._check_res
 
 
-PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
-    formatversion.VERSION_LEGACY: {
+PROBLEM_FORMATS: dict[FormatVersion, dict[str, list[Type[ProblemPart]]]] = {
+    FormatVersion.LEGACY: {
         'config': [ProblemConfig],
         'statement': [ProblemStatement, Attachments],
         'validators': [InputValidators, OutputValidators],
@@ -1748,7 +1741,7 @@ PROBLEM_FORMATS: dict[str, dict[str, list[Type[ProblemPart]]]] = {
         'data': [ProblemTestCases],
         'submissions': [Submissions],
     },
-    formatversion.VERSION_2023_07: {  # TODO: Add all the parts
+    FormatVersion.V_2023_07: {  # TODO: Add all the parts
         'config': [ProblemConfig],
         'statement': [ProblemStatement, Attachments],
         'validators': [InputValidators, OutputValidators],
@@ -1773,14 +1766,14 @@ class Problem(ProblemAspect):
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
 
-    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS[formatversion.VERSION_LEGACY]):
+    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS[FormatVersion.LEGACY]):
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
         self.shortname: str | None = os.path.basename(self.probdir)
         super().__init__(self.shortname)
         self.language_config = languages.load_language_config()
-        self.format = formatversion.get_format_data(self.probdir)
+        self.format = get_format_version(Path(self.probdir))
         self._data: dict[str, dict] = {}
         self._metadata: metadata.Metadata | None = None
         self.debug(f'Problem-format: {parts}')
@@ -1860,8 +1853,8 @@ class Problem(ProblemAspect):
         try:
             if not re.match('^[a-z0-9]+$', self.shortname):
                 self.error(f"Invalid shortname '{self.shortname}' (must be [a-z0-9]+)")
-            if self.format.name == formatversion.VERSION_2023_07:
-                self.warning(f'Support for version {self.format.name} is very incomplete. Verification may not work as expected.')
+            if self.format is FormatVersion.V_2023_07:
+                self.warning(f'Support for version {self.format} is very incomplete. Verification may not work as expected.')
 
             self._check_symlinks()
 
@@ -2007,17 +2000,16 @@ def main() -> None:
         for problemdir in args.problemdir:
             try:
                 if args.problem_format == 'automatic':
-                    version_data = formatversion.get_format_data(problemdir)
+                    formatversion = get_format_version(Path(problemdir))
                 else:
-                    version_data = formatversion.get_format_data_by_name(args.problem_format)
-            except formatversion.VersionError as e:
+                    formatversion = FormatVersion(args.problem_format)
+            except Exception as e:
                 total_errors += 1
                 print(f'ERROR: problem version could not be decided for {os.path.basename(os.path.realpath(problemdir))}: {e}')
                 continue
 
-            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {version_data.name}')
-            format = PROBLEM_FORMATS[version_data.name]
-            with Problem(problemdir, format) as prob:
+            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {formatversion}')
+            with Problem(problemdir, PROBLEM_FORMATS[formatversion]) as prob:
                 errors, warnings = prob.check(args)
 
                 def p(x: int) -> str:
