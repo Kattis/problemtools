@@ -31,7 +31,7 @@ problem2pdf = "problemtools.problem2pdf:main"
 [project.urls]
 Repository = "https://github.com/Kattis/problemtools"
 Homepage = "https://www.kattis.com"
-Documentation = "https://icpc.io/problem-package-format/"
+Documentation = "https://www.kattis.com/problem-package-format/"
 Issues = "https://github.com/Kattis/problemtools/issues/"
 
 [tool.setuptools]
