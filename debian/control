@@ -2,7 +2,7 @@ Source: kattis-problemtools
 Section: devel
 Priority: optional
 Maintainer: Per Austrin <austrin@kattis.com>
-Build-Depends: debhelper-compat (= 13), g++ (>= 4.8), dh-virtualenv, python3, libboost-regex-dev, libgmp-dev, automake, autoconf, git
+Build-Depends: debhelper-compat (= 13), g++ (>= 4.8), dh-virtualenv, python3, libboost-regex-dev, libgmp-dev, automake, autoconf, git, python3-venv, dpkg-dev
 Standards-Version: 3.9.4
 Homepage: https://github.com/Kattis/problemtools
 
