@@ -5,11 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "problemtools"
 authors = [
+    {name = "Fredrik Niemela", email = "niemela@kattis.com"},
+    {name = "Gunnar Kreitz", email = "gkreitz@kattis.com"},
+    {name = "Mikael Goldman", email = "migo@kattis.com"},
+    {name = "Pehr Söderman", email = "pehrs@kattis.com"},
     {name = "Per Austrin", email = "austrin@kattis.com"},
 ]
 description = "Kattis Problem Tools"
 readme = "README.md"
 license = "MIT"
+keywords = ["kattis", "problemtools", "icpc", "clics"]
+
 dependencies = [
     "PyYAML",
     "plasTeX>=3.0",
@@ -24,6 +30,9 @@ problem2pdf = "problemtools.problem2pdf:main"
 
 [project.urls]
 Repository = "https://github.com/Kattis/problemtools"
+Homepage = "https://www.kattis.com"
+Documentation = "https://www.kattis.com/problem-package-format/"
+Issues = "https://github.com/Kattis/problemtools/issues/"
 
 [tool.setuptools]
 include-package-data = true
