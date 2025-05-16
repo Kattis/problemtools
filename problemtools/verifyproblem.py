@@ -22,6 +22,7 @@ import copy
 import random
 import traceback
 import uuid
+from pathlib import Path
 
 import yaml
 
@@ -818,41 +819,27 @@ class ProblemStatement(ProblemPart):
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
 
-    @staticmethod
-    def setup_dependencies():
-        return {ProblemStatement}
-
     def setup(self):
         self.debug('  Loading problem config')
-        self.configfile = os.path.join(self.problem.probdir, 'problem.yaml')
-
-        self._data = {}
-        if os.path.isfile(self.configfile):
-            try:
-                with open(self.configfile) as f:
-                    self._data = yaml.safe_load(f)
-                # Loading empty yaml yields None, for no apparent reason...
-                if self._data is None:
-                    self._data = {}
-            except Exception as e:
-                self.error(str(e))
-        else:
-            # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
-            self.error(f'No config file {self.configfile} found')
-
-        self._origdata = copy.deepcopy(self._data)
 
         try:
-            self._metadata = metadata.parse_metadata(
-                self.problem.format,
-                self._data,
-                self.problem.get(ProblemStatement).get('name', {}),
-            )
+            self._metadata, self._origdata = metadata.load_metadata(Path(self.problem.probdir))
             self.problem.setMetadata(self._metadata)
         except ValidationError as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
             error_str = '\n'.join([f'    {"->".join((str(loc) for loc in err["loc"]))}: {err["msg"]}' for err in e.errors()])
             self.error(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
+            # For now, set metadata to an empty legacy config to avoid crashing.
+            self.problem.setMetadata(
+                metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {})
+            )
+        except Exception as e:
+            # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
+            self.error(f'Failed loading problem configuration: {e}')
+            # For now, set metadata to an empty legacy config to avoid crashing.
+            self.problem.setMetadata(
+                metadata.parse_metadata(formatversion.get_format_data_by_name(formatversion.VERSION_LEGACY), {})
+            )
         return {}
 
     def __str__(self) -> str:
