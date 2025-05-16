@@ -23,6 +23,7 @@ def convert(options: argparse.Namespace, force_statement_file: Path | None = Non
 
     destdir = string.Template(options.destdir).safe_substitute(problem=problem_root.name)
     destfile = string.Template(options.destfile).safe_substitute(problem=problem_root.name)
+    origcwd = os.getcwd()
 
     # Go to destdir
     if destdir:
@@ -33,9 +34,6 @@ def convert(options: argparse.Namespace, force_statement_file: Path | None = Non
     try:
         if not options.quiet:
             print('Rendering!')
-
-        origcwd = os.getcwd()
-
         match statement_file.suffix:
             case '.md':
                 md2html.convert(problem_root, options, statement_file)
