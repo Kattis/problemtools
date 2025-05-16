@@ -21,6 +21,22 @@ Running any of them with the command-line option `-h` gives
 documentation on what arguments they accept.
 
 
+## Format versions
+
+There are currently two versions of the problem package format,
+[legacy](https://www.kattis.com/problem-package-format/spec/legacy.html) and
+[2023-07-draft](https://www.kattis.com/problem-package-format/spec/2023-07-draft.html).
+We have begun work on supporting 2023-07-draft, but there are *many* changes
+between legacy and 2023-07-draft which are not yet implemented. Verifyproblem
+will do its best to parse and verify problems in 2023-07-draft, but key things
+like scoring still behave like legacy. Also, note that 2023-07 is still a draft
+standard.
+
+We advice against packaging production problems in 2023-07-draft. Especially so
+if you plan to have problems installed on [Kattis](https://open.kattis.com), where
+we currently *only* support installing legacy problems.
+
+
 ## Example Problems
 
 A few examples of problem packages can be found in [examples](examples).
