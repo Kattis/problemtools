@@ -52,6 +52,9 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
 
     renderer.render(doc)
 
+    # Clean up the logger class plasTeX registers, and reset to the default
+    logging.setLoggerClass(logging.Logger)
+
     # Annoying: I have not figured out any way of stopping the plasTeX
     # renderer from generating a .paux file
     if os.path.isfile('.paux'):
