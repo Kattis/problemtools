@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
+import hashlib
 import html
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ from . import statement_util
 
 
 def convert(problem_root: Path, options: argparse.Namespace, statement_file: Path) -> bool:
-    """Convert a Markdown statement to HTML
+    """Convert a Markdown statement to HTML. Writes output to current working directory.
 
     Args:
         problem: path to problem directory
@@ -85,7 +86,7 @@ def sanitize_html(statement_dir: Path, statement_html: str) -> str:
     allowed_classes = ('sample', 'problemheader', 'problembody', 'sampleinteractionwrite', 'sampleinteractionread')
 
     # Annoying: nh3 will ignore exceptions in attribute_filter
-    image_fail_reason: str | None = None
+    image_fail_reason: list[Exception] = []
 
     def attribute_filter(tag, attribute, value):
         if attribute == 'class' and value in allowed_classes:
@@ -103,10 +104,9 @@ def sanitize_html(statement_dir: Path, statement_html: str) -> str:
                 statement_util.assert_image_is_valid(statement_dir, value)
             except Exception as e:
                 nonlocal image_fail_reason
-                image_fail_reason = str(e)
+                image_fail_reason.append(e)
                 return None
-            copy_image(statement_dir, value)
-            return value
+            return copy_image(statement_dir, value)
         return None
 
     statement_html = nh3.clean(
@@ -126,22 +126,25 @@ def sanitize_html(statement_dir: Path, statement_html: str) -> str:
     )
 
     if image_fail_reason:
-        assert isinstance(image_fail_reason, str)
-        if 'Unsupported' in image_fail_reason:
-            raise ValueError(image_fail_reason)
-        raise FileNotFoundError(image_fail_reason)
+        # We don't have a great way to emit multiple errors from here, so just re-raise the first error
+        raise image_fail_reason[0]
 
     return statement_html
 
 
-def copy_image(statement_dir: Path, img_src: str) -> None:
-    """Copy image to output directory
+def copy_image(statement_dir: Path, img_src: str) -> str:
+    """Copy image to working directory (with new filename) and returns the new filename
 
     Args:
         statement_dir: the directory with problem statement files
         img_src: the image source as in the Markdown statement
     """
 
-    if os.path.isfile(img_src):  # already copied
-        return
-    shutil.copyfile(statement_dir / img_src, img_src)
+    # We rename to sha256 of contents, and preserve the suffix. This flattens
+    # the directory structure to a single folders in a simple way.
+    with open(statement_dir / img_src, 'rb') as f:
+        filename = hashlib.file_digest(f, 'sha256').hexdigest() + Path(img_src).suffix
+
+    if not os.path.isfile(filename):  # check if already copied
+        shutil.copyfile(statement_dir / img_src, filename)
+    return filename
