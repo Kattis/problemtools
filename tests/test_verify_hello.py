@@ -11,6 +11,7 @@ def test_load_hello():
     context = verify.Context(args, None)
 
     with verify.Problem(string, args) as p:
+        p.load()
         assert p.shortname == 'hello'
         # pytest and fork don't go along very well, so just run aspects that work without run
         assert p.getProblemPart(verify.ProblemConfig).check(context)

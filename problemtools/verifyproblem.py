@@ -833,14 +833,10 @@ class ProblemConfig(ProblemPart):
         except ValidationError as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
             error_str = '\n'.join([f'    {"->".join((str(loc) for loc in err["loc"]))}: {err["msg"]}' for err in e.errors()])
-            self.error(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
-            # For now, set metadata to an empty legacy config to avoid crashing.
-            self.problem.setMetadata(metadata.parse_metadata(FormatVersion.LEGACY, {}))
+            self.fatal(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
         except Exception as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
-            self.error(f'Failed loading problem configuration: {e}')
-            # For now, set metadata to an empty legacy config to avoid crashing.
-            self.problem.setMetadata(metadata.parse_metadata(FormatVersion.LEGACY, {}))
+            self.fatal(f'Failed loading problem configuration: {e}')
         return {}
 
     def __str__(self) -> str:
@@ -1788,7 +1784,7 @@ class Problem(ProblemAspect):
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
-        self.shortname: str | None = os.path.basename(self.probdir)
+        self.shortname: str = os.path.basename(self.probdir)
         super().__init__(self.shortname, self)
         self.language_config = languages.load_language_config()
         self.format = get_format_version(Path(self.probdir))
@@ -1796,6 +1792,7 @@ class Problem(ProblemAspect):
         self._metadata: metadata.Metadata | None = None
         self.debug(f'Problem-format: {parts}')
         self._args = args
+        self.loaded = False
 
     def get(self, part) -> dict:
         if isinstance(part, type) and issubclass(part, ProblemPart):
@@ -1814,12 +1811,24 @@ class Problem(ProblemAspect):
     def getProblemPart(self, part: Type[_ProblemPartT]) -> _ProblemPartT:
         return self._classes[part.PART_NAME]  # type: ignore
 
-    def __enter__(self) -> Problem:
-        self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
+    def load(self) -> None:
+        """Parses the problem package statically, loading up information with very little verification.
+
+        Call this if you want to get a usable Problem object without expensive
+        steps (such as compiling validators, and testing submissions).
+
+        N.B., This api is EXPERIMENTAL. We eventually want to create a stable
+        API from problemtools, this is a first move in that direction.
+
+        Raises:
+            VerifyError: if problem package is too broken to parse safely
+        """
+
+        if self.loaded:
+            return
+
         if not os.path.isdir(self.probdir):
-            self.error(f"Problem directory '{self.probdir}' not found")
-            self.shortname = None
-            return self
+            self.fatal(f"Problem directory '{self.probdir}' not found")
 
         # Initialize the classes, making sure to resolve dependencies first
         initialized = set()
@@ -1849,6 +1858,8 @@ class Problem(ProblemAspect):
         for c in self.aspects:
             init(c)
 
+    def __enter__(self) -> Problem:
+        self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
@@ -1858,8 +1869,22 @@ class Problem(ProblemAspect):
         return str(self.shortname)
 
     def check(self) -> tuple[int, int]:
-        if self.shortname is None:
-            return 1, 0
+        """Loads and checks the problem package
+
+        Loads the problem package and runs checks. After this has completed,
+        the Problem object is fully populated. You do not need to manually
+        run load() first.
+
+        Returns:
+            Tuple with the number of errors, warnings found.
+
+        Raises:
+            VerifyError: if problem package is too broken to parse safely
+        """
+        try:
+            self.load()
+        except VerifyError:
+            return self.errors, self.warnings
 
         executor = ThreadPoolExecutor(self._args.threads) if self._args.threads > 1 else None
         context = Context(self._args, executor)
