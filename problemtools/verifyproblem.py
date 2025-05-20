@@ -121,8 +121,6 @@ class ProblemAspect(ABC):
     errors: int = 0
     warnings: int = 0
     _check_res: bool | None = None
-    basename_regex = re.compile('^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9]$')
-    name: str
     problem: Problem
 
     def __append_additional_info(self, msg: str, additional_info: str | None) -> str:
@@ -164,6 +162,12 @@ class ProblemAspect(ABC):
         self._add_warning()
         self.log.warning(self.__append_additional_info(msg, additional_info), *args)
 
+    def error_in_2023_07(self, msg: str, additional_info: str | None = None, *args) -> None:
+        if self.problem.format is FormatVersion.LEGACY:
+            self.warning(msg, additional_info, *args)
+        else:
+            self.error(msg, additional_info, *args)
+
     def info(self, msg: str, *args) -> None:
         self.log.info(msg, *args)
 
@@ -182,11 +186,6 @@ class ProblemAspect(ABC):
         self.warnings += 1
         if self.problem is not self:
             self.problem._add_warning()
-
-    def check_basename(self, path: str) -> None:
-        basename = os.path.basename(path)
-        if not self.basename_regex.match(basename):
-            self.error(f"Invalid name '{basename}' (should match '{self.basename_regex.pattern}')")
 
 
 class ProblemPart(ProblemAspect):
@@ -276,8 +275,6 @@ class TestCase(ProblemAspect):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
-        self.check_basename(self.infile)
-        self.check_basename(self.ansfile)
         self.check_newlines(self.infile)
         self.check_newlines(self.ansfile)
         self.check_size_limits(self.infile)
@@ -424,6 +421,7 @@ class TestCase(ProblemAspect):
 
 
 class TestCaseGroup(ProblemAspect):
+    name: str
     _DEFAULT_CONFIG = config.load_config('testdata.yaml')
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
@@ -534,8 +532,6 @@ class TestCaseGroup(ProblemAspect):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
-
-        self.check_basename(self._datadir)
 
         if self.config['grading'] not in ['default', 'custom']:
             self.error('Invalid grading policy in testdata.yaml')
@@ -860,11 +856,7 @@ class ProblemConfig(ProblemPart):
             self.warning("License is 'unknown'")
 
         if self._metadata.uuid is None:
-            uuid_msg = f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.'
-            if self.problem.format is FormatVersion.LEGACY:
-                self.warning(uuid_msg)
-            else:
-                self.error(uuid_msg)
+            self.error_in_2023_07(f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
 
         if self._metadata.legacy_grading.show_test_data_groups and self._metadata.is_pass_fail():
             self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
@@ -1896,6 +1888,7 @@ class Problem(ProblemAspect):
                 self.warning(f'Support for version {self.format} is very incomplete. Verification may not work as expected.')
 
             self._check_symlinks()
+            self._check_file_and_directory_names()
 
             run.limit.check_limit_capabilities(self)
 
@@ -1940,6 +1933,21 @@ class Problem(ProblemAspect):
                         self.error(
                             f'Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative.'
                         )
+
+    def _check_file_and_directory_names(self):
+        filename_regex = re.compile(r'^[a-z0-9][a-z0-9_.-]{0,253}[a-z0-9]$', re.I)
+        directory_regex = re.compile(r'^[a-z0-9]([a-z0-9_-]{0,253}[a-z0-9])?$', re.I)
+        for root, dirs, files in os.walk(self.probdir):
+            # Path of the directory we're in, starting with problem shortname. Only used for nicer error messages.
+            reldir = os.path.relpath(root, os.path.dirname(self.probdir))
+            for file in files:
+                if not filename_regex.match(file):
+                    self.error(f"Invalid file name '{file}' in {reldir} (should match {filename_regex.pattern} ignoring case)")
+            for directory in dirs:
+                if not directory_regex.match(directory):
+                    self.error_in_2023_07(
+                        f"Invalid directory name '{directory}' in {reldir} (should match {directory_regex.pattern} ignoring case)"
+                    )
 
     def bail_on_error(self) -> bool:
         return self._args.bail_on_error
