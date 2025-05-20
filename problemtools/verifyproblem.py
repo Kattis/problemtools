@@ -118,14 +118,15 @@ class Context:
 
 
 class ProblemAspect(ABC):
-    max_additional_info = 15
-    errors = 0
-    warnings = 0
-    bail_on_error = False
+    max_additional_info: ClassVar[int] = 15
+    errors: int = 0
+    warnings: int = 0
+    bail_on_error: ClassVar[bool] = False
     _check_res: bool | None = None
-    consider_warnings_errors = False
+    consider_warnings_errors: ClassVar[bool] = False
     basename_regex = re.compile('^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9]$')
     name: str
+    problem: Problem
 
     @staticmethod
     def __append_additional_info(msg: str, additional_info: str | None) -> str:
@@ -144,12 +145,19 @@ class ProblemAspect(ABC):
 
         return f'{msg}:\n' + '\n'.join(' ' * 8 + line for line in lines)
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, problem: Problem) -> None:
         self.log = log.getChild(name)
+        self.problem = problem
+
+    def fatal(self, msg: str, additional_info: str | None = None, *args) -> None:
+        self._check_res = False
+        self._add_error()
+        self.log.critical(ProblemAspect.__append_additional_info(msg, additional_info), *args)
+        raise VerifyError(msg)
 
     def error(self, msg: str, additional_info: str | None = None, *args) -> None:
         self._check_res = False
-        ProblemAspect.errors += 1
+        self._add_error()
         self.log.error(ProblemAspect.__append_additional_info(msg, additional_info), *args)
         if ProblemAspect.bail_on_error:
             raise VerifyError(msg)
@@ -158,7 +166,7 @@ class ProblemAspect(ABC):
         if ProblemAspect.consider_warnings_errors:
             self.error(msg, additional_info, *args)
             return
-        ProblemAspect.warnings += 1
+        self._add_warning()
         self.log.warning(ProblemAspect.__append_additional_info(msg, additional_info), *args)
 
     def info(self, msg: str, *args) -> None:
@@ -168,8 +176,17 @@ class ProblemAspect(ABC):
         self.log.debug(msg, *args)
 
     def msg(self, msg):
-        # TODO Should this be silent?
         print(msg)
+
+    def _add_error(self) -> None:
+        self.errors += 1
+        if self.problem is not self:
+            self.problem._add_error()
+
+    def _add_warning(self) -> None:
+        self.warnings += 1
+        if self.problem is not self:
+            self.problem._add_warning()
 
     def check_basename(self, path: str) -> None:
         basename = os.path.basename(path)
@@ -200,8 +217,7 @@ class ProblemPart(ProblemAspect):
     def __init__(self, problem: Problem) -> None:
         if self.PART_NAME is None:
             raise NotImplementedError('Every problem-part must override PART_NAME')
-        super().__init__(f'{problem.shortname}.{self.PART_NAME}')
-        self.problem = problem
+        super().__init__(f'{problem.shortname}.{self.PART_NAME}', problem)
 
     """Override to setup data about this problem-part. The order in which problem-parts are setup 
     will be decided based on the dependencies that exist.
@@ -223,7 +239,7 @@ class TestCase(ProblemAspect):
     Result = tuple[SubmissionResult, SubmissionResult, SubmissionResult]
 
     def __init__(self, problem: Problem, aspect_name: str, base: str, testcasegroup: TestCaseGroup) -> None:
-        super().__init__(f'{problem.shortname}.{aspect_name}.{testcasegroup.name}.{os.path.basename(base)}')
+        super().__init__(f'{problem.shortname}.{aspect_name}.{testcasegroup.name}.{os.path.basename(base)}', problem)
         self._base = base
         self.infile = f'{base}.in'
         self.ansfile = f'{base}.ans'
@@ -423,7 +439,7 @@ class TestCaseGroup(ProblemAspect):
         self._datadir = datadir
         self.name = os.path.relpath(os.path.abspath(self._datadir), os.path.abspath(self._problem.probdir)).replace('/', '.')
 
-        super().__init__(f'{problem.shortname}.{aspect_name}.{self.name}')
+        super().__init__(f'{problem.shortname}.{aspect_name}.{self.name}', problem)
 
         self._seen_oob_scores = False
         self.debug('Loading test data group %s', datadir)
@@ -1776,7 +1792,7 @@ class Problem(ProblemAspect):
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
         self.shortname: str | None = os.path.basename(self.probdir)
-        super().__init__(self.shortname)
+        super().__init__(self.shortname, self)
         self.language_config = languages.load_language_config()
         self.format = get_format_version(Path(self.probdir))
         self._data: dict[str, dict] = {}
@@ -1847,8 +1863,6 @@ class Problem(ProblemAspect):
         if self.shortname is None:
             return 1, 0
 
-        ProblemAspect.errors = 0
-        ProblemAspect.warnings = 0
         ProblemAspect.bail_on_error = args.bail_on_error
         ProblemAspect.consider_warnings_errors = args.werror
 
@@ -1884,7 +1898,7 @@ class Problem(ProblemAspect):
             # the directory tree it uses.
             context.wait_for_background_work()
 
-        return ProblemAspect.errors, ProblemAspect.warnings
+        return self.errors, self.warnings
 
     def _check_symlinks(self):
         """Check that all symlinks point to something existing within the problem package"""
