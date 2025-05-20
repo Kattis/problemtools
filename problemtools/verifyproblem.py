@@ -537,9 +537,9 @@ class TestCaseGroup(ProblemAspect):
             self.error('Invalid grading policy in testdata.yaml')
 
         if self.config['grading'] == 'custom' and len(self._problem.getProblemPart(Graders)._graders) == 0:
-            self._problem.getProblemPart(Graders).error(f'{self} has custom grading but no custom graders provided')
+            self._problem.getProblemPart(Graders).fatal(f'{self} has custom grading but no custom graders provided')
         if self.config['grading'] == 'default' and Graders._default_grader is None:
-            self._problem.getProblemPart(Graders).error(f'{self} has default grading but I could not find default grader')
+            self._problem.getProblemPart(Graders).fatal(f'{self} has default grading but I could not find default grader')
 
         if self.config['grading'] == 'default' and 'ignore_sample' in self.config['grader_flags'].split():
             if self._parent is not None:
@@ -1146,7 +1146,7 @@ class Graders(ProblemPart):
         for grader in self._graders:
             success, msg = grader.compile()
             if not success:
-                self.error(f'Compile error for {grader}', msg)
+                self.fatal(f'Compile error for {grader}', msg)
         return self._check_res
 
     def grade(
@@ -1251,16 +1251,16 @@ class OutputValidators(ProblemPart):
         if self.problem.getMetadata().legacy_validation == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
         elif self.problem.getMetadata().legacy_validation.startswith('custom') and not self._validators:
-            self.error('problem.yaml specifies custom validator but no validator programs found')
+            self.fatal('problem.yaml specifies custom validator but no validator programs found')
 
         if self.problem.getMetadata().legacy_validation == 'default' and self._default_validator is None:
-            self.error('Unable to locate default validator')
+            self.fatal('Unable to locate default validator')
 
         for val in self._validators[:]:
             try:
                 success, msg = val.compile()
                 if not success:
-                    self.error(f'Compile error for output validator {val}', msg)
+                    self.fatal(f'Compile error for output validator {val}', msg)
             except run.ProgramError as e:
                 self.error(str(e))
 
@@ -1743,7 +1743,10 @@ PROBLEM_FORMATS: dict[FormatVersion, dict[str, list[Type[ProblemPart]]]] = {
         'validators': [InputValidators, OutputValidators],
         'graders': [Graders],
         'data': [ProblemTestCases],
-        'submissions': [Submissions],
+        'submissions': [
+            OutputValidators,
+            Submissions,
+        ],  # OutputValidators duplicated to fatal() early if we can't find a validator. We should find a cleaner solution
     },
     FormatVersion.V_2023_07: {  # TODO: Add all the parts
         'config': [ProblemConfig],
@@ -1751,7 +1754,10 @@ PROBLEM_FORMATS: dict[FormatVersion, dict[str, list[Type[ProblemPart]]]] = {
         'validators': [InputValidators, OutputValidators],
         'graders': [Graders],
         'data': [ProblemTestCases],
-        'submissions': [Submissions],
+        'submissions': [
+            OutputValidators,
+            Submissions,
+        ],  # OutputValidators duplicated to fatal() early if we can't find a validator. We should find a cleaner solution
     },
 }
 
