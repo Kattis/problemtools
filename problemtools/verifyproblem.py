@@ -118,19 +118,16 @@ class Context:
 
 
 class ProblemAspect(ABC):
-    max_additional_info: ClassVar[int] = 15
     errors: int = 0
     warnings: int = 0
-    bail_on_error: ClassVar[bool] = False
     _check_res: bool | None = None
-    consider_warnings_errors: ClassVar[bool] = False
     basename_regex = re.compile('^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9]$')
     name: str
     problem: Problem
 
-    @staticmethod
-    def __append_additional_info(msg: str, additional_info: str | None) -> str:
-        if additional_info is None or ProblemAspect.max_additional_info <= 0:
+    def __append_additional_info(self, msg: str, additional_info: str | None) -> str:
+        max_additional_info = self.problem.max_additional_info()
+        if additional_info is None or max_additional_info <= 0:
             return msg
         additional_info = additional_info.rstrip()
         if not additional_info:
@@ -138,10 +135,8 @@ class ProblemAspect(ABC):
         lines = additional_info.split('\n')
         if len(lines) == 1:
             return f'{msg} ({lines[0]})'
-        if len(lines) > ProblemAspect.max_additional_info:
-            lines = lines[: ProblemAspect.max_additional_info] + [
-                f'[.....truncated to {ProblemAspect.max_additional_info} lines.....]'
-            ]
+        if len(lines) > max_additional_info:
+            lines = lines[:max_additional_info] + [f'[.....truncated to {max_additional_info} lines.....]']
 
         return f'{msg}:\n' + '\n'.join(' ' * 8 + line for line in lines)
 
@@ -152,22 +147,22 @@ class ProblemAspect(ABC):
     def fatal(self, msg: str, additional_info: str | None = None, *args) -> None:
         self._check_res = False
         self._add_error()
-        self.log.critical(ProblemAspect.__append_additional_info(msg, additional_info), *args)
+        self.log.critical(self.__append_additional_info(msg, additional_info), *args)
         raise VerifyError(msg)
 
     def error(self, msg: str, additional_info: str | None = None, *args) -> None:
         self._check_res = False
         self._add_error()
-        self.log.error(ProblemAspect.__append_additional_info(msg, additional_info), *args)
-        if ProblemAspect.bail_on_error:
+        self.log.error(self.__append_additional_info(msg, additional_info), *args)
+        if self.problem.bail_on_error():
             raise VerifyError(msg)
 
     def warning(self, msg: str, additional_info: str | None = None, *args) -> None:
-        if ProblemAspect.consider_warnings_errors:
+        if self.problem.consider_warnings_errors():
             self.error(msg, additional_info, *args)
             return
         self._add_warning()
-        self.log.warning(ProblemAspect.__append_additional_info(msg, additional_info), *args)
+        self.log.warning(self.__append_additional_info(msg, additional_info), *args)
 
     def info(self, msg: str, *args) -> None:
         self.log.info(msg, *args)
@@ -1787,7 +1782,9 @@ class Problem(ProblemAspect):
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
 
-    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS[FormatVersion.LEGACY]):
+    def __init__(
+        self, probdir: str, args: argparse.Namespace, parts: dict[str, list[type]] = PROBLEM_FORMATS[FormatVersion.LEGACY]
+    ):
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
@@ -1798,6 +1795,7 @@ class Problem(ProblemAspect):
         self._data: dict[str, dict] = {}
         self._metadata: metadata.Metadata | None = None
         self.debug(f'Problem-format: {parts}')
+        self._args = args
 
     def get(self, part) -> dict:
         if isinstance(part, type) and issubclass(part, ProblemPart):
@@ -1859,15 +1857,12 @@ class Problem(ProblemAspect):
     def __str__(self) -> str:
         return str(self.shortname)
 
-    def check(self, args: argparse.Namespace) -> tuple[int, int]:
+    def check(self) -> tuple[int, int]:
         if self.shortname is None:
             return 1, 0
 
-        ProblemAspect.bail_on_error = args.bail_on_error
-        ProblemAspect.consider_warnings_errors = args.werror
-
-        executor = ThreadPoolExecutor(args.threads) if args.threads > 1 else None
-        context = Context(args, executor)
+        executor = ThreadPoolExecutor(self._args.threads) if self._args.threads > 1 else None
+        context = Context(self._args, executor)
 
         try:
             if not re.match('^[a-z0-9]+$', self.shortname):
@@ -1880,7 +1875,7 @@ class Problem(ProblemAspect):
             run.limit.check_limit_capabilities(self)
 
             # Skip any parts that do not belong to the format
-            parts = [part for part in args.parts if part in self.part_mapping]
+            parts = [part for part in self._args.parts if part in self.part_mapping]
 
             if executor:
                 for part in parts:
@@ -1920,6 +1915,15 @@ class Problem(ProblemAspect):
                         self.error(
                             f'Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative.'
                         )
+
+    def bail_on_error(self) -> bool:
+        return self._args.bail_on_error
+
+    def consider_warnings_errors(self) -> bool:
+        return self._args.werror
+
+    def max_additional_info(self) -> int:
+        return self._args.max_additional_info
 
 
 def re_argument(s: str) -> Pattern[str]:
@@ -2003,8 +2007,6 @@ def argparser() -> argparse.ArgumentParser:
 
 
 def initialize_logging(args: argparse.Namespace) -> None:
-    ProblemAspect.max_additional_info = args.max_additional_info
-
     fmt = '%(log_color)s%(levelname)s %(message)s'
     colorlog.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
 
@@ -2028,8 +2030,8 @@ def main() -> None:
                 continue
 
             print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {formatversion}')
-            with Problem(problemdir, PROBLEM_FORMATS[formatversion]) as prob:
-                errors, warnings = prob.check(args)
+            with Problem(problemdir, args, PROBLEM_FORMATS[formatversion]) as prob:
+                errors, warnings = prob.check()
 
                 def p(x: int) -> str:
                     return '' if x == 1 else 's'
