@@ -118,18 +118,14 @@ class Context:
 
 
 class ProblemAspect(ABC):
-    max_additional_info = 15
-    errors = 0
-    warnings = 0
-    bail_on_error = False
+    errors: int = 0
+    warnings: int = 0
     _check_res: bool | None = None
-    consider_warnings_errors = False
-    basename_regex = re.compile('^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9]$')
-    name: str
+    problem: Problem
 
-    @staticmethod
-    def __append_additional_info(msg: str, additional_info: str | None) -> str:
-        if additional_info is None or ProblemAspect.max_additional_info <= 0:
+    def __append_additional_info(self, msg: str, additional_info: str | None) -> str:
+        max_additional_info = self.problem.max_additional_info()
+        if additional_info is None or max_additional_info <= 0:
             return msg
         additional_info = additional_info.rstrip()
         if not additional_info:
@@ -137,29 +133,40 @@ class ProblemAspect(ABC):
         lines = additional_info.split('\n')
         if len(lines) == 1:
             return f'{msg} ({lines[0]})'
-        if len(lines) > ProblemAspect.max_additional_info:
-            lines = lines[: ProblemAspect.max_additional_info] + [
-                f'[.....truncated to {ProblemAspect.max_additional_info} lines.....]'
-            ]
+        if len(lines) > max_additional_info:
+            lines = lines[:max_additional_info] + [f'[.....truncated to {max_additional_info} lines.....]']
 
         return f'{msg}:\n' + '\n'.join(' ' * 8 + line for line in lines)
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, problem: Problem) -> None:
         self.log = log.getChild(name)
+        self.problem = problem
+
+    def fatal(self, msg: str, additional_info: str | None = None, *args) -> None:
+        self._check_res = False
+        self._add_error()
+        self.log.critical(self.__append_additional_info(msg, additional_info), *args)
+        raise VerifyError(msg)
 
     def error(self, msg: str, additional_info: str | None = None, *args) -> None:
         self._check_res = False
-        ProblemAspect.errors += 1
-        self.log.error(ProblemAspect.__append_additional_info(msg, additional_info), *args)
-        if ProblemAspect.bail_on_error:
+        self._add_error()
+        self.log.error(self.__append_additional_info(msg, additional_info), *args)
+        if self.problem.bail_on_error():
             raise VerifyError(msg)
 
     def warning(self, msg: str, additional_info: str | None = None, *args) -> None:
-        if ProblemAspect.consider_warnings_errors:
+        if self.problem.consider_warnings_errors():
             self.error(msg, additional_info, *args)
             return
-        ProblemAspect.warnings += 1
-        self.log.warning(ProblemAspect.__append_additional_info(msg, additional_info), *args)
+        self._add_warning()
+        self.log.warning(self.__append_additional_info(msg, additional_info), *args)
+
+    def error_in_2023_07(self, msg: str, additional_info: str | None = None, *args) -> None:
+        if self.problem.format is FormatVersion.LEGACY:
+            self.warning(msg, additional_info, *args)
+        else:
+            self.error(msg, additional_info, *args)
 
     def info(self, msg: str, *args) -> None:
         self.log.info(msg, *args)
@@ -168,13 +175,17 @@ class ProblemAspect(ABC):
         self.log.debug(msg, *args)
 
     def msg(self, msg):
-        # TODO Should this be silent?
         print(msg)
 
-    def check_basename(self, path: str) -> None:
-        basename = os.path.basename(path)
-        if not self.basename_regex.match(basename):
-            self.error(f"Invalid name '{basename}' (should match '{self.basename_regex.pattern}')")
+    def _add_error(self) -> None:
+        self.errors += 1
+        if self.problem is not self:
+            self.problem._add_error()
+
+    def _add_warning(self) -> None:
+        self.warnings += 1
+        if self.problem is not self:
+            self.problem._add_warning()
 
 
 class ProblemPart(ProblemAspect):
@@ -200,8 +211,7 @@ class ProblemPart(ProblemAspect):
     def __init__(self, problem: Problem) -> None:
         if self.PART_NAME is None:
             raise NotImplementedError('Every problem-part must override PART_NAME')
-        super().__init__(f'{problem.shortname}.{self.PART_NAME}')
-        self.problem = problem
+        super().__init__(f'{problem.shortname}.{self.PART_NAME}', problem)
 
     """Override to setup data about this problem-part. The order in which problem-parts are setup 
     will be decided based on the dependencies that exist.
@@ -223,7 +233,7 @@ class TestCase(ProblemAspect):
     Result = tuple[SubmissionResult, SubmissionResult, SubmissionResult]
 
     def __init__(self, problem: Problem, aspect_name: str, base: str, testcasegroup: TestCaseGroup) -> None:
-        super().__init__(f'{problem.shortname}.{aspect_name}.{testcasegroup.name}.{os.path.basename(base)}')
+        super().__init__(f'{problem.shortname}.{aspect_name}.{testcasegroup.name}.{os.path.basename(base)}', problem)
         self._base = base
         self.infile = f'{base}.in'
         self.ansfile = f'{base}.ans'
@@ -265,8 +275,6 @@ class TestCase(ProblemAspect):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
-        self.check_basename(self.infile)
-        self.check_basename(self.ansfile)
         self.check_newlines(self.infile)
         self.check_newlines(self.ansfile)
         self.check_size_limits(self.infile)
@@ -413,6 +421,7 @@ class TestCase(ProblemAspect):
 
 
 class TestCaseGroup(ProblemAspect):
+    name: str
     _DEFAULT_CONFIG = config.load_config('testdata.yaml')
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
@@ -423,7 +432,7 @@ class TestCaseGroup(ProblemAspect):
         self._datadir = datadir
         self.name = os.path.relpath(os.path.abspath(self._datadir), os.path.abspath(self._problem.probdir)).replace('/', '.')
 
-        super().__init__(f'{problem.shortname}.{aspect_name}.{self.name}')
+        super().__init__(f'{problem.shortname}.{aspect_name}.{self.name}', problem)
 
         self._seen_oob_scores = False
         self.debug('Loading test data group %s', datadir)
@@ -524,15 +533,13 @@ class TestCaseGroup(ProblemAspect):
             return self._check_res
         self._check_res = True
 
-        self.check_basename(self._datadir)
-
         if self.config['grading'] not in ['default', 'custom']:
             self.error('Invalid grading policy in testdata.yaml')
 
         if self.config['grading'] == 'custom' and len(self._problem.getProblemPart(Graders)._graders) == 0:
-            self._problem.getProblemPart(Graders).error(f'{self} has custom grading but no custom graders provided')
+            self._problem.getProblemPart(Graders).fatal(f'{self} has custom grading but no custom graders provided')
         if self.config['grading'] == 'default' and Graders._default_grader is None:
-            self._problem.getProblemPart(Graders).error(f'{self} has default grading but I could not find default grader')
+            self._problem.getProblemPart(Graders).fatal(f'{self} has default grading but I could not find default grader')
 
         if self.config['grading'] == 'default' and 'ignore_sample' in self.config['grader_flags'].split():
             if self._parent is not None:
@@ -822,14 +829,10 @@ class ProblemConfig(ProblemPart):
         except ValidationError as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
             error_str = '\n'.join([f'    {"->".join((str(loc) for loc in err["loc"]))}: {err["msg"]}' for err in e.errors()])
-            self.error(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
-            # For now, set metadata to an empty legacy config to avoid crashing.
-            self.problem.setMetadata(metadata.parse_metadata(FormatVersion.LEGACY, {}))
+            self.fatal(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
         except Exception as e:
             # This should likely be a fatal error, but I'm not sure there's a clean way to fail from setup
-            self.error(f'Failed loading problem configuration: {e}')
-            # For now, set metadata to an empty legacy config to avoid crashing.
-            self.problem.setMetadata(metadata.parse_metadata(FormatVersion.LEGACY, {}))
+            self.fatal(f'Failed loading problem configuration: {e}')
         return {}
 
     def __str__(self) -> str:
@@ -853,11 +856,7 @@ class ProblemConfig(ProblemPart):
             self.warning("License is 'unknown'")
 
         if self._metadata.uuid is None:
-            uuid_msg = f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.'
-            if self.problem.format is FormatVersion.LEGACY:
-                self.warning(uuid_msg)
-            else:
-                self.error(uuid_msg)
+            self.error_in_2023_07(f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
 
         if self._metadata.legacy_grading.show_test_data_groups and self._metadata.is_pass_fail():
             self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
@@ -1147,7 +1146,7 @@ class Graders(ProblemPart):
         for grader in self._graders:
             success, msg = grader.compile()
             if not success:
-                self.error(f'Compile error for {grader}', msg)
+                self.fatal(f'Compile error for {grader}', msg)
         return self._check_res
 
     def grade(
@@ -1252,16 +1251,16 @@ class OutputValidators(ProblemPart):
         if self.problem.getMetadata().legacy_validation == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
         elif self.problem.getMetadata().legacy_validation.startswith('custom') and not self._validators:
-            self.error('problem.yaml specifies custom validator but no validator programs found')
+            self.fatal('problem.yaml specifies custom validator but no validator programs found')
 
         if self.problem.getMetadata().legacy_validation == 'default' and self._default_validator is None:
-            self.error('Unable to locate default validator')
+            self.fatal('Unable to locate default validator')
 
         for val in self._validators[:]:
             try:
                 success, msg = val.compile()
                 if not success:
-                    self.error(f'Compile error for output validator {val}', msg)
+                    self.fatal(f'Compile error for output validator {val}', msg)
             except run.ProgramError as e:
                 self.error(str(e))
 
@@ -1744,7 +1743,10 @@ PROBLEM_FORMATS: dict[FormatVersion, dict[str, list[Type[ProblemPart]]]] = {
         'validators': [InputValidators, OutputValidators],
         'graders': [Graders],
         'data': [ProblemTestCases],
-        'submissions': [Submissions],
+        'submissions': [
+            OutputValidators,
+            Submissions,
+        ],  # OutputValidators duplicated to fatal() early if we can't find a validator. We should find a cleaner solution
     },
     FormatVersion.V_2023_07: {  # TODO: Add all the parts
         'config': [ProblemConfig],
@@ -1752,7 +1754,10 @@ PROBLEM_FORMATS: dict[FormatVersion, dict[str, list[Type[ProblemPart]]]] = {
         'validators': [InputValidators, OutputValidators],
         'graders': [Graders],
         'data': [ProblemTestCases],
-        'submissions': [Submissions],
+        'submissions': [
+            OutputValidators,
+            Submissions,
+        ],  # OutputValidators duplicated to fatal() early if we can't find a validator. We should find a cleaner solution
     },
 }
 
@@ -1771,17 +1776,21 @@ class Problem(ProblemAspect):
     of category -> part-types. You could for example have 'validators' -> [InputValidators, OutputValidators].
     """
 
-    def __init__(self, probdir: str, parts: dict[str, list[type]] = PROBLEM_FORMATS[FormatVersion.LEGACY]):
+    def __init__(
+        self, probdir: str, args: argparse.Namespace, parts: dict[str, list[type]] = PROBLEM_FORMATS[FormatVersion.LEGACY]
+    ):
         self.part_mapping: dict[str, list[Type[ProblemPart]]] = parts
         self.aspects: set[type] = {v for s in parts.values() for v in s}
         self.probdir = os.path.realpath(probdir)
-        self.shortname: str | None = os.path.basename(self.probdir)
-        super().__init__(self.shortname)
+        self.shortname: str = os.path.basename(self.probdir)
+        super().__init__(self.shortname, self)
         self.language_config = languages.load_language_config()
         self.format = get_format_version(Path(self.probdir))
         self._data: dict[str, dict] = {}
         self._metadata: metadata.Metadata | None = None
         self.debug(f'Problem-format: {parts}')
+        self._args = args
+        self.loaded = False
 
     def get(self, part) -> dict:
         if isinstance(part, type) and issubclass(part, ProblemPart):
@@ -1800,12 +1809,24 @@ class Problem(ProblemAspect):
     def getProblemPart(self, part: Type[_ProblemPartT]) -> _ProblemPartT:
         return self._classes[part.PART_NAME]  # type: ignore
 
-    def __enter__(self) -> Problem:
-        self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
+    def load(self) -> None:
+        """Parses the problem package statically, loading up information with very little verification.
+
+        Call this if you want to get a usable Problem object without expensive
+        steps (such as compiling validators, and testing submissions).
+
+        N.B., This api is EXPERIMENTAL. We eventually want to create a stable
+        API from problemtools, this is a first move in that direction.
+
+        Raises:
+            VerifyError: if problem package is too broken to parse safely
+        """
+
+        if self.loaded:
+            return
+
         if not os.path.isdir(self.probdir):
-            self.error(f"Problem directory '{self.probdir}' not found")
-            self.shortname = None
-            return self
+            self.fatal(f"Problem directory '{self.probdir}' not found")
 
         # Initialize the classes, making sure to resolve dependencies first
         initialized = set()
@@ -1835,6 +1856,8 @@ class Problem(ProblemAspect):
         for c in self.aspects:
             init(c)
 
+    def __enter__(self) -> Problem:
+        self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
@@ -1843,17 +1866,26 @@ class Problem(ProblemAspect):
     def __str__(self) -> str:
         return str(self.shortname)
 
-    def check(self, args: argparse.Namespace) -> tuple[int, int]:
-        if self.shortname is None:
-            return 1, 0
+    def check(self) -> tuple[int, int]:
+        """Loads and checks the problem package
 
-        ProblemAspect.errors = 0
-        ProblemAspect.warnings = 0
-        ProblemAspect.bail_on_error = args.bail_on_error
-        ProblemAspect.consider_warnings_errors = args.werror
+        Loads the problem package and runs checks. After this has completed,
+        the Problem object is fully populated. You do not need to manually
+        run load() first.
 
-        executor = ThreadPoolExecutor(args.threads) if args.threads > 1 else None
-        context = Context(args, executor)
+        Returns:
+            Tuple with the number of errors, warnings found.
+
+        Raises:
+            VerifyError: if problem package is too broken to parse safely
+        """
+        try:
+            self.load()
+        except VerifyError:
+            return self.errors, self.warnings
+
+        executor = ThreadPoolExecutor(self._args.threads) if self._args.threads > 1 else None
+        context = Context(self._args, executor)
 
         try:
             if not re.match('^[a-z0-9]+$', self.shortname):
@@ -1862,11 +1894,12 @@ class Problem(ProblemAspect):
                 self.warning(f'Support for version {self.format} is very incomplete. Verification may not work as expected.')
 
             self._check_symlinks()
+            self._check_file_and_directory_names()
 
             run.limit.check_limit_capabilities(self)
 
             # Skip any parts that do not belong to the format
-            parts = [part for part in args.parts if part in self.part_mapping]
+            parts = [part for part in self._args.parts if part in self.part_mapping]
 
             if executor:
                 for part in parts:
@@ -1884,7 +1917,7 @@ class Problem(ProblemAspect):
             # the directory tree it uses.
             context.wait_for_background_work()
 
-        return ProblemAspect.errors, ProblemAspect.warnings
+        return self.errors, self.warnings
 
     def _check_symlinks(self):
         """Check that all symlinks point to something existing within the problem package"""
@@ -1906,6 +1939,30 @@ class Problem(ProblemAspect):
                         self.error(
                             f'Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative.'
                         )
+
+    def _check_file_and_directory_names(self):
+        filename_regex = re.compile(r'^[a-z0-9][a-z0-9_.-]{0,253}[a-z0-9]$', re.I)
+        directory_regex = re.compile(r'^[a-z0-9]([a-z0-9_-]{0,253}[a-z0-9])?$', re.I)
+        for root, dirs, files in os.walk(self.probdir):
+            # Path of the directory we're in, starting with problem shortname. Only used for nicer error messages.
+            reldir = os.path.relpath(root, os.path.dirname(self.probdir))
+            for file in files:
+                if not filename_regex.match(file):
+                    self.error(f"Invalid file name '{file}' in {reldir} (should match {filename_regex.pattern} ignoring case)")
+            for directory in dirs:
+                if not directory_regex.match(directory):
+                    self.error_in_2023_07(
+                        f"Invalid directory name '{directory}' in {reldir} (should match {directory_regex.pattern} ignoring case)"
+                    )
+
+    def bail_on_error(self) -> bool:
+        return self._args.bail_on_error
+
+    def consider_warnings_errors(self) -> bool:
+        return self._args.werror
+
+    def max_additional_info(self) -> int:
+        return self._args.max_additional_info
 
 
 def re_argument(s: str) -> Pattern[str]:
@@ -1989,8 +2046,6 @@ def argparser() -> argparse.ArgumentParser:
 
 
 def initialize_logging(args: argparse.Namespace) -> None:
-    ProblemAspect.max_additional_info = args.max_additional_info
-
     fmt = '%(log_color)s%(levelname)s %(message)s'
     colorlog.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
 
@@ -2014,8 +2069,8 @@ def main() -> None:
                 continue
 
             print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))} with format version {formatversion}')
-            with Problem(problemdir, PROBLEM_FORMATS[formatversion]) as prob:
-                errors, warnings = prob.check(args)
+            with Problem(problemdir, args, PROBLEM_FORMATS[formatversion]) as prob:
+                errors, warnings = prob.check()
 
                 def p(x: int) -> str:
                     return '' if x == 1 else 's'
