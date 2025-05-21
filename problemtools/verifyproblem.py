@@ -264,7 +264,7 @@ class TestCase(ProblemAspect):
         self.check_size_limits(self.ansfile)
         self._problem.input_validators.validate(self)
         anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
-        outputlim = self._problem.getMetadata().limits.output
+        outputlim = self._problem.metadata.limits.output
         if anssize > outputlim:
             self.error(
                 f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit'
@@ -273,7 +273,7 @@ class TestCase(ProblemAspect):
             self.warning(
                 f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit'
             )
-        if not self._problem.getMetadata().is_interactive():
+        if not self._problem.metadata.is_interactive():
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
@@ -333,7 +333,7 @@ class TestCase(ProblemAspect):
 
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
-        if self._problem.getMetadata().is_interactive():
+        if self._problem.metadata.is_interactive():
             res_high = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
@@ -343,7 +343,7 @@ class TestCase(ProblemAspect):
                 outfile=outfile,
                 errfile=errfile,
                 timelim=timelim_high + 1,
-                memlim=self._problem.getMetadata().limits.memory,
+                memlim=self._problem.metadata.limits.memory,
                 work_dir=sub.path,
             )
             if is_TLE(status) or runtime > timelim_high:
@@ -436,7 +436,7 @@ class TestCaseGroup(ProblemAspect):
 
         # TODO: Decide if these should stay
         # Some deprecated properties are inherited from problem config during a transition period
-        legacy_grading = problem.getMetadata().legacy_grading
+        legacy_grading = problem.metadata.legacy_grading
         for key in ['accept_score', 'reject_score', 'range']:
             if getattr(legacy_grading, key) is not None:
                 self.config[key] = getattr(legacy_grading, key)
@@ -447,7 +447,7 @@ class TestCaseGroup(ProblemAspect):
         if problem_on_reject == 'grade':
             self.config['on_reject'] = 'continue'
 
-        if self._problem.getMetadata().is_pass_fail():
+        if self._problem.metadata.is_pass_fail():
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if key not in self.config:
                     self.config[key] = None
@@ -534,7 +534,7 @@ class TestCaseGroup(ProblemAspect):
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
 
-        if not self._problem.getMetadata().is_scoring():
+        if not self._problem.metadata.is_scoring():
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if self.config.get(key) is not None:
                     self.error(f"Key '{key}' is only applicable for scoring problems, this is a pass-fail problem")
@@ -542,7 +542,7 @@ class TestCaseGroup(ProblemAspect):
         if self.config['on_reject'] not in ['break', 'continue']:
             self.error(f"Invalid value '{self.config['on_reject']}' for on_reject policy")
 
-        if self._problem.getMetadata().is_scoring():
+        if self._problem.metadata.is_scoring():
             # Check grading
             try:
                 score_range = self.config['range']
@@ -705,7 +705,7 @@ class TestCaseGroup(ProblemAspect):
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
-            if self._problem.getMetadata().is_scoring():
+            if self._problem.metadata.is_scoring():
                 res.score = score
                 min_score, max_score = self.get_score_range()
                 if score is not None and not (min_score <= score <= max_score) and not self._seen_oob_scores:
@@ -754,11 +754,11 @@ class ProblemStatement(ProblemPart):
             if len(files) > 1:
                 self.error(f'Found multiple statements in the same language {lang}: {", ".join((file.name for file in files))}')
 
-            if lang not in self.problem.getMetadata().name:
+            if lang not in self.problem.metadata.name:
                 self.error(f'No problem name given in language {lang}')
-            elif not self.problem.getMetadata().name[lang]:
+            elif not self.problem.metadata.name[lang]:
                 self.error(f'Problem name in language {lang} is empty')
-            elif not self.problem.getMetadata().name[lang].strip():
+            elif not self.problem.metadata.name[lang].strip():
                 self.error(f'Problem name in language {lang} contains only whitespace')
 
             for file in files:
@@ -802,7 +802,7 @@ class ProblemConfig(ProblemPart):
         self.debug('  Loading problem config')
         try:
             self._metadata, self._origdata = metadata.load_metadata(Path(self.problem.probdir))
-            self.problem.setMetadata(self._metadata)
+            self.problem._set_metadata(self._metadata)
         except ValidationError as e:
             error_str = '\n'.join([f'    {"->".join((str(loc) for loc in err["loc"]))}: {err["msg"]}' for err in e.errors()])
             self.fatal(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
@@ -1091,7 +1091,7 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self.problem.getMetadata().is_pass_fail() and len(self._graders) > 0:
+        if self.problem.metadata.is_pass_fail() and len(self._graders) > 0:
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
@@ -1199,12 +1199,12 @@ class OutputValidators(ProblemPart):
             if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
                 self.warning('output validator language %s is not recommended' % v.language.name)
 
-        if self.problem.getMetadata().legacy_validation == 'default' and self._validators:
+        if self.problem.metadata.legacy_validation == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.getMetadata().legacy_validation.startswith('custom') and not self._validators:
+        elif self.problem.metadata.legacy_validation.startswith('custom') and not self._validators:
             self.fatal('problem.yaml specifies custom validator but no validator programs found')
 
-        if self.problem.getMetadata().legacy_validation == 'default' and self._default_validator is None:
+        if self.problem.metadata.legacy_validation == 'default' and self._default_validator is None:
             self.fatal('Unable to locate default validator')
 
         for val in self._validators[:]:
@@ -1217,7 +1217,7 @@ class OutputValidators(ProblemPart):
 
         # Only sanity check output validators if they all actually compiled
         if self._check_res:
-            flags = self.problem.getMetadata().legacy_validator_flags
+            flags = self.problem.metadata.legacy_validator_flags
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
@@ -1258,7 +1258,7 @@ class OutputValidators(ProblemPart):
         return None
 
     def _parse_validator_results(self, val, status: int, feedbackdir, testcase: TestCase) -> SubmissionResult:
-        custom_score = self.problem.getMetadata().legacy_custom_score
+        custom_score = self.problem.metadata.legacy_custom_score
         score = None
         # TODO: would be good to have some way of displaying the feedback for debugging uses
         score_file = os.path.join(feedbackdir, 'score.txt')
@@ -1298,9 +1298,7 @@ class OutputValidators(ProblemPart):
 
     def _actual_validators(self) -> list:
         vals = self._validators
-        if self.problem.getMetadata().legacy_validation == 'default' or (
-            self.problem.format is FormatVersion.V_2023_07 and not vals
-        ):
+        if self.problem.metadata.legacy_validation == 'default' or (self.problem.format is FormatVersion.V_2023_07 and not vals):
             vals = [self._default_validator]
         return [val for val in vals if val is not None]
 
@@ -1315,9 +1313,9 @@ class OutputValidators(ProblemPart):
         # file descriptor, wall time lim
         initargs = ['1', str(2 * timelim)]
         validator_args = [testcase.infile, testcase.ansfile, '<feedbackdir>']
-        submission_args = submission.get_runcmd(memlim=self.problem.getMetadata().limits.memory)
+        submission_args = submission.get_runcmd(memlim=self.problem.metadata.limits.memory)
 
-        val_memlim = self.problem.getMetadata().limits.validation_memory
+        val_memlim = self.problem.metadata.limits.validation_memory
         for val in self._actual_validators():
             if val.compile()[0]:
                 feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
@@ -1373,11 +1371,10 @@ class OutputValidators(ProblemPart):
 
     def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
         res = SubmissionResult('JE')
-        val_timelim = self.problem.getMetadata().limits.validation_time
-        val_memlim = self.problem.getMetadata().limits.validation_memory
+        val_timelim = self.problem.metadata.limits.validation_time
+        val_memlim = self.problem.metadata.limits.validation_memory
         flags = (
-            self.problem.getMetadata().legacy_validator_flags.split()
-            + testcase.testcasegroup.config['output_validator_flags'].split()
+            self.problem.metadata.legacy_validator_flags.split() + testcase.testcasegroup.config['output_validator_flags'].split()
         )
         for val in self._actual_validators():
             if val.compile()[0]:
@@ -1598,15 +1595,15 @@ class Submissions(ProblemPart):
 
     def full_score_finite(self) -> bool:
         min_score, max_score = self.problem.testdata.get_score_range()
-        if self.problem.getMetadata().legacy_grading.objective == 'min':
+        if self.problem.metadata.legacy_grading.objective == 'min':
             return min_score != float('-inf')
         else:
             return max_score != float('inf')
 
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.testdata.get_score_range()
-        best_score = min_score if self.problem.getMetadata().legacy_grading.objective == 'min' else max_score
-        return result.verdict == 'AC' and (not self.problem.getMetadata().is_scoring() or result.score == best_score)
+        best_score = min_score if self.problem.metadata.legacy_grading.objective == 'min' else max_score
+        return result.verdict == 'AC' and (not self.problem.metadata.is_scoring() or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
@@ -1621,7 +1618,7 @@ class Submissions(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        limits = self.problem.getMetadata().limits
+        limits = self.problem.metadata.limits
         time_multiplier = limits.time_multipliers.ac_to_time_limit
         safety_margin = limits.time_multipliers.time_limit_to_tle
 
@@ -1701,13 +1698,15 @@ class Problem(ProblemAspect):
         self._metadata: metadata.Metadata | None = None
         self._args = args
 
-    def getMetadata(self) -> metadata.Metadata:
-        assert self._metadata is not None, 'Attempted to access Config before it was set'
-        return self._metadata
-
-    def setMetadata(self, metadata: metadata.Metadata) -> None:
-        assert self._metadata is None, 'Attempted to set Config twice'
+    # Unfortunately must be before metadata, otherwise mypy gets confused about the type metadata.Metadata (feels like a bug)
+    def _set_metadata(self, metadata: metadata.Metadata) -> None:  # Should only be called by ProblemConfig
+        assert self._metadata is None, 'Attempted to set metadata twice'
         self._metadata = metadata
+
+    @property
+    def metadata(self) -> metadata.Metadata:
+        assert self._metadata is not None, 'Attempted to access config before it was set. load() or check() first.'
+        return self._metadata
 
     def load(self) -> None:
         """Parses the problem package statically, loading up information with very little verification.
