@@ -1,3 +1,3 @@
 Make web request via image
 
-<img src="http:picsum.photos/400">
+<img src="https:open.kattis.com/images/site/header/logo-empty.png">

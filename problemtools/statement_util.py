@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional, List, Tuple
+from urllib.parse import urlparse
 
 from . import metadata
 from .formatversion import FormatVersion, get_format_version
@@ -106,10 +107,16 @@ def foreach_image(statement_path: Path, callback):
 
 def assert_image_is_valid(statement_dir: Path, img_src: str) -> None:
     """Check that the image exists and uses an allowed extension"""
-    extension = Path(img_src).suffix
+    img_path = Path(img_src)
+    extension = img_path.suffix
     # TODO: fix svg sanitization and allow svg
     if extension not in ALLOWED_IMAGE_EXTENSIONS:
         raise ValueError(f'Unsupported image extension {extension} for image {img_src}')
+    if img_path.is_absolute():
+        raise ValueError(f'Image path must be relative, but {img_src} is not.')
+    as_url = urlparse(img_src)
+    if as_url.scheme:
+        raise ValueError(f'Image path must not be an URL with a scheme, but {img_src} is.')
 
     source_file = statement_dir / img_src
     if not source_file.exists():
