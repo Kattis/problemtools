@@ -882,22 +882,16 @@ class Attachments(ProblemPart):
 
     Attributes:
         attachments: The absolute paths to the attachment files for this problem.
-
     """
+
+    attachments: list[Path]
 
     PART_NAME = 'attachments'
 
     def setup(self):
-        attachments_path = os.path.join(self.problem.probdir, 'attachments')
-        self.attachments: list[str] = []
-        if os.path.isdir(attachments_path):
-            self.attachments = [
-                os.path.join(attachments_path, attachment_name) for attachment_name in os.listdir(attachments_path)
-            ]
-
+        attachments_dir = Path(self.problem.probdir) / 'attachments'
+        self.attachments = [p for p in attachments_dir.iterdir()] if attachments_dir.is_dir() else []
         self.debug(f'Adding attachments {str(self.attachments)}')
-
-        return {}
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
