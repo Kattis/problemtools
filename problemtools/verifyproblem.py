@@ -1663,7 +1663,7 @@ class Submissions(ProblemPart):
                     max_runtime = max(runtimes)
                     exact_timelim = max_runtime * time_multiplier
                     max_runtime_str = f'{max_runtime:.3f}'
-                    timelim = max(1, int(0.5 + exact_timelim))
+                    timelim = max(1, int(0.5 + exact_timelim))  # TODO: properly support 2023-07 time limit computation
                     timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
                     timelim_margin = max(timelim + 1, int(0.5 + exact_timelim * safety_margin))
                 else:
@@ -1673,11 +1673,12 @@ class Submissions(ProblemPart):
                         f'   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {context.fixed_timelim} seconds instead'
                     )
                     timelim = context.fixed_timelim
-                    timelim_margin = round(timelim * safety_margin)  # TODO: properly support 2023-07 time limit computation
+                    timelim_margin = round(timelim * safety_margin)
 
                 self.msg(
                     f'   Slowest AC runtime: {max_runtime_str}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs'
                 )
+                self.problem._set_timelim(timelim)
 
         return self._check_res
 
@@ -1697,6 +1698,7 @@ class Problem(ProblemAspect):
         self.loaded = False
         self._metadata: metadata.Metadata | None = None
         self._args = args
+        self._timelim: float | None = None
 
     # Unfortunately must be before metadata, otherwise mypy gets confused about the type metadata.Metadata (feels like a bug)
     def _set_metadata(self, metadata: metadata.Metadata) -> None:  # Should only be called by ProblemConfig
@@ -1707,6 +1709,15 @@ class Problem(ProblemAspect):
     def metadata(self) -> metadata.Metadata:
         assert self._metadata is not None, 'Attempted to access config before it was set. load() or check() first.'
         return self._metadata
+
+    @property
+    def timelim(self) -> float:
+        assert self._timelim is not None, 'Attempted to access timelim before it was set. check() first.'
+        return self._timelim
+
+    def _set_timelim(self, timelim: float) -> None:  # Should only be called by Submissions
+        assert self._timelim is None, 'Attempted to set timelim twice'
+        self._timelim = timelim
 
     def load(self) -> None:
         """Parses the problem package statically, loading up information with very little verification.
