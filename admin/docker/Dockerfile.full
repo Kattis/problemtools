@@ -1,33 +1,23 @@
 # Full problemtools docker image, containing problemtools and all
 # supported programming languages.
 #
+#
+# Build requirements:
+# - The problemtools .deb package must be available from the host file
+#   system under a file name matching
+#   artifacts/deb/kattis-problemtools*.deb
+#   (Version of that .deb file should match the build argument
+#    PROBLEMTOOLS_VERSION but this is not checked.)
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM problemtools/icpc:${PROBLEMTOOLS_VERSION}
+FROM problemtools/runreqs:${PROBLEMTOOLS_VERSION}
 
-LABEL maintainer="austrin@kattis.com"
-
+LABEL maintainer="contact@kattis.com"
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && \
-    apt-get install -y \
-            fp-compiler \
-            gfortran \
-            gnucobol \
-            gccgo \
-            ghc haskell-platform \
-            gnustep-devel gnustep gnustep-make gnustep-common gobjc \
-            libgmp3-dev \
-            libmozjs-78-dev \
-            lua5.4 \
-            mono-complete \
-            nodejs \
-            ocaml-nox \
-            pandoc \
-            php-cli \
-            pypy \
-            rustc \
-            sbcl \
-            scala \
-            swi-prolog \
-   ;
+RUN mkdir -p /usr/local/artifacts
+WORKDIR /usr/local/artifacts
+COPY artifacts/deb .
+RUN dpkg -i kattis-problemtools*.deb
+
+WORKDIR /
