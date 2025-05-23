@@ -1,9 +1,9 @@
-# Docker image with all packages needed to build a problemtools .deb
-#
-# Not uploaded anywhere, only used locally during building
+# Docker image with all deb packages needed for our github actions
+#  - Building a problemtools deb
+#  - Running verifyproblem on all examples
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM problemtools/runreqs:${PROBLEMTOOLS_VERSION}
+FROM problemtools/fulllangs:${PROBLEMTOOLS_VERSION}
 
 LABEL maintainer="contact@kattis.com"
 ENV DEBIAN_FRONTEND=noninteractive
@@ -18,7 +18,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         debhelper \
         dh-virtualenv \
         dpkg-dev \
-        g++ \
         git \
         make \
         libboost-regex-dev
