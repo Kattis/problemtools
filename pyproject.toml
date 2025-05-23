@@ -5,16 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "problemtools"
 authors = [
-    {name = "Fredrik Niemela", email = "niemela@kattis.com"},
-    {name = "Gunnar Kreitz", email = "gkreitz@kattis.com"},
-    {name = "Mikael Goldman", email = "migo@kattis.com"},
-    {name = "Pehr Söderman", email = "pehrs@kattis.com"},
-    {name = "Per Austrin", email = "austrin@kattis.com"},
+    {name = "Kattis AB", email = "contact@kattis.com"},
 ]
 description = "Kattis Problem Tools"
 readme = "README.md"
 license = "MIT"
 keywords = ["kattis", "problemtools", "icpc", "clics"]
+requires-python = ">= 3.11"
 
 dependencies = [
     "colorlog",
@@ -44,6 +41,7 @@ include = ["problemtools", "problemtools.*"]
 
 [tool.setuptools_scm]
 version_file = "problemtools/_version.py"
+local_scheme = "no-local-version"
 
 [tool.ruff]
 line-length = 130
