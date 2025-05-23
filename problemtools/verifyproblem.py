@@ -177,6 +177,15 @@ class ProblemAspect(ABC):
     def msg(self, msg):
         print(msg)
 
+    def warn_directory(self, name: str, prop: str) -> None:
+        """Warns if a directory meant for a different problem format version exists"""
+        good_dir = getattr(self.problem.format, prop)
+        bad_dirs = {getattr(version, prop) for version in FormatVersion} - {good_dir}
+        problem_root = Path(self.problem.probdir)
+        for directory in bad_dirs:
+            if (problem_root / directory).exists():
+                self.warning(f'Found directory "{directory}". Version {self.problem.format} looks for {name} in "{good_dir}"')
+
     def _add_error(self) -> None:
         self.errors += 1
         if self.problem is not self:
@@ -738,6 +747,8 @@ class ProblemStatement(ProblemPart):
             return self._check_res
         self._check_res = True
 
+        self.warn_directory('problem statements', 'statement_directory')
+
         if not self.statements:
             if self.problem.format is FormatVersion.LEGACY:
                 allowed_statements = ', '.join(
@@ -1168,16 +1179,12 @@ class OutputValidators(ProblemPart):
     PART_NAME = 'output_validator'
 
     def setup(self):
-        if self.problem.format is FormatVersion.LEGACY and (Path(self.problem.probdir) / 'output_validators').exists():
-            self.error('output_validators is not supported after Legacy; please use output_validator instead')
-
         self._validators = run.find_programs(
             os.path.join(self.problem.probdir, self.problem.format.output_validator_directory),
             language_config=self.problem.language_config,
             work_dir=self.problem.tmpdir,
         )
         self._has_precompiled = False
-        return {}
 
     def __str__(self) -> str:
         return 'output validators'
@@ -1192,6 +1199,8 @@ class OutputValidators(ProblemPart):
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
+
+        self.warn_directory('output validators', 'output_validator_directory')
 
         recommended_output_validator_languages = {'c', 'cpp', 'python3'}
 
