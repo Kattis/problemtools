@@ -77,6 +77,7 @@ if [ "${UPDATE_LATEST}" = "true" ]; then
     echo "Build complete. If you are happy with the images, run the following:"
     for IMAGE in minimal icpc full githubci; do
         echo "    docker tag problemtools/${IMAGE}:${TAG} problemtools/${IMAGE}:latest"
-        echo "    docker push problemtools/${IMAGE}:${TAG} --all-tags"
+        echo "    docker push problemtools/${IMAGE}:${TAG}"
+        echo "    docker push problemtools/${IMAGE}:latest"
     done
 fi
