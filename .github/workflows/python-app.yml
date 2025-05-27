@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["pypy3.11", "3.11"] # 3.11 is the lowest we support, since we want StrEnum
+        python-version: ["3.11", "3.12", "3.13"] # 3.11 is the lowest we support, since we want StrEnum
+    container:
+      image: problemtools/githubci:latest
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -26,29 +28,35 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install mypy ruff pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        sudo apt-get update
-        sudo apt-get install pandoc tidy ghostscript python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic
+        python -m venv venv
+        venv/bin/python --version
+        venv/bin/pip install mypy ruff pytest
+        if [ -f requirements.txt ]; then venv/bin/pip install -r requirements.txt; fi
     - name: Lint with ruff
-      run: ruff check --output-format=github
+      run: venv/bin/ruff check --output-format=github
     - name: Check ruff formatting
-      run: ruff format --check --diff
+      run: venv/bin/ruff format --check --diff
     - name: Test with pytest
-      run:  pytest
+      run:  venv/bin/pytest
     - name: Run mypy
       run: |
-        mypy --non-interactive --config-file mypy.ini -p problemtools
+        venv/bin/mypy --non-interactive --config-file mypy.ini -p problemtools
 
   packages: # Use a separate job to test debian packaging to speed things up (no need to test this for every python version above)
     runs-on: ubuntu-latest
+    container:
+      image: problemtools/githubci:latest
     steps:
     - uses: actions/checkout@v4
-    - name: Install apt packages (for debbuild)
-      run: |
-        sudo apt-get update
-        sudo apt-get install debhelper dh-virtualenv dpkg-dev python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git build-essential
-      shell: bash
+      with:
+        submodules: true
     - name: Build debian packages
-      run:  make builddeb
+      run:  |
+        make builddeb
+    - name: Install debian package
+      run:  dpkg -i ../kattis-problemtools_*.deb
+    - name: Verify examples
+      run: |
+        shopt -s extglob
+        verifyproblem examples/!(README.md)
+      shell: bash
