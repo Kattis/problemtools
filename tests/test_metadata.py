@@ -86,6 +86,21 @@ def test_parse_multi_source(minimal_2023_conf):
     assert m.source[2].url is None
 
 
+def test_parse_complex_type(minimal_2023_conf):
+    c = minimal_2023_conf
+    c['type'] = ['scoring', 'multi-pass', 'interactive']
+    m = metadata.parse_metadata(FormatVersion.V_2023_07, c, {'en': 'Hello World!'})
+    assert len(m.type) == 3
+    assert metadata.ProblemType.SCORING in m.type
+    assert metadata.ProblemType.MULTI_PASS in m.type
+    assert metadata.ProblemType.INTERACTIVE in m.type
+    assert not m.is_pass_fail()
+    assert m.is_scoring()
+    assert m.is_interactive()
+    assert m.is_multi_pass()
+    assert not m.is_submit_answer()
+
+
 def test_load_hello():
     m, _ = metadata.load_metadata(Path(__file__).parent / 'hello')
     assert m.name['en'] == 'Hello World!'
@@ -99,3 +114,5 @@ def test_load_hello():
     assert m.is_pass_fail()
     assert not m.is_scoring()
     assert not m.is_interactive()
+    assert not m.is_multi_pass()
+    assert not m.is_submit_answer()
