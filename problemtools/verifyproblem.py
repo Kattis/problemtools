@@ -282,7 +282,7 @@ class TestCase(ProblemAspect):
             self.warning(
                 f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit'
             )
-        if not self._problem.metadata.is_interactive():
+        if not self._problem.is_interactive():
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
@@ -342,7 +342,7 @@ class TestCase(ProblemAspect):
 
     def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
         # This may be called off-main thread.
-        if self._problem.metadata.is_interactive():
+        if self._problem.is_interactive():
             res_high = self._problem.output_validators.validate_interactive(self, sub, timelim_high, self._problem.submissions)
         else:
             outfile = os.path.join(self._problem.tmpdir, f'output-{self.counter}')
@@ -456,7 +456,7 @@ class TestCaseGroup(ProblemAspect):
         if problem_on_reject == 'grade':
             self.config['on_reject'] = 'continue'
 
-        if self._problem.metadata.is_pass_fail():
+        if self._problem.is_pass_fail():
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if key not in self.config:
                     self.config[key] = None
@@ -543,7 +543,7 @@ class TestCaseGroup(ProblemAspect):
             if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
                 self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
 
-        if not self._problem.metadata.is_scoring():
+        if not self._problem.is_scoring():
             for key in TestCaseGroup._SCORING_ONLY_KEYS:
                 if self.config.get(key) is not None:
                     self.error(f"Key '{key}' is only applicable for scoring problems, this is a pass-fail problem")
@@ -551,7 +551,7 @@ class TestCaseGroup(ProblemAspect):
         if self.config['on_reject'] not in ['break', 'continue']:
             self.error(f"Invalid value '{self.config['on_reject']}' for on_reject policy")
 
-        if self._problem.metadata.is_scoring():
+        if self._problem.is_scoring():
             # Check grading
             try:
                 score_range = self.config['range']
@@ -616,7 +616,7 @@ class TestCaseGroup(ProblemAspect):
             if os.path.basename(self._datadir) != 'sample':
                 self.error(f'Testcase group {self._datadir} exists, but does not contain any testcases')
             else:
-                if not (self._problem.metadata.is_interactive() and glob.glob(os.path.join(self._datadir, '*.interaction'))):
+                if not (self._problem.is_interactive() and glob.glob(os.path.join(self._datadir, '*.interaction'))):
                     self.warning(f'Sample testcase group {self._datadir} exists, but does not contain any testcases')
 
         # Check whether a <= b according to a natural sorting where numeric components
@@ -715,7 +715,7 @@ class TestCaseGroup(ProblemAspect):
             if sub_results:
                 res.testcase = sub_results[-1].testcase
                 res.additional_info = sub_results[-1].additional_info
-            if self._problem.metadata.is_scoring():
+            if self._problem.is_scoring():
                 res.score = score
                 min_score, max_score = self.get_score_range()
                 if score is not None and not (min_score <= score <= max_score) and not self._seen_oob_scores:
@@ -751,7 +751,7 @@ class ProblemStatement(ProblemPart):
         self.warn_directory('problem statements', 'statement_directory')
 
         for ifilename in glob.glob(os.path.join(self.problem.probdir, 'data/sample/*.interaction')):
-            if not self.problem.metadata.is_interactive():
+            if not self.problem.is_interactive():
                 self.error(f'Problem is not interactive, but there is an interaction sample {ifilename}')
             with open(ifilename, 'r') as interaction:
                 for i, line in enumerate(interaction):
@@ -847,9 +847,9 @@ class ProblemConfig(ProblemPart):
             if t1 in self._metadata.type and t2 in self._metadata.type:
                 self.error(f'Problem has incompatible types: {t1}, {t2}')
 
-        if metadata.ProblemType.MULTI_PASS in self._metadata.type:
+        if self.problem.is_multi_pass():
             self.warning('The type multi-pass is not yet supported.')
-        if metadata.ProblemType.SUBMIT_ANSWER in self._metadata.type:
+        if self.problem.is_submit_answer():
             self.warning('The type submit-answer is not yet supported.')
 
         # Check rights_owner
@@ -867,10 +867,10 @@ class ProblemConfig(ProblemPart):
         if self._metadata.uuid is None:
             self.error_in_2023_07(f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
 
-        if self._metadata.legacy_grading.show_test_data_groups and self._metadata.is_pass_fail():
+        if self._metadata.legacy_grading.show_test_data_groups and self.problem.is_pass_fail():
             self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
         if (
-            not self._metadata.is_pass_fail()
+            not self.problem.is_pass_fail()
             and self.problem.testdata.has_custom_groups()
             and 'show_test_data_groups' not in self._origdata.get('grading', {})
             and self.problem.format is FormatVersion.LEGACY
@@ -880,7 +880,7 @@ class ProblemConfig(ProblemPart):
             )
 
         if self._metadata.legacy_grading.on_reject is not None:
-            if self._metadata.is_pass_fail() and self._metadata.legacy_grading.on_reject == 'grade':
+            if self.problem.is_pass_fail() and self._metadata.legacy_grading.on_reject == 'grade':
                 self.error("Invalid on_reject policy 'grade' for problem type 'pass-fail'")
 
         for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
@@ -1126,7 +1126,7 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self.problem.metadata.is_pass_fail() and len(self._graders) > 0:
+        if self.problem.is_pass_fail() and len(self._graders) > 0:
             self.error('There are grader programs but the problem is pass-fail')
 
         for grader in self._graders:
@@ -1636,7 +1636,7 @@ class Submissions(ProblemPart):
     def fully_accepted(self, result: SubmissionResult) -> bool:
         min_score, max_score = self.problem.testdata.get_score_range()
         best_score = min_score if self.problem.metadata.legacy_grading.objective == 'min' else max_score
-        return result.verdict == 'AC' and (not self.problem.metadata.is_scoring() or result.score == best_score)
+        return result.verdict == 'AC' and (not self.problem.is_scoring() or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
@@ -1751,6 +1751,21 @@ class Problem(ProblemAspect):
     def _set_timelim(self, timelim: float) -> None:  # Should only be called by Submissions
         assert self._timelim is None, 'Attempted to set timelim twice'
         self._timelim = timelim
+
+    def is_pass_fail(self) -> bool:
+        return self.metadata.is_pass_fail()
+
+    def is_scoring(self) -> bool:
+        return self.metadata.is_scoring()
+
+    def is_interactive(self) -> bool:
+        return self.metadata.is_interactive()
+
+    def is_multi_pass(self) -> bool:
+        return self.metadata.is_multi_pass()
+
+    def is_submit_answer(self) -> bool:
+        return self.metadata.is_submit_answer()
 
     def load(self) -> None:
         """Parses the problem package statically, loading up information with very little verification.

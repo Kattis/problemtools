@@ -222,6 +222,12 @@ class Metadata(BaseModel):
     def is_interactive(self) -> bool:
         return ProblemType.INTERACTIVE in self.type
 
+    def is_multi_pass(self) -> bool:
+        return ProblemType.MULTI_PASS in self.type
+
+    def is_submit_answer(self) -> bool:
+        return ProblemType.SUBMIT_ANSWER in self.type
+
     @classmethod
     def from_legacy(cls: Type[Self], legacy: MetadataLegacy, names_from_statements: dict[str, str]) -> Self:
         metadata = legacy.model_dump()

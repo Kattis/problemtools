@@ -16,3 +16,8 @@ def test_load_hello():
         # pytest and fork don't go along very well, so just run aspects that work without run
         assert p.config.check(context)
         assert p.attachments.check(context)
+        assert p.is_pass_fail()
+        assert not p.is_scoring()
+        assert not p.is_interactive()
+        assert not p.is_multi_pass()
+        assert not p.is_submit_answer()
