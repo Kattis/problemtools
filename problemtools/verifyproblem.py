@@ -828,6 +828,20 @@ class ProblemConfig(ProblemPart):
             return self._check_res
         self._check_res = True
 
+        INCOMPATIBLE_TYPES = [
+            (metadata.ProblemType.PASS_FAIL, metadata.ProblemType.SCORING),
+            (metadata.ProblemType.SUBMIT_ANSWER, metadata.ProblemType.MULTI_PASS),
+            (metadata.ProblemType.SUBMIT_ANSWER, metadata.ProblemType.INTERACTIVE),
+        ]
+        for t1, t2 in INCOMPATIBLE_TYPES:
+            if t1 in self._metadata.type and t2 in self._metadata.type:
+                self.error(f'Problem has incompatible types: {t1}, {t2}')
+
+        if metadata.ProblemType.MULTI_PASS in self._metadata.type:
+            self.warning('The type multi-pass is not yet supported.')
+        if metadata.ProblemType.SUBMIT_ANSWER in self._metadata.type:
+            self.warning('The type submit-answer is not yet supported.')
+
         # Check rights_owner
         if self._metadata.license == metadata.License.PUBLIC_DOMAIN:
             if self._metadata.rights_owner:
