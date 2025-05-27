@@ -616,7 +616,8 @@ class TestCaseGroup(ProblemAspect):
             if os.path.basename(self._datadir) != 'sample':
                 self.error(f'Testcase group {self._datadir} exists, but does not contain any testcases')
             else:
-                self.warning(f'Sample testcase group {self._datadir} exists, but does not contain any testcases')
+                if not (self._problem.metadata.is_interactive() and glob.glob(os.path.join(self._datadir, '*.interaction'))):
+                    self.warning(f'Sample testcase group {self._datadir} exists, but does not contain any testcases')
 
         # Check whether a <= b according to a natural sorting where numeric components
         # are compactified, so that e.g. "a" < "a1" < "a2" < "a10" = "a010" < "a10a".
@@ -748,6 +749,15 @@ class ProblemStatement(ProblemPart):
         self._check_res = True
 
         self.warn_directory('problem statements', 'statement_directory')
+
+        for ifilename in glob.glob(os.path.join(self.problem.probdir, 'data/sample/*.interaction')):
+            if not self.problem.metadata.is_interactive():
+                self.error(f'Problem is not interactive, but there is an interaction sample {ifilename}')
+            with open(ifilename, 'r') as interaction:
+                for i, line in enumerate(interaction):
+                    if len(line) == 0 or (line[0] != '<' and line[0] != '>'):
+                        self.error(f'Interaction {ifilename}: line {i + 1} does not start with < or >')
+                        break
 
         if not self.statements:
             if self.problem.format is FormatVersion.LEGACY:
