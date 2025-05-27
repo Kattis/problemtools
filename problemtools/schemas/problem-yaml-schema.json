@@ -1,0 +1,196 @@
+{
+  "$id": "https://www.kattis.com/problem-package-format/spec/legacy.html",
+  "$defs": {
+    "license-type": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "public domain",
+        "cc0",
+        "cc by",
+        "cc by-sa",
+        "educational",
+        "permission"
+      ]
+    },
+    "limits-type": {
+      "type": "object",
+      "properties": {
+        "time_multiplier": {
+          "type": "number",
+          "default": 5
+        },
+        "time_safety_margin": {
+          "type": "number",
+          "default": 2
+        },
+        "memory": {
+          "type": "integer"
+        },
+        "output": {
+          "type": "integer"
+        },
+        "code": {
+          "type": "integer"
+        },
+        "compilation_time": {
+          "type": "integer"
+        },
+        "compilation_memory": {
+          "type": "integer"
+        },
+        "validation_time": {
+          "type": "integer"
+        },
+        "validation_memory": {
+          "type": "integer"
+        },
+        "validation_output": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scoring-type": {
+      "type": "object",
+      "properties": {
+        "objective": {
+          "type": "string",
+          "enum": [
+            "min",
+            "max"
+          ],
+          "default": "max"
+        },
+        "show_test_data_groups": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "type-type": {
+      "type": "string",
+      "enum": [
+        "pass-fail",
+        "scoring"
+      ]
+    },
+    "validation-type": {
+      "type": "string",
+      "enum": [
+        "default",
+        "custom",
+        "custom interactive",
+        "custom interactive score",
+        "custom score",
+        "custom score interactive"
+      ],
+      "default": "default"
+    },
+    "version-type": {
+      "type": "string",
+      "const": "legacy"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "problem_format_version": {
+      "$ref": "#/$defs/version-type",
+      "default": "legacy"
+    },
+    "type": {
+      "$ref": "#/$defs/type-type",
+      "default": "pass-fail"
+    },
+    "name": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "license": {
+      "$ref": "#/$defs/license-type",
+      "default": "unknown"
+    },
+    "rights_owner": {
+      "type": "string"
+    },
+    "limits": {
+      "$ref": "#/$defs/limits-type"
+    },
+    "validation": {
+      "$ref": "#/$defs/validation-type"
+    },
+    "validator_flags": {
+      "type": "string"
+    },
+    "scoring": {
+      "$ref": "#/$defs/scoring-type"
+    },
+    "grading": {
+      "$ref": "#/$defs/scoring-type",
+      "deprecated": true
+    },
+    "keywords": {
+      "type": "string"
+    }
+  },
+  "dependentRequired": {
+    "source_url": [
+      "source"
+    ]
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "license": {
+            "not": {
+              "enum": [
+                "unknown",
+                "public domain"
+              ]
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "rights_owner"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "license": {
+            "const": "public domain"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "rights_owner"
+          ]
+        }
+      }
+    },
+    {
+      "not": {
+        "required": [
+          "scoring",
+          "grading"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}
