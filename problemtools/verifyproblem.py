@@ -1226,11 +1226,13 @@ class OutputValidators(ProblemPart):
 
         self.warn_directory('output validators', 'output_validator_directory')
 
-        recommended_output_validator_languages = {'c', 'cpp', 'python3'}
+        safe_output_validator_languages = {'c', 'cpp', 'python3'}
 
         for v in self._validators:
-            if isinstance(v, run.SourceCode) and v.language.lang_id not in recommended_output_validator_languages:
-                self.warning('output validator language %s is not recommended' % v.language.name)
+            if isinstance(v, run.SourceCode) and v.language.lang_id not in safe_output_validator_languages:
+                self.error_in_2023_07(
+                    f'Output validator in {v.language.name}. Only {safe_output_validator_languages} are standardized. Check carefully if your CCS supports more (Kattis does not).'
+                )
 
         if self.problem.metadata.legacy_validation == 'default' and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
