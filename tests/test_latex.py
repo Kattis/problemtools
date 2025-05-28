@@ -19,11 +19,10 @@ def test_pdf_render_verifyproblem():
 def test_pdf_render_problem2pdf():
     # Same options as typical problem2pdf usage
     with tempfile.TemporaryDirectory() as temp_dir:
-        options = problem2pdf.get_parser().parse_args([''])
         problem_path = Path(__file__).parent / '..' / 'examples' / 'guess'
-        options.problem = str(problem_path.resolve())
-        options.language = 'en'
-        options.quiet = True
-        options.dest_dir = str(temp_dir)
+        temp_filename = Path(temp_dir) / 'guess.pdf'
+        options = problem2pdf.get_parser().parse_args(['-o', str(temp_filename), '-l', 'en', '-q', str(problem_path.resolve())])
         if not problem2pdf.convert(options):
             assert False, 'PDF conversion failed'
+        with open(temp_filename, 'rb') as temp_file:
+            assert temp_file.read(5) == b'%PDF-', 'Output header does not look like a PDF.'
