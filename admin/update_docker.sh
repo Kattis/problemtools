@@ -49,7 +49,7 @@ mkdir -p artifacts
 sudo rm -rf artifacts/deb
 # Use our build image to build a deb
 docker run --rm -v "$(pwd)/../..:/problemtools" -v "$(pwd)/artifacts/deb:/artifacts" problemtools/build:${TAG} \
-    /bin/bash -c '
+    /bin/bash -c "
         set -e ;
         mkdir /build ;
         cd /build ;
@@ -57,7 +57,7 @@ docker run --rm -v "$(pwd)/../..:/problemtools" -v "$(pwd)/artifacts/deb:/artifa
         git clone --branch ${TAG} /problemtools ;
         cd problemtools ;
         make builddeb ;
-        cp ../*.deb /artifacts'
+        cp ../*.deb /artifacts"
 sudo chown -R $USER:$USER artifacts/
 
 
