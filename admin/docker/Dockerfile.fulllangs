@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # All languages, plus curl which we need to fetch pypy2
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && apt-get install -y \
         curl \
         fp-compiler \

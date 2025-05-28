@@ -1,8 +1,19 @@
 #!/bin/bash
 set -e
 
+ALLOW_DIRTY=false
 TAG=develop
 UPDATE_LATEST=false
+
+while getopts "d" opt; do
+    case $opt in
+        d) ALLOW_DIRTY=true ;;
+        \?) echo "Invalid option: -$opt" ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
 if [ "$1" != "" ]; then
     TAG=$1
     UPDATE_LATEST=true
@@ -13,12 +24,12 @@ cd $(dirname $(readlink -f $0))/docker
 if [[ -n $(git status -s) ]]; then
     echo "Repository is dirty."
     git status -s
-    exit 1
+    [[ "${ALLOW_DIRTY}" != "true" ]] && exit 1
 fi
 
 if [[ $(git rev-parse --abbrev-ref HEAD) != ${TAG} && $(git describe --exact-match --tags 2>/dev/null) != ${TAG} ]]; then
     echo "Repository is currently not on branch/tag ${TAG}."
-    exit 1
+    [[ "${ALLOW_DIRTY}" != "true" ]] && exit 1
 fi
 
 
@@ -38,7 +49,7 @@ mkdir -p artifacts
 sudo rm -rf artifacts/deb
 # Use our build image to build a deb
 docker run --rm -v "$(pwd)/../..:/problemtools" -v "$(pwd)/artifacts/deb:/artifacts" problemtools/build:${TAG} \
-    /bin/bash -c '
+    /bin/bash -c "
         set -e ;
         mkdir /build ;
         cd /build ;
@@ -46,7 +57,7 @@ docker run --rm -v "$(pwd)/../..:/problemtools" -v "$(pwd)/artifacts/deb:/artifa
         git clone --branch ${TAG} /problemtools ;
         cd problemtools ;
         make builddeb ;
-        cp ../*.deb /artifacts'
+        cp ../*.deb /artifacts"
 sudo chown -R $USER:$USER artifacts/
 
 
