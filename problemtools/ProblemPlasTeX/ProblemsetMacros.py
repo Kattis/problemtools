@@ -114,7 +114,7 @@ class _graphics_command(Command):
         f = self.attributes['file']
         ext = self.ownerDocument.userdata.getPath('packages/graphicx/extensions', ['.png', '.jpg', '.jpeg', '.gif', '.pdf'])
         paths = self.ownerDocument.userdata.getPath('packages/graphicx/paths', [os.path.dirname(basetex.filename)])
-        img = None
+        img: str | None = None
         # Check for file using graphicspath
         for p in paths:
             for e in [''] + ext:
@@ -134,7 +134,7 @@ class _graphics_command(Command):
                 except (OSError, IOError):
                     pass
 
-        if not os.path.isfile(img):
+        if img is None or not os.path.isfile(img):
             log.warning('Could not identify image "%s"' % f)
 
         self.imageoverride = img
