@@ -867,6 +867,10 @@ class ProblemConfig(ProblemPart):
         if self._metadata.uuid is None:
             self.error_in_2023_07(f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
 
+        names_with_no_statement = [lang for lang in self._metadata.name if lang not in self.problem.statement.statements]
+        if names_with_no_statement:
+            self.error(f'Names exist for languages without problem statements: {", ".join(names_with_no_statement)}')
+
         if self._metadata.legacy_grading.show_test_data_groups and self.problem.is_pass_fail():
             self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
         if (
