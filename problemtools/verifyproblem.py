@@ -1800,6 +1800,7 @@ class Problem(ProblemAspect):
         self.graders = Graders(self)
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.submissions = Submissions(self)
+        self.loaded = True
 
     def __enter__(self) -> Problem:
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
