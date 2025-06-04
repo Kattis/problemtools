@@ -19,7 +19,8 @@ jobs:
       image: quay.io/pypa/manylinux_2_28_x86_64
     steps:
     - uses: actions/checkout@v4
-      fetch-depth: 0  # We need full history for setuptools_scm to figure out version
+      with:
+        fetch-depth: 0  # We need full history for setuptools_scm to figure out version
     - name: Set safe directory (work around checkout not doing that properly for containers)
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
     - name: Install build dependencies for checktestdata
