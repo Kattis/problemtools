@@ -10,7 +10,7 @@
 #    PROBLEMTOOLS_VERSION but this is not checked.)
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM problemtools/runreqs:${PROBLEMTOOLS_VERSION}
+FROM problemtools/fulllangs:${PROBLEMTOOLS_VERSION}
 
 LABEL maintainer="contact@kattis.com"
 ENV DEBIAN_FRONTEND=noninteractive
