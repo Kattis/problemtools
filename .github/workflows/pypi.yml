@@ -1,0 +1,86 @@
+name: Publish python distribution to PyPI and TestPyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      pushTestPyPi:
+        description: 'Push package to TestPyPi'
+        required: true
+        type: boolean
+      pushPyPi:
+        description: 'Push package to PyPi'
+        required: true
+        type: boolean
+
+jobs:
+  build-pypi:
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/pypa/manylinux_2_28_x86_64
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set safe directory (work around checkout not doing that properly for containers)
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+    - name: Install build dependencies for checktestdata
+      run: yum -y install boost-devel gmp-devel
+    - name: Build sdist (and broken wheel)
+      run: /opt/python/cp311-cp311/bin/python -m build
+    - name: Repair wheel
+      run: auditwheel repair dist/problemtools-*.whl
+    - name: Replace broken wheel with repaired wheel
+      run: |
+        rm -f dist/*.whl
+        cp wheelhouse/*.whl dist
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+
+  publish-to-testpypi:
+    name: Publish Python distribution to TestPyPI
+    needs:
+    - build-pypi
+    runs-on: ubuntu-latest
+    if: ${{ inputs.pushTestPyPi }}
+
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/problemtools
+
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+
+  publish-to-pypi:
+    name: Publish Python distribution to PyPI
+    needs:
+    - build-pypi
+    runs-on: ubuntu-latest
+    if: ${{ inputs.pushPyPi }}
+
+    environment:
+      name: pypi
+      url: https://pypi.org/p/problemtools
+
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
