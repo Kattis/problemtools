@@ -1,7 +1,18 @@
 #!/bin/bash
 set -e
 
+ALLOW_DIRTY=false
 TAG=develop
+
+while getopts "d" opt; do
+    case $opt in
+        d) ALLOW_DIRTY=true ;;
+        \?) echo "Invalid option: -$opt" ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
 if [ "$1" != "" ]; then
     TAG=$1
 fi
@@ -16,12 +27,12 @@ fi
 if [[ -n $(git status -s) ]]; then
     echo "Repository is dirty."
     git status -s
-    exit 1
+    [[ "${ALLOW_DIRTY}" != "true" ]] && exit 1
 fi
 
 if [[ $(git rev-parse --abbrev-ref HEAD) != ${TAG} && $(git describe --exact-match --tags 2>/dev/null) != ${TAG} ]]; then
     echo "Repository is currently not on branch/tag ${TAG}."
-    exit 1
+    [[ "${ALLOW_DIRTY}" != "true" ]] && exit 1
 fi
 
 echo "Building sdist and manylinux wheel"
