@@ -23,11 +23,12 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
         options: command-line arguments. See problem2html.py
     """
     destfile = string.Template(options.destfile).safe_substitute(problem=problem_root.name)
+    imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problem_root.name)
 
     command = ['pandoc', str(statement_file), '-t', 'html', '--mathjax']
     statement_html = subprocess.run(command, capture_output=True, text=True, shell=False, check=True).stdout
 
-    statement_html = sanitize_html(statement_file.parent, statement_html)
+    statement_html = sanitize_html(statement_file.parent, statement_html, imgbasedir)
 
     templatepaths = [
         os.path.join(os.path.dirname(__file__), 'templates/markdown_html'),
@@ -76,7 +77,7 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
     return True
 
 
-def sanitize_html(statement_dir: Path, statement_html: str) -> str:
+def sanitize_html(statement_dir: Path, statement_html: str, imgbasedir: str) -> str:
     # Allow footnote ids (the anchor points you jump to)
     def is_fn_id(s):
         pattern_id_top = r'^fn\d+$'
@@ -106,7 +107,7 @@ def sanitize_html(statement_dir: Path, statement_html: str) -> str:
                 nonlocal image_fail_reason
                 image_fail_reason.append(e)
                 return None
-            return copy_image(statement_dir, value)
+            return copy_image(statement_dir, value, imgbasedir)
         return None
 
     statement_html = nh3.clean(
@@ -132,7 +133,7 @@ def sanitize_html(statement_dir: Path, statement_html: str) -> str:
     return statement_html
 
 
-def copy_image(statement_dir: Path, img_src: str) -> str:
+def copy_image(statement_dir: Path, img_src: str, imgbasedir: str) -> str:
     """Copy image to working directory (with new filename) and returns the new filename
 
     Args:
@@ -147,4 +148,4 @@ def copy_image(statement_dir: Path, img_src: str) -> str:
 
     if not os.path.isfile(filename):  # check if already copied
         shutil.copyfile(statement_dir / img_src, filename)
-    return filename
+    return imgbasedir + filename
