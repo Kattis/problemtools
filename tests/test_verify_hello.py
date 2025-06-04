@@ -21,3 +21,13 @@ def test_load_hello():
         assert not p.is_interactive()
         assert not p.is_multi_pass()
         assert not p.is_submit_answer()
+
+
+def test_load_twice():
+    directory = pathlib.Path(__file__).parent / 'hello'
+    string = str(directory.resolve())
+
+    args = verify.argparser().parse_args([string])
+    with verify.Problem(string, args) as p:
+        p.load()
+        p.load()

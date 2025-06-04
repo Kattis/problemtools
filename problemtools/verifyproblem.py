@@ -867,6 +867,10 @@ class ProblemConfig(ProblemPart):
         if self._metadata.uuid is None:
             self.error_in_2023_07(f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
 
+        names_with_no_statement = [lang for lang in self._metadata.name if lang not in self.problem.statement.statements]
+        if names_with_no_statement:
+            self.error(f'Names exist for languages without problem statements: {", ".join(names_with_no_statement)}')
+
         if self._metadata.legacy_grading.show_test_data_groups and self.problem.is_pass_fail():
             self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
         if (
@@ -1210,6 +1214,11 @@ class OutputValidators(ProblemPart):
         )
         self._has_precompiled = False
 
+    def uses_default_validator(self) -> bool:
+        if self.problem.format is FormatVersion.LEGACY:
+            return self.problem.metadata.legacy_validation == 'default'
+        return not self._validators
+
     def __str__(self) -> str:
         return 'output validators'
 
@@ -1234,12 +1243,15 @@ class OutputValidators(ProblemPart):
                     f'Output validator in {v.language.name}. Only {safe_output_validator_languages} are standardized. Check carefully if your CCS supports more (Kattis does not).'
                 )
 
-        if self.problem.metadata.legacy_validation == 'default' and self._validators:
+        if len(self._validators) > 1:
+            self.error_in_2023_07('Found more than one output validator. This was allowed in legacy (but not on Kattis)')
+
+        if self.uses_default_validator() and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif self.problem.metadata.legacy_validation.startswith('custom') and not self._validators:
+        elif not self.uses_default_validator() and not self._validators:
             self.fatal('problem.yaml specifies custom validator but no validator programs found')
 
-        if self.problem.metadata.legacy_validation == 'default' and self._default_validator is None:
+        if self.uses_default_validator() and self._default_validator is None:
             self.fatal('Unable to locate default validator')
 
         for val in self._validators[:]:
@@ -1332,10 +1344,9 @@ class OutputValidators(ProblemPart):
         return SubmissionResult('AC', score=score)
 
     def _actual_validators(self) -> list:
-        vals = self._validators
-        if self.problem.metadata.legacy_validation == 'default' or (self.problem.format is FormatVersion.V_2023_07 and not vals):
-            vals = [self._default_validator]
-        return [val for val in vals if val is not None]
+        if self.uses_default_validator():
+            return [self._default_validator]
+        return self._validators
 
     def validate_interactive(self, testcase: TestCase, submission, timelim: int, errorhandler: Submissions) -> SubmissionResult:
         # This may be called off-main thread.
@@ -1401,7 +1412,6 @@ class OutputValidators(ProblemPart):
                 shutil.rmtree(feedbackdir)
                 if res.verdict != 'AC':
                     return res
-        # TODO: check that all output validators give same result
         return res
 
     def validate(self, testcase: TestCase, submission_output: str) -> SubmissionResult:
@@ -1800,6 +1810,7 @@ class Problem(ProblemAspect):
         self.graders = Graders(self)
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.submissions = Submissions(self)
+        self.loaded = True
 
     def __enter__(self) -> Problem:
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
