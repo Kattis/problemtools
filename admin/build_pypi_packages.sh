@@ -4,6 +4,10 @@ set -e
 ALLOW_DIRTY=false
 TAG=develop
 
+echo N.B., this script is solely to allow for local testing of whl/src.
+echo To actually build and push things to pypi, trigger the pypi flow
+echo in github actions, https://github.com/Kattis/problemtools/actions
+
 while getopts "d" opt; do
     case $opt in
         d) ALLOW_DIRTY=true ;;
