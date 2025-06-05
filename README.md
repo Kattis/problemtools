@@ -1,12 +1,12 @@
 # Kattis Problem Tools
 
-master:
-![Master Build Status](https://github.com/kattis/problemtools/actions/workflows/python-app.yml/badge.svg?branch=master)
-develop:
-![Develop Build Status](https://github.com/kattis/problemtools/actions/workflows/python-app.yml/badge.svg?branch=develop)
+![Build Status](https://github.com/kattis/problemtools/actions/workflows/python-app.yml/badge.svg?branch=master)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-These are tools to manage problem packages using the Kattis problem package
-format.
+These are tools to manage problem packages using the Kattis [problem package
+format](https://www.kattis.com/problem-package-format/). The problem package
+specification is developed in the [problem package format
+repository](https://github.com/Kattis/problem-package-format).
 
 
 ## Programs Provided
@@ -47,11 +47,15 @@ A few examples of problem packages can be found in [examples](examples).
 There are four supported ways of installing and running problemtools.
 (For non-Linux users, "Method 2" below, to use Docker, is probably the least painful.)
 
+Note that in all methods except for "Method 2", you must manually install
+dependencies such as LaTeX and tools for any languages you want to use. See
+[Requirements and compatbility](#requirements-and-compatibility) for details.
+
 ### Method 1: Install the Python package using pipx
 
 Run
 ```
-pipx install git+https://github.com/kattis/problemtools
+pipx install problemtools
 ```
 
 In order to get the command line scripts, you need to make sure that the local
@@ -77,19 +81,30 @@ We maintain three official problemtools Docker images on Docker Hub:
 
 - [`problemtools/minimal`](https://hub.docker.com/r/problemtools/minimal/): this image only contains problemtools, no additional programming languages.  As such, it is not particularly useful on its own, but if you are organizing a contest and want to set up a problemtools environment containing exactly the right set of compilers/interpreters for your contest, this is the recommended starting point.
 
-For example, suppose you want to use the `problemtools/icpc` image.  To get started, install the [Docker CLI](https://docs.docker.com/install), and then pull the image:
+For example, suppose you want to use the `problemtools/icpc` image.  To get started (or update to the latest release), install the [Docker CLI](https://docs.docker.com/install), and then pull the image:
 
     docker pull problemtools/icpc
 
-Once the image has finished downloading, you can check that it exists on your system using `docker images`. To launch an interactive container and play around with *verifyproblem*, *problem2pdf*, and *problem2html* run:
+The most convenient way to use the container is by creating shell script(s) similar to this and add it to your `$PATH`. If you call the script `verifyproblem.sh`, you could then `verifyproblem.sh examples/hello` to use the icpc docker image to verify examples/hello:
+```sh
+#!/bin/bash
+
+if [ $1 -a -d $1 ]; then
+    docker run --rm -t -v $(dirname $(readlink -f $1)):/work problemtools/icpc verifyproblem /work/$(basename $1)
+else
+    echo No such directory: $1
+fi
+```
+
+To instead launch an interactive container and play around with *verifyproblem*, *problem2pdf*, and *problem2html* run:
 
     docker run --rm -it problemtools/icpc
 
 By default, docker containers do _NOT_ persist storage between runs, so any files you create or modify will be lost when the container stops running.  Two common ways of dealing with this are:
 
-1) Use a [bind mount](https://docs.docker.com/storage/bind-mounts/) to mount a directory on your machine into the docker container.  This can be done as follows (see Docker documentation for further details):
+1) Use a [bind mount](https://docs.docker.com/storage/bind-mounts/) to mount a directory on your machine into the docker container.  Mounting the current directory to /kattis_work_dir can be done as follows (see Docker documentation for further details):
     ```
-    docker run --rm -it -v ${FULL_PATH_TO_MOUNT}:/kattis_work_dir problemtools/icpc
+    docker run --rm -it -v $(pwd):/kattis_work_dir problemtools/icpc
     ```
 2) Persist any changes you want to keep to a remote file system/source control (e.g., a remote Git repository; note, however, that you would first need to install Git in the image).
 
@@ -211,7 +226,8 @@ problemtools' configuration:
 ## Requirements and compatibility
 
 To build and run the tools, you need Python 3 with the YAML and PlasTeX libraries,
-and a LaTeX installation.
+and a LaTeX installation. You must also install language tools (e.g., compilers)
+for any languages used in problem packages.
 
 ### Ubuntu
 
