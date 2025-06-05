@@ -1,3 +1,374 @@
+kattis-problemtools (1.20250605) noble; urgency=medium
+
+  [ Tagl ]
+  * Set working directory for submission
+
+  [ Per Austrin ]
+  * small fixes to README.md
+
+  [ Tagl ]
+  * Support overwriting directories within submissions with included directories
+
+  [ JoelNiemela ]
+  * Simplify problem2html argparser and add type annotations
+  * Simplify problem2pdf argparser and add type annotations
+  * Add line break for readability
+  * Add type annotations to verifyproblem
+  * Use long name for langparam
+  * Fix potential error
+  * Use tuple destructuring syntax
+  * Don't remove argparser_basic_arguments
+  * Fix CodeFactor errors
+
+  [ Konráð Elí Sigurgeirsson ]
+  * Update README.md
+
+  [ Joel Niemelä ]
+  * Update README.md
+
+  [ JoelNiemela ]
+  * Update kotlin to version 1.8.10
+
+  [ Harry Zhang ]
+  * Fix not showing WA test case verifyproblem.py
+
+  [ Gunnar Kreitz ]
+  * Fix crash in verifyproblem when in or ans files are not utf-8
+
+  [ Pehr Söderman ]
+  * Restructure problem2html
+  * Restructure restrucure problem2pdf
+  * Improve debugging output
+  * Parse args properly.
+  * Reintroduce the get_subgroup, as it is needed for addproblem.
+  * Reintroduce get_attachment_paths, as it is needed for addproblem.
+
+  [ Tobias Meggendorfer ]
+  * Improved logging, fix unicode error, include_dir buildrun
+  * Guard better agains non-unicode feedback
+  * Revert delayed import
+  * Fix missed init, add test case
+
+  [ Maarten Sijm ]
+  * Explicitly set language versions for Java and Kotlin in languages.yaml
+
+  [ Tobias Meggendorfer ]
+  * Restore old format
+
+  [ Gunnar Kreitz ]
+  * Add github action to run pytest and flake8
+  * Remove travis config, point badges to github badge
+  * Check that all symlinks point to something existing within the problem package
+  * Forbid all absolute symlinks
+
+  [ Simon Lindholm ]
+  * Type annotation fixes
+  * Add -j flag for multi-threaded validation
+  * Compile submissions early, improve cleanup
+
+  [ Pehr Söderman ]
+  * Adding sanity checks for file sizes.
+  * Add UUID as an optional field in problem.yaml
+  * Include examples in the manifest
+  * Fixing running of tests
+  * Build debian packages in ci
+  * Cache and add packages
+  * Warn if sample is empty
+
+  [ Fredrik Niemelä ]
+  * Change team to user for default validator
+
+  [ Pehr Söderman ]
+  * Add a dependency on dvisvgm, which was missing
+
+  [ matistjati ]
+  * Add markdown support
+  * Added display math
+  * Add dependencies for markdown
+  * Style markdown tables
+  * Remove temp files
+  * Statement fix
+  * Some refactoring
+  * Added image support in markdown
+  * Added footnote support
+  * Code cleanup
+  * md -> html works
+
+  [ Gunnar Kreitz ]
+  * Remove non-standard judgeerror.txt from example problems
+
+  [ matistjati ]
+  * Make md styling more constistent with latex
+
+  [ Pehr Söderman ]
+  * Bump the language versions for c and c++
+  * Bump the language versions for Java
+
+  [ matistjati ]
+  * md->pdf and Reorganize code
+
+  [ Pehr Söderman ]
+  * GCC should use gnu17
+
+  [ matistjati ]
+  * Better md->pdf tables
+  * Interactive samples for pdf
+  * Remove bplusa
+  * PDF problem name
+  * Add dependencies
+  * Add problem names
+  * Added problem name to test hello package
+  * Improve security by running pandoc without shell capabilities
+  * Refactoring
+  * Even more refactoring
+  * Remove python3-markdown dependency
+  * Add problem id to pdf and small fixes
+
+  [ Pehr Söderman ]
+  * Update languages.yaml
+
+  [ Tagl ]
+  * Run interactive validation with submission's working directory
+
+  [ Matistjati ]
+  * Change Rust compilation flags
+
+  [ Hugo Söderbergh ]
+  * Remove deprecated functionality
+  * add build to .gitignore
+
+  [ JoelNiemela ]
+  * Add special case error message when user output file is empty
+  * Modify error message according to github comment
+
+  [ Hugo Söderbergh ]
+  * add command-line argument, begin generalizing Problem class
+  * small fix
+  * abstract problems further
+  * catch general exception for detecting problem-format
+  * Add some documentation
+  * New abstraction, ProblemPart which makes it easier to implement parts of problems
+  * Problem is no longer an abstract class
+  * ProblemStatement now exists for old and new format
+  * Add TODO for ProblemStatement
+  * Fix issues with ProblemStatement
+  * Add some documentation and some final fixes
+  * Small change
+  * Allow to give class-type for part in Problem.get
+  * Whoops small bug crashed code
+  * Fix bug that crashed multithreading for testcase-validation
+  * Mark ProblemPart.depends_on() as staticmethod
+
+  [ Matistjati ]
+  * Disable html
+  * Change to wikimedia example image
+  * Sanitize image sources
+  * Remove SVG dependency
+  * Better markdown styling
+  * Better sample styling
+  * Add \nextsample and \remainingsamples
+  * Better pdf error handling
+  * Use {{nextsample}} instead of \nextsample
+  * Relax image checking (implied by global regex on filenames)
+  * Add svg dependency
+
+  [ Gunnar Kreitz ]
+  * Explicitly install build-essential, as deb building blows up on it not being installed
+
+  [ Hugo Söderbergh ]
+  * fix issues with PR
+
+  [ Gunnar Kreitz ]
+  * Remove test of verifyproblem.generators (which has been removed)
+
+  [ Hugo Söderbergh ]
+  * Remove bad break-statement and increase consistency in dictionary access
+  * more concise regex
+  * Make Problem constructor default to legacy format
+  * make tests pass
+
+  [ Matistjati ]
+  * Add back warning/error logging
+
+  [ Gunnar Kreitz ]
+  * Add mypy to github workflow
+  * Change type from list to tuple, helping mypy and being clearer
+  * Fix name of exception (old one also worked, as parser does import * from Scanner, but felt weird)
+  * Add type annotations and abstract class markers
+  * Add getProblemPart for when we need to access problem.classes
+  * Add python tooling files (and vim swp files) to gitignore
+  * Fix signatures of run in VIVA and checktestdata to match superclass
+  * Fix/ignore type errors to let mypy catch errors everywhere but generatedata.py
+
+  [ ElliotRipa ]
+  * Make cls templates able work with either problem format
+  * Allow problem statement to use either problem format
+  * Make template.py detect format version instead
+  * Provisional updates
+  * Add formatversion.py
+  * Minor fixes in imports
+  * Move version specific functionality to separate file
+  * Change to flag '-v' for format-version
+  * Add missing parentheses
+  * Use dictionary instead of data objects for format data
+  * Make problem2html.py use -v to specify format version
+  * Add constants for version names
+  * Rollback problemset_0.1.cls
+  * Move initialisation of FORMAT_DATA to setup
+  * Make formatversion.py use dataobjects instead of dicts
+  * Fix documentation
+  * Remove unnecessary initialisation
+
+  [ Matistjati ]
+  * Start sanitization + apply feedback
+  * Better sanitization + lots of tests
+  * problem_statement -> statement
+  * Better md -> pdf sample rendering
+  * Another escape
+  * More careful with images
+  * Make samplexss more focused
+  * Experimentally reuse normal LaTeX rendering
+  * Use problemtools problem2pdf to handle md -> pdf
+  * Cleanup
+  * librsvg out of focus for this PR
+  * Ensure nh3
+  * Remove ghostscript sanitization. If it wasn't used before, it probably isn't needed
+  * Add nh3 to deb build
+  * Linting
+  * Add back ghostscript sanitization
+  * Remove unnecessary test
+
+  [ Gunnar Kreitz ]
+  * Add make clean to clean up support and the mess left by setuptools
+  * Change debian packaging to dh_virtualenv
+  * Update readme, adjusting installation instructions so we can use pip dependencies
+  * Convert from setup.py to pyproject.toml (and use setuptools-scm for versioning)
+  * Hook sdist to make python -m build work on a clean checkout
+  * Update wrapper scripts and README
+  * Update CI workflow to match readme for build requirements (plus build-essentials)
+  * Force dh_virtualenv to use builtin venv (debugging CI crash)
+  * Restructure CI/CD to separate deb building from python unit tests
+  * Stop exposing __version__, users should use importlib.metadata.version instead
+  * Hardcode path to python, as dh_virtualenv fails to discover it in CI
+  * Clean up version parsing. Accept 2023-07-draft and 2023-07 version strings
+  * Add pydantic models for parsing problem.yaml
+  * Limit problem.yaml config to only system defaults
+  * Use new metadata parsing mechanism, and start parsing config for 2023-07.
+  * Bump python version to 3.11
+  * Move tests to outside of the package
+  * Update manifest to include tests support files in sdist, and remove some clutter
+  * Remove old hack for plasTeX argument (we require >= 3.0 now)
+  * Clean up incompletely removed plastex_escape hack. Remove unused variable
+  * Clean up unused variables, old io import, and multiple commands on lines
+  * Clean up unused import and comparison with None
+  * Ruff format
+  * Clean up imports
+  * Fix minor things flagged by ruff
+  * Remove unused variables in tests
+  * Add ruff configuration
+  * Apply ruff formatting
+  * Add ruff pre-commit hook
+  * Replace flake8 with ruff (both linting and formatting)
+  * Fix incorrect formatting of pydantic errors
+  * Move is_interactive and is_scoring to be read from problem metadata directly
+  * Let Problem read and store problem format information. Warn about incomplete 2023-07 support
+  * Fix validator discovery for 2023-07. Run through all validation for 2023-07 (even if broken)
+
+  [ Matistjati ]
+  * Add nh3 as dependency
+  * Fix test import path
+  * Apply ruff formatting
+  * More robust footnote finding
+  * Don't double-escape HTML in samples
+  * Ghostscript fixes and tests
+
+  [ Gunnar Kreitz ]
+  * Fix loading a problem with empty problem.yaml and with no statements
+  * Add utility method to load problem metadata, including names from statements when needed
+  * Use load_metadata in verifyproblem. Add temporary fallback conf to fix crashes when failing to load metadata
+  * Use load_metadata in statement_util
+  * Add apt-get update in workflow to unbreak CI
+
+  [ Matistjati ]
+  * Convert some example problems to 2023-07-draft
+  * Add uuid to guess and oddecho
+  * Better formatting and error for output_validators
+
+  [ Pehr Söderman ]
+  * Add missing build requirements to debian build
+  * Update pyproject
+
+  [ Matistjati ]
+  * Remove now-duplicated import
+
+  [ Gunnar Kreitz ]
+  * Remove (AFAICT, broken) support for ancient tex statements (0.1)
+  * Fix bug where we complained about missing show_test_data_groups for non-legacy
+  * Default language to en. Remove unused --format-version
+  * Pass Template a filename to render, and pass that through to the latex template
+  * Rename problem.md to problem.en.md in tests to follow 2023-07-draft
+  * Refactor of rendering: unify statement finding code, and use Path more
+  * Use statement_util to find statements. Add more checks. Try rendering even when there are multiple statements in a language
+  * Make mypy more picky, also checking PlasTeX usage
+  * Simplify temporary file usage in markdown -> pdf flow
+  * Fix bug where problem2html cd:s to bad directory, crashing validation of multiple problems
+
+  [ Pehr Söderman ]
+  * Update link to kattis controlled domain.
+
+  [ Gunnar Kreitz ]
+  * Replace formatversion.FormatData with a StrEnum
+  * Add some documentation in the readme regarding current state of format versions
+  * Add colorlog to get colors for warnings and errors #312
+  * Add Swedish problem names
+  * Fix the logging plasTeX destroys
+  * Remove accidental commit
+  * Fix misleading error when missing problem statemetns
+  * Improve image handling in markdown statements
+  * Change URL to one that passes filename suffix filter
+  * Restructure error counters. Fix errors happening prior to check being ignored in count.
+  * Fix --bail_on_error and --werror being ignored before check
+  * Refactor problem loading so we can do fatal errors in setup
+  * Check file and directory names per standard
+  * Make missing/compilation failure in grader/output validator fatal
+  * Restore old API for accessing parts of a problem. Simplify part setup
+  * Change type of attachments.attachments from list[str] to list[Path]
+  * Convert Problem.metadata to a property to align better with other naming
+  * Expose computed timelim
+  * Add back problemtools.run.get_tool_path to API
+  * Large restructure of how our docker images are built.
+  * Remove old Dockerfile in root, unused afaict
+  * Add marker to let mypy use our type annotations
+  * Replace authors with Kattis AB (pypi only shows one). Set required python version
+  * Add script to build packages for pypi
+  * Fix incorrect error when verifying different. Add helpful hint when directory for wrong version exists
+  * Use problemtools/githubci image in workflow. Run verifyproblem on all examples.
+  * Check for incompatible types. Warn for unimplemented types
+  * Check format of interaction samples. #277 Don't warn about empty sample when it contains interactions.
+  * Add type methods for all types. Add convenience methods on Problem for easier access
+  * Improve warning for non-standard output validator languages #258
+  * Remove generatedata (never made it into the standard)
+  * Fix pytest dropping a guess.pdf in working directory. Check PDF magic bytes
+  * Add -d flag to update_docker to allow easier testing locally
+  * Fix broken git clone command (`${TAG}` expanded to empty string)
+  * Fix silly error in docker file, causing apt-get update not to run
+  * Add -d option to allow building in a dirty rep (to facilitate development of build scripts)
+  * Workflow that builds and pushes a package to testpypi
+  * Fix version computation when we build pypi packages
+  * Fix syntax error in github workflow file
+  * Fix bug where we crashed if we attempted to load/check twice
+  * Error if problem name exits in a language without a statement
+  * Add utility function uses_default_validator for output validation. Warn/error on multiple validators
+  * Fix new mypy error in mypy 1.16
+  * Fix missing support for imgbasedir in md2html
+  * Fix typo in Dockerfile.full causing it to lack a lot of languages
+  * Remove year from license - IANAL, but AFAICT it's not needed
+  * Add warning to pypi package script pointing to the github action now that that's set up
+  * Change update_docker to default to building from master (but keep :develop tag on docker)
+  * Add convenient way to run docker. Document need to install languages.
+
+ -- Gunnar Kreitz <gkreitz@kattis.com>  Thu, 05 Jun 2025 10:59:57 +0200
+
 kattis-problemtools (1.20231016) jammy; urgency=medium
 
   [ Don-Khue Le ]
