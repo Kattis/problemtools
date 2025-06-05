@@ -10,25 +10,10 @@
 #    PROBLEMTOOLS_VERSION but this is not checked.)
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM ubuntu:22.04
+FROM problemtools/runreqs:${PROBLEMTOOLS_VERSION}
 
-LABEL maintainer="austrin@kattis.com"
-
+LABEL maintainer="contact@kattis.com"
 ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt update && \
-    apt install -y \
-        ghostscript \
-        libgmpxx4ldbl \
-        python-pkg-resources \
-        python3-minimal \
-        python3-yaml \
-        python3-plastex \
-        texlive-fonts-recommended \
-        texlive-lang-cyrillic \
-        texlive-latex-extra \
-        texlive-plain-generic \
-        tidy
 
 RUN mkdir -p /usr/local/artifacts
 WORKDIR /usr/local/artifacts

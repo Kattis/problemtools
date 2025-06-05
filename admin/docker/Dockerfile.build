@@ -1,43 +1,24 @@
-# Package for building the problemtools .deb package
-# Ends up in the /usr/local/problemtools_build/deb/ directory
+# Docker image with all packages needed to build a problemtools .deb
 #
-# Setting build argument PROBLEMTOOLS_VERSION causes a specific
-# version of problemtools to be built (default is latest version of
-# develop branch on GitHub)
+# Not uploaded anywhere, only used locally during building
 
-FROM ubuntu:22.04
+ARG PROBLEMTOOLS_VERSION=develop
+FROM problemtools/runreqs:${PROBLEMTOOLS_VERSION}
 
-LABEL maintainer="austrin@kattis.com"
-
+LABEL maintainer="contact@kattis.com"
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install packages needed for build
-RUN apt update && \
-    apt install -y \
+# Packages required to build and run problemtools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y \
         automake \
+        build-essential \
         debhelper \
-        dh-python \
+        dh-virtualenv \
         dpkg-dev \
         g++ \
         git \
         make \
-        libboost-regex-dev \
-        libgmp-dev \
-        libgmp10 \
-        libgmpxx4ldbl \
-        python3 \
-        python3-pytest \
-        python3-setuptools \
-        python3-yaml \
-        python3-setuptools
-
-RUN mkdir -p /usr/local/problemtools_build
-
-WORKDIR /usr/local/problemtools_build
-RUN git clone --recursive https://github.com/kattis/problemtools
-
-ARG PROBLEMTOOLS_VERSION=develop
-RUN cd problemtools && git checkout ${PROBLEMTOOLS_VERSION} && make builddeb
-
-RUN mkdir -p deb
-RUN mv kattis-problemtools*.deb deb/
+        libboost-regex-dev

@@ -1,4 +1,9 @@
 recursive-include problemtools/config *
 recursive-include problemtools/templates *
 recursive-include problemtools/tests *
+recursive-include examples *
 recursive-include support *
+recursive-include tests *
+global-exclude */__pycache__/*
+global-exclude *.pyc
+recursive-exclude .github *

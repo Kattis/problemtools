@@ -50,6 +50,8 @@
 \RequirePackage{url}              % Urls
 \RequirePackage[normalem]{ulem}   % \sout
 \RequirePackage[colorlinks=true,implicit=false]{hyperref}
+\RequirePackage{longtable}        % Used by Pandoc
+\RequirePackage{booktabs}         % Used by Pandoc
 \ifplastex\else
 \RequirePackage{xstring}
 \RequirePackage{pgffor}
@@ -61,12 +63,17 @@
 \newcommand*{\contestlogo}[1]{\def\@contestlogo{#1}}
 \newcommand*{\location}[1]{\def\@location{#1}}
 \newcommand*{\licenseblurb}[1]{\def\@licenseblurb{#1}}
-\newcommand*{\problemlanguage}[1]{\def\@problemlanguage{#1}}
+\newcommand*{\statementdirectory}[1]{\def\@statementdirectory{#1}}
+\newcommand*{\statementfilename}[1]{\def\@statementfilename{#1}}
+% \problemlanguge is solely for backwards compatibility on the off chance someone external uses problemset.cls. Probably not needed
+\newcommand*{\problemlanguage}[1]{\def\@problemlanguage{#1}\statementfilename{problem#1.tex}}
 \contestname{}
 \contestshortname{}
 \contestlogo{}
 \location{}
 \licenseblurb{}
+\statementdirectory{problem_statement} % Default to the old standard directory on the off chance someone external uses problemset.cls
+\statementfilename{}
 \problemlanguage{}
 
 
@@ -85,6 +92,9 @@
   \addtolength{\textheight}{-\headheight}
 }
 
+% Pandoc outputs these
+\newcommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
 
 % Typesetting sections in a problem
@@ -163,7 +173,8 @@
 %% Problem inclusion
 \newcommand{\includeproblem}[1]{
   \startproblem{#1}
-  \import{#1/problem_statement/}{problem\@problemlanguage.tex}
+  \import{#1/\@statementdirectory/}{\@statementfilename}
+
 
   %% Automatically include samples 1..9, if enabled
   \ifplastex\else

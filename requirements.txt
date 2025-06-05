@@ -1,1 +1,5 @@
--e .
+colorlog
+nh3
+PyYAML
+plasTeX>=3.0
+pydantic>=2.11

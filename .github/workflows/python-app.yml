@@ -1,0 +1,62 @@
+# This workflow will install Python dependencies, run tests and lint
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python tests
+
+on:
+  push:
+    branches: [ "master", "develop" ]
+  pull_request:
+    branches: [ "master", "develop" ]
+
+permissions:
+  contents: read
+
+jobs:
+  pythontests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"] # 3.11 is the lowest we support, since we want StrEnum
+    container:
+      image: problemtools/githubci:latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m venv venv
+        venv/bin/python --version
+        venv/bin/pip install mypy ruff pytest
+        if [ -f requirements.txt ]; then venv/bin/pip install -r requirements.txt; fi
+    - name: Lint with ruff
+      run: venv/bin/ruff check --output-format=github
+    - name: Check ruff formatting
+      run: venv/bin/ruff format --check --diff
+    - name: Test with pytest
+      run:  venv/bin/pytest
+    - name: Run mypy
+      run: |
+        venv/bin/mypy --non-interactive --config-file mypy.ini -p problemtools
+
+  packages: # Use a separate job to test debian packaging to speed things up (no need to test this for every python version above)
+    runs-on: ubuntu-latest
+    container:
+      image: problemtools/githubci:latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Build debian packages
+      run:  |
+        make builddeb
+    - name: Install debian package
+      run:  dpkg -i ../kattis-problemtools_*.deb
+    - name: Verify examples
+      run: |
+        shopt -s extglob
+        verifyproblem examples/!(README.md)
+      shell: bash

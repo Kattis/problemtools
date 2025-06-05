@@ -1,0 +1,28 @@
+# Docker image with all packages needed to run a problemtools .deb
+#
+# Not uploaded anywhere, only used locally during building
+
+ARG PROBLEMTOOLS_VERSION=develop
+FROM ubuntu:24.04
+
+LABEL maintainer="contact@kattis.com"
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Packages required to build and run problemtools
+# For libgmp, we technically just need libgmpxx4ldbl here, but for readability
+# (and we need libgmp-dev in other images), we take libgmp-dev here
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y \
+        dvisvgm \
+        ghostscript \
+        libgmp-dev \
+        pandoc \
+        python3 \
+        python3-venv \
+        texlive-fonts-recommended \
+        texlive-lang-cyrillic \
+        texlive-latex-extra \
+        texlive-plain-generic \
+        tidy

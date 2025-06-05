@@ -1,37 +1,22 @@
 # Basic problemtools docker image, containing problemtools and the
 # "ICPC languages" (C, C++, Java, Kotlin, and Python 3)
 #
+# Build requirements:
+# - The problemtools .deb package must be available from the host file
+#   system under a file name matching
+#   artifacts/deb/kattis-problemtools*.deb
+#   (Version of that .deb file should match the build argument
+#    PROBLEMTOOLS_VERSION but this is not checked.)
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM problemtools/minimal:${PROBLEMTOOLS_VERSION}
+FROM problemtools/icpclangs:${PROBLEMTOOLS_VERSION}
 
-LABEL maintainer="austrin@kattis.com"
-
+LABEL maintainer="contact@kattis.com"
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install C++, Java, Kotlin, and PyPy 3 via their ppa repository
-RUN apt update && \
-    apt install -y software-properties-common && \
-    add-apt-repository ppa:pypy/ppa && \
-    apt update && \
-    apt install -y \
-        gcc g++ \
-        openjdk-11-jdk openjdk-11-jre \
-        kotlin \
-        pypy3
-
-# Reconfigure problemtools:
-# - Use PyPy for Python 2 (not available in this image but in the full one)
-# - Use PyPy for Python 3
-RUN mkdir -p /etc/kattis/problemtools
-RUN echo " \n\
-python2: \n\
-    name: 'Python 2 w/PyPy'\n\
-    run: '/usr/bin/pypy \"{mainfile}\"'\n\
- \n\
-python3: \n\
-    name: 'Python 3 w/PyPy'\n\
-    run: '/usr/bin/pypy3 \"{mainfile}\"'\n\
- \n" > /etc/kattis/problemtools/languages.yaml
+RUN mkdir -p /usr/local/artifacts
+WORKDIR /usr/local/artifacts
+COPY artifacts/deb .
+RUN dpkg -i kattis-problemtools*.deb
 
 WORKDIR /

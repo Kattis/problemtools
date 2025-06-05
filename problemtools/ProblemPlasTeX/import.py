@@ -6,6 +6,7 @@ from plasTeX.Logging import getLogger
 log = getLogger()
 status = getLogger('status')
 
+
 # (Partial) implementation of import.sty because plasTeX does not ship
 # with an implementation.  Only implement \import command which is the
 # only one we'll use.

@@ -1,96 +1,74 @@
 #!/usr/bin/env python3
 
-from setuptools import setup, find_packages
-from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
-import distutils.cmd
-from distutils.command.build import build as _build
 import os
 import subprocess
 
+import setuptools
+import setuptools.command.build
+import setuptools.command.sdist
 
-class BuildSupport(distutils.cmd.Command):
+
+class BuildSupport(setuptools.Command):
     """A custom command to build the support programs."""
 
     description = 'build the problemtools support programs'
 
-    def initialize_options(self):
-        pass
+    build_lib: str | None
 
-    def finalize_options(self):
-        pass
+    def initialize_options(self) -> None:
+        self.build_lib = None
+
+    def finalize_options(self) -> None:
+        self.set_undefined_options('build_py', ('build_lib', 'build_lib'))
 
     def run(self):
-        """Run command."""
-        # FIXME this seems very fragile...
-        dest = os.path.join(os.path.realpath(self.distribution.command_obj['build'].build_lib),
-                            'problemtools', 'support')
+        dest = os.path.join(os.path.realpath(self.build_lib), 'problemtools', 'support')
         command = ['make', '-C', 'support', 'install', 'DESTDIR=%s' % dest]
-        self.announce('Running command: %s' % ' '.join(command), level=distutils.log.INFO)
         subprocess.check_call(command)
 
 
-class bdist_egg(_bdist_egg):
-    """Updated bdist_egg command that also builds support."""
+class CheckoutChecktestdata(setuptools.Command):
+    """A custom command to build the support programs."""
 
-    def run(self):
-        self.run_command('build_support')
-        _bdist_egg.run(self)
+    description = 'checkout the git submodule for checktestdata (via make)'
 
-
-class build(_build):
-    """Updated build command that also builds support."""
-
-    def run(self):
-        self.run_command('build_support')
-        _build.run(self)
-
-
-def get_version():
-    base_dir = os.path.dirname(__file__)
-
-    __version__ = None
-    try:
-        update_script = os.path.join(base_dir, 'admin', 'update_version.py.sh')
-        __version__ = subprocess.check_output([update_script]).decode('utf-8').strip()
-    except:
+    def initialize_options(self) -> None:
         pass
 
-    if __version__ is None:
-        version_file = os.path.join(base_dir, 'problemtools', '_version.py')
-        with open(version_file, 'r') as version_in:
-            exec(version_in.read())
+    def finalize_options(self) -> None:
+        pass
 
-    return __version__
+    def run(self):
+        command = ['make', 'checktestdata']
+        subprocess.check_call(command)
 
 
-setup(name='problemtools',
-      version=get_version(),
-      description='Kattis Problem Tools',
-      maintainer='Per Austrin',
-      maintainer_email='austrin@kattis.com',
-      url='https://github.com/Kattis/problemtools',
-      license='MIT',
-      packages=find_packages(),
-      entry_points = {
-          'console_scripts': [
-              'verifyproblem=problemtools.verifyproblem:main',
-              'problem2html=problemtools.problem2html:main',
-              'problem2pdf=problemtools.problem2pdf:main',
-              'generatedata=problemtools.generatedata:main',
-          ]
-      },
-      include_package_data=True,
-      install_requires=[
-          'PyYAML',
-          'plasTeX>=3.0;python_version>="3"'
-      ],
-#      Temporarily disabled, see setup.cfg
-#      For now tests can be run manually with pytest
-#      setup_requires=['pytest-runner'],
-#      tests_require=['pytest'],
-      cmdclass={
-          'build_support': BuildSupport,
-          'bdist_egg': bdist_egg,
-          'build': build
-      },
+# It's *very* unclear from setuptools' documentation what the best way to do this is.
+#
+# I think that the ideal way would be to insert BuildSupport as a SubCommand
+# (https://setuptools.pypa.io/en/latest/userguide/extension.html), but I cannot find
+# any documented way to inject a new subcommand (aside from overwriting one of
+# the existing `build_*`, but those are only run conditionally).
+class build(setuptools.command.build.build):
+    def run(self):
+        self.run_command('build_support')
+        super().run()
+
+
+# To make python -m build work from a fresh checkout, we also need to hook sdist to
+# do a git submodule checkout so that the source code for checktestdata is included
+# in the sdist (an alternative approach would be to include .git in the sdist (eww).
+class sdist(setuptools.command.sdist.sdist):
+    def run(self):
+        self.run_command('checkout_checktestdata')
+        super().run()
+
+
+setuptools.setup(
+    cmdclass={
+        'build_support': BuildSupport,
+        'build': build,
+        'checkout_checktestdata': CheckoutChecktestdata,
+        'sdist': sdist,
+    },
 )

@@ -2,13 +2,13 @@ Source: kattis-problemtools
 Section: devel
 Priority: optional
 Maintainer: Per Austrin <austrin@kattis.com>
-Build-Depends: debhelper (>= 8.0.0), g++ (>= 4.8), dh-python, python3, python3-setuptools, python3-pytest, python3-yaml, python3-setuptools, python3-pytest, libboost-regex-dev, libgmp-dev, automake, autoconf
+Build-Depends: debhelper-compat (= 13), g++ (>= 4.8), dh-virtualenv, python3, libboost-regex-dev, libgmp-dev, automake, autoconf, git, python3-venv, dpkg-dev
 Standards-Version: 3.9.4
 Homepage: https://github.com/Kattis/problemtools
 
 Package: kattis-problemtools
 Architecture: any
-Depends: ${shlibs:Depends}, ${python3:Depends}, ${misc:Depends}, python3-plastex, python3-pkg-resources, texlive-plain-generic, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript
+Depends: ${shlibs:Depends}, ${misc:Depends}, pandoc, python3, texlive-plain-generic, texlive-fonts-recommended, texlive-latex-extra, texlive-lang-cyrillic, tidy, ghostscript, dvisvgm
 Recommends: gcc, g++
 Description: Kattis Problem Tools
  These are tools to manage and verify problem packages in the

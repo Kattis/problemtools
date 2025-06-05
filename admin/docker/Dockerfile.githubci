@@ -1,0 +1,23 @@
+# Docker image with all deb packages needed for our github actions
+#  - Building a problemtools deb
+#  - Running verifyproblem on all examples
+
+ARG PROBLEMTOOLS_VERSION=develop
+FROM problemtools/fulllangs:${PROBLEMTOOLS_VERSION}
+
+LABEL maintainer="contact@kattis.com"
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Packages required to build and run problemtools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y \
+        automake \
+        build-essential \
+        debhelper \
+        dh-virtualenv \
+        dpkg-dev \
+        git \
+        make \
+        libboost-regex-dev

@@ -1,0 +1,40 @@
+# Docker image with all packages needed to run a problemtools .deb, plus
+# language support for all supported languages
+#
+# Not uploaded anywhere, only used locally during building
+
+ARG PROBLEMTOOLS_VERSION=develop
+FROM problemtools/icpclangs:${PROBLEMTOOLS_VERSION}
+
+LABEL maintainer="contact@kattis.com"
+ENV DEBIAN_FRONTEND=noninteractive
+
+# All languages, plus curl which we need to fetch pypy2
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y \
+        curl \
+        fp-compiler \
+        gfortran \
+        gnucobol \
+        gccgo \
+        ghc \
+        gnustep-devel gnustep gnustep-make gnustep-common gobjc \
+        lua5.4 \
+        mono-complete \
+        nodejs \
+        ocaml-nox \
+        php-cli \
+        rustc \
+        sbcl \
+        scala \
+        swi-prolog
+
+# pypy2 is no longer packaged for Ubuntu, so download tarball (and check a sha256)
+RUN curl -LO https://downloads.python.org/pypy/pypy2.7-v7.3.16-linux64.tar.bz2 \
+    && echo '04b2fceb712d6f811274825b8a471ee392d3d1b53afc83eb3f42439ce00d8e07  pypy2.7-v7.3.16-linux64.tar.bz2' | sha256sum --check \
+    && tar -xf pypy2.7-v7.3.16-linux64.tar.bz2 \
+    && mv pypy2.7-v7.3.16-linux64 /opt/pypy \
+    && ln -s /opt/pypy/bin/pypy /usr/bin/pypy \
+    && rm pypy2.7-v7.3.16-linux64.tar.bz2

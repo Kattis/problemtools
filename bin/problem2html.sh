@@ -5,6 +5,4 @@
 # installing problemtools on the system properly, this script should
 # not be used.
 
-export PYTHONPATH
-PYTHONPATH="$(dirname "$(dirname "$(readlink -f "$0")")")${PYTHONPATH:+:}$PYTHONPATH"
-exec python3 -m problemtools.problem2html "$@"
+exec "$(dirname "$(readlink -f "$0")")/.run_in_venv.sh" problemtools.problem2html "$@"

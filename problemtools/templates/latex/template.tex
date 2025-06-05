@@ -1,10 +1,13 @@
 \documentclass[plainproblems,noautoincludesamples]{problemset}
 
-\problemlanguage{%(language)s}
+%% If you want to add comments in this file, you need to use %%, as it must be compatible with python's templates
+\problemlanguage{%(language)s} %% We inject problemlanguage to be backwards compatible with custom problemset.cls
+\statementdirectory{%(statement_directory)s}
+\statementfilename{%(statement_filename)s}
 
 \begin{document}
 
-\includeproblem{%(shortname)s}
+\includeproblem{%(directory)s}
 \includesample{%(sample)s}
 
 \end{document}

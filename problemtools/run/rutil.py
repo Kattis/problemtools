@@ -1,10 +1,11 @@
-"""Some utility functions for the run module.
-"""
+"""Some utility functions for the run module."""
+
 import errno
 import os
 import shutil
 
 from .errors import ProgramError
+
 
 def add_files(src, dstdir):
     """Copy src to dstdir.
@@ -30,14 +31,13 @@ def add_files(src, dstdir):
                 srcfile = os.path.join(src, name)
                 destfile = os.path.join(dstdir, name)
                 if os.path.isdir(srcfile):
-                    shutil.copytree(srcfile, destfile)
+                    shutil.copytree(srcfile, destfile, dirs_exist_ok=True)
                 else:
                     shutil.copy(srcfile, destfile)
     except IOError as exc:
         # FIXME why is this specific error special-cased
         if exc.errno == errno.ENOENT:
-            raise ProgramError(
-                'File not found when copying program:\n %s' % exc.filename)
+            raise ProgramError('File not found when copying program:\n %s' % exc.filename)
         raise
 
 
@@ -49,6 +49,6 @@ def list_files_recursive(root):
         directory and its subdirectories.
     """
     ret = []
-    for (path, _, files) in os.walk(root):
+    for path, _, files in os.walk(root):
         ret.extend([os.path.join(root, path, filename) for filename in files])
     return ret

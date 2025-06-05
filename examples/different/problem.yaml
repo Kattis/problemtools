@@ -5,6 +5,8 @@
 ## Author of the problem (default: null)
 # author:
 
+name: A Different Problem
+
 ## Where the problem was first used (default: null)
 source: Kattis
 # source_url:

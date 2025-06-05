@@ -1,13 +1,15 @@
 """
 Implementation of programs provided by an executable file.
 """
+
 import os
 from .program import Program
 from .errors import ProgramError
 
+
 class Executable(Program):
-    """Class for executable files.
-    """
+    """Class for executable files."""
+
     def __init__(self, path, args=None):
         """Instantiate executable object.
 
@@ -17,6 +19,8 @@ class Executable(Program):
             args: list of additional command line arguments that
                 should be passed to the program every time it is executed.
         """
+        super().__init__()
+
         if not os.path.isfile(path) or not os.access(path, os.X_OK):
             raise ProgramError('%s is not an executable program' % path)
         self.path = path
@@ -26,14 +30,8 @@ class Executable(Program):
         """String representation"""
         return '%s' % (self.path)
 
-    def compile(self):
-        """Dummy implementation of the compile method -- nothing to check!
-        """
-        return (True, None)
-
     def get_runcmd(self, cwd=None, memlim=None):
-        """Command to run the program.
-        """
+        """Command to run the program."""
         return [self.path] + self.args
 
     def should_skip_memory_rlimit(self):

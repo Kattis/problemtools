@@ -1,6 +1,13 @@
 *.pyc
 *~
+*.swp
 /.cache/
 /problemtools.egg-info/
 /support/default_validator/default_validator
 /support/interactive/interactive
+build/
+/problemtools/_version.py
+
+venv/
+.pytest_cache/
+.mypy_cache/

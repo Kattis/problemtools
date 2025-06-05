@@ -4,23 +4,21 @@ from plasTeX.Logging import getLogger
 import os
 import io
 
-import ProblemsetMacros
-
 log = getLogger()
 
 # Implementation of (parts) of listingsutf8 package since PlasTeX does
 # not have one
 
+
 class lstinputlisting(Command):
     args = '* [ options:dict ] file:str'
 
-    def read_file(self, filename):
-        data = io.open(filename, 'r', encoding='utf-8').read()
-        data = ProblemsetMacros.plastex_escape(data)
-        return data
+    def read_file(self, filename) -> str:
+        return io.open(filename, 'r', encoding='utf-8').read()
 
-    def invoke(self, tex):
-        res = Command.invoke(self, tex)
+    def invoke(self, tex) -> None:
+        super().invoke(tex)
+        assert self.ownerDocument is not None  # Keep mypy happy
         basetex = self.ownerDocument.userdata['base_tex_instance']
         f = self.attributes['file']
         # Maybe more paths to look in?
