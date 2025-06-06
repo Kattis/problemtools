@@ -48,7 +48,7 @@ class Template:
 
         sample_dir = problem_root / 'data' / 'sample'
         if sample_dir.is_dir():
-            self.samples = sorted({file.stem for file in sample_dir.iterdir() if file.suffix in ['in', 'interaction']})
+            self.samples = sorted({file.stem for file in sample_dir.iterdir() if file.suffix in ['.in', '.interaction']})
         else:
             self.samples = []
 
