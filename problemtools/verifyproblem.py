@@ -479,6 +479,9 @@ class TestCaseGroup(ProblemAspect):
         if not parent:
             self.set_symlinks()
 
+    def start_background_work(self, context: Context) -> None:
+        pass
+
     def __str__(self) -> str:
         return f'testcase group {self.name}'
 
