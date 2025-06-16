@@ -286,9 +286,9 @@ class TestCase(ProblemAspect):
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
-                    self.error(f'judge answer file got {val_res}')
+                    self.error(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
                 else:
-                    self.warning(f'judge answer file got {val_res}')
+                    self.warning(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
         self._check_symlinks()
         return self._check_res
 
