@@ -285,10 +285,13 @@ class TestCase(ProblemAspect):
         if not self._problem.is_interactive():
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
+                ans_path = Path(self.ansfile)
+                testcase_relative_data = Path(*ans_path.parts[ans_path.parts.index("data"):])
+
                 if self.is_in_sample_group():
-                    self.error(f'judge answer file got {val_res}')
+                    self.error(f'judge answer file got {val_res} on testcase {testcase_relative_data}')
                 else:
-                    self.warning(f'judge answer file got {val_res}')
+                    self.warning(f'judge answer file got {val_res} on testcase {testcase_relative_data}')
         self._check_symlinks()
         return self._check_res
 
