@@ -285,14 +285,10 @@ class TestCase(ProblemAspect):
         if not self._problem.is_interactive():
             val_res = self._problem.output_validators.validate(self, self.ansfile)
             if val_res.verdict != 'AC':
-                parts = Path(self.ansfile).parts
-                idx = len(parts) - 1 - parts[::-1].index('data')  # Last occurrence of "data"
-                testcase_relative_data = Path(*parts[idx:])
-
                 if self.is_in_sample_group():
-                    self.error(f'judge answer file got {val_res} on testcase {testcase_relative_data}')
+                    self.error(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
                 else:
-                    self.warning(f'judge answer file got {val_res} on testcase {testcase_relative_data}')
+                    self.warning(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
         self._check_symlinks()
         return self._check_res
 
