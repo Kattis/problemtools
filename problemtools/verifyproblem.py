@@ -953,6 +953,7 @@ class Attachments(ProblemPart):
         return 'attachments'
 
 
+# Junk data. The validator should reject these cases
 _JUNK_CASES = [
     ('an empty file', b''),
     ('a binary file with random bytes', bytearray(random.Random(0).randbytes(1024))),
@@ -963,6 +964,15 @@ _JUNK_CASES = [
     ),
 ]
 
+# These cases might be valid and should not always be rejected.
+# However, they might crash an output validator, thus causing a judge error.
+_JUNK_CASES_CRASH = [
+    ('a file with the number 1', b'1'),
+    ('a file with the contents "1\na"', b'1\na'),
+    ('a file with the number -1', b'-1'),
+    ('a file with the number 2147483648', b'2147483648'),
+    ('a file with the number 9223372036854775808', b'9223372036854775808'),
+]
 
 def _build_junk_modifier(
     desc: str, pattern: str, repl: str | Callable[[Match[str]], str]
@@ -1270,20 +1280,32 @@ class OutputValidators(ProblemPart):
         if self._check_res:
             flags = self.problem.metadata.legacy_validator_flags
 
-            fd, file_name = tempfile.mkstemp()
-            os.close(fd)
-            for desc, case in _JUNK_CASES:
-                f = open(file_name, 'wb')
-                f.write(case)
+            # Sanity check cases that should be rejected by the output validator
+            def run_junk_case(junk_file, junk_content):
+                f = open(junk_file, 'wb')
+                f.write(junk_content)
                 f.close()
                 rejected = False
+                results = []
                 for testcase in self.problem.testdata.get_all_testcases():
                     result = self.validate(testcase, file_name)
-                    if result.verdict != 'AC':
-                        rejected = True
+                    results.append(result)
                     if result.verdict == 'JE':
                         self.error(f'{desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
                         break
+                return results
+
+            fd, file_name = tempfile.mkstemp()
+            os.close(fd)
+            for desc, case in _JUNK_CASES:
+                results = run_junk_case(file_name, case)
+                rejected = any(result.verdict != 'AC' for result in results)
+                if not rejected:
+                    self.warning(f'{desc} gets AC')
+            for desc, case in _JUNK_CASES_CRASH:
+                continue
+                run_junk_case(file_name, case)
+                rejected = any(result.verdict != 'AC' for result in results)
                 if not rejected:
                     self.warning(f'{desc} gets AC')
             os.unlink(file_name)
