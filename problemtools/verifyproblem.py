@@ -954,13 +954,14 @@ class Attachments(ProblemPart):
 
 
 # Junk data. The validator should reject these cases
+rng = random.Random(42)
 _JUNK_CASES = [
     ('an empty file', b''),
-    ('a binary file with random bytes', bytearray(random.Random(0).randbytes(1024))),
+    ('a binary file with random bytes', bytearray(random.Random(42).randbytes(1024))),
     ('a text file with the ASCII characters 32 up to 127', bytearray(x for x in range(32, 127))),
     (
         'a random text file with printable ASCII characters',
-        bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200)),
+        bytearray(rng.choice(string.printable.encode('utf8')) for _ in range(200)),
     ),
 ]
 
@@ -992,18 +993,17 @@ def _build_junk_modifier(
     return (desc, p.search, lambda text: p.sub(repl, text))
 
 
+rng = random.Random(42)
 _JUNK_MODIFICATIONS = [
-    _build_junk_modifier(
-        'spaces added where there already is whitespace', r'\s', lambda m: m.group(0) + ' ' * random.randint(1, 5)
-    ),
-    _build_junk_modifier('spaces added to the end of a line', r'\n', lambda m: m.group(0) + ' ' * random.randint(1, 5)),
-    _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n' * random.randint(2, 5)),
+    _build_junk_modifier('space added where there already is whitespace', r'\s', lambda m: m.group(0) + ' '),
+    _build_junk_modifier('space added to the end of a line', r'\n', lambda m: m.group(0) + ' '),
+    _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n\n'),
     _build_junk_modifier('leading zeros added to integers', r'(^|[^.]\b)([0-9]+)\b', r'\g<1>0000000000\g<2>'),
     _build_junk_modifier('trailing zeros added to real number decimal portion', r'\.[0-9]+\b', r'\g<0>0000000000'),
     (
         'random junk added to the end of the file',
         lambda f: True,
-        lambda f: f + ''.join(random.choice(string.printable) for _ in range(200)),
+        lambda f: f + ''.join(rng.choice(string.printable) for _ in range(200)),
     ),
 ]
 
