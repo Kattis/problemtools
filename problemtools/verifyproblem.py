@@ -964,15 +964,26 @@ _JUNK_CASES = [
     ),
 ]
 
-# These cases might be valid and should not always be rejected.
-# However, they might crash an output validator, thus causing a judge error.
+# Try to crash the output validator, causing a judge error
 _JUNK_CASES_CRASH = [
-    ('a file with the number 1', b'1'),
-    ('a file with the contents "1\na"', b'1\na'),
     ('a file with the number -1', b'-1'),
+    ('a file with the number 2147483647', b'2147483647'),
     ('a file with the number 2147483648', b'2147483648'),
     ('a file with the number 9223372036854775808', b'9223372036854775808'),
+    ('a file with the number 0', b'0'),
+    ('a file with the number 1', b'1'),
+    ('a file with the number 1.0', b'1.0'),
+    ('a file with the string "a"', b'a'),
+    ('a file with the contents "2\\n-1 1"', b'2\n-1 1'),
+    ('a file with the contents "2\\n1"', b'2\n1'),
+    ('a file with the contents "1\\n-1 1"', b'1\n-1 1'),
+    ('a file with the contents "1\\na"', b'1\na'),
+    ('a file with the contents "(()"', b'(()'),
+    ('a file with the contents "1-"', b'1-'),
+    ('a file with the contents "1/0"', b'1/0'),
+    ('a file with the contents "2\\n<"', b'2\n<'),
 ]
+
 
 def _build_junk_modifier(
     desc: str, pattern: str, repl: str | Callable[[Match[str]], str]
@@ -1281,34 +1292,31 @@ class OutputValidators(ProblemPart):
             flags = self.problem.metadata.legacy_validator_flags
 
             # Sanity check cases that should be rejected by the output validator
-            def run_junk_case(junk_file, junk_content):
-                f = open(junk_file, 'wb')
-                f.write(junk_content)
-                f.close()
-                rejected = False
+            def run_junk_case(case_desc: str, junk_content: str, testcases: list[TestCase]) -> list[SubmissionResult]:
                 results = []
-                for testcase in self.problem.testdata.get_all_testcases():
-                    result = self.validate(testcase, file_name)
-                    results.append(result)
-                    if result.verdict == 'JE':
-                        self.error(f'{desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
-                        break
+                with tempfile.NamedTemporaryFile(mode='wb') as f:
+                    f.write(junk_content)
+                    f.flush()
+                    for testcase in testcases:
+                        result = self.validate(testcase, f.name)
+                        results.append(result)
+                        if result.verdict == 'JE':
+                            self.error(f'{case_desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
+                            break
                 return results
 
-            fd, file_name = tempfile.mkstemp()
-            os.close(fd)
-            for desc, case in _JUNK_CASES:
-                results = run_junk_case(file_name, case)
+            # Junk cases that the output validator should reject
+            for desc, junk_case_content in _JUNK_CASES:
+                results = run_junk_case(desc, junk_case_content, self.problem.testdata.get_all_testcases())
                 rejected = any(result.verdict != 'AC' for result in results)
                 if not rejected:
                     self.warning(f'{desc} gets AC')
-            for desc, case in _JUNK_CASES_CRASH:
-                continue
-                run_junk_case(file_name, case)
-                rejected = any(result.verdict != 'AC' for result in results)
-                if not rejected:
-                    self.warning(f'{desc} gets AC')
-            os.unlink(file_name)
+
+            # Malformed cases that a poorly-written output validator might crash on
+            # Note that these might be valid output, so we only check if it crashes
+            sample_cases = [tc for tc in self.problem.testdata.get_all_testcases() if tc.is_in_sample_group()]
+            for desc, junk_case_content in _JUNK_CASES_CRASH:
+                run_junk_case(desc, junk_case_content, sample_cases)
 
         return self._check_res
 
