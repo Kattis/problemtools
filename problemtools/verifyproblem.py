@@ -1292,7 +1292,7 @@ class OutputValidators(ProblemPart):
             flags = self.problem.metadata.legacy_validator_flags
 
             # Sanity check cases that should be rejected by the output validator
-            def run_junk_case(case_desc: str, junk_content: str, testcases: list[TestCase]) -> list[SubmissionResult]:
+            def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[TestCase]) -> list[SubmissionResult]:
                 results = []
                 with tempfile.NamedTemporaryFile(mode='wb') as f:
                     f.write(junk_content)
