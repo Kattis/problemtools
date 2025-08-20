@@ -960,7 +960,7 @@ _JUNK_CASES = [
     ('a text file with the ASCII characters 32 up to 127', bytearray(x for x in range(32, 127))),
     (
         'a random text file with printable ASCII characters',
-        (lambda rng=random.Random(42): bytearray(rng.choice(string.printable.encode()) for _ in range(200)))(),
+        (lambda rng=random.Random(42): bytearray(rng.choice(string.printable.encode('utf8')) for _ in range(200)))(),
     ),
 ]
 
