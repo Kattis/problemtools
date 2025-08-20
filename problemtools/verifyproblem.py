@@ -983,6 +983,10 @@ _JUNK_CASES_CRASH = [
     ('a file with the contents "1-"', b'1-'),
     ('a file with the contents "1/0"', b'1/0'),
     ('a file with the contents "2\\n<"', b'2\n<'),
+    ('a file with the contents "NaN"', b'NaN'),
+    ('a file with the contents "inf"', b'inf'),
+    ('a file with the contents "\\x00"', b'\x00'),
+    ('a file with the contents "\\x80"', b'\x80'),
 ]
 
 
@@ -1312,11 +1316,18 @@ class OutputValidators(ProblemPart):
                 if not rejected:
                     self.warning(f'{desc} gets AC')
 
+            # For performance reasons, strongly limit the amount of testcases we run on
+            fast_languages = {'c', 'cpp'}
+            all_validators_are_fast = True
+            for val in self._validators:
+                if isinstance(val, run.SourceCode):
+                    all_validators_are_fast &= val.language.lang_id in fast_languages
+            num_testcases = 3 if all_validators_are_fast else 1
+            test_cases = self.problem.testdata.get_all_testcases()[:num_testcases]
             # Malformed cases that a poorly-written output validator might crash on
             # Note that these might be valid output, so we only check if it crashes
-            sample_cases = [tc for tc in self.problem.testdata.get_all_testcases() if tc.is_in_sample_group()]
             for desc, junk_case_content in _JUNK_CASES_CRASH:
-                run_junk_case(desc, junk_case_content, sample_cases)
+                run_junk_case(desc, junk_case_content, test_cases)
 
         return self._check_res
 
