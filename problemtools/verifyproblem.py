@@ -1481,8 +1481,14 @@ class OutputValidators(ProblemPart):
         submission_args = submission.get_runcmd(memlim=self.problem.metadata.limits.memory)
 
         val_memlim = self.problem.metadata.limits.validation_memory
-        for val in self._actual_validators():
+        for i, val in enumerate(self._actual_validators()):
             if val.compile()[0]:
+                # If we are running multiple output validators in legacy, make sure to wipe it
+                # If we are running multipass, i will always be 0 and we do not accidentally wipe feedback
+                if i > 0 and feedback_dir_path:
+                    shutil.rmtree(feedback_dir_path)
+                    Path(feedback_dir_path).mkdir()
+
                 if feedback_dir_path:
                     feedbackdir = feedback_dir_path
                 else:
@@ -1555,8 +1561,14 @@ class OutputValidators(ProblemPart):
         flags = (
             self.problem.metadata.legacy_validator_flags.split() + testcase.testcasegroup.config['output_validator_flags'].split()
         )
-        for val in self._actual_validators():
+        for i, val in enumerate(self._actual_validators()):
             if val.compile()[0]:
+                # If we are running multiple output validators in legacy, make sure to wipe it
+                # If we are running multipass, i will always be 0 and we do not accidentally wipe feedback
+                if i > 0 and feedback_dir_path:
+                    shutil.rmtree(feedback_dir_path)
+                    Path(feedback_dir_path).mkdir()
+
                 if feedback_dir_path:
                     feedbackdir = feedback_dir_path
                 else:
