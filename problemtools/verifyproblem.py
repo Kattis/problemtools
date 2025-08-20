@@ -960,7 +960,7 @@ _JUNK_CASES = [
     ('a text file with the ASCII characters 32 up to 127', bytearray(x for x in range(32, 127))),
     (
         'a random text file with printable ASCII characters',
-        (lambda rng=random.Random(42): bytearray(rng.choice(string.printable.encode('utf8')) for _ in range(200)))(),
+        (lambda rng: bytearray(rng.choice(string.printable.encode('utf8')) for _ in range(200)))(random.Random(42)),
     ),
 ]
 
@@ -1005,7 +1005,7 @@ _JUNK_MODIFICATIONS = [
     (
         'random junk added to the end of the file',
         lambda f: True,
-        lambda f: (lambda rng=random.Random(42): f + ''.join(rng.choice(string.printable) for _ in range(200)))(),
+        lambda f: (lambda rng: f + ''.join(rng.choice(string.printable) for _ in range(200)))(random.Random(42)),
     ),
 ]
 
