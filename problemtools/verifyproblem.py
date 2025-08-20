@@ -414,7 +414,7 @@ class TestCase(ProblemAspect):
 
             def run_submission(infile: Path) -> SubmissionResult:
                 return self._problem.output_validators.validate_interactive(
-                    self, sub, timelim_high, self._problem.submissions, infile, str(feedback_dir)
+                    self, sub, timelim_high, self._problem.submissions, str(infile), str(feedback_dir)
                 )
         else:
 
