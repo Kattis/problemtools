@@ -676,7 +676,10 @@ class TestCaseGroup(ProblemAspect):
             if os.path.basename(self._datadir) != 'sample':
                 self.error(f'Testcase group {self._datadir} exists, but does not contain any testcases')
             else:
-                if not (self._problem.is_interactive() and glob.glob(os.path.join(self._datadir, '*.interaction'))):
+                if not (
+                    (self._problem.is_interactive() or self._problem.is_multi_pass())
+                    and glob.glob(os.path.join(self._datadir, '*.interaction'))
+                ):
                     self.warning(f'Sample testcase group {self._datadir} exists, but does not contain any testcases')
 
         # Check whether a <= b according to a natural sorting where numeric components
