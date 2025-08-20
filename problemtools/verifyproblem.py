@@ -953,6 +953,7 @@ class Attachments(ProblemPart):
         return 'attachments'
 
 
+# Junk data. The validator should reject these cases
 _JUNK_CASES = [
     ('an empty file', b''),
     ('a binary file with random bytes', bytearray(random.Random(0).randbytes(1024))),
@@ -961,6 +962,30 @@ _JUNK_CASES = [
         'a random text file with printable ASCII characters',
         bytearray(random.choice(string.printable.encode('utf8')) for _ in range(200)),
     ),
+]
+
+# Try to crash the output validator, causing a judge error
+_JUNK_CASES_CRASH = [
+    ('a file with the number -1', b'-1'),
+    ('a file with the number 2147483647', b'2147483647'),
+    ('a file with the number 2147483648', b'2147483648'),
+    ('a file with the number 9223372036854775808', b'9223372036854775808'),
+    ('a file with the number 0', b'0'),
+    ('a file with the number 1', b'1'),
+    ('a file with the number 1.0', b'1.0'),
+    ('a file with the string "a"', b'a'),
+    ('a file with the contents "2\\n-1 1"', b'2\n-1 1'),
+    ('a file with the contents "2\\n1"', b'2\n1'),
+    ('a file with the contents "1\\n-1 1"', b'1\n-1 1'),
+    ('a file with the contents "1\\na"', b'1\na'),
+    ('a file with the contents "(()"', b'(()'),
+    ('a file with the contents "1-"', b'1-'),
+    ('a file with the contents "1/0"', b'1/0'),
+    ('a file with the contents "2\\n<"', b'2\n<'),
+    ('a file with the contents "NaN"', b'NaN'),
+    ('a file with the contents "inf"', b'inf'),
+    ('a file with the contents "\\x00"', b'\x00'),
+    ('a file with the contents "\\x80"', b'\x80'),
 ]
 
 
@@ -1270,23 +1295,39 @@ class OutputValidators(ProblemPart):
         if self._check_res:
             flags = self.problem.metadata.legacy_validator_flags
 
-            fd, file_name = tempfile.mkstemp()
-            os.close(fd)
-            for desc, case in _JUNK_CASES:
-                f = open(file_name, 'wb')
-                f.write(case)
-                f.close()
-                rejected = False
-                for testcase in self.problem.testdata.get_all_testcases():
-                    result = self.validate(testcase, file_name)
-                    if result.verdict != 'AC':
-                        rejected = True
-                    if result.verdict == 'JE':
-                        self.error(f'{desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
-                        break
+            # Sanity check cases that should be rejected by the output validator
+            def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[TestCase]) -> list[SubmissionResult]:
+                results = []
+                with tempfile.NamedTemporaryFile(mode='wb') as f:
+                    f.write(junk_content)
+                    f.flush()
+                    for testcase in testcases:
+                        result = self.validate(testcase, f.name)
+                        results.append(result)
+                        if result.verdict == 'JE':
+                            self.error(f'{case_desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
+                            break
+                return results
+
+            # Junk cases that the output validator should reject
+            for desc, junk_case_content in _JUNK_CASES:
+                results = run_junk_case(desc, junk_case_content, self.problem.testdata.get_all_testcases())
+                rejected = any(result.verdict != 'AC' for result in results)
                 if not rejected:
                     self.warning(f'{desc} gets AC')
-            os.unlink(file_name)
+
+            # For performance reasons, strongly limit the amount of testcases we run on
+            fast_languages = {'c', 'cpp'}
+            all_validators_are_fast = True
+            for val in self._validators:
+                if isinstance(val, run.SourceCode):
+                    all_validators_are_fast &= val.language.lang_id in fast_languages
+            num_testcases = 3 if all_validators_are_fast else 1
+            test_cases = self.problem.testdata.get_all_testcases()[:num_testcases]
+            # Malformed cases that a poorly-written output validator might crash on
+            # Note that these might be valid output, so we only check if it crashes
+            for desc, junk_case_content in _JUNK_CASES_CRASH:
+                run_junk_case(desc, junk_case_content, test_cases)
 
         return self._check_res
 
