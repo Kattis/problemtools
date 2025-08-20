@@ -1318,7 +1318,11 @@ class OutputValidators(ProblemPart):
 
             # For performance reasons, strongly limit the amount of testcases we run on
             fast_languages = {'c', 'cpp'}
-            num_testcases = 3 if all(v.language.lang_id in fast_languages for v in self._validators) else 1
+            all_validators_are_fast = True
+            for val in self._validators:
+                if isinstance(val, run.SourceCode):
+                    all_validators_are_fast &= val.language.lang_id in fast_languages
+            num_testcases = 3 if all_validators_are_fast else 1
             test_cases = self.problem.testdata.get_all_testcases()[:num_testcases]
             # Malformed cases that a poorly-written output validator might crash on
             # Note that these might be valid output, so we only check if it crashes
