@@ -226,6 +226,13 @@ class Metadata(BaseModel):
             case FormatVersion.V_2023_07:
                 return self.is_scoring()
 
+    def is_custom_score_mandatory(self) -> bool:
+        match self.problem_format_version:
+            case FormatVersion.LEGACY:
+                return self.legacy_custom_score
+            case FormatVersion.V_2023_07:
+                return False
+
     def is_interactive(self) -> bool:
         return ProblemType.INTERACTIVE in self.type
 

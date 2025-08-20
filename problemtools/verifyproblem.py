@@ -815,8 +815,11 @@ class ProblemStatement(ProblemPart):
                 self.error(f'Problem is not interactive, but there is an interaction sample {ifilename}')
             with open(ifilename, 'r') as interaction:
                 for i, line in enumerate(interaction):
-                    if len(line) == 0 or (line[0] != '<' and line[0] != '>'):
-                        self.error(f'Interaction {ifilename}: line {i + 1} does not start with < or >')
+                    valid_new_pass = self.problem.is_multi_pass() and line.strip() == '---'
+                    if len(line) == 0 or (line[0] != '<' and line[0] != '>' and not valid_new_pass):
+                        self.error(
+                            f'Interaction {ifilename}: line {i + 1} does not start with < or > {"or ---" if self.problem.is_multi_pass() else ""}'
+                        )
                         break
 
         if not self.statements:
@@ -1405,11 +1408,10 @@ class OutputValidators(ProblemPart):
         return None
 
     def _parse_validator_results(self, val, status: int, feedbackdir, testcase: TestCase) -> SubmissionResult:
-        custom_score = self.problem.metadata.is_custom_score_allowed()
         score = None
         # TODO: would be good to have some way of displaying the feedback for debugging uses
         score_file = os.path.join(feedbackdir, 'score.txt')
-        if not custom_score and os.path.isfile(score_file):
+        if not self.problem.metadata.is_custom_score_allowed() and os.path.isfile(score_file):
             return SubmissionResult(
                 'JE', reason='validator produced "score.txt" but problem does not have custom scoring activated'
             )
@@ -1431,7 +1433,7 @@ class OutputValidators(ProblemPart):
         if ret == 43:
             return SubmissionResult('WA', additional_info=OutputValidators._get_feedback(feedbackdir))
 
-        if custom_score:
+        if self.problem.metadata.is_custom_score_mandatory():
             if os.path.isfile(score_file):
                 try:
                     score_str = open(score_file).read()
