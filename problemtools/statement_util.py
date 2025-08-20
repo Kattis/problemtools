@@ -5,12 +5,15 @@ import os
 import re
 import subprocess
 import tempfile
+import logging
 from pathlib import Path
 from typing import Optional, List, Tuple
 from urllib.parse import urlparse
 
 from . import metadata
 from .formatversion import FormatVersion, get_format_version
+
+log = logging.getLogger(__name__)
 
 ALLOWED_IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')  # ".svg"
 FOOTNOTES_STRINGS = ['<section class="footnotes">', '<aside class="footnotes">']
@@ -182,11 +185,19 @@ def format_samples(problem_root: Path) -> List[str]:
         return []
     samples = []
     casenum = 1
+    problem_metadata, _ = metadata.load_metadata(problem_root)
+    is_multi_pass = problem_metadata.is_multi_pass()
+    is_interactive = problem_metadata.is_interactive()
+    all_cases = os.listdir(sample_path)
     for sample in sorted(os.listdir(sample_path)):
         if sample.endswith('.interaction'):
-            samples.append(format_interactive_sample(sample_path, sample, casenum))
+            samples.append(format_interactive_sample(sample_path, sample, casenum, is_interactive, is_multi_pass))
             casenum += 1
             continue
+        else:
+            # If both .interaction and normal input exists, only render the .interaction
+            if str(Path(sample).with_suffix('.interaction')) in all_cases:
+                continue
 
         if not sample.endswith('.in'):
             continue
@@ -235,39 +246,87 @@ def format_normal_sample(sample_root: str, sample: str, casenum: int) -> str:
         </table>""" % ({'case': casenum, 'input': html.escape(sample_input), 'output': html.escape(sample_output)})
 
 
-def format_interactive_sample(sample_root: str, sample: str, casenum: int) -> str:
+def format_interactive_sample(sample_root: str, sample: str, casenum: int, is_interactive: bool, is_multi_pass: bool) -> str:
     """
 
     Args:
         sample_root: root of the sample folder
         sample: file name of the sample
         casenum: which sample is this? (1, 2, 3...)
+        is_multi_pass: Is this problem interactive or not?
+        is_interactive: Is this problem multi-pass or not?
 
     Returns:
         str: the sample, ready to be pasted into a markdown doc and fed to pandoc
     """
 
-    line = f"""
+    head = f"""
         <table class="sample" summary="sample data">
             <tr>
-                <th style="text-align:left; width:33%;">Read</th>
-                <th style="text-align:center; width:33%;">Sample Interaction {casenum}</th>
-                <th style="text-align:right; width:33%;">Write</th>
+                <th style="text-align:left; width:33%;"></th>
+                <th style="text-align:center; width:33%;">Sample {'Interaction' if is_interactive else 'Case'} {casenum}</th>
+                <th style="text-align:right; width:33%;"></th>
             </tr>
         </table>"""
 
+    def make_pass_header(curr_pass: int) -> str:
+        return f"""
+            <table class="sample" summary="sample data">
+                <tr>
+                    <th style="text-align:left; width:33%;">{'Read' if is_interactive else 'Sample Input'}</th>
+                    <th style="text-align:center; width:33%;">Pass {curr_pass}</th>
+                    <th style="text-align:right; width:33%;">{'Write' if is_interactive else 'Sample Output'}</th>
+                </tr>
+            </table>"""
+
+    def format_pass_content(content: list[str]) -> str:
+        block = []
+        if is_interactive:
+            for interaction in content:
+                line_type = ''
+                if interaction[0] == '>':
+                    line_type = 'sampleinteractionwrite'
+                elif interaction[0] == '<':
+                    line_type = 'sampleinteractionread'
+                else:
+                    log.warning(f'Interaction had unknown prefix {interaction[0]}')
+                data = html.escape(interaction[1:])
+
+                block.append(f'<div class="{line_type}"><pre>{data}</pre></div>')
+        else:
+            input_lines = [html.escape(line[1:]) for line in content if line.startswith('<')]
+            output_lines = [html.escape(line[1:]) for line in content if line.startswith('>')]
+            block.append(f"""<table class="sample" summary="sample data">
+                <tbody>
+                    <tr>
+                        <td><pre>{''.join(input_lines)}</pre></td>
+                        <td><pre>{''.join(output_lines)}</pre></td>
+                    </tr>
+                </tbody>
+                </table>""")
+        return '\n'.join(block)
+
     with open(os.path.join(sample_root, sample), 'r', encoding='utf-8') as infile:
         sample_interaction = infile.readlines()
-    lines = []
-    for interaction in sample_interaction:
-        data = html.escape(interaction[1:])
-        line_type = ''
-        if interaction[0] == '>':
-            line_type = 'sampleinteractionwrite'
-        elif interaction[0] == '<':
-            line_type = 'sampleinteractionread'
-        else:
-            print(f'Warning: Interaction had unknown prefix {interaction[0]}')
-        lines.append(f"""<div class="{line_type}"><pre>{data}</pre></div>""")
 
-    return line + ''.join(lines)
+    passes: list[list[str]] = []
+    curr_pass: list[str] = []
+    for interaction in sample_interaction:
+        if interaction.startswith('---'):
+            passes.append(curr_pass)
+            curr_pass = []
+            continue
+        curr_pass.append(interaction)
+
+    if len(curr_pass):
+        passes.append(curr_pass)
+
+    if not is_multi_pass and len(passes) != 1:
+        log.error('Got multipass-like interactive sample in non-multi-pass problem')
+
+    sample_table = head
+    for pass_index, pass_block in enumerate(passes):
+        sample_table += make_pass_header(pass_index + 1)
+        sample_table += format_pass_content(pass_block)
+
+    return sample_table
