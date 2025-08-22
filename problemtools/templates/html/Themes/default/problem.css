@@ -69,6 +69,7 @@ table.sample pre {
 
 table.sample td {
     border: 1px solid black;
+    width: 50%;
 }
 
 div.sampleinteractionread {

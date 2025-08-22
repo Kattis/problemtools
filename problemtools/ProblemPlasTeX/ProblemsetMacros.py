@@ -7,6 +7,8 @@ from plasTeX.Base import Command
 from plasTeX.Base import DimenCommand
 from plasTeX.Logging import getLogger
 
+from problemtools import metadata
+
 log = getLogger()
 status = getLogger('status')
 
@@ -121,7 +123,7 @@ class sampletableinteractive(Command):
 
         messages = []
         for index, block in enumerate(data):
-            if self.ownerDocument and self.ownerDocument.userdata['is_multi_pass']:
+            if self.attributes['is_multi_pass']:
                 messages.append({'mode': 'newpass', 'data': str(index + 1)})
             messages.extend(self.format_pass_content(block))
         return messages
@@ -130,12 +132,11 @@ class sampletableinteractive(Command):
         super().invoke(tex)
         dir = os.path.dirname(tex.filename)
         file = Path(dir) / self.attributes['file']
-        if self.ownerDocument:
-            self.attributes['is_multi_pass'] = self.ownerDocument.userdata['is_multi_pass']
-            self.attributes['is_interactive'] = self.ownerDocument.userdata['is_interactive']
-        else:  # Don't think this can happen, but let's make mypy happy
-            self.attributes['is_multi_pass'] = False
-            self.attributes['is_interactive'] = False
+        # A slightly messy way of finding out whether we're multipass and/or interactive
+        problem_root = file.parent.parent.parent
+        problem_metadata, _ = metadata.load_metadata(problem_root)
+        self.attributes['is_multi_pass'] = problem_metadata.is_multi_pass()
+        self.attributes['is_interactive'] = problem_metadata.is_interactive()
 
         if not self.attributes['is_interactive']:
             self.attributes['read'] = 'Sample Input'

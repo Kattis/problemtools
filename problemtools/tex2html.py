@@ -4,7 +4,6 @@ import string
 import argparse
 from pathlib import Path
 
-from . import metadata
 from . import template
 
 
@@ -32,10 +31,6 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
         tex = plasTeX.TeX.TeX(file=texfile)
 
         ProblemsetMacros.init(tex)
-
-        problem_metadata, _ = metadata.load_metadata(problem_root)
-        tex.ownerDocument.userdata['is_multi_pass'] = problem_metadata.is_multi_pass()
-        tex.ownerDocument.userdata['is_interactive'] = problem_metadata.is_interactive()
 
         tex.ownerDocument.config['general']['copy-theme-extras'] = options.css
         if not options.headers:
