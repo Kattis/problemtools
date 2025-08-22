@@ -63,6 +63,10 @@ table.sample th {
     width: 50%;    
 }
 
+table.sample pre {
+    margin: 0;
+}
+
 table.sample td {
     border: 1px solid black;
 }
