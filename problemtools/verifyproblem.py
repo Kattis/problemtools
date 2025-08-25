@@ -1444,13 +1444,7 @@ class OutputValidators(ProblemPart):
                 except Exception as e:
                     return SubmissionResult('JE', reason=f'failed to parse validator score: {e}')
             else:
-                # If we're running multipass, we do not need to output a score after every pass
-                # We accept the small risk of allowing a non-multipass output validator to not output score.txt
-                # if it produces a file called nextpass.in
-                if (Path(feedbackdir) / 'nextpass.in').exists():
-                    score = 0
-                else:
-                    return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
+                return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
 
         return SubmissionResult('AC', score=score)
 
