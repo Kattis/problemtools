@@ -24,5 +24,6 @@ more than one language.
 ## oddecho
 
 This is an example of a *scoring* problem where submissions can get
-different scores depending on which test groups they solve. It also demonstrates how an input validator might check different constraints for different test groups. The swedish statement showcases how to use images, footnotes
-and tables in Markdown.
+different scores depending on which test groups they solve. It also demonstrates how an input validator might check different constraints for different test groups.
+In addition, it reuses testcases across test groups using symlinks.
+The swedish statement showcases how to use images, footnotes and tables in Markdown.
