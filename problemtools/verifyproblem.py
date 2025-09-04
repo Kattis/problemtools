@@ -926,6 +926,13 @@ class ProblemConfig(ProblemPart):
             if not self._metadata.rights_owner and not self._metadata.source and not self._metadata.credits.authors:
                 self.error('No author, source or rights_owner provided')
 
+        # Sanity check that the author name is parsed reasonably
+        disallowed_in_name = [',', '&']
+        for author in self._metadata.credits.authors:
+            for disallowed_character in disallowed_in_name:
+                if disallowed_character in author.name:
+                    self.warning(f'Author name parsed to "{author.name}", which contains character "{disallowed_character}".')
+
         # Check license
         if self._metadata.license == metadata.License.UNKNOWN:
             self.warning("License is 'unknown'")
