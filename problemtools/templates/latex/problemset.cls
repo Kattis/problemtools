@@ -65,6 +65,7 @@
 \newcommand*{\licenseblurb}[1]{\def\@licenseblurb{#1}}
 \newcommand*{\statementdirectory}[1]{\def\@statementdirectory{#1}}
 \newcommand*{\statementfilename}[1]{\def\@statementfilename{#1}}
+\newcommand*{\problemparentpath}[1]{\def\@problemparentpath{#1}}
 % \problemlanguge is solely for backwards compatibility on the off chance someone external uses problemset.cls. Probably not needed
 \newcommand*{\problemlanguage}[1]{\def\@problemlanguage{#1}\statementfilename{problem#1.tex}}
 \contestname{}
@@ -74,8 +75,10 @@
 \licenseblurb{}
 \statementdirectory{problem_statement} % Default to the old standard directory on the off chance someone external uses problemset.cls
 \statementfilename{}
+\problemparentpath{}
 \problemlanguage{}
 
+\newcommand{\@problempath}[1]{\ifx\@problemparentpath\@empty#1\else\@problemparentpath/#1\fi}
 
 % Command to set a header logo
 \newsavebox{\PS@headerbox}
@@ -173,17 +176,17 @@
 %% Problem inclusion
 \newcommand{\includeproblem}[1]{
   \startproblem{#1}
-  \import{#1/\@statementdirectory/}{\@statementfilename}
+  \import{\@problempath{#1}/\@statementdirectory/}{\@statementfilename}
 
 
   %% Automatically include samples 1..9, if enabled
   \ifplastex\else
   \if@autoincludesamples
   \foreach \SampleNum in {1,...,9} {
-    \IfFileExists{\@problemid/data/sample/\SampleNum.interaction}{
-      \displaysampleinteraction{\@problemid/data/sample/\SampleNum}
-    }{\IfFileExists{\@problemid/data/sample/\SampleNum.in}{
-        \displaysample{\@problemid/data/sample/\SampleNum}
+    \IfFileExists{\@problempath{\@problemid}/data/sample/\SampleNum.interaction}{
+      \displaysampleinteraction{\@problempath{\@problemid}/data/sample/\SampleNum}
+    }{\IfFileExists{\@problempath{\@problemid}/data/sample/\SampleNum.in}{
+        \displaysample{\@problempath{\@problemid}/data/sample/\SampleNum}
       }{}
     }
   }
@@ -215,8 +218,8 @@
       \if@problemnumbers {\huge Problem \problemnumber\\[3mm]}  \fi
       {\LARGE #1}
       \if@problemids {\\[2mm]{\Large Problem ID: #2}} \fi
-      \IfFileExists{#2/.timelimit}{
-        \openin\ps@timelimitfile=#2/.timelimit
+      \IfFileExists{\@problempath{#2}/.timelimit}{
+        \openin\ps@timelimitfile=\@problempath{#2}/.timelimit
         \read\ps@timelimitfile to\ps@timelimit
         \\[2mm]{\Large Time limit:\ps@formattime{\ps@timelimit}}
         \closein\ps@timelimitfile
@@ -246,11 +249,11 @@
 %% Define the command used to give sample data
 %% Takes filename as parameter
 \newcommand{\includesample}[1]{
-  \IfFileExists{\@problemid/data/sample/#1.interaction}{
-    \displaysampleinteraction{\@problemid/data/sample/#1}
+  \IfFileExists{\@problempath{\@problemid}/data/sample/#1.interaction}{
+    \displaysampleinteraction{\@problempath{\@problemid}/data/sample/#1}
   }{
-    \IfFileExists{\@problemid/data/sample/#1.in}{
-      \displaysample{\@problemid/data/sample/#1}
+    \IfFileExists{\@problempath{\@problemid}/data/sample/#1.in}{
+      \displaysample{\@problempath{\@problemid}/data/sample/#1}
     }{
       \ClassError{problemset}{Can't find any sample named #1}{}
     }
