@@ -41,7 +41,7 @@ class Template:
         self.language = language
 
         self._tempdir: tempfile.TemporaryDirectory | None = None
-        self.filename: Path | None = None
+        self.texfile: Path | None = None
 
         templatepaths = map(
             Path,
@@ -76,8 +76,8 @@ class Template:
 
         shutil.copyfile(self.clsfile, temp_dir_path / self.CLS_FILENAME)
 
-        self.filename = temp_dir_path / 'main.tex'
-        with open(self.filename, 'w') as templout, open(self.templatefile) as templin:
+        self.texfile = temp_dir_path / 'main.tex'
+        with open(self.texfile, 'w') as templout, open(self.templatefile) as templin:
             data = {
                 'problemparent': str(self.problem_root.parent.resolve()),
                 'directory': self.problem_root.name,
@@ -101,6 +101,6 @@ class Template:
         if self._tempdir:
             self._tempdir.cleanup()
 
-    def get_file_name(self) -> str:  # We should later change this to a Path
-        assert self.filename and self.filename.is_file()
-        return str(self.filename)
+    def get_file_name(self) -> Path:
+        assert self.texfile and self.texfile.is_file()
+        return self.texfile
