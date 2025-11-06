@@ -35,6 +35,7 @@ from . import problem2pdf
 from . import run
 from . import statement_util
 from .formatversion import FormatVersion, get_format_version
+from .version import add_version_arg
 
 from abc import ABC
 from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, TypeVar
@@ -2163,6 +2164,7 @@ def argparser() -> argparse.ArgumentParser:
         help='run validation using multiple threads. This will make timings less reliable, but can be convenient during development',
     )
 
+    add_version_arg(parser)
     argparser_basic_arguments(parser)
 
     parser.add_argument('problemdir', nargs='+')

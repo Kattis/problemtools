@@ -11,6 +11,7 @@ from pathlib import Path
 from . import tex2html
 from . import md2html
 from . import statement_util
+from .version import add_version_arg
 
 
 def convert(options: argparse.Namespace, force_statement_file: Path | None = None) -> None:
@@ -99,6 +100,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help='quiet', default=False)
     parser.add_argument('-i', '--imgbasedir', dest='imgbasedir', default='')
     parser.add_argument('problem', help='the problem to convert')
+    add_version_arg(parser)
 
     return parser
 
