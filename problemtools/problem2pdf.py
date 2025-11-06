@@ -101,7 +101,7 @@ def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
 
         origcwd = os.getcwd()
 
-        os.chdir(os.path.dirname(texfile))
+        os.chdir(texfile.parent)
         params = ['pdflatex', '-interaction=nonstopmode']
         output = None
         if options.quiet:
@@ -109,7 +109,7 @@ def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
         if options.nopdf:
             params.append('-draftmode')
 
-        params.append(texfile)
+        params.append(str(texfile.name))
 
         status = subprocess.call(params, stdout=output)
         if status == 0:
@@ -121,7 +121,7 @@ def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
         os.chdir(origcwd)
 
         if status == 0 and not options.nopdf:
-            shutil.move(os.path.splitext(texfile)[0] + '.pdf', destfile)
+            shutil.move(texfile.with_suffix('.pdf'), destfile)
 
     if status:
         return False
