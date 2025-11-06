@@ -840,6 +840,9 @@ class ProblemStatement(ProblemPart):
                 f'No problem statements found (expected file of one of following forms in directory {self.problem.format.statement_directory}/: {allowed_statements})'
             )
 
+        def _latex_heuristic(name: str) -> bool:
+            return '\\' in name or '$' in name
+
         for lang, files in self.statements.items():
             if len(files) > 1:
                 self.error(f'Found multiple statements in the same language {lang}: {", ".join((file.name for file in files))}')
@@ -850,6 +853,8 @@ class ProblemStatement(ProblemPart):
                 self.error(f'Problem name in language {lang} is empty')
             elif not self.problem.metadata.name[lang].strip():
                 self.error(f'Problem name in language {lang} contains only whitespace')
+            elif self.problem.format is FormatVersion.LEGACY and _latex_heuristic(self.problem.metadata.name[lang]):
+                self.warning(f'Problem name in language {lang} looks like LaTeX. Consider using plainproblemname.')
 
             for file in files:
                 try:

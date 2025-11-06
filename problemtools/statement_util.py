@@ -47,7 +47,10 @@ def load_names_from_statements(problem_root: Path, version: FormatVersion) -> di
     assert version is FormatVersion.LEGACY, 'load_names_from_statements only makes sense for legacy format'
     ret: dict[str, str] = {}
     for lang, files in find_statements(problem_root, version).items():
-        hit = re.search(r'\\problemname{(.*)}', files[0].read_text(), re.MULTILINE)
+        text = files[0].read_text()
+        flags = re.MULTILINE
+        # Two separate searches, as we want plainproblemname to override problemname if both exist.
+        hit = re.search(r'^%%\s*plainproblemname:(.*)$', text, flags) or re.search(r'\\problemname{(.*)}', text, flags)
         if hit:
             ret[lang] = hit.group(1).strip()
     return ret
