@@ -2066,14 +2066,22 @@ class Problem(ProblemAspect):
     def _check_file_and_directory_names(self):
         filename_regex = re.compile(r'^[a-z0-9][a-z0-9_.-]{0,253}[a-z0-9]$', re.I)
         directory_regex = re.compile(r'^[a-z0-9]([a-z0-9_-]{0,253}[a-z0-9])?$', re.I)
+
+        # Adding some pragmatic custom rules until https://github.com/Kattis/problem-package-format/issues/453 has resolved
+        def _special_case_allowed_files(file: str, reldir: str) -> bool:
+            return file == '.gitignore' or (file == '.timelimit' and reldir == os.path.basename(self.probdir))
+
+        def _special_case_allowed_dirs(directory: str, reldir: str) -> bool:
+            return directory == '.git' and reldir == os.path.basename(self.probdir)
+
         for root, dirs, files in os.walk(self.probdir):
             # Path of the directory we're in, starting with problem shortname. Only used for nicer error messages.
             reldir = os.path.relpath(root, os.path.dirname(self.probdir))
             for file in files:
-                if not filename_regex.match(file):
+                if not filename_regex.match(file) and not _special_case_allowed_files(file, reldir):
                     self.error(f"Invalid file name '{file}' in {reldir} (should match {filename_regex.pattern} ignoring case)")
             for directory in dirs:
-                if not directory_regex.match(directory):
+                if not directory_regex.match(directory) and not _special_case_allowed_dirs(directory, reldir):
                     self.error_in_2023_07(
                         f"Invalid directory name '{directory}' in {reldir} (should match {directory_regex.pattern} ignoring case)"
                     )
