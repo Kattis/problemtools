@@ -102,12 +102,12 @@ def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
         origcwd = os.getcwd()
 
         os.chdir(texfile.parent)
-        params = ['pdflatex', '-interaction=nonstopmode']
+        params = ['lualatex', '--interaction=nonstopmode']
         output = None
         if options.quiet:
             output = open(os.devnull, 'w')
         if options.nopdf:
-            params.append('-draftmode')
+            params.append('--draftmode')
 
         params.append(str(texfile.name))
 
