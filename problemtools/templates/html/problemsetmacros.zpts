@@ -24,16 +24,46 @@ name: sampletable
 name: sampletableinteractive
 <table class="sample" summary="sample data">
    <tr>
-      <th style="text-align:left; width:33%;" tal:content="self/attributes/read"></th>
+      <th style="text-align:left; width:33%;" tal:content="self/attributes/read" tal:condition="python: not self.attributes.get('is_multi_pass')"></th>
       <th style="text-align:center; width:33%;" tal:content="self/attributes/header"></th>
-      <th style="text-align:right; width:33%;" tal:content="self/attributes/write"></th>
+      <th style="text-align:right; width:33%;" tal:content="self/attributes/write" tal:condition="python: not self.attributes.get('is_multi_pass')"></th>
    </tr>
 </table>
+
+
 <tal:block tal:repeat="message self/attributes/messages">
-   <div tal:attributes="class string:sampleinteraction${message/mode}">
+   <tal:block tal:condition="python: message['mode'] == 'newpass' and self.attributes.get('is_multi_pass')">
+      <table class="sample" summary="sample data">
+         <tr>
+            <th style="text-align:left; width:33%;" tal:content="self/attributes/read"></th>
+            <th style="text-align:center; width:33%;" tal:content="python: 'Pass %s' % message['data']"></th>
+            <th style="text-align:right; width:33%;" tal:content="self/attributes/write"></th>
+         </tr>
+      </table>
+   </tal:block>
+
+   <div tal:condition="python: message['mode'] in ('read', 'write') and self.attributes.get('is_interactive', False)"
+      tal:attributes="class string:sampleinteraction${message/mode}">
       <pre tal:content="message/data"></pre>
    </div>
+
+   <div tal:condition="python: message['mode'] == 'batch_sample' and not self.attributes.get('is_interactive', False)"
+      tal:attributes="class string:sampleinteraction${message/mode}">
+      
+      <table class="sample" summary="sample data">
+         <tr>
+            <td>
+               <pre tal:content="message/in_data"></pre>
+            </td>
+            <td>
+               <pre tal:content="message/out_data"></pre>
+            </td>
+         </tr>
+      </table>
+   </div>
 </tal:block>
+
+
 
 name: illustration
 <div class="illustration" tal:attributes="style string:width:${self/style/width}">
