@@ -12,6 +12,7 @@ from pathlib import Path
 
 from . import template
 from . import statement_util
+from .version import add_version_arg
 
 
 def convert(options: argparse.Namespace, force_statement_file: Path | None = None) -> bool:
@@ -158,6 +159,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument('-l', '--language', dest='language', help='choose language (2-letter code)', default='en')
     parser.add_argument('-n', '--no-pdf', dest='nopdf', action='store_true', help='run pdflatex in -draftmode', default=False)
     parser.add_argument('problem', help='the problem to convert')
+    add_version_arg(parser)
 
     return parser
 
