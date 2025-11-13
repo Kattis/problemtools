@@ -16,13 +16,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && apt-get install -y \
         dvisvgm \
+        fonts-cmu \
+        fonts-noto-color-emoji \
         ghostscript \
         libgmp-dev \
         pandoc \
         python3 \
         python3-venv \
         texlive-fonts-recommended \
-        texlive-lang-cyrillic \
         texlive-latex-extra \
+        texlive-luatex \
         texlive-plain-generic \
         tidy

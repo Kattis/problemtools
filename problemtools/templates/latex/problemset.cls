@@ -36,8 +36,6 @@
 \RequirePackage{times}            % Font choice
 \RequirePackage{amsmath}          % AMS
 \RequirePackage{amssymb}          % AMS
-\RequirePackage[OT2,T1]{fontenc}  % Cyrillic and standard % TODO: make alphabet options more general
-\RequirePackage[utf8]{inputenc}   % UTF-8 support
 \RequirePackage{fancyhdr}         % Headers
 \RequirePackage{graphicx}         % Graphics
 \RequirePackage{subfigure}        % Subfigures
@@ -55,6 +53,24 @@
 \ifplastex\else
 \RequirePackage{xstring}
 \RequirePackage{pgffor}
+% I do not understand how to do font handling well in a portable way in
+% lualatex. The default font seems to only have latin characters. If we
+% try to load a font which is not installed, rendering fails, which makes
+% problem2pdf and verifyproblem unhappy. After a lot of trial-and-error,
+% I ended up with this conditional loading of fonts (so we should degrade
+% gracefully when fonts are missing). Getting the emoji font to work was weird,
+% as apparently we need to define the fallback using lua code because the font
+% uses colors.
+\RequirePackage{fontspec}
+\RequirePackage{luacode}
+\IfFontExistsTF{CMU Serif}{
+    \IfFontExistsTF{NotoColorEmoji}{
+        \directlua{luaotfload.add_fallback("myfallback", {"NotoColorEmoji:mode=harf;"})}
+        \setmainfont{CMU Serif}[RawFeature={fallback=myfallback}]
+    }{
+        \setmainfont{CMU Serif}
+    }
+}{}
 \fi
 
 %% Commands used to set name, logo, etc of contest
@@ -291,8 +307,8 @@
 
 \newcommand{\sampletable}[4]{
   % First find widths of the two files
-  \savebox{\PS@sampleinbox}{\lstinputlisting[inputencoding=utf8/latin1,basicstyle=\ttfamily]{#2}}
-  \savebox{\PS@sampleoutbox}{\lstinputlisting[inputencoding=utf8/latin1,basicstyle=\ttfamily]{#4}}
+  \savebox{\PS@sampleinbox}{\lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily]{#2}}
+  \savebox{\PS@sampleoutbox}{\lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily]{#4}}
   \settowidth{\PS@sampleoutwidth}{\usebox{\PS@sampleoutbox}}
   \settowidth{\PS@sampleinwidth}{\usebox{\PS@sampleinbox}}
   \setlength{\PS@sampletotwidth}{\PS@sampleinwidth}
@@ -369,7 +385,7 @@
         \hline
         \parbox[t]{0.55\textwidth}{
           \vspace{-0.49cm}
-          \lstinputlisting[inputencoding=utf8/latin1,basicstyle=\ttfamily]{\jobname.pstmp}
+          \lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily]{\jobname.pstmp}
           \vspace{-0.21cm}
         }\\
         \hline

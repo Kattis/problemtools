@@ -36,6 +36,10 @@ jobs:
       run: venv/bin/ruff check --output-format=github
     - name: Check ruff formatting
       run: venv/bin/ruff format --check --diff
+    - name: Install lualatex (temporary, until githubci docker image is updated)
+      run: |
+        apt-get update
+        apt-get install fonts-cmu fonts-noto-color-emoji texlive-luatex
     - name: Test with pytest
       run:  venv/bin/pytest
     - name: Run mypy
@@ -53,6 +57,10 @@ jobs:
     - name: Build debian packages
       run:  |
         make builddeb
+    - name: Install lualatex (temporary, until githubci docker image is updated)
+      run: |
+        apt-get update
+        apt-get install fonts-cmu fonts-noto-color-emoji texlive-luatex
     - name: Install debian package
       run:  dpkg -i ../kattis-problemtools_*.deb
     - name: Verify examples

@@ -237,7 +237,11 @@ The dependencies needed to *build/install* problemtools can be installed with:
 
 And the dependencies needed to *run* problemtools can be installed with:
 
-    sudo apt install ghostscript pandoc python3 texlive-fonts-recommended texlive-lang-cyrillic texlive-latex-extra texlive-plain-generic tidy dvisvgm
+    sudo apt install ghostscript pandoc python3 texlive-fonts-recommended texlive-latex-extra texlive-luatex texlive-plain-generic tidy dvisvgm
+
+To render problem statements to pdf with non-latin characters, also add the following fonts:
+
+    sudo apt install fonts-cmu fonts-noto-color-emoji
 
 ### Fedora
 
