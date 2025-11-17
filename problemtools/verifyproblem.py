@@ -1902,7 +1902,7 @@ class Problem(ProblemAspect):
         self.probdir = os.path.realpath(probdir)
         self.shortname: str = os.path.basename(self.probdir)
         super().__init__(self.shortname, self)
-        self.language_config = languages.load_language_config()
+        self.language_config = languages.load_language_config(Path(self.probdir).parent)
         self.testcase_by_infile: dict[str, TestCase] = {}
         self.loaded = False
         self._metadata: metadata.Metadata | None = None
