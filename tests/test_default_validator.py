@@ -68,7 +68,7 @@ def test_default_validator(validator: Path, test_dir: Path):
 
     expected_exit_code = int(expected_exit_code_file.read_text(encoding='utf-8').strip())
 
-    with tempfile.TemporaryDirectory() as feedback_dir_str, open(user_out, 'r', encoding='utf-8') as user_out_f:
+    with tempfile.TemporaryDirectory() as feedback_dir_str, open(user_out, 'rb') as user_out_f:
         feedback_dir = Path(feedback_dir_str)
         # The validator expects judge_in, judge_ans, feedback_dir.
         # judge_in is not currently used by the validator for comparison, so we pass a dummy file.
@@ -82,11 +82,11 @@ def test_default_validator(validator: Path, test_dir: Path):
             judgemessage_path = feedback_dir / 'judgemessage.txt'
             if expected_message_file.is_file():
                 assert judgemessage_path.is_file(), "'judgemessage.txt' was not created but was expected."
-                actual_message = judgemessage_path.read_text(encoding='utf-8').strip()
-                expected_message = expected_message_file.read_text(encoding='utf-8').strip()
+                actual_message = judgemessage_path.read_bytes()
+                expected_message = expected_message_file.read_bytes()
                 assert actual_message == expected_message, 'The validation message did not match the expected message.'
             else:
                 # If no message is expected, assert that no message was generated.
                 if judgemessage_path.is_file():
-                    actual_message = judgemessage_path.read_text(encoding='utf-8').strip()
+                    actual_message = judgemessage_path.read_bytes()
                     assert not actual_message, f'A validation message was generated but none was expected: {actual_message}'

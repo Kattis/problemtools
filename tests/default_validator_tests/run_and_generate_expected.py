@@ -76,7 +76,7 @@ def main():
     with tempfile.TemporaryDirectory() as feedback_dir:
         # The validator expects judge_in, judge_ans, feedback_dir
         # judge_in is not used by the validator for comparison, so we can pass a dummy file.
-        with tempfile.NamedTemporaryFile() as dummy_judge_in, open(user_out, 'r', encoding='utf-8') as user_out_f:
+        with tempfile.NamedTemporaryFile() as dummy_judge_in, open(user_out, 'rb') as user_out_f:
             cmd = [str(validator_path), str(dummy_judge_in.name), str(judge_ans), feedback_dir, *validator_args]
 
             result = subprocess.run(cmd, stdin=user_out_f, capture_output=True, text=True, encoding='utf-8')
@@ -88,9 +88,9 @@ def main():
             # Write expected_message.txt if a message was generated
             judgemessage_path = Path(feedback_dir) / 'judgemessage.txt'
             if judgemessage_path.is_file():
-                message = judgemessage_path.read_text(encoding='utf-8')
+                message = judgemessage_path.read_bytes()
                 if message:
-                    (test_dir / 'expected_message.txt').write_text(message, encoding='utf-8')
+                    (test_dir / 'expected_message.txt').write_bytes(message)
                     print('Wrote message to expected_message.txt')
             else:
                 # If there's no message, we should remove any existing expected_message.txt
