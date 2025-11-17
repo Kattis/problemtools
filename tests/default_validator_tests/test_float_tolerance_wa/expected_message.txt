@@ -1,0 +1,6 @@
+Wrong answer on line 1 of output (corresponding to line 1 in answer file)
+Too large difference.
+ Judge: 1
+ User: 1.50001
+ Difference: -5.000100e-01
+ (abs tol 5.000000e-01 rel tol 5.000000e-01)
