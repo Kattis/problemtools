@@ -1,13 +1,15 @@
 import collections
 import os
 import yaml
+from pathlib import Path
+from typing import Mapping
 
 
 class ConfigError(Exception):
     pass
 
 
-def load_config(configuration_file):
+def load_config(configuration_file: str, priority_dirs: list[Path] = []) -> dict:
     """Load a problemtools configuration file.
 
     Args:
@@ -15,41 +17,42 @@ def load_config(configuration_file):
         relative to config directory so typically just a file name
         without paths, e.g. "languages.yaml".
     """
-    res = None
+    res: dict | None = None
 
-    for dirname in __config_file_paths():
-        path = os.path.join(dirname, configuration_file)
+    for dirname in __config_file_paths() + priority_dirs:
+        path = dirname / configuration_file
         new_config = None
-        if os.path.isfile(path):
+        if path.is_file():
             try:
                 with open(path, 'r') as config:
                     new_config = yaml.safe_load(config.read())
             except (yaml.parser.ParserError, yaml.scanner.ScannerError) as err:
-                raise ConfigError('Config file %s: failed to parse: %s' % (path, err))
+                raise ConfigError(f'Config file {path}: failed to parse: {err}')
         if res is None:
             if new_config is None:
-                raise ConfigError('Base configuration file %s not found in %s' % (configuration_file, path))
+                raise ConfigError(f'Base configuration file {configuration_file} not found in {path}')
             res = new_config
         elif new_config is not None:
             __update_dict(res, new_config)
 
+    assert res is not None, 'Failed to load config (should never happen, we should have hit an error in loop above)'
     return res
 
 
-def __config_file_paths():
+def __config_file_paths() -> list[Path]:
     """
     Paths in which to look for config files, by increasing order of
     priority (i.e., any config in the last path should take precedence
     over the others).
     """
     return [
-        os.path.join(os.path.dirname(__file__), 'config'),
-        os.path.join('/etc', 'kattis', 'problemtools'),
-        os.path.join(os.environ.get('XDG_CONFIG_HOME', os.path.join(os.path.expanduser('~'), '.config')), 'problemtools'),
+        Path(__file__).parent / 'config',
+        Path('/etc/kattis/problemtools'),
+        Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'problemtools',
     ]
 
 
-def __update_dict(orig, update):
+def __update_dict(orig: dict, update: Mapping) -> None:
     """Deep update of a dictionary
 
     For each entry (k, v) in update such that both orig[k] and v are

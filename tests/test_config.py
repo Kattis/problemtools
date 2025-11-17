@@ -5,9 +5,9 @@ from problemtools import config
 
 
 def config_paths_mock():
-    import os
+    from pathlib import Path
 
-    return [os.path.join(os.path.dirname(__file__), 'config1'), os.path.join(os.path.dirname(__file__), 'config2')]
+    return [Path(__file__).parent / 'config1', Path(__file__).parent / 'config2']
 
 
 def test_load_basic_config(monkeypatch):

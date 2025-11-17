@@ -6,6 +6,7 @@ of programming languages.
 import fnmatch
 import re
 import string
+from pathlib import Path
 
 from . import config
 
@@ -218,10 +219,10 @@ class Languages(object):
             priorities[lang.priority] = lang_id
 
 
-def load_language_config():
+def load_language_config(probdir_parent: Path) -> Languages:
     """Load language configuration.
 
     Returns:
         Languages object for the set of languages.
     """
-    return Languages(config.load_config('languages.yaml'))
+    return Languages(config.load_config('languages.yaml', [probdir_parent]))
