@@ -82,8 +82,10 @@
 \newcommand*{\statementdirectory}[1]{\def\@statementdirectory{#1}}
 \newcommand*{\statementfilename}[1]{\def\@statementfilename{#1}}
 \newcommand*{\problemparentpath}[1]{\def\@problemparentpath{#1}}
-% \problemlanguge is solely for backwards compatibility on the off chance someone external uses problemset.cls. Probably not needed
-\newcommand*{\problemlanguage}[1]{\def\@problemlanguage{#1}\statementfilename{problem#1.tex}}
+\newcommand*{\problemlanguage}[1]{%
+  \statementfilename{problem#1.tex}%
+  \setproblemlanguagestrings{#1}%
+}
 \contestname{}
 \contestshortname{}
 \contestlogo{}
@@ -92,7 +94,6 @@
 \statementdirectory{problem_statement} % Default to the old standard directory on the off chance someone external uses problemset.cls
 \statementfilename{}
 \problemparentpath{}
-\problemlanguage{}
 
 \newcommand{\@problempath}[1]{\ifx\@problemparentpath\@empty#1\else\@problemparentpath/#1\fi}
 
@@ -250,11 +251,44 @@
 
 %% Commands related to sample data
 
-\newcommand{\sampleinputname}{Sample Input}
-\newcommand{\sampleoutputname}{Sample Output}
-\newcommand{\sampleinteractname}{Sample Interaction}
-\newcommand{\sampleinteractreadname}{Read}
-\newcommand{\sampleinteractwritename}{Write}
+% --- Translations ---
+% English (default)
+\newcommand{\@translation@en@sampleinputname}{Sample Input}
+\newcommand{\@translation@en@sampleoutputname}{Sample Output}
+\newcommand{\@translation@en@sampleinteractname}{Sample Interaction}
+\newcommand{\@translation@en@sampleinteractreadname}{Read}
+\newcommand{\@translation@en@sampleinteractwritename}{Write}
+
+% Swedish
+\newcommand{\@translation@sv@sampleinputname}{Exempel på indata}
+\newcommand{\@translation@sv@sampleoutputname}{Exempel på utdata}
+\newcommand{\@translation@sv@sampleinteractname}{Exempel på interaktion}
+\newcommand{\@translation@sv@sampleinteractreadname}{Läs}
+\newcommand{\@translation@sv@sampleinteractwritename}{Skriv}
+
+% Icelandic
+\newcommand{\@translation@is@sampleinputname}{Sýniinntak}
+\newcommand{\@translation@is@sampleoutputname}{Sýniúttak}
+\newcommand{\@translation@is@sampleinteractname}{Sýnisamskipti}
+\newcommand{\@translation@is@sampleinteractreadname}{Lestur}
+\newcommand{\@translation@is@sampleinteractwritename}{Skrif}
+% --- End Translations ---
+
+\newcommand{\setproblemlanguagestrings}[1]{%
+  \expandafter\ifx\csname @translation@#1@sampleinputname\endcsname\relax
+    % Language not found, default to English
+    \def\problemlanguageis{en}%
+  \else
+    % Language found
+    \def\problemlanguageis{#1}%
+  \fi
+  \expandafter\let\expandafter\sampleinputname\csname @translation@\problemlanguageis @sampleinputname\endcsname
+  \expandafter\let\expandafter\sampleoutputname\csname @translation@\problemlanguageis @sampleoutputname\endcsname
+  \expandafter\let\expandafter\sampleinteractname\csname @translation@\problemlanguageis @sampleinteractname\endcsname
+  \expandafter\let\expandafter\sampleinteractreadname\csname @translation@\problemlanguageis @sampleinteractreadname\endcsname
+  \expandafter\let\expandafter\sampleinteractwritename\csname @translation@\problemlanguageis @sampleinteractwritename\endcsname
+}
+\setproblemlanguagestrings{en}
 
 \newcommand{\formatsampleheader}[1]{\textsf{\textbf{#1}}}
 
