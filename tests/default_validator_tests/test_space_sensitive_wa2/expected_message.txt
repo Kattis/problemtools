@@ -1,0 +1,2 @@
+Wrong answer on line 2 of output (corresponding to line 2 in answer file)
+Space change error: judge out of space, got 32 from user
