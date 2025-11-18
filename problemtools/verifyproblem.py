@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+import math
 import threading
 import queue
 import glob
@@ -343,7 +344,7 @@ class TestCase(ProblemAspect):
 
         return (res, res_low, res_high)
 
-    def run_normal(self, sub, infile: Path, time_limit: int, feedback_dir: Path) -> SubmissionResult:
+    def run_normal(self, sub, infile: Path, time_limit: float, feedback_dir: Path) -> SubmissionResult:
         """
         Run a submission batch-style (non-interactive)
         """
@@ -354,7 +355,7 @@ class TestCase(ProblemAspect):
             infile=str(infile),
             outfile=str(outfile),
             errfile=str(errfile),
-            timelim=time_limit + 1,
+            timelim=math.ceil(time_limit) + 1,
             memlim=self._problem.metadata.limits.memory,
             work_dir=sub.path,
         )
@@ -408,7 +409,7 @@ class TestCase(ProblemAspect):
 
         return SubmissionResult('JE', reason=f'Multipass validator did not give verdict in {validation_passes=} passes')
 
-    def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
+    def run_submission_real(self, sub, context: Context, timelim: float, timelim_low: float, timelim_high: float) -> Result:
         # This may be called off-main thread.
 
         feedback_dir = Path(tempfile.mkdtemp(prefix=f'feedback-{self.counter}-', dir=self.problem.tmpdir))
@@ -1476,7 +1477,7 @@ class OutputValidators(ProblemPart):
         self,
         testcase: TestCase,
         submission,
-        timelim: int,
+        timelim: float,
         errorhandler: Submissions,
         infile: str | None = None,
         feedback_dir_path: str | None = None,
@@ -1489,7 +1490,7 @@ class OutputValidators(ProblemPart):
             errorhandler.error('Could not locate interactive runner')
             return res
         # file descriptor, wall time lim
-        initargs = ['1', str(2 * timelim)]
+        initargs = ['1', str(math.ceil(2 * timelim))]
         validator_args = [infile if infile else testcase.infile, testcase.ansfile, '<feedbackdir>']
         submission_args = submission.get_runcmd(memlim=self.problem.metadata.limits.memory)
 
@@ -1622,7 +1623,7 @@ class OutputValidators(ProblemPart):
 
 
 class Runner:
-    def __init__(self, problem: Problem, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> None:
+    def __init__(self, problem: Problem, sub, context: Context, timelim: float, timelim_low: float, timelim_high: float) -> None:
         self._problem = problem
         self._sub = sub
         self._context = context
@@ -1759,7 +1760,7 @@ class Submissions(ProblemPart):
         return 'submissions'
 
     def check_submission(
-        self, sub, context: Context, expected_verdict: Verdict, timelim: int, timelim_low: int, timelim_high: int
+        self, sub, context: Context, expected_verdict: Verdict, timelim: float, timelim_low: float, timelim_high: float
     ) -> SubmissionResult:
         desc = f'{expected_verdict} submission {sub}'
         partial = False
