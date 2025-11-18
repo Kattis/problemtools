@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+import math
 import threading
 import queue
 import glob
@@ -108,7 +109,7 @@ class Context:
     def __init__(self, args: argparse.Namespace, executor: ThreadPoolExecutor | None) -> None:
         self.data_filter: Pattern[str] = args.data_filter
         self.submission_filter: Pattern[str] = args.submission_filter
-        self.fixed_timelim: int | None = args.fixed_timelim
+        self.fixed_timelim: float | None = args.fixed_timelim
         self.executor = executor
         self._background_work: list[concurrent.futures.Future[object]] = []
 
@@ -343,7 +344,7 @@ class TestCase(ProblemAspect):
 
         return (res, res_low, res_high)
 
-    def run_normal(self, sub, infile: Path, time_limit: int, feedback_dir: Path) -> SubmissionResult:
+    def run_normal(self, sub, infile: Path, time_limit: float, feedback_dir: Path) -> SubmissionResult:
         """
         Run a submission batch-style (non-interactive)
         """
@@ -354,7 +355,7 @@ class TestCase(ProblemAspect):
             infile=str(infile),
             outfile=str(outfile),
             errfile=str(errfile),
-            timelim=time_limit + 1,
+            timelim=math.ceil(time_limit) + 1,
             memlim=self._problem.metadata.limits.memory,
             work_dir=sub.path,
         )
@@ -408,7 +409,7 @@ class TestCase(ProblemAspect):
 
         return SubmissionResult('JE', reason=f'Multipass validator did not give verdict in {validation_passes=} passes')
 
-    def run_submission_real(self, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> Result:
+    def run_submission_real(self, sub, context: Context, timelim: float, timelim_low: float, timelim_high: float) -> Result:
         # This may be called off-main thread.
 
         feedback_dir = Path(tempfile.mkdtemp(prefix=f'feedback-{self.counter}-', dir=self.problem.tmpdir))
@@ -989,7 +990,11 @@ class ProblemConfig(ProblemPart):
 
         if self._metadata.limits.time_limit is not None and not self._metadata.limits.time_limit.is_integer():
             self.warning(
-                'Time limit configured to non-integer value. Problemtools does not yet support non-integer time limits, and will truncate'
+                'Time limit configured to non-integer value. This can be fragile, and may not be supported by your CCS (Kattis does not).'
+            )
+        if not self._metadata.limits.time_resolution.is_integer():
+            self.warning(
+                'Time resolution is not an integer. This can be fragile, and may not be supported by your CCS (Kattis does not).'
             )
 
         return self._check_res
@@ -1476,7 +1481,7 @@ class OutputValidators(ProblemPart):
         self,
         testcase: TestCase,
         submission,
-        timelim: int,
+        timelim: float,
         errorhandler: Submissions,
         infile: str | None = None,
         feedback_dir_path: str | None = None,
@@ -1489,7 +1494,7 @@ class OutputValidators(ProblemPart):
             errorhandler.error('Could not locate interactive runner')
             return res
         # file descriptor, wall time lim
-        initargs = ['1', str(2 * timelim)]
+        initargs = ['1', str(math.ceil(2 * timelim))]
         validator_args = [infile if infile else testcase.infile, testcase.ansfile, '<feedbackdir>']
         submission_args = submission.get_runcmd(memlim=self.problem.metadata.limits.memory)
 
@@ -1540,7 +1545,7 @@ class OutputValidators(ProblemPart):
                             if sub_runtime > timelim:
                                 sub_runtime = timelim
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
-                        elif is_TLE(sub_status, True):
+                        elif is_TLE(sub_status, True) or sub_runtime > timelim:
                             res = SubmissionResult('TLE')
                         elif is_RTE(sub_status):
                             res = SubmissionResult('RTE')
@@ -1622,7 +1627,7 @@ class OutputValidators(ProblemPart):
 
 
 class Runner:
-    def __init__(self, problem: Problem, sub, context: Context, timelim: int, timelim_low: int, timelim_high: int) -> None:
+    def __init__(self, problem: Problem, sub, context: Context, timelim: float, timelim_low: float, timelim_high: float) -> None:
         self._problem = problem
         self._sub = sub
         self._context = context
@@ -1759,15 +1764,17 @@ class Submissions(ProblemPart):
         return 'submissions'
 
     def check_submission(
-        self, sub, context: Context, expected_verdict: Verdict, timelim: int, timelim_low: int, timelim_high: int
+        self, sub, context: Context, expected_verdict: Verdict, timelim: float, timelim_high: float
     ) -> SubmissionResult:
         desc = f'{expected_verdict} submission {sub}'
         partial = False
         if expected_verdict == 'PAC':
-            # For partially accepted solutions, use the low timelim instead of the real one,
-            # to make sure we have margin in both directions.
             expected_verdict = 'AC'
             partial = True
+            # For partially accepted, we don't want to use them to lower bound the time limit, but we do want
+            # to warn if they're slow enough that they would have affected the time limit, had they been used
+            # to compute it.
+            timelim_low = timelim / self.problem.metadata.limits.time_multipliers.ac_to_time_limit
         else:
             timelim_low = timelim
 
@@ -1822,24 +1829,34 @@ class Submissions(ProblemPart):
             for sub in self._submissions[acr]:
                 context.submit_background_work(lambda s: s.compile(), sub)
 
+    def _compute_time_limit(self, fixed_limit: float | None, lower_bound_runtime: float | None) -> tuple[float, float]:
+        if fixed_limit is None and lower_bound_runtime is None:
+            # 5 minutes is our currently hard coded upper bound for what to allow when we don't know the time limit yet
+            return 300.0, 300.0
+
+        limits = self.problem.metadata.limits
+        if fixed_limit is not None:
+            timelim = fixed_limit
+        else:
+            assert lower_bound_runtime is not None, 'Assert to keep mypy happy'
+            exact_timelim = lower_bound_runtime * limits.time_multipliers.ac_to_time_limit
+            timelim = max(1, math.ceil(exact_timelim / limits.time_resolution)) * limits.time_resolution
+
+        return timelim, timelim * limits.time_multipliers.time_limit_to_tle
+
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
 
         limits = self.problem.metadata.limits
-        time_multiplier = limits.time_multipliers.ac_to_time_limit
-        safety_margin = limits.time_multipliers.time_limit_to_tle
+        ac_to_time_limit = limits.time_multipliers.ac_to_time_limit
 
-        timelim_margin_lo = 300  # 5 minutes
-        timelim_margin = 300
-        timelim = 300
+        fixed_limit: float | None = context.fixed_timelim if context.fixed_timelim is not None else limits.time_limit
+        lower_bound_runtime: float | None = None  # The runtime of the slowest submission used to lower bound the time limit.
 
-        if limits.time_limit is not None:
-            timelim = timelim_margin = int(limits.time_limit)  # TODO: Support non-integer time limits
-        if context.fixed_timelim is not None:
-            timelim = context.fixed_timelim
-            timelim_margin = int(round(timelim * safety_margin))
+        if limits.time_limit is not None and context.fixed_timelim is not None:
+            self.warning('There is a fixed time limit in problem.yaml, and you provided one on command line. Using command line.')
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -1864,28 +1881,32 @@ class Submissions(ProblemPart):
                         self.error(f'Compile error for {acr} submission {sub}', additional_info=msg)
                         continue
 
-                    res = self.check_submission(sub, context, acr, timelim, timelim_margin_lo, timelim_margin)
+                    timelim, timelim_high = self._compute_time_limit(fixed_limit, lower_bound_runtime)
+                    res = self.check_submission(sub, context, acr, timelim, timelim_high)
                     runtimes.append(res.runtime)
 
             if acr == 'AC':
                 if len(runtimes) > 0:
-                    max_runtime = max(runtimes)
-                    exact_timelim = max_runtime * time_multiplier
-                    max_runtime_str = f'{max_runtime:.3f}'
-                    timelim = max(1, int(0.5 + exact_timelim))  # TODO: properly support 2023-07 time limit computation
-                    timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
-                    timelim_margin = max(timelim + 1, int(0.5 + exact_timelim * safety_margin))
-                else:
-                    max_runtime_str = None
-                if context.fixed_timelim is not None and context.fixed_timelim != timelim:
-                    self.msg(
-                        f'   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {context.fixed_timelim} seconds instead'
-                    )
-                    timelim = context.fixed_timelim
-                    timelim_margin = round(timelim * safety_margin)
+                    lower_bound_runtime = max(runtimes)
 
+                # Helper function to format numbers with at most 3 decimals and dealing with None
+                def _f_n(number: float | None) -> str:
+                    return f'{round(number, 3):g}' if number is not None else '-'
+
+                if fixed_limit is not None and lower_bound_runtime is not None:
+                    if lower_bound_runtime * ac_to_time_limit > fixed_limit:
+                        self.error(
+                            f'Time limit fixed to {_f_n(fixed_limit)}, but slowest AC runs in {_f_n(lower_bound_runtime)} which is within a factor {_f_n(ac_to_time_limit)}.'
+                        )
+                    tl_from_subs, _ = self._compute_time_limit(None, lower_bound_runtime)
+                    if not math.isclose(fixed_limit, tl_from_subs):
+                        self.msg(
+                            f'   Solutions give timelim of {_f_n(tl_from_subs)} seconds, but will use provided fixed limit of {_f_n(fixed_limit)} seconds instead'
+                        )
+
+                timelim, timelim_margin = self._compute_time_limit(fixed_limit, lower_bound_runtime)
                 self.msg(
-                    f'   Slowest AC runtime: {max_runtime_str}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs'
+                    f'   Slowest AC runtime: {_f_n(lower_bound_runtime)}, setting timelim to {_f_n(timelim)} secs, safety margin to {_f_n(timelim_margin)} secs'
                 )
                 self.problem._set_timelim(timelim)
 
@@ -2149,7 +2170,7 @@ def argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         '-t',
         '--fixed_timelim',
-        type=int,
+        type=float,
         help='use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)',
     )
     parser.add_argument(
