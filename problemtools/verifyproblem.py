@@ -1540,7 +1540,7 @@ class OutputValidators(ProblemPart):
                             if sub_runtime > timelim:
                                 sub_runtime = timelim
                             res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
-                        elif is_TLE(sub_status, True):
+                        elif is_TLE(sub_status, True) or sub_runtime > timelim:
                             res = SubmissionResult('TLE')
                         elif is_RTE(sub_status):
                             res = SubmissionResult('RTE')
