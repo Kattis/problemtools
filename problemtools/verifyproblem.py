@@ -109,7 +109,7 @@ class Context:
     def __init__(self, args: argparse.Namespace, executor: ThreadPoolExecutor | None) -> None:
         self.data_filter: Pattern[str] = args.data_filter
         self.submission_filter: Pattern[str] = args.submission_filter
-        self.fixed_timelim: int | None = args.fixed_timelim
+        self.fixed_timelim: float | None = args.fixed_timelim
         self.executor = executor
         self._background_work: list[concurrent.futures.Future[object]] = []
 
@@ -990,7 +990,11 @@ class ProblemConfig(ProblemPart):
 
         if self._metadata.limits.time_limit is not None and not self._metadata.limits.time_limit.is_integer():
             self.warning(
-                'Time limit configured to non-integer value. Problemtools does not yet support non-integer time limits, and will truncate'
+                'Time limit configured to non-integer value. This can be fragile, and may not be supported by your CCS (Kattis does not).'
+            )
+        if not self._metadata.limits.time_resolution.is_integer():
+            self.warning(
+                'Time resolution is not an integer. This can be fragile, and may not be supported by your CCS (Kattis does not).'
             )
 
         return self._check_res
@@ -1832,15 +1836,19 @@ class Submissions(ProblemPart):
         time_multiplier = limits.time_multipliers.ac_to_time_limit
         safety_margin = limits.time_multipliers.time_limit_to_tle
 
-        timelim_margin_lo = 300  # 5 minutes
-        timelim_margin = 300
-        timelim = 300
+        timelim_margin_lo = 300.0  # 5 minutes
+        timelim_margin = 300.0
+        timelim = 300.0
 
         if limits.time_limit is not None:
-            timelim = timelim_margin = int(limits.time_limit)  # TODO: Support non-integer time limits
-        if context.fixed_timelim is not None:
+            timelim = limits.time_limit
+            timelim_margin = timelim * safety_margin
+        if context.fixed_timelim is not None:  # It's weird to set this both in limits and in context, but if so, context wins
+            self.warning(
+                'There is a fixed time limit in problem.yaml, and you also provided one on the command line. Using command line.'
+            )
             timelim = context.fixed_timelim
-            timelim_margin = int(round(timelim * safety_margin))
+            timelim_margin = timelim * safety_margin
 
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
@@ -1873,17 +1881,33 @@ class Submissions(ProblemPart):
                     max_runtime = max(runtimes)
                     exact_timelim = max_runtime * time_multiplier
                     max_runtime_str = f'{max_runtime:.3f}'
-                    timelim = max(1, int(0.5 + exact_timelim))  # TODO: properly support 2023-07 time limit computation
-                    timelim_margin_lo = max(1, min(int(0.5 + exact_timelim / safety_margin), timelim - 1))
-                    timelim_margin = max(timelim + 1, int(0.5 + exact_timelim * safety_margin))
+                    timelim = math.ceil(exact_timelim / limits.time_resolution) * limits.time_resolution
+                    timelim_margin = timelim * safety_margin
+                    # timelim_margin_lo is a bit weird. We use it for partially_accepted, which we want to be roughly as fast as accepted
+                    # solutions. Setting it to the rounded timelim / time_multiplier means that we check that none of the submissions we
+                    # apply this to would have affected the timelim if we based it on them.
+                    timelim_margin_lo = timelim / time_multiplier
                 else:
                     max_runtime_str = None
-                if context.fixed_timelim is not None and context.fixed_timelim != timelim:
+
+                if limits.time_limit is not None:
+                    if max_runtime > limits.time_limit / time_multiplier:
+                        self.error(
+                            f'Time limit set to {limits.time_limit}, but slowest AC runs in {max_runtime_str} which is within a factor {time_multiplier}.'
+                        )
+                    if not math.isclose(limits.time_limit, timelim):
+                        self.msg(
+                            f'   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {limits.time_limit} seconds instead'
+                        )
+                        timelim = limits.time_limit
+                        timelim_margin = timelim * safety_margin
+
+                if context.fixed_timelim is not None and not math.isclose(context.fixed_timelim, timelim):
                     self.msg(
                         f'   Solutions give timelim of {timelim} seconds, but will use provided fixed limit of {context.fixed_timelim} seconds instead'
                     )
                     timelim = context.fixed_timelim
-                    timelim_margin = round(timelim * safety_margin)
+                    timelim_margin = timelim * safety_margin
 
                 self.msg(
                     f'   Slowest AC runtime: {max_runtime_str}, setting timelim to {timelim} secs, safety margin to {timelim_margin} secs'
@@ -2150,7 +2174,7 @@ def argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         '-t',
         '--fixed_timelim',
-        type=int,
+        type=float,
         help='use this fixed time limit (useful in combination with -d and/or -s when all AC submissions might not be run on all data)',
     )
     parser.add_argument(
