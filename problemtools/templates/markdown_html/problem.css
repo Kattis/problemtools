@@ -55,6 +55,7 @@ table:not(.sample) td {
 .sample td {
     vertical-align: top;
     border: 1px solid black;
+    width: 50%;
 }
 
 .sample pre {

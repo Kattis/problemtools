@@ -285,17 +285,33 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int, is_in
     def format_pass_content(content: list[str]) -> str:
         block = []
         if is_interactive:
-            for interaction in content:
-                line_type = ''
-                if interaction[0] == '>':
-                    line_type = 'sampleinteractionwrite'
-                elif interaction[0] == '<':
-                    line_type = 'sampleinteractionread'
-                else:
-                    log.warning(f'Interaction had unknown prefix {interaction[0]}')
-                data = html.escape(interaction[1:])
+            message_type = '$'
+            message: list[str] = []
 
-                block.append(f'<div class="{line_type}"><pre>{data}</pre></div>')
+            def format_message(message_type: str, message: list[str]) -> str:
+                if message_type == '>':
+                    line_type = 'sampleinteractionwrite'
+                elif message_type == '<':
+                    line_type = 'sampleinteractionread'
+                return f'<div class="{line_type}"><pre>{"".join(message)}</pre></div>'
+
+            for interaction in content:
+                if len(interaction) == 0:
+                    continue
+                if interaction[0] not in ('<', '>'):
+                    log.warning(f'Interaction had unknown prefix {interaction[0]}')
+                    continue
+
+                if interaction[0] != message_type and message_type != '$':
+                    block.append(format_message(message_type, message))
+                    message = []
+
+                message_type = interaction[0]
+                data = html.escape(interaction[1:])
+                message.append(data)
+
+            if message:
+                block.append(format_message(message_type, message))
         else:
             input_lines = [html.escape(line[1:]) for line in content if line.startswith('<')]
             output_lines = [html.escape(line[1:]) for line in content if line.startswith('>')]
@@ -318,8 +334,8 @@ def format_interactive_sample(sample_root: str, sample: str, casenum: int, is_in
         if interaction.startswith('---'):
             passes.append(curr_pass)
             curr_pass = []
-            continue
-        curr_pass.append(interaction)
+        else:
+            curr_pass.append(interaction)
 
     if len(curr_pass):
         passes.append(curr_pass)
