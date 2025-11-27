@@ -1734,7 +1734,7 @@ class Runner:
 
 
 class Submissions(ProblemPart):
-    _SUB_REGEXP = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$')
+    _SUB_REGEXP = re.compile(r'^[a-zA-Z0-9_][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$')
     # (verdict, directory, required)
     _VERDICTS: list[tuple[Verdict, str, bool]] = [
         ('AC', 'accepted', True),
@@ -2091,8 +2091,8 @@ class Problem(ProblemAspect):
                         )
 
     def _check_file_and_directory_names(self):
-        filename_regex = re.compile(r'^[a-z0-9][a-z0-9_.-]{0,253}[a-z0-9]$', re.I)
-        directory_regex = re.compile(r'^[a-z0-9]([a-z0-9_-]{0,253}[a-z0-9])?$', re.I)
+        filename_regex = re.compile(r'^[a-z0-9_][a-z0-9_.-]{0,253}[a-z0-9]$', re.I)
+        directory_regex = re.compile(r'^[a-z0-9_]([a-z0-9_-]{0,253}[a-z0-9])?$', re.I)
 
         # Adding some pragmatic custom rules until https://github.com/Kattis/problem-package-format/issues/453 has resolved
         def _special_case_allowed_files(file: str, reldir: str) -> bool:
