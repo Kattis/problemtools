@@ -1734,7 +1734,6 @@ class Runner:
 
 
 class Submissions(ProblemPart):
-    _SUB_REGEXP = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_.-]*[a-zA-Z0-9](\.c\+\+)?$')
     # (verdict, directory, required)
     _VERDICTS: list[tuple[Verdict, str, bool]] = [
         ('AC', 'accepted', True),
@@ -1754,7 +1753,6 @@ class Submissions(ProblemPart):
             self._submissions[acr] = run.find_programs(
                 os.path.join(srcdir, verdict[1]),
                 language_config=self.problem.language_config,
-                pattern=Submissions._SUB_REGEXP,
                 work_dir=self.problem.tmpdir,
                 include_dir=os.path.join(self.problem.probdir, 'include'),
             )
@@ -2091,10 +2089,8 @@ class Problem(ProblemAspect):
                         )
 
     def _check_file_and_directory_names(self):
-        filename_regex = re.compile(r'^[a-z0-9][a-z0-9_.-]{0,253}[a-z0-9]$', re.I)
-        directory_regex = re.compile(r'^[a-z0-9]([a-z0-9_-]{0,253}[a-z0-9])?$', re.I)
+        regex = re.compile(r'^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,254}$')
 
-        # Adding some pragmatic custom rules until https://github.com/Kattis/problem-package-format/issues/453 has resolved
         def _special_case_allowed_files(file: str, reldir: str) -> bool:
             return file == '.gitignore' or (file == '.timelimit' and reldir == os.path.basename(self.probdir))
 
@@ -2105,13 +2101,11 @@ class Problem(ProblemAspect):
             # Path of the directory we're in, starting with problem shortname. Only used for nicer error messages.
             reldir = os.path.relpath(root, os.path.dirname(self.probdir))
             for file in files:
-                if not filename_regex.match(file) and not _special_case_allowed_files(file, reldir):
-                    self.error(f"Invalid file name '{file}' in {reldir} (should match {filename_regex.pattern} ignoring case)")
+                if not regex.match(file) and not _special_case_allowed_files(file, reldir):
+                    self.error(f"Invalid file name '{file}' in {reldir}, should match {regex.pattern}")
             for directory in dirs:
-                if not directory_regex.match(directory) and not _special_case_allowed_dirs(directory, reldir):
-                    self.error_in_2023_07(
-                        f"Invalid directory name '{directory}' in {reldir} (should match {directory_regex.pattern} ignoring case)"
-                    )
+                if not regex.match(directory) and not _special_case_allowed_dirs(directory, reldir):
+                    self.error(f"Invalid directory name '{directory}' in {reldir}, should match {regex.pattern}")
 
     def bail_on_error(self) -> bool:
         return self._args.bail_on_error
