@@ -68,9 +68,9 @@ if [[ $THIS_REPO_VERSION != $UPSTREAM_VERSION ]]; then
 fi
 
 
-echo "Below is untested, echoing commands instead of running them"
-echo "Creating a draft release on github"
+echo "Create a draft release on github"
 echo gh -R Kattis/problemtools release create -d v$VERSION
 echo "After finalizing the release on GitHub, please:"
-echo " - trigger the pypi release workflow"
+echo " - trigger the pypi release workflow (Run workflow on https://github.com/Kattis/problemtools/actions/workflows/pypi.yml )"
+echo " - git fetch upstream (pulling the tag to the local repo)"
 echo " - run $ROOT/admin/update_docker.sh v$VERSION"
