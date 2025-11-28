@@ -39,6 +39,10 @@ else
     echo "Updating debian changelog (this is surprisingly slow)"
     EMAIL=$(git config user.email) gbp dch $ROOT --release --new-version=$VERSION --ignore-branch --git-author --debian-tag='v%(version)s' --debian-branch=release/$VERSION --spawn-editor=never
     echo "Please commit the updated changelog, do a pull request, and get it merged, then run this script again on an up-to-date master branch"
+    echo "  git checkout -b release_$VERSION"
+    echo "  git add debian/changelog"
+    echo "  git commit -m 'Update debian changelog for release $VERSION'"
+    echo "  git git push --set-upstream origin release_$VERSION"
     exit 0
 fi
 

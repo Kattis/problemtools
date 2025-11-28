@@ -1,3 +1,58 @@
+kattis-problemtools (1.20251128) noble; urgency=medium
+
+  [ Matistjati ]
+  * Fix multithreading crash
+  * Better message if judge answer file gets judge error
+  * Robuster finding judge error tc path
+  * Cleaner testcase path extraction
+
+  [ matistjati ]
+  * Fuzz input validators for spaces at end of lines
+  * Slow fuzzing of output vals
+
+  [ Matistjati ]
+  * Only fuzz on samples
+  * Fix type hint
+  * More crash cases and limit if using python
+  * Fix type error
+  * Multipass validation works
+  * Fix mypy error
+  * Fix scoring rules and multipass samples
+  * Remove empty samples warning for multipass
+  * Multiple output validator fix
+  * Handle multipass samples for md -> html
+  * More deterministic input fuzzing
+
+  [ matistjati ]
+  * Sanity check the parsed author names
+
+  [ Matistjati ]
+  * Make oddecho worth 100 points
+  * Reuse testcases using symlinks in oddecho
+
+  [ Gunnar Kreitz ]
+  * Rewrite latex template handling to not require write access to parent directory
+  * Let Template.get_file_name() return a Path
+  * Allow .timelimit, .git, and .gitignore files in problem packages #354
+  * Add --version flag to command line tools
+  * Repair plainproblemname functionality in legacy format (and add a test)
+  * Add a warning for what looks like latex in problem name
+  * Replace pdflatex with lualatex. Support emojis.
+  * Temporarily install new dependencies (to be removed when PR is merged and githubci image is updated)
+  * Add test coverage of default_validator
+  * Deal with binary user output and messages in default_validator tests
+  * Truncate long tokens in default_validator's judge message. #346 Add more test coverage
+  * Load language config from parent of problem dir, if present #178
+  * Add translations for strings related to sample I/O in Swedish and Icelandic #150
+  * Fix interactive problem time limit handling #302
+  * Support time limits being float (in supporting functions, we still call with integers)
+  * Implement 2023-07 time limit computation (but hard coded to use accepted for lower bound)
+  * Refactor time limit computation, making it a bit easier to find and follow
+  * Use updated, more permissive, regex for file and directory names
+  * Let make_release print git commands for pushing the changelog for a release.
+
+ -- Gunnar Kreitz <gkreitz@kattis.com>  Fri, 28 Nov 2025 13:58:24 +0100
+
 kattis-problemtools (1.20250606) noble; urgency=medium
 
   * Fix sample missing from rendered problem statements
