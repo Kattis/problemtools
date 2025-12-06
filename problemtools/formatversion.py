@@ -31,6 +31,14 @@ class FormatVersion(StrEnum):
             case FormatVersion.V_2023_07:
                 return 'output_validator'
 
+    @property
+    def submission_directories(self) -> list[str]:
+        match self:
+            case FormatVersion.LEGACY:
+                return ['accepted', 'partially_accepted', 'wrong_answer', 'time_limit_exceeded', 'run_time_error']
+            case FormatVersion.V_2023_07:
+                return ['accepted', 'rejected', 'wrong_answer', 'time_limit_exceeded', 'run_time_error', 'brute_force']
+
     # Support 2023-07 and 2023-07-draft strings.
     # This method should be replaced with an alias once we require python 3.13
     @classmethod
@@ -38,6 +46,9 @@ class FormatVersion(StrEnum):
         if value == '2023-07':
             return cls.V_2023_07
         return None
+
+
+ALL_FORMAT_VERSIONS = [FormatVersion.LEGACY, FormatVersion.V_2023_07]
 
 
 def get_format_version(problem_root: Path) -> FormatVersion:
