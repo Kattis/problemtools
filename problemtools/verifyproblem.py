@@ -39,7 +39,7 @@ from .formatversion import FormatVersion, get_format_version
 from .version import add_version_arg
 
 from abc import ABC
-from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, TypeVar
+from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, TypeVar, cast
 from pydantic import ValidationError
 
 random.seed(42)
@@ -1268,28 +1268,46 @@ class Graders(ProblemPart):
         self.debug(f'Grading {len(sub_results)} results:\n{grader_input}')
         self.debug(f'Grader flags: {grader_flags}')
 
+        grader_results = []
+        grader_names = []
         for grader in graders:
-            if grader is not None and grader.compile()[0]:
-                fd, infile = tempfile.mkstemp()
-                os.close(fd)
-                fd, outfile = tempfile.mkstemp()
-                os.close(fd)
+            if not grader or not grader.compile()[0]:
+                continue
 
-                open(infile, 'w').write(grader_input)
+            infile_path = outfile_path = errfile_path = None
+            try:
+                # Create input and output files for grader
+                # We do it in this awkward way because the files need to be closed before reading/writing
+                with tempfile.NamedTemporaryFile(mode='w', delete=False) as infile:
+                    infile.write(grader_input)
+                    infile_path = infile.name
 
-                status, runtime = grader.run(infile, outfile, args=grader_flags)
+                with tempfile.NamedTemporaryFile(delete=False) as outfile:
+                    outfile_path = outfile.name
 
-                grader_output = open(outfile, 'r').read()
-                os.remove(infile)
-                os.remove(outfile)
-                if not os.WIFEXITED(status):
-                    self.error(f'Judge error: {grader} crashed')
-                    self.debug(f'Grader input:\n{grader_input}')
-                    return ('JE', None)
+                with tempfile.NamedTemporaryFile(delete=False) as errfile:
+                    errfile_path = errfile.name
+
+                status, runtime = grader.run(infile_path, outfile_path, errfile=errfile_path, args=grader_flags)
+
+                with open(outfile_path, 'r') as fh:
+                    grader_output = fh.read()
+
+                with open(errfile_path, 'r') as errfile:
+                    stderr_content = errfile.read()
+
+                clean_exit = True
                 ret = os.WEXITSTATUS(status)
-                if ret != 0:
+                if not os.WIFEXITED(status):
+                    clean_exit = False
+                    self.error(f'Judge error: {grader} crashed')
+                elif ret != 0:
+                    clean_exit = False
                     self.error(f'Judge error: exit code {ret} for grader {grader}, expected 0')
-                    self.debug(f'Grader input: {grader_input}\n')
+
+                if not clean_exit:
+                    self.error(f'Grader stderr:\n{stderr_content}\n')
+                    self.debug(f'Grader input:\n{grader_input}')
                     return ('JE', None)
 
                 if not re.match(grader_output_re, grader_output):
@@ -1299,10 +1317,29 @@ class Graders(ProblemPart):
                     return ('JE', None)
 
                 verdict_str, score_str = grader_output.split()
-                verdict = verdict_str  # type: ignore
-                score = float(score_str)
-        # TODO: check that all graders give same result
+                # Make mypy happy with cast
+                grader_results.append((cast(Verdict, verdict_str), float(score_str)))
+                grader_names.append(Path(grader.path).name)
+            finally:
+                for path in [infile_path, outfile_path, errfile_path]:
+                    if path:
+                        try:
+                            os.remove(path)
+                        except OSError:
+                            pass
 
+        if not grader_results:
+            self.error('Graders failed')
+            return ('JE', None)
+
+        if not all(result == grader_results[0] for result in grader_results):
+            self.error('Different graders gave different results:')
+            for i, (verdict, score) in enumerate(grader_results):
+                self.error(f'{grader_names[i]}: {verdict} {score}')
+            return ('JE', None)
+
+        verdict = grader_results[0][0]
+        score = grader_results[0][1]
         if not shadow_result:
             self.debug(f'Grade on {testcasegroup} is {verdict} ({score})')
 
