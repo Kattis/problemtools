@@ -1288,7 +1288,7 @@ class Graders(ProblemPart):
                 with tempfile.NamedTemporaryFile(delete=False) as errfile:
                     errfile_path = errfile.name
 
-                status, runtime = grader.run(infile_path, outfile_path, errfile=errfile_path, args=grader_flags)
+                status, runtime = grader.run(infile_path, outfile_path, errfile_path, args=grader_flags)
 
                 with open(outfile_path, 'r') as fh:
                     grader_output = fh.read()
@@ -1317,7 +1317,7 @@ class Graders(ProblemPart):
                     return ('JE', None)
 
                 verdict_str, score_str = grader_output.split()
-                # Make mypy happy with cast
+                # Make mypy happy by explicitly using cast
                 grader_results.append((cast(Verdict, verdict_str), float(score_str)))
                 grader_names.append(Path(grader.path).name)
             finally:
@@ -1329,7 +1329,7 @@ class Graders(ProblemPart):
                             pass
 
         if not grader_results:
-            self.error('Graders failed')
+            self.error('Grader failed')
             return ('JE', None)
 
         if not all(result == grader_results[0] for result in grader_results):
