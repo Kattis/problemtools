@@ -1303,14 +1303,11 @@ class Graders(ProblemPart):
             with open(errfile_path, 'r') as errfile:
                 stderr_content = errfile.read()
 
-            if not os.WIFEXITED(status):
-                self.error(f'Judge error: {grader} crashed')
-                self.error(f'Grader stderr:\n{stderr_content}\n')
-                self.debug(f'Grader input:\n{grader_input}')
-                return ('JE', None)
-
-            if os.WEXITSTATUS(status) != 0:
-                self.error(f'Judge error: exit code {os.WEXITSTATUS(status)} for grader {grader}, expected 0')
+            if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
+                if not os.WIFEXITED(status):
+                    self.error(f'Judge error: {grader} crashed')
+                else:
+                    self.error(f'Judge error: exit code {os.WEXITSTATUS(status)} for grader {grader}, expected 0')
                 self.error(f'Grader stderr:\n{stderr_content}\n')
                 self.debug(f'Grader input:\n{grader_input}')
                 return ('JE', None)
