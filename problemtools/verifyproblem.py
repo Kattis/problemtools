@@ -1274,7 +1274,7 @@ class Graders(ProblemPart):
         score: float = 0
 
         if not sub_results:
-            self.info('No results on %s, so no grader ran' % (testcasegroup,))
+            self.info(f'No results on {testcasegroup}, so no grader ran')
             return (verdict, score)
 
         grader_flags = testcasegroup.config['grader_flags'].split()
