@@ -37,6 +37,8 @@ class FormatVersion(StrEnum):
             case FormatVersion.LEGACY:
                 return ['accepted', 'partially_accepted', 'wrong_answer', 'time_limit_exceeded', 'run_time_error']
             case FormatVersion.V_2023_07:
+                # TODO: parse submissions.yaml if applicable, since
+                # 2023-07 and later formats support adding more submission directories
                 return ['accepted', 'rejected', 'wrong_answer', 'time_limit_exceeded', 'run_time_error', 'brute_force']
 
     # Support 2023-07 and 2023-07-draft strings.
@@ -46,9 +48,6 @@ class FormatVersion(StrEnum):
         if value == '2023-07':
             return cls.V_2023_07
         return None
-
-
-ALL_FORMAT_VERSIONS = [FormatVersion.LEGACY, FormatVersion.V_2023_07]
 
 
 def get_format_version(problem_root: Path) -> FormatVersion:

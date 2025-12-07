@@ -36,7 +36,7 @@ from . import problem2html
 from . import problem2pdf
 from . import run
 from . import statement_util
-from .formatversion import FormatVersion, get_format_version, ALL_FORMAT_VERSIONS
+from .formatversion import FormatVersion, get_format_version
 from .version import add_version_arg
 
 from abc import ABC
@@ -2092,7 +2092,7 @@ class Problem(ProblemAspect):
             if 0.75 <= max_similarity:
                 self.warning(f'Potential typo: directory submissions/{present_dir} is similar to {most_similar_dir}')
             else:
-                for other_version in [v for v in ALL_FORMAT_VERSIONS if v != self.format]:
+                for other_version in [v for v in FormatVersion if v != self.format]:
                     _, max_similarity = most_similar(present_dir, other_version)
                     if max_similarity == 1:
                         self.warning(
