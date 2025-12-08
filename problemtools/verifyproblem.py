@@ -1265,7 +1265,7 @@ class Graders(ProblemPart):
             grader = self._grader
 
         if not grader.compile()[0]:
-            self.fatal(f'Failed to compile grader {grader}')
+            self.fatal(f'Failed to compile grader {grader}', grader.compile()[1])
             return ('JE', None)
 
         grader_input = ''.join([f'{r.verdict} {0 if r.score is None else r.score}\n' for r in sub_results])
