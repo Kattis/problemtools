@@ -39,7 +39,7 @@ from .formatversion import FormatVersion, get_format_version
 from .version import add_version_arg
 
 from abc import ABC
-from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, TypeVar
+from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, TypeVar, cast
 from pydantic import ValidationError
 
 random.seed(42)
@@ -590,7 +590,7 @@ class TestCaseGroup(ProblemAspect):
         if self.config['grading'] not in ['default', 'custom']:
             self.error('Invalid grading policy in testdata.yaml')
 
-        if self.config['grading'] == 'custom' and len(self._problem.graders._graders) == 0:
+        if self.config['grading'] == 'custom' and self._problem.graders._grader is None:
             self._problem.graders.fatal(f'{self} has custom grading but no custom graders provided')
         if self.config['grading'] == 'default' and Graders._default_grader is None:
             self._problem.graders.fatal(f'{self} has default grading but I could not find default grader')
@@ -1223,11 +1223,14 @@ class Graders(ProblemPart):
     PART_NAME = 'grader'
 
     def setup(self):
-        self._graders: list = run.find_programs(
+        graders: list = run.find_programs(
             os.path.join(self.problem.probdir, 'graders'),
             language_config=self.problem.language_config,
             work_dir=self.problem.tmpdir,
         )
+        if len(graders) > 1:
+            self.fatal('There is more than one custom grader')
+        self._grader = graders[0] if graders else None
         return {}
 
     def __str__(self) -> str:
@@ -1238,22 +1241,32 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self.problem.is_pass_fail() and len(self._graders) > 0:
-            self.error('There are grader programs but the problem is pass-fail')
+        if self._grader:
+            if self.problem.is_pass_fail() and self._grader:
+                self.fatal('There is a grader but the problem is pass-fail')
 
-        for grader in self._graders:
-            success, msg = grader.compile()
+            success, msg = self._grader.compile()
             if not success:
-                self.fatal(f'Compile error for {grader}', msg)
+                self.fatal(f'Compile error for {self._grader}', msg)
         return self._check_res
 
     def grade(
         self, sub_results: list[SubmissionResult], testcasegroup: TestCaseGroup, shadow_result: bool = False
     ) -> tuple[Verdict, float | None]:
         if testcasegroup.config['grading'] == 'default':
-            graders = [self._default_grader]
+            if not self._default_grader:
+                self.fatal('Failed to locate default grader')
+                return ('JE', None)
+            grader = self._default_grader
         else:
-            graders = self._graders
+            if not self._grader:
+                self.fatal('Problem has grading: custom without any custom grader')
+                return ('JE', None)
+            grader = self._grader
+
+        if not grader.compile()[0]:
+            self.fatal(f'Failed to compile grader {grader}', grader.compile()[1])
+            return ('JE', None)
 
         grader_input = ''.join([f'{r.verdict} {0 if r.score is None else r.score}\n' for r in sub_results])
         grader_output_re = r'^((AC)|(WA)|(TLE)|(RTE)|(JE))\s+-?[0-9.]+\s*$'
@@ -1261,52 +1274,69 @@ class Graders(ProblemPart):
         score: float = 0
 
         if not sub_results:
-            self.info('No results on %s, so no graders ran' % (testcasegroup,))
+            self.info(f'No results on {testcasegroup}, so no grader ran')
             return (verdict, score)
 
         grader_flags = testcasegroup.config['grader_flags'].split()
         self.debug(f'Grading {len(sub_results)} results:\n{grader_input}')
         self.debug(f'Grader flags: {grader_flags}')
 
-        for grader in graders:
-            if grader is not None and grader.compile()[0]:
-                fd, infile = tempfile.mkstemp()
-                os.close(fd)
-                fd, outfile = tempfile.mkstemp()
-                os.close(fd)
+        infile_path = outfile_path = errfile_path = None
+        try:
+            # Create input and output files for grader
+            # We do it in this awkward way because the files need to be closed before reading/writing
+            with tempfile.NamedTemporaryFile(mode='w', delete=False) as infile:
+                infile.write(grader_input)
+                infile_path = infile.name
 
-                open(infile, 'w').write(grader_input)
+            with tempfile.NamedTemporaryFile(delete=False) as outfile:
+                outfile_path = outfile.name
 
-                status, runtime = grader.run(infile, outfile, args=grader_flags)
+            with tempfile.NamedTemporaryFile(delete=False) as errfile:
+                errfile_path = errfile.name
 
-                grader_output = open(outfile, 'r').read()
-                os.remove(infile)
-                os.remove(outfile)
+            status, runtime = grader.run(infile_path, outfile_path, errfile_path, args=grader_flags)
+
+            with open(outfile_path, 'r') as fh:
+                grader_output = fh.read()
+
+            with open(errfile_path, 'r') as errfile:
+                stderr_content = errfile.read()
+
+            if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
                 if not os.WIFEXITED(status):
                     self.error(f'Judge error: {grader} crashed')
-                    self.debug(f'Grader input:\n{grader_input}')
-                    return ('JE', None)
-                ret = os.WEXITSTATUS(status)
-                if ret != 0:
-                    self.error(f'Judge error: exit code {ret} for grader {grader}, expected 0')
-                    self.debug(f'Grader input: {grader_input}\n')
-                    return ('JE', None)
+                else:
+                    self.error(f'Judge error: exit code {os.WEXITSTATUS(status)} for grader {grader}, expected 0')
+                self.error(f'Grader stderr:\n{stderr_content}\n')
+                self.debug(f'Grader input:\n{grader_input}')
+                return ('JE', None)
 
-                if not re.match(grader_output_re, grader_output):
-                    self.error('Judge error: invalid format of grader output')
-                    self.debug(f'Output must match: "{grader_output_re}"')
-                    self.debug(f'Output was: "{grader_output}"')
-                    return ('JE', None)
+            if not re.match(grader_output_re, grader_output):
+                self.error('Judge error: invalid format of grader output')
+                self.debug(f'Output must match: "{grader_output_re}"')
+                self.debug(f'Output was: "{grader_output}"')
+                return ('JE', None)
 
-                verdict_str, score_str = grader_output.split()
-                verdict = verdict_str  # type: ignore
-                score = float(score_str)
-        # TODO: check that all graders give same result
+            verdict_str, score_str = grader_output.split()
+            # Make mypy happy by explicitly using cast
+            verdict = cast(Verdict, verdict_str)
+            score = float(score_str)
 
-        if not shadow_result:
-            self.debug(f'Grade on {testcasegroup} is {verdict} ({score})')
+            if not shadow_result:
+                self.debug(f'Grade on {testcasegroup} is {verdict} ({score})')
 
-        return (verdict, score)
+            return (verdict, score)
+        except Exception as e:
+            self.error(f'Grader failed with exception {e}')
+            return ('JE', None)
+        finally:
+            for path in [infile_path, outfile_path, errfile_path]:
+                if path:
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
 
 
 class OutputValidators(ProblemPart):
