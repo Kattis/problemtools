@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdarg>
+#include <tuple>
 
 const int EXIT_AC = 42;
 const int EXIT_WA = 43;
