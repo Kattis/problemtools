@@ -1853,10 +1853,12 @@ class Submissions(ProblemPart):
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
         # validator, to avoid a bottleneck step at the start of each test run.
-        self.problem.output_validators.start_background_work(context)
-        for acr in self._submissions:
+        for verdict in Submissions._VERDICTS:
+            acr = verdict[0]
             for sub in self._submissions[acr]:
-                context.submit_background_work(lambda s: s.compile(), sub)
+                sub_name = sub.name  # type: ignore
+                if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
+                    context.submit_background_work(lambda s: s.compile(), sub)
 
     def _compute_time_limit(self, fixed_limit: float | None, lower_bound_runtime: float | None) -> tuple[float, float]:
         if fixed_limit is None and lower_bound_runtime is None:
