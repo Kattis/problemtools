@@ -1853,6 +1853,7 @@ class Submissions(ProblemPart):
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
         # validator, to avoid a bottleneck step at the start of each test run.
+        self.problem.output_validators.start_background_work(context)
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             for sub in self._submissions[acr]:
