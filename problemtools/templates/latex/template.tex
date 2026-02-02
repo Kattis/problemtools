@@ -6,6 +6,21 @@
 \statementdirectory{%(statement_directory)s}
 \statementfilename{%(statement_filename)s}
 
+%% This is to work around listings thinking all unknown characters (like emojis) are whitespace (and for some reason,
+%% it floats unknown whitespace to the previous non-whitespace line). If you see examples of this, you will typically
+%% see a list starting with ^^80-^^ff before adding any characters (as 0x80-0xff are the default extended characters)
+%% Here, we don't do that, as if a character is listed twice, listings also bugs, and we know exactly what extended
+%% characters occur.
+%% It would be very nice to replace listings with something better to avoid having to do this.
+\makeatletter
+\lst@InputCatcodes
+\def\lst@DefEC{%%
+ \lst@CCECUse \lst@ProcessLetter
+  %(non_ws_unicode_in_sample)s%%
+  ^^00}
+\lst@RestoreCatcodes
+\makeatother
+
 \begin{document}
 
 \includeproblem{%(directory)s}

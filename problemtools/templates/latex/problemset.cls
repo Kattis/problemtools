@@ -42,7 +42,7 @@
 \RequirePackage{wrapfig}          % Illustrations
 \RequirePackage{import}           % Proper file inclusion
 \RequirePackage{fancyvrb}         %
-\RequirePackage{listingsutf8}     % For samples
+\RequirePackage{listings}         % For samples
 \RequirePackage[left=1in,right=1in,top=0.75in,bottom=0.75in]{geometry}
 %\RequirePackage{fullpage}        % Set up margins for full page
 \RequirePackage{url}              % Urls
@@ -63,9 +63,13 @@
 % uses colors.
 \RequirePackage{fontspec}
 \RequirePackage{luacode}
+
+\IfFontExistsTF{NotoColorEmoji}{
+    \directlua{luaotfload.add_fallback("myfallback", {"NotoColorEmoji:mode=harf;"})}
+    \setmonofont{lmmono10-regular}[RawFeature={fallback=myfallback}]
+}{}
 \IfFontExistsTF{CMU Serif}{
     \IfFontExistsTF{NotoColorEmoji}{
-        \directlua{luaotfload.add_fallback("myfallback", {"NotoColorEmoji:mode=harf;"})}
         \setmainfont{CMU Serif}[RawFeature={fallback=myfallback}]
     }{
         \setmainfont{CMU Serif}
@@ -341,8 +345,8 @@
 
 \newcommand{\sampletable}[4]{
   % First find widths of the two files
-  \savebox{\PS@sampleinbox}{\lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily]{#2}}
-  \savebox{\PS@sampleoutbox}{\lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily]{#4}}
+  \savebox{\PS@sampleinbox}{\lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily,extendedchars=true]{#2}}
+  \savebox{\PS@sampleoutbox}{\lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily,extendedchars=true]{#4}}
   \settowidth{\PS@sampleoutwidth}{\usebox{\PS@sampleoutbox}}
   \settowidth{\PS@sampleinwidth}{\usebox{\PS@sampleinbox}}
   \setlength{\PS@sampletotwidth}{\PS@sampleinwidth}
@@ -419,7 +423,7 @@
         \hline
         \parbox[t]{0.55\textwidth}{
           \vspace{-0.49cm}
-          \lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily]{\jobname.pstmp}
+          \lstinputlisting[inputencoding=utf8,basicstyle=\ttfamily,extendedchars=true]{\jobname.pstmp}
           \vspace{-0.21cm}
         }\\
         \hline
