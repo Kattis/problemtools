@@ -1166,13 +1166,19 @@ class InputValidators(ProblemPart):
 
             def modified_input_validates(applicable, modifier):
                 for testcase in self.problem.testdata.get_all_testcases():
-                    with open(testcase.infile) as infile:
-                        infile_data = infile.read()
-                    if not applicable(infile_data):
+                    try:
+                        with open(testcase.infile) as infile:
+                            infile_data = infile.read()
+                        if not applicable(infile_data):
+                            continue
+                    except UnicodeDecodeError:
                         continue
 
-                    with open(file_name, 'wb') as f:
-                        f.write(modifier(infile_data).encode('utf8'))
+                    try:
+                        with open(file_name, 'wb') as f:
+                            f.write(modifier(infile_data).encode('utf8'))
+                    except UnicodeDecodeError:
+                        continue
 
                     for flags_str in all_flags:
                         flags = flags_str.split()
