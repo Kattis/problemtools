@@ -1174,11 +1174,8 @@ class InputValidators(ProblemPart):
                     except UnicodeDecodeError:
                         continue
 
-                    try:
-                        with open(file_name, 'wb') as f:
-                            f.write(modifier(infile_data).encode('utf8'))
-                    except UnicodeEncodeError:
-                        continue
+                    with open(file_name, 'wb') as f:
+                        f.write(modifier(infile_data).encode('utf8'))
 
                     for flags_str in all_flags:
                         flags = flags_str.split()
