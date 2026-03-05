@@ -1,3 +1,34 @@
+kattis-problemtools (1.20260305) noble; urgency=medium
+
+  [ Gunnar Kreitz ]
+  * Improve release instructions a bit
+  * Remove lualatex installation from workflow, as githubci docker image has been updated.
+  * Improve README based on feedback in #374
+
+  [ Matistjati ]
+  * Better grader error display
+  * Minor fixes
+  * Check if there are incorrect submission directories
+  * Add TODO to parse submissions.yaml
+  * Remove support for multiple graders
+  * Use f-string
+  * Rewrite some if:s to be more DRY
+  * Better error message for compile error
+
+  [ Etienne Vouga ]
+  * Fix missing header
+
+  [ Matistjati ]
+  * Only compile multithread compile submissions actually used by -s
+  * Add back multithreaded output validator compilation
+
+  [ Arnar Bjarni Arnarson ]
+  * Don't crash on non UTF-8 input files in the modified file checks.
+  * Change to UnicodeEncodeError on write
+  * Remove second try/except
+
+ -- Gunnar Kreitz <gkreitz@kattis.com>  Thu, 05 Mar 2026 13:22:03 +0100
+
 kattis-problemtools (1.20251128) noble; urgency=medium
 
   [ Matistjati ]
