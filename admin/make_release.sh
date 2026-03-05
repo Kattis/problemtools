@@ -42,7 +42,7 @@ else
     echo "  git checkout -b release_$VERSION"
     echo "  git add debian/changelog"
     echo "  git commit -m 'Update debian changelog for release $VERSION'"
-    echo "  git git push --set-upstream origin release_$VERSION"
+    echo "  git push --set-upstream origin release_$VERSION"
     exit 0
 fi
 
