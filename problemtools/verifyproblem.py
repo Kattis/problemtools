@@ -1733,10 +1733,12 @@ class Runner:
         if not item.matches_filter(self._context.data_filter):
             return []
         if isinstance(item, TestCase):
-            if item.reuse_result_from:
-                return self._gather_testcases(item.reuse_result_from)
-            else:
-                return [item]
+            # If testcase is symlink, recursively follow the symlinks until we get a real testcase, ignoring
+            # whether the name of testcases pointed to matches the filter
+            while item.reuse_result_from:
+                item = item.reuse_result_from
+
+            return [item]
         elif item not in self._done_groups:
             ret = []
             for child in item.get_testcases() + item.get_subgroups():
