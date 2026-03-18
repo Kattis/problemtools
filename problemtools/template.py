@@ -63,6 +63,8 @@ class Template:
         else:
             self.samples = []
 
+        self.non_ws_unicode_in_sample = self._non_ws_unicode_in_sample(sample_dir)
+
         problemset_cls_parent = problem_root.parent / 'problemset.cls'
         if not ignore_parent_cls and problemset_cls_parent.is_file():
             print(f'{problemset_cls_parent} exists, using it -- in case of weirdness this is likely culprit')
@@ -84,6 +86,7 @@ class Template:
                 'statement_directory': self.statement_directory.as_posix(),
                 'statement_filename': self.statement_filename,
                 'language': self.language,
+                'non_ws_unicode_in_sample': self.non_ws_unicode_in_sample,
             }
             for line in templin:
                 try:
@@ -104,3 +107,22 @@ class Template:
     def get_file_name(self) -> Path:
         assert self.texfile and self.texfile.is_file()
         return self.texfile
+
+    # To work around limitations in listings (which we use to render samples), we need to
+    # provide a list of all "unknown" characters to avoid it completely messing up the output.
+    # Hopefully we can replace listings at some point to avoid this.
+    def _non_ws_unicode_in_sample(self, sample_dir: Path) -> str:
+        if not sample_dir.is_dir():
+            return ''
+        res = set()
+        for file in sample_dir.iterdir():
+            if file.is_file() and file.suffix in ['.in', '.ans', '.interaction']:
+                try:
+                    with open(file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            for char in line:
+                                if not char.isascii() and not char.isspace():
+                                    res.add(char)
+                except (UnicodeDecodeError, IOError):
+                    pass
+        return ''.join(sorted(list(res)))
