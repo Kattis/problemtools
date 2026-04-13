@@ -702,7 +702,7 @@ class TestCaseGroup(ProblemAspect):
                 return ret, i
 
             while i < len(a) and j < len(b):
-                if ord('0') <= ord(a[i]) <= ord('9') and ord('0') <= ord(b[i]) <= ord('9'):
+                if ord('0') <= ord(a[i]) <= ord('9') and ord('0') <= ord(b[j]) <= ord('9'):
                     anum, i = parse_num(a, i)
                     bnum, j = parse_num(b, j)
                     if anum == bnum:
