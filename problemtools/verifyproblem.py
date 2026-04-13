@@ -1158,7 +1158,7 @@ class InputValidators(ProblemPart):
                 for flags_str in all_flags:
                     flags = flags_str.split()
                     for val in self._validators:
-                        status, _ = val.run(file_name, args=flags)
+                        status, _ = val.run(file_name, args=flags, work_dir=self.problem.tmpdir)
                         if os.WEXITSTATUS(status) != 42:
                             break
                     else:
@@ -1180,7 +1180,7 @@ class InputValidators(ProblemPart):
                     for flags_str in all_flags:
                         flags = flags_str.split()
                         for val in self._validators:
-                            status, _ = val.run(file_name, args=flags)
+                            status, _ = val.run(file_name, args=flags, work_dir=self.problem.tmpdir)
                             if os.WEXITSTATUS(status) != 42:
                                 # expected behavior; validator rejects modified input
                                 return False
@@ -1208,7 +1208,7 @@ class InputValidators(ProblemPart):
 
         for val in self._validators:
             with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
-                status, _ = val.run(testcase.infile, outfile.name, errfile.name, args=flags)
+                status, _ = val.run(testcase.infile, outfile.name, errfile.name, args=flags, work_dir=self.problem.tmpdir)
                 if not os.WIFEXITED(status):
                     emsg = f'Input format validator {val} crashed on input {testcase.infile}'
                 elif os.WEXITSTATUS(status) != 42:
