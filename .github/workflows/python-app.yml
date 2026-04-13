@@ -21,9 +21,9 @@ jobs:
     container:
       image: problemtools/githubci:latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -47,9 +47,11 @@ jobs:
     container:
       image: problemtools/githubci:latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
+    - name: Set safe directory (work around checkout not doing that properly for containers)
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
     - name: Build debian packages
       run:  |
         make builddeb

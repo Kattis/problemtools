@@ -18,7 +18,7 @@ jobs:
     container:
       image: quay.io/pypa/manylinux_2_28_x86_64
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0  # We need full history for setuptools_scm to figure out version
     - name: Set safe directory (work around checkout not doing that properly for containers)
@@ -34,7 +34,7 @@ jobs:
         rm -f dist/*.whl
         cp wheelhouse/*.whl dist
     - name: Store the distribution packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: python-package-distributions
         path: dist/
@@ -55,7 +55,7 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: python-package-distributions
         path: dist/
@@ -80,7 +80,7 @@ jobs:
 
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: python-package-distributions
         path: dist/
