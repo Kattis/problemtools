@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
 import math
 import threading
 import queue
@@ -35,6 +33,7 @@ from . import problem2html
 from . import problem2pdf
 from . import run
 from . import statement_util
+from .context import Context, PROBLEM_PARTS
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
 from .version import add_version_arg
@@ -98,31 +97,6 @@ class SubmissionResult:
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
-
-
-class Context:
-    # Default values here must be kept in sync with the defaults in argparser().
-    def __init__(
-        self,
-        data_filter: Pattern[str] = re.compile('.*'),
-        submission_filter: Pattern[str] = re.compile('.*'),
-        fixed_timelim: float | None = None,
-        parts: list[str] | None = None,
-        threads: int = 1,
-    ) -> None:
-        self.data_filter = data_filter
-        self.submission_filter = submission_filter
-        self.fixed_timelim = fixed_timelim
-        self.parts: list[str] = parts if parts is not None else list(PROBLEM_PARTS)
-        self.executor: ThreadPoolExecutor | None = ThreadPoolExecutor(threads) if threads > 1 else None
-        self._background_work: list[concurrent.futures.Future[object]] = []
-
-    def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> None:
-        assert self.executor
-        self._background_work.append(self.executor.submit(job, *args, **kwargs))
-
-    def wait_for_background_work(self) -> None:
-        concurrent.futures.wait(self._background_work)
 
 
 class ProblemAspect(ABC):
@@ -1924,9 +1898,6 @@ class Submissions(ProblemPart):
                 self.problem._set_timelim(timelim)
 
         return self._check_res
-
-
-PROBLEM_PARTS = ['config', 'data', 'graders', 'statement', 'submissions', 'validators']
 
 
 class Problem(ProblemAspect):
