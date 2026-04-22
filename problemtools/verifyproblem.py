@@ -26,7 +26,6 @@ import uuid
 import difflib
 from pathlib import Path
 
-import colorlog
 import yaml
 
 from . import config
@@ -36,6 +35,7 @@ from . import problem2html
 from . import problem2pdf
 from . import run
 from . import statement_util
+from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
 from .version import add_version_arg
 
@@ -44,8 +44,6 @@ from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, 
 from pydantic import ValidationError
 
 random.seed(42)
-
-log = logging.getLogger(__name__)
 
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
@@ -98,10 +96,6 @@ class SubmissionResult:
         return f'{verdict} [{", ".join(details)}]'
 
 
-class VerifyError(Exception):
-    pass
-
-
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
 
@@ -123,61 +117,45 @@ class Context:
 
 
 class ProblemAspect(ABC):
-    errors: int = 0
-    warnings: int = 0
     _check_res: bool | None = None
     problem: Problem
-
-    def __append_additional_info(self, msg: str, additional_info: str | None) -> str:
-        max_additional_info = self.problem.max_additional_info()
-        if additional_info is None or max_additional_info <= 0:
-            return msg
-        additional_info = additional_info.rstrip()
-        if not additional_info:
-            return msg
-        lines = additional_info.split('\n')
-        if len(lines) == 1:
-            return f'{msg} ({lines[0]})'
-        if len(lines) > max_additional_info:
-            lines = lines[:max_additional_info] + [f'[.....truncated to {max_additional_info} lines.....]']
-
-        return f'{msg}:\n' + '\n'.join(' ' * 8 + line for line in lines)
+    _diag: Diagnostics
 
     def __init__(self, name: str, problem: Problem) -> None:
-        self.log = log.getChild(name)
+        if self is not problem:
+            self._diag = problem._diag.child(name)
         self.problem = problem
 
-    def fatal(self, msg: str, additional_info: str | None = None, *args) -> None:
+    @property
+    def errors(self) -> int:
+        return self._diag.errors
+
+    @property
+    def warnings(self) -> int:
+        return self._diag.warnings
+
+    def fatal(self, msg: str, additional_info: str | None = None) -> None:
         self._check_res = False
-        self._add_error()
-        self.log.critical(self.__append_additional_info(msg, additional_info), *args)
-        raise VerifyError(msg)
+        self._diag.fatal(msg, additional_info)
 
-    def error(self, msg: str, additional_info: str | None = None, *args) -> None:
+    def error(self, msg: str, additional_info: str | None = None) -> None:
         self._check_res = False
-        self._add_error()
-        self.log.error(self.__append_additional_info(msg, additional_info), *args)
-        if self.problem.bail_on_error():
-            raise VerifyError(msg)
+        self._diag.error(msg, additional_info)
 
-    def warning(self, msg: str, additional_info: str | None = None, *args) -> None:
-        if self.problem.consider_warnings_errors():
-            self.error(msg, additional_info, *args)
-            return
-        self._add_warning()
-        self.log.warning(self.__append_additional_info(msg, additional_info), *args)
+    def warning(self, msg: str, additional_info: str | None = None) -> None:
+        self._diag.warning(msg, additional_info)
 
-    def error_in_2023_07(self, msg: str, additional_info: str | None = None, *args) -> None:
+    def error_in_2023_07(self, msg: str, additional_info: str | None = None) -> None:
         if self.problem.format is FormatVersion.LEGACY:
-            self.warning(msg, additional_info, *args)
+            self.warning(msg, additional_info)
         else:
-            self.error(msg, additional_info, *args)
+            self.error(msg, additional_info)
 
-    def info(self, msg: str, *args) -> None:
-        self.log.info(msg, *args)
+    def info(self, msg: str) -> None:
+        self._diag.info(msg)
 
-    def debug(self, msg: str, *args) -> None:
-        self.log.debug(msg, *args)
+    def debug(self, msg: str) -> None:
+        self._diag.debug(msg)
 
     def msg(self, msg):
         print(msg)
@@ -191,16 +169,6 @@ class ProblemAspect(ABC):
             if (problem_root / directory).exists():
                 self.warning(f'Found directory "{directory}". Version {self.problem.format} looks for {name} in "{good_dir}"')
 
-    def _add_error(self) -> None:
-        self.errors += 1
-        if self.problem is not self:
-            self.problem._add_error()
-
-    def _add_warning(self) -> None:
-        self.warnings += 1
-        if self.problem is not self:
-            self.problem._add_warning()
-
 
 class ProblemPart(ProblemAspect):
     """Baseclass for all parts that can be included in a problem-format."""
@@ -213,7 +181,7 @@ class ProblemPart(ProblemAspect):
     def __init__(self, problem: Problem) -> None:
         if self.PART_NAME is None:
             raise NotImplementedError('Every problem-part must override PART_NAME')
-        super().__init__(f'{problem.shortname}.{self.PART_NAME}', problem)
+        super().__init__(self.PART_NAME, problem)
         self.setup()
 
     def setup(self) -> None:
@@ -230,7 +198,7 @@ class TestCase(ProblemAspect):
     Result = tuple[SubmissionResult, SubmissionResult, SubmissionResult]
 
     def __init__(self, problem: Problem, base: str, testcasegroup: TestCaseGroup) -> None:
-        super().__init__(f'{problem.shortname}.test.{testcasegroup.name}.{os.path.basename(base)}', problem)
+        super().__init__(f'test.{testcasegroup.name}.{os.path.basename(base)}', problem)
         self._base = base
         self.infile = f'{base}.in'
         self.ansfile = f'{base}.ans'
@@ -367,7 +335,7 @@ class TestCase(ProblemAspect):
                 with open(errfile, mode='rt') as f:
                     info = f.read()
             except IOError:
-                self.info('Failed to read error file %s', errfile)
+                self.info(f'Failed to read error file {errfile}')
                 info = None
             res_high = SubmissionResult('RTE', additional_info=info)
         else:
@@ -484,10 +452,10 @@ class TestCaseGroup(ProblemAspect):
         self._datadir = datadir
         self.name = os.path.relpath(os.path.abspath(self._datadir), os.path.abspath(self._problem.probdir)).replace('/', '.')
 
-        super().__init__(f'{problem.shortname}.test.{self.name}', problem)
+        super().__init__(f'test.{self.name}', problem)
 
         self._seen_oob_scores = False
-        self.debug('Loading test data group %s', datadir)
+        self.debug(f'Loading test data group {datadir}')
         configfile = os.path.join(self._datadir, 'testdata.yaml')
         self.config: dict[str, Any] = {}
         if os.path.isfile(configfile):
@@ -1637,18 +1605,17 @@ class OutputValidators(ProblemPart):
                     outfile=outfile,
                     errfile=errfile,
                 )
-                if self.log.isEnabledFor(logging.DEBUG):
-                    try:
-                        with open(outfile, mode='rt') as f:
-                            output = f.read()
-                        if output:
-                            self.log.debug('Validator output:\n%s', output)
-                        with open(errfile, mode='rt') as f:
-                            error = f.read()
-                        if error:
-                            self.log.debug('Validator stderr:\n%s', error)
-                    except IOError as e:
-                        self.info('Failed to read validator output: %s', e)
+                try:
+                    with open(outfile, mode='rt') as f:
+                        output = f.read()
+                    if output:
+                        self.debug(f'Validator output:\n{output}')
+                    with open(errfile, mode='rt') as f:
+                        error = f.read()
+                    if error:
+                        self.debug(f'Validator stderr:\n{error}')
+                except IOError as e:
+                    self.info(f'Failed to read validator output: {e}')
                 res = self._parse_validator_results(val, status, feedbackdir, testcase)
                 shutil.rmtree(validator_output)
                 if feedback_dir_path is None:
@@ -1956,9 +1923,10 @@ PROBLEM_PARTS = ['config', 'data', 'graders', 'statement', 'submissions', 'valid
 class Problem(ProblemAspect):
     """Represents a checkable problem"""
 
-    def __init__(self, probdir: str, args: argparse.Namespace):
+    def __init__(self, probdir: str, args: argparse.Namespace, diagnostics: Diagnostics):
         self.probdir = os.path.realpath(probdir)
         self.shortname: str = os.path.basename(self.probdir)
+        self._diag = diagnostics
         super().__init__(self.shortname, self)
         self.language_config = languages.load_language_config(Path(self.probdir).parent)
         self.testcase_by_infile: dict[str, TestCase] = {}
@@ -2178,15 +2146,6 @@ class Problem(ProblemAspect):
                 if not regex.match(directory) and not _special_case_allowed_dirs(directory, reldir):
                     self.error(f"Invalid directory name '{directory}' in {reldir}, should match {regex.pattern}")
 
-    def bail_on_error(self) -> bool:
-        return self._args.bail_on_error
-
-    def consider_warnings_errors(self) -> bool:
-        return self._args.werror
-
-    def max_additional_info(self) -> int:
-        return self._args.max_additional_info
-
 
 def re_argument(s: str) -> Pattern[str]:
     try:
@@ -2262,21 +2221,22 @@ def argparser() -> argparse.ArgumentParser:
     return parser
 
 
-def initialize_logging(args: argparse.Namespace) -> None:
-    fmt = '%(log_color)s%(levelname)s %(message)s'
-    colorlog.basicConfig(stream=sys.stdout, format=fmt, level=getattr(logging, args.log_level.upper()))
-
-
 def main() -> None:
     args = argparser().parse_args()
-
-    initialize_logging(args)
 
     total_errors = 0
     try:
         for problemdir in args.problemdir:
-            print(f'Loading problem {os.path.basename(os.path.realpath(problemdir))}')
-            with Problem(problemdir, args) as prob:
+            shortname = os.path.basename(os.path.realpath(problemdir))
+            print(f'Loading problem {shortname}')
+            diag = LoggingDiagnostics.create(
+                shortname,
+                log_level=getattr(logging, args.log_level.upper()),
+                bail_on_error=args.bail_on_error,
+                warnings_as_errors=args.werror,
+                max_additional_info=args.max_additional_info,
+            )
+            with Problem(problemdir, args, diag) as prob:
                 errors, warnings = prob.check()
 
                 def p(x: int) -> str:
