@@ -101,11 +101,20 @@ _P = ParamSpec('_P')
 
 
 class Context:
-    def __init__(self, args: argparse.Namespace, executor: ThreadPoolExecutor | None) -> None:
-        self.data_filter: Pattern[str] = args.data_filter
-        self.submission_filter: Pattern[str] = args.submission_filter
-        self.fixed_timelim: float | None = args.fixed_timelim
-        self.executor = executor
+    # Default values here must be kept in sync with the defaults in argparser().
+    def __init__(
+        self,
+        data_filter: Pattern[str] = re.compile('.*'),
+        submission_filter: Pattern[str] = re.compile('.*'),
+        fixed_timelim: float | None = None,
+        parts: list[str] | None = None,
+        threads: int = 1,
+    ) -> None:
+        self.data_filter = data_filter
+        self.submission_filter = submission_filter
+        self.fixed_timelim = fixed_timelim
+        self.parts: list[str] = parts if parts is not None else list(PROBLEM_PARTS)
+        self.executor: ThreadPoolExecutor | None = ThreadPoolExecutor(threads) if threads > 1 else None
         self._background_work: list[concurrent.futures.Future[object]] = []
 
     def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> None:
@@ -1923,7 +1932,7 @@ PROBLEM_PARTS = ['config', 'data', 'graders', 'statement', 'submissions', 'valid
 class Problem(ProblemAspect):
     """Represents a checkable problem"""
 
-    def __init__(self, probdir: str, args: argparse.Namespace, diagnostics: Diagnostics):
+    def __init__(self, probdir: str, diagnostics: Diagnostics):
         self.probdir = os.path.realpath(probdir)
         self.shortname: str = os.path.basename(self.probdir)
         self._diag = diagnostics
@@ -1932,7 +1941,6 @@ class Problem(ProblemAspect):
         self.testcase_by_infile: dict[str, TestCase] = {}
         self.loaded = False
         self._metadata: metadata.Metadata | None = None
-        self._args = args
         self._timelim: float | None = None
 
     # Unfortunately must be before metadata, otherwise mypy gets confused about the type metadata.Metadata (feels like a bug)
@@ -2012,7 +2020,7 @@ class Problem(ProblemAspect):
     def __str__(self) -> str:
         return str(self.shortname)
 
-    def check(self) -> tuple[int, int]:
+    def check(self, context: Context) -> tuple[int, int]:
         """Loads and checks the problem package
 
         Loads the problem package and runs checks. After this has completed,
@@ -2029,9 +2037,6 @@ class Problem(ProblemAspect):
             self.load()
         except VerifyError:
             return self.errors, self.warnings
-
-        executor = ThreadPoolExecutor(self._args.threads) if self._args.threads > 1 else None
-        context = Context(self._args, executor)
 
         try:
             part_mapping: dict[str, list] = {
@@ -2056,9 +2061,9 @@ class Problem(ProblemAspect):
             run.limit.check_limit_capabilities(self)
 
             parts = [
-                part for part in part_mapping if part in self._args.parts
-            ]  # Parts from _args in the order they appear in part_mapping
-            if executor:
+                part for part in part_mapping if part in context.parts
+            ]  # Parts from context in the order they appear in part_mapping
+            if context.executor:
                 for part in parts:
                     for item in part_mapping[part]:
                         item.start_background_work(context)
@@ -2174,6 +2179,7 @@ def argparser_basic_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def argparser() -> argparse.ArgumentParser:
+    # Default values here must be kept in sync with the defaults in Context.__init__().
     parser = argparse.ArgumentParser(description='Validate a problem package in the Kattis problem format.')
     parser.add_argument(
         '-s',
@@ -2226,6 +2232,13 @@ def main() -> None:
 
     total_errors = 0
     try:
+        context = Context(
+            data_filter=args.data_filter,
+            submission_filter=args.submission_filter,
+            fixed_timelim=args.fixed_timelim,
+            parts=args.parts,
+            threads=args.threads,
+        )
         for problemdir in args.problemdir:
             shortname = os.path.basename(os.path.realpath(problemdir))
             print(f'Loading problem {shortname}')
@@ -2236,8 +2249,8 @@ def main() -> None:
                 warnings_as_errors=args.werror,
                 max_additional_info=args.max_additional_info,
             )
-            with Problem(problemdir, args, diag) as prob:
-                errors, warnings = prob.check()
+            with Problem(problemdir, diag) as prob:
+                errors, warnings = prob.check(context)
 
                 def p(x: int) -> str:
                     return '' if x == 1 else 's'
