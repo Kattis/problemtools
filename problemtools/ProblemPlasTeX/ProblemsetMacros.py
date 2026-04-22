@@ -1,10 +1,13 @@
 import sys
 import os
 import os.path
+from pathlib import Path
 from plasTeX.DOM import Node
 from plasTeX.Base import Command
 from plasTeX.Base import DimenCommand
 from plasTeX.Logging import getLogger
+
+from problemtools import metadata
 
 log = getLogger()
 status = getLogger('status')
@@ -64,35 +67,82 @@ class sampletable(Command):
 class sampletableinteractive(Command):
     args = 'header read write file:str'
 
-    def read_sample_interaction(self, filename):
-        data = open(filename, 'r', encoding='utf-8').read()
-        messages = []
-        cur_msg: list[str] = []
-        cur_mode = None
-        for line in data.split('\n'):
-            if not line:
-                continue
-            if line[0] == '<':
-                mode = 'read'
-            elif line[0] == '>':
-                mode = 'write'
+    def split_multipass(self, lines: list[str]) -> list[list[str]]:
+        multipass_passes = []
+        curr_pass: list[str] = []
+        for line in lines:
+            if line.startswith('---'):
+                multipass_passes.append(curr_pass)
+                curr_pass = []
             else:
-                continue
-            line = line[1:]
-            if mode != cur_mode:
-                if cur_mode:
-                    messages.append({'mode': cur_mode, 'data': '\n'.join(cur_msg)})
-                cur_msg = []
-            cur_msg.append(line)
-            cur_mode = mode
-        if cur_mode:
-            messages.append({'mode': cur_mode, 'data': '\n'.join(cur_msg)})
+                curr_pass.append(line)
+
+        if curr_pass:
+            multipass_passes.append(curr_pass)
+        return multipass_passes
+
+    def format_pass_content(self, block: list[str]) -> list[dict]:
+        sections = []
+
+        if self.attributes['is_interactive']:
+            cur_msg: list[str] = []
+            cur_mode = None
+
+            def format_message(cur_mode: str, cur_msg: list[str]) -> dict:
+                return {'mode': cur_mode, 'data': ''.join(cur_msg)}
+
+            for line in block:
+                if not line:
+                    continue
+                if line[0] not in ('<', '>'):
+                    log.warning(f'Interaction had unknown prefix {line[0]}')
+                    continue
+
+                if line[0] == '<':
+                    mode = 'read'
+                elif line[0] == '>':
+                    mode = 'write'
+
+                if mode != cur_mode:
+                    if cur_mode:
+                        sections.append(format_message(cur_mode, cur_msg))
+                    cur_msg = []
+                cur_mode = mode
+                cur_msg.append(line[1:])
+            if cur_mode:
+                sections.append(format_message(cur_mode, cur_msg))
+        else:
+            in_data = ''.join(line[1:] for line in block if line[0] == '>')
+            out_data = ''.join(line[1:] for line in block if line[0] == '<')
+            sections.append({'mode': 'batch_sample', 'in_data': in_data, 'out_data': out_data})
+        return sections
+
+    def read_sample_interaction(self, filename: Path) -> list[dict]:
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = self.split_multipass(f.readlines())
+
+        messages = []
+        for index, block in enumerate(data):
+            if self.attributes['is_multi_pass']:
+                messages.append({'mode': 'newpass', 'data': str(index + 1)})
+            messages.extend(self.format_pass_content(block))
         return messages
 
     def invoke(self, tex):
         super().invoke(tex)
         dir = os.path.dirname(tex.filename)
-        file = os.path.join(dir, self.attributes['file'])
+        file = Path(dir) / self.attributes['file']
+        # A slightly messy way of finding out whether we're multipass and/or interactive
+        problem_root = file.parent.parent.parent
+        problem_metadata, _ = metadata.load_metadata(problem_root)
+        self.attributes['is_multi_pass'] = problem_metadata.is_multi_pass()
+        self.attributes['is_interactive'] = problem_metadata.is_interactive()
+
+        if not self.attributes['is_interactive']:
+            self.attributes['read'] = 'Sample Input'
+            self.attributes['write'] = 'Sample Output'
+            self.attributes['header'] = f'Sample Case {self.attributes["header"][2]}'
+
         try:
             status.info(' ( sampletableinteractive %s ' % file)
             self.attributes['messages'] = self.read_sample_interaction(file)
