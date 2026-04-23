@@ -35,7 +35,7 @@ from . import statement_util
 from .context import Context, PROBLEM_PARTS
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
-from .judge import SubmissionResult, Verdict, is_TLE, is_RTE
+from .judge import SubmissionResult, Verdict, is_TLE, is_RTE, validate_output
 from .version import add_version_arg
 
 from abc import ABC
@@ -165,6 +165,22 @@ class TestCase(ProblemAspect):
 
     def strip_path_prefix(self, path: str) -> str:
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
+
+    # Temporary properties for use while refactoring verifyproblem into judge/
+    @property
+    def infile_path(self) -> Path:
+        return Path(self.infile)
+
+    @property
+    def ansfile_path(self) -> Path:
+        return Path(self.ansfile)
+
+    @property
+    def output_validator_flags(self) -> list[str]:
+        return (
+            self._problem.metadata.legacy_validator_flags.split()
+            + self.testcasegroup.config.get('output_validator_flags', '').split()
+        )
 
     def is_in_sample_group(self) -> bool:
         return self.strip_path_prefix(self.infile).startswith('sample')
@@ -1287,7 +1303,9 @@ class OutputValidators(ProblemPart):
                 )
 
         if len(self._validators) > 1:
-            self.error_in_2023_07('Found more than one output validator. This was allowed in legacy (but not on Kattis)')
+            self.error_in_2023_07(
+                'Found more than one output validator, will only use one. This was allowed in legacy (but not on Kattis)'
+            )
 
         if self.uses_default_validator() and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
@@ -1500,64 +1518,15 @@ class OutputValidators(ProblemPart):
     def validate(
         self, testcase: TestCase, submission_output: str, infile: str | None = None, feedback_dir_path: str | None = None
     ) -> SubmissionResult:
-        """
-        Run all output validators on the given test case and submission output.
-        Parameters:
-            testcase: The test case we are validating.
-            submission_output: Path to out file of submission.
-            infile: The input file. Overrides testcase.infile if we are running multipass.
-            feedback_dir_path: Path to feedback directory. If None, a temporary directory will be created and cleaned up.
-        """
-        res = SubmissionResult('JE')
-        val_timelim = self.problem.metadata.limits.validation_time
-        val_memlim = self.problem.metadata.limits.validation_memory
-        flags = (
-            self.problem.metadata.legacy_validator_flags.split() + testcase.testcasegroup.config['output_validator_flags'].split()
+        val = self._actual_validators()[0]
+        return validate_output(
+            testcase=testcase,
+            submission_output=Path(submission_output),
+            output_validator=val,
+            metadata=self.problem.metadata,
+            base_dir=Path(self.problem.tmpdir),
+            diag=self._diag,
         )
-        for i, val in enumerate(self._actual_validators()):
-            if val.compile()[0]:
-                # If we are running multiple output validators in legacy, make sure to wipe it
-                # If we are running multipass, i will always be 0 and we do not accidentally wipe feedback
-                if i > 0 and feedback_dir_path:
-                    shutil.rmtree(feedback_dir_path)
-                    Path(feedback_dir_path).mkdir()
-
-                if feedback_dir_path:
-                    feedbackdir = feedback_dir_path
-                else:
-                    feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
-
-                validator_output = tempfile.mkdtemp(prefix='checker_out', dir=self.problem.tmpdir)
-                outfile = validator_output + '/out.txt'
-                errfile = validator_output + '/err.txt'
-                status, runtime = val.run(
-                    infile=submission_output,
-                    args=[infile if infile else testcase.infile, testcase.ansfile, feedbackdir] + flags,
-                    timelim=val_timelim,
-                    memlim=val_memlim,
-                    outfile=outfile,
-                    errfile=errfile,
-                )
-                try:
-                    with open(outfile, mode='rt') as f:
-                        output = f.read()
-                    if output:
-                        self.debug(f'Validator output:\n{output}')
-                    with open(errfile, mode='rt') as f:
-                        error = f.read()
-                    if error:
-                        self.debug(f'Validator stderr:\n{error}')
-                except IOError as e:
-                    self.info(f'Failed to read validator output: {e}')
-                res = self._parse_validator_results(val, status, feedbackdir, testcase)
-                shutil.rmtree(validator_output)
-                if feedback_dir_path is None:
-                    shutil.rmtree(feedbackdir)
-                if res.verdict != 'AC':
-                    return res
-
-        # TODO: check that all output validators give same result
-        return res
 
 
 class Runner:
