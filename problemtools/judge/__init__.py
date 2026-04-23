@@ -4,8 +4,6 @@ from .result import (
     TimeLimits,
     Verdict,
     classify_result,
-    is_RTE,
-    is_TLE,
 )
 from .validate import validate_output
 
@@ -15,7 +13,5 @@ __all__ = [
     'Verdict',
     'classify_result',
     'execute_testcase',
-    'is_RTE',
-    'is_TLE',
     'validate_output',
 ]

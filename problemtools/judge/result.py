@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import signal
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -9,16 +7,6 @@ if TYPE_CHECKING:
     from ..verifyproblem import TestCase
 
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
-
-
-def is_TLE(status: int, may_signal_with_usr1: bool = False) -> bool:
-    return os.WIFSIGNALED(status) and (
-        os.WTERMSIG(status) == signal.SIGXCPU or (may_signal_with_usr1 and os.WTERMSIG(status) == signal.SIGUSR1)
-    )
-
-
-def is_RTE(status: int) -> bool:
-    return not os.WIFEXITED(status) or bool(os.WEXITSTATUS(status))
 
 
 class SubmissionResult:
