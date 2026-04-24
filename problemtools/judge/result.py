@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from ..verifyproblem import TestCase
+    from ..verifyproblem import TestCase, TestCaseGroup
 
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
@@ -22,6 +22,7 @@ class SubmissionResult:
         self.reason = reason
         self.additional_info = additional_info
         self.testcase: TestCase | None = None
+        self.test_item: TestCase | TestCaseGroup | None = None
         self.runtime_testcase: TestCase | None = None
         self.runtime = -1.0
         self.ac_runtime = -1.0

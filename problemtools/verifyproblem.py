@@ -35,11 +35,12 @@ from . import statement_util
 from .context import Context, PROBLEM_PARTS
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
-from .judge import SubmissionResult, Verdict, TimeLimits, validate_output, execute_testcase
+from .judge import CacheKey, SubmissionResult, Verdict, TimeLimits, validate_output, execute_testcase
 from .version import add_version_arg
 
 from abc import ABC
-from typing import Any, Callable, ClassVar, Pattern, Match, ParamSpec, TypeVar, cast
+from functools import cached_property
+from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, TypeVar, cast
 from pydantic import ValidationError
 
 random.seed(42)
@@ -129,6 +130,7 @@ class ProblemPart(ProblemAspect):
 
 class TestCase(ProblemAspect):
     Result = tuple[SubmissionResult, SubmissionResult, SubmissionResult]
+    is_group: Literal[False] = False  # Temporary workaround for a circular import in judge/submission_judge.py
 
     def __init__(self, problem: Problem, base: str, testcasegroup: TestCaseGroup) -> None:
         super().__init__(f'test.{testcasegroup.name}.{os.path.basename(base)}', problem)
@@ -180,6 +182,14 @@ class TestCase(ProblemAspect):
         return (
             self._problem.metadata.legacy_validator_flags.split()
             + self.testcasegroup.config.get('output_validator_flags', '').split()
+        )
+
+    @cached_property
+    def reuse_key(self) -> CacheKey:
+        return CacheKey(
+            input_hash=hashlib.sha256(self.infile_path.read_bytes()).digest(),
+            ans_hash=hashlib.sha256(self.ansfile_path.read_bytes()).digest(),
+            validator_flags=tuple(self.output_validator_flags),
         )
 
     def is_in_sample_group(self) -> bool:
@@ -304,6 +314,7 @@ class TestCaseGroup(ProblemAspect):
     name: str
     _DEFAULT_CONFIG = config.load_config('testdata.yaml')
     _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
+    is_group: Literal[True] = True  # Temporary workaround for a circular import in judge/submission_judge.py
 
     def __init__(self, problem: Problem, datadir: str | None = None, parent: TestCaseGroup | None = None):
         self._parent = parent
