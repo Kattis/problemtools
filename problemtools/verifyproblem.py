@@ -205,7 +205,14 @@ class TestCase(ProblemAspect):
                 f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit'
             )
         if not self._problem.is_interactive() and not self._problem.is_multi_pass():
-            val_res = self._problem.output_validators.validate(self, self.ansfile)
+            val_res = validate_output(
+                testcase=self,
+                submission_output=Path(self.ansfile),
+                output_validator=self._problem.output_validators.output_validator,
+                metadata=self._problem.metadata,
+                base_dir=Path(self._problem.tmpdir),
+                diag=self._diag,
+            )
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
                     self.error(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
@@ -1241,7 +1248,14 @@ class OutputValidators(ProblemPart):
                     f.write(junk_content)
                     f.flush()
                     for testcase in testcases:
-                        result = self.validate(testcase, f.name)
+                        result = validate_output(
+                            testcase=testcase,
+                            submission_output=Path(f.name),
+                            output_validator=self.output_validator,
+                            metadata=self.problem.metadata,
+                            base_dir=Path(self.problem.tmpdir),
+                            diag=self._diag,
+                        )
                         results.append(result)
                         if result.verdict == 'JE':
                             self.error(f'{case_desc} as output on test case {testcase} gave {result}')
@@ -1264,19 +1278,6 @@ class OutputValidators(ProblemPart):
                 run_junk_case(desc, junk_case_content, test_cases)
 
         return self._check_res
-
-    def validate(
-        self, testcase: TestCase, submission_output: str, infile: str | None = None, feedback_dir_path: str | None = None
-    ) -> SubmissionResult:
-        val = self.output_validator
-        return validate_output(
-            testcase=testcase,
-            submission_output=Path(submission_output),
-            output_validator=val,
-            metadata=self.problem.metadata,
-            base_dir=Path(self.problem.tmpdir),
-            diag=self._diag,
-        )
 
 
 class Runner:
