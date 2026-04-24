@@ -306,9 +306,6 @@ class TestCase(ProblemAspect):
     def get_all_testcases(self) -> list[TestCase]:
         return [self]
 
-    def all_datasets(self) -> list[str]:
-        return [self._base]
-
 
 class TestCaseGroup(ProblemAspect):
     name: str
@@ -633,12 +630,6 @@ class TestCaseGroup(ProblemAspect):
                     self.error(
                         f'submission {sub} got {res} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]'
                     )
-        return res
-
-    def all_datasets(self) -> list:
-        res: list = []
-        for child in self._items:
-            res += child.all_datasets()
         return res
 
 
