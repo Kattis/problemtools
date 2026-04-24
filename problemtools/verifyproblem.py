@@ -1193,8 +1193,7 @@ class OutputValidators(ProblemPart):
 
     def start_background_work(self, context: Context) -> None:
         if not self._has_precompiled:
-            for val in self._actual_validators():
-                context.submit_background_work(lambda v: v.compile(), val)
+            context.submit_background_work(lambda v: v.compile(), self.output_validator)
             self._has_precompiled = True
 
     def check(self, context: Context) -> bool:
@@ -1204,17 +1203,18 @@ class OutputValidators(ProblemPart):
 
         self.warn_directory('output validators', 'output_validator_directory')
 
-        safe_output_validator_languages = {'c', 'cpp', 'python3'}
-
-        for v in self._validators:
-            if isinstance(v, run.SourceCode) and v.language.lang_id not in safe_output_validator_languages:
-                self.error_in_2023_07(
-                    f'Output validator in {v.language.name}. Only {safe_output_validator_languages} are standardized. Check carefully if your CCS supports more (Kattis does not).'
-                )
-
         if len(self._validators) > 1:
             self.error_in_2023_07(
-                'Found more than one output validator, will only use one. This was allowed in legacy (but not on Kattis)'
+                f'Support for multiple output validators has been dropped. will only use {self.output_validator}'
+            )
+
+        safe_output_validator_languages = {'c', 'cpp', 'python3'}
+        if (
+            isinstance(self.output_validator, run.SourceCode)
+            and self.output_validator.language.lang_id not in safe_output_validator_languages
+        ):
+            self.error_in_2023_07(
+                f'Output validator in {self.output_validator.language.name}. Only {safe_output_validator_languages} are standardized. Check carefully if your CCS supports more (Kattis does not).'
             )
 
         if self.uses_default_validator() and self._validators:
@@ -1225,18 +1225,15 @@ class OutputValidators(ProblemPart):
         if self.uses_default_validator() and self._default_validator is None:
             self.fatal('Unable to locate default validator')
 
-        for val in self._validators[:]:
-            try:
-                success, msg = val.compile()
-                if not success:
-                    self.fatal(f'Compile error for output validator {val}', msg)
-            except run.ProgramError as e:
-                self.error(str(e))
+        try:
+            success, msg = self.output_validator.compile()
+            if not success:
+                self.fatal(f'Compile error for output validator {self.output_validator}', msg)
+        except run.ProgramError as e:
+            self.fatal(f'Compile error for output validator {self.output_validator}', str(e))
 
         # Only sanity check output validators if they all actually compiled
         if self._check_res:
-            flags = self.problem.metadata.legacy_validator_flags
-
             # Sanity check cases that should be rejected by the output validator
             def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[TestCase]) -> list[SubmissionResult]:
                 results = []
@@ -1247,7 +1244,7 @@ class OutputValidators(ProblemPart):
                         result = self.validate(testcase, f.name)
                         results.append(result)
                         if result.verdict == 'JE':
-                            self.error(f'{case_desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
+                            self.error(f'{case_desc} as output on test case {testcase} gave {result}')
                             break
                 return results
 
@@ -1258,30 +1255,20 @@ class OutputValidators(ProblemPart):
                 if not rejected:
                     self.warning(f'{desc} gets AC')
 
-            # For performance reasons, strongly limit the amount of testcases we run on
-            fast_languages = {'c', 'cpp'}
-            all_validators_are_fast = True
-            for val in self._validators:
-                if isinstance(val, run.SourceCode):
-                    all_validators_are_fast &= val.language.lang_id in fast_languages
-            num_testcases = 3 if all_validators_are_fast else 1
-            test_cases = self.problem.testdata.get_all_testcases()[:num_testcases]
             # Malformed cases that a poorly-written output validator might crash on
-            # Note that these might be valid output, so we only check if it crashes
+            # Note that these might be valid output, so we only check if it crashes.
+            # These bugs are rarely dependent on the actual test case, so we just
+            # run on a few to keep things speedy.
+            test_cases = self.problem.testdata.get_all_testcases()[:3]
             for desc, junk_case_content in _JUNK_CASES_CRASH:
                 run_junk_case(desc, junk_case_content, test_cases)
 
         return self._check_res
 
-    def _actual_validators(self) -> list:
-        if self.uses_default_validator():
-            return [self._default_validator]
-        return self._validators
-
     def validate(
         self, testcase: TestCase, submission_output: str, infile: str | None = None, feedback_dir_path: str | None = None
     ) -> SubmissionResult:
-        val = self._actual_validators()[0]
+        val = self.output_validator
         return validate_output(
             testcase=testcase,
             submission_output=Path(submission_output),
