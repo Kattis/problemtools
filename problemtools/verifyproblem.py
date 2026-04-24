@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
 import math
 import threading
 import queue
@@ -13,7 +11,6 @@ import string
 import hashlib
 import collections
 import os
-import signal
 import re
 import shutil
 import logging
@@ -35,94 +32,21 @@ from . import problem2html
 from . import problem2pdf
 from . import run
 from . import statement_util
+from .context import Context, PROBLEM_PARTS
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
+from .judge import SubmissionResult, Verdict, TimeLimits, validate_output, execute_testcase
 from .version import add_version_arg
 
 from abc import ABC
-from typing import Any, Callable, ClassVar, Literal, Pattern, Match, ParamSpec, TypeVar, cast
+from typing import Any, Callable, ClassVar, Pattern, Match, ParamSpec, TypeVar, cast
 from pydantic import ValidationError
 
 random.seed(42)
 
-Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
-
-
-def is_TLE(status: int, may_signal_with_usr1: bool = False) -> bool:
-    return os.WIFSIGNALED(status) and (
-        os.WTERMSIG(status) == signal.SIGXCPU or (may_signal_with_usr1 and os.WTERMSIG(status) == signal.SIGUSR1)
-    )
-
-
-def is_RTE(status: int) -> bool:
-    return not os.WIFEXITED(status) or bool(os.WEXITSTATUS(status))
-
-
-class SubmissionResult:
-    def __init__(self, verdict: str, score: float | None = None, reason: str | None = None, additional_info: str | None = None):
-        self.verdict = verdict
-        self.score = score
-        self.reason = reason
-        self.additional_info = additional_info
-        self.testcase: TestCase | None = None
-        self.runtime_testcase: TestCase | None = None
-        self.runtime = -1.0
-        self.ac_runtime = -1.0
-        self.ac_runtime_testcase: TestCase | None = None
-        self.validator_first = False
-        self.sample_failures: list[SubmissionResult] = []
-
-    def set_ac_runtime(self) -> None:
-        if self.verdict == 'AC':
-            self.ac_runtime = self.runtime
-            self.ac_runtime_testcase = self.runtime_testcase
-
-    def __str__(self) -> str:
-        verdict = self.verdict
-        details = []
-
-        if verdict == 'AC' and self.score is not None:
-            verdict += f' ({self.score:.0f})'
-
-        if self.reason is not None:
-            details.append(self.reason)
-        if self.testcase is not None:
-            details.append(f'testcase: {self.testcase}')
-        if self.runtime != -1:
-            details.append(f'CPU: {self.runtime:.2f}s @ {self.runtime_testcase}')
-
-        if len(details) == 0:
-            return verdict
-        return f'{verdict} [{", ".join(details)}]'
-
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
-
-
-class Context:
-    # Default values here must be kept in sync with the defaults in argparser().
-    def __init__(
-        self,
-        data_filter: Pattern[str] = re.compile('.*'),
-        submission_filter: Pattern[str] = re.compile('.*'),
-        fixed_timelim: float | None = None,
-        parts: list[str] | None = None,
-        threads: int = 1,
-    ) -> None:
-        self.data_filter = data_filter
-        self.submission_filter = submission_filter
-        self.fixed_timelim = fixed_timelim
-        self.parts: list[str] = parts if parts is not None else list(PROBLEM_PARTS)
-        self.executor: ThreadPoolExecutor | None = ThreadPoolExecutor(threads) if threads > 1 else None
-        self._background_work: list[concurrent.futures.Future[object]] = []
-
-    def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> None:
-        assert self.executor
-        self._background_work.append(self.executor.submit(job, *args, **kwargs))
-
-    def wait_for_background_work(self) -> None:
-        concurrent.futures.wait(self._background_work)
 
 
 class ProblemAspect(ABC):
@@ -242,6 +166,22 @@ class TestCase(ProblemAspect):
     def strip_path_prefix(self, path: str) -> str:
         return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
 
+    # Temporary properties for use while refactoring verifyproblem into judge/
+    @property
+    def infile_path(self) -> Path:
+        return Path(self.infile)
+
+    @property
+    def ansfile_path(self) -> Path:
+        return Path(self.ansfile)
+
+    @property
+    def output_validator_flags(self) -> list[str]:
+        return (
+            self._problem.metadata.legacy_validator_flags.split()
+            + self.testcasegroup.config.get('output_validator_flags', '').split()
+        )
+
     def is_in_sample_group(self) -> bool:
         return self.strip_path_prefix(self.infile).startswith('sample')
 
@@ -265,7 +205,14 @@ class TestCase(ProblemAspect):
                 f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit'
             )
         if not self._problem.is_interactive() and not self._problem.is_multi_pass():
-            val_res = self._problem.output_validators.validate(self, self.ansfile)
+            val_res = validate_output(
+                testcase=self,
+                submission_output=Path(self.ansfile),
+                output_validator=self._problem.output_validators.output_validator,
+                metadata=self._problem.metadata,
+                base_dir=Path(self._problem.tmpdir),
+                diag=self._diag,
+            )
             if val_res.verdict != 'AC':
                 if self.is_in_sample_group():
                     self.error(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
@@ -322,114 +269,18 @@ class TestCase(ProblemAspect):
 
         return (res, res_low, res_high)
 
-    def run_normal(self, sub, infile: Path, time_limit: float, feedback_dir: Path) -> SubmissionResult:
-        """
-        Run a submission batch-style (non-interactive)
-        """
-        outfile = Path(self._problem.tmpdir) / f'output-{self.counter}'
-        errfile = Path(self._problem.tmpdir) / f'error-{self.counter}'
-
-        status, runtime = sub.run(
-            infile=str(infile),
-            outfile=str(outfile),
-            errfile=str(errfile),
-            timelim=math.ceil(time_limit) + 1,
-            memlim=self._problem.metadata.limits.memory,
-            work_dir=sub.path,
-        )
-        if is_TLE(status) or runtime > time_limit:
-            res_high = SubmissionResult('TLE')
-        elif is_RTE(status):
-            try:
-                with open(errfile, mode='rt') as f:
-                    info = f.read()
-            except IOError:
-                self.info(f'Failed to read error file {errfile}')
-                info = None
-            res_high = SubmissionResult('RTE', additional_info=info)
-        else:
-            res_high = self._problem.output_validators.validate(
-                self, submission_output=str(outfile), infile=str(infile), feedback_dir_path=str(feedback_dir)
-            )
-
-        res_high.runtime = runtime
-        return res_high
-
-    def run_submission_multipass(self, feedback_dir: Path, run_sub_fn) -> SubmissionResult:
-        # This may be called off-main thread.
-
-        infile = Path(self.infile)
-        validation_passes = self._problem.metadata.limits.validation_passes
-
-        input_dir = Path(tempfile.mkdtemp(prefix=f'input-{self.counter}-', dir=self.problem.tmpdir))
-
-        slowest_pass = 0
-        for curr_pass in range(validation_passes):
-            res = run_sub_fn(infile)
-
-            slowest_pass = max(slowest_pass, res.runtime)
-            res.runtime = slowest_pass
-
-            nextpass_file = feedback_dir / 'nextpass.in'
-
-            if res.verdict != 'AC':
-                if nextpass_file.is_file():
-                    return SubmissionResult('JE', reason='Output validator produced nextpass.in despite non-42 exit code')
-                return res
-
-            # Done with passes
-            if not nextpass_file.is_file():
-                return res
-
-            infile = input_dir / 'input.in'
-            # Remove nextpass from feedback
-            nextpass_file.rename(infile)
-
-        return SubmissionResult('JE', reason=f'Multipass validator did not give verdict in {validation_passes=} passes')
-
     def run_submission_real(self, sub, context: Context, timelim: float, timelim_low: float, timelim_high: float) -> Result:
         # This may be called off-main thread.
-
-        feedback_dir = Path(tempfile.mkdtemp(prefix=f'feedback-{self.counter}-', dir=self.problem.tmpdir))
-
-        if self._problem.is_interactive():
-
-            def run_submission(infile: Path) -> SubmissionResult:
-                return self._problem.output_validators.validate_interactive(
-                    self, sub, timelim_high, self._problem.submissions, str(infile), str(feedback_dir)
-                )
-        else:
-
-            def run_submission(infile: Path) -> SubmissionResult:
-                return self.run_normal(sub, infile, timelim_high, feedback_dir)
-
-        if self._problem.is_multi_pass():
-            res_high = self.run_submission_multipass(feedback_dir, run_submission)
-        else:
-            res_high = run_submission(Path(self.infile))
-
-        if res_high.runtime <= timelim_low:
-            res_low = res_high
-            res = res_high
-        elif res_high.runtime <= timelim:
-            res_low = SubmissionResult('TLE')
-            res = res_high
-        elif res_high.validator_first and res_high.verdict == 'WA':
-            # WA can override TLE for interactive problems (see comment in validate_interactive).
-            res = SubmissionResult('WA')
-            res.validator_first = True
-            res_low = res
-            res_high.runtime = timelim_low
-        else:
-            res_low = SubmissionResult('TLE')
-            res = res_low
-
-        res.runtime = res_high.runtime
-        res_low.runtime = res_high.runtime
-        res.set_ac_runtime()
-        res_low.set_ac_runtime()
-        res_high.set_ac_runtime()
-        return (res, res_low, res_high)
+        timelimits = TimeLimits(nominal=timelim, low=timelim_low, high=timelim_high)
+        return execute_testcase(
+            testcase=self,
+            sub=sub,
+            output_validator=self._problem.output_validators.output_validator,
+            metadata=self._problem.metadata,
+            timelimits=timelimits,
+            base_dir=Path(self.problem.tmpdir),
+            diag=self._diag,
+        )
 
     def _init_result_for_testcase(self, res: SubmissionResult) -> SubmissionResult:
         res = copy.copy(res)
@@ -1338,13 +1189,18 @@ class OutputValidators(ProblemPart):
             return self.problem.metadata.legacy_validation == 'default'
         return not self._validators
 
+    @property
+    def output_validator(self) -> run.Program:
+        if self.uses_default_validator() or not self._validators:
+            return self._default_validator
+        return self._validators[0]
+
     def __str__(self) -> str:
         return 'output validators'
 
     def start_background_work(self, context: Context) -> None:
         if not self._has_precompiled:
-            for val in self._actual_validators():
-                context.submit_background_work(lambda v: v.compile(), val)
+            context.submit_background_work(lambda v: v.compile(), self.output_validator)
             self._has_precompiled = True
 
     def check(self, context: Context) -> bool:
@@ -1354,16 +1210,19 @@ class OutputValidators(ProblemPart):
 
         self.warn_directory('output validators', 'output_validator_directory')
 
-        safe_output_validator_languages = {'c', 'cpp', 'python3'}
-
-        for v in self._validators:
-            if isinstance(v, run.SourceCode) and v.language.lang_id not in safe_output_validator_languages:
-                self.error_in_2023_07(
-                    f'Output validator in {v.language.name}. Only {safe_output_validator_languages} are standardized. Check carefully if your CCS supports more (Kattis does not).'
-                )
-
         if len(self._validators) > 1:
-            self.error_in_2023_07('Found more than one output validator. This was allowed in legacy (but not on Kattis)')
+            self.error_in_2023_07(
+                f'Support for multiple output validators has been dropped. will only use {self.output_validator}'
+            )
+
+        safe_output_validator_languages = {'c', 'cpp', 'python3'}
+        if (
+            isinstance(self.output_validator, run.SourceCode)
+            and self.output_validator.language.lang_id not in safe_output_validator_languages
+        ):
+            self.error_in_2023_07(
+                f'Output validator in {self.output_validator.language.name}. Only {safe_output_validator_languages} are standardized. Check carefully if your CCS supports more (Kattis does not).'
+            )
 
         if self.uses_default_validator() and self._validators:
             self.error('There are validator programs but problem.yaml has validation = "default"')
@@ -1373,18 +1232,15 @@ class OutputValidators(ProblemPart):
         if self.uses_default_validator() and self._default_validator is None:
             self.fatal('Unable to locate default validator')
 
-        for val in self._validators[:]:
-            try:
-                success, msg = val.compile()
-                if not success:
-                    self.fatal(f'Compile error for output validator {val}', msg)
-            except run.ProgramError as e:
-                self.error(str(e))
+        try:
+            success, msg = self.output_validator.compile()
+            if not success:
+                self.fatal(f'Compile error for output validator {self.output_validator}', msg)
+        except run.ProgramError as e:
+            self.fatal(f'Compile error for output validator {self.output_validator}', str(e))
 
         # Only sanity check output validators if they all actually compiled
         if self._check_res:
-            flags = self.problem.metadata.legacy_validator_flags
-
             # Sanity check cases that should be rejected by the output validator
             def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[TestCase]) -> list[SubmissionResult]:
                 results = []
@@ -1392,10 +1248,17 @@ class OutputValidators(ProblemPart):
                     f.write(junk_content)
                     f.flush()
                     for testcase in testcases:
-                        result = self.validate(testcase, f.name)
+                        result = validate_output(
+                            testcase=testcase,
+                            submission_output=Path(f.name),
+                            output_validator=self.output_validator,
+                            metadata=self.problem.metadata,
+                            base_dir=Path(self.problem.tmpdir),
+                            diag=self._diag,
+                        )
                         results.append(result)
                         if result.verdict == 'JE':
-                            self.error(f'{case_desc} as output, and output validator flags "{" ".join(flags)}" gave {result}')
+                            self.error(f'{case_desc} as output on test case {testcase} gave {result}')
                             break
                 return results
 
@@ -1406,234 +1269,15 @@ class OutputValidators(ProblemPart):
                 if not rejected:
                     self.warning(f'{desc} gets AC')
 
-            # For performance reasons, strongly limit the amount of testcases we run on
-            fast_languages = {'c', 'cpp'}
-            all_validators_are_fast = True
-            for val in self._validators:
-                if isinstance(val, run.SourceCode):
-                    all_validators_are_fast &= val.language.lang_id in fast_languages
-            num_testcases = 3 if all_validators_are_fast else 1
-            test_cases = self.problem.testdata.get_all_testcases()[:num_testcases]
             # Malformed cases that a poorly-written output validator might crash on
-            # Note that these might be valid output, so we only check if it crashes
+            # Note that these might be valid output, so we only check if it crashes.
+            # These bugs are rarely dependent on the actual test case, so we just
+            # run on a few to keep things speedy.
+            test_cases = self.problem.testdata.get_all_testcases()[:3]
             for desc, junk_case_content in _JUNK_CASES_CRASH:
                 run_junk_case(desc, junk_case_content, test_cases)
 
         return self._check_res
-
-    @staticmethod
-    def _get_feedback(feedback_dir: str) -> str | None:
-        all_feedback = []
-        for feedback_file in os.listdir(feedback_dir):
-            feedback_path = os.path.join(feedback_dir, feedback_file)
-            if os.path.getsize(feedback_path) == 0:
-                continue
-            all_feedback.append(f'=== {feedback_file}: ===')
-            # Note: The file could contain non-unicode characters, "replace" to be on the safe side
-            with open(feedback_path, 'r', errors='replace') as feedback:
-                # Cap amount of feedback per file at some high-ish
-                # size, so that a buggy validator spewing out lots of
-                # data doesn't kill us.
-                all_feedback.append(feedback.read(128 * 1024))
-        if all_feedback:
-            return '\n'.join(all_feedback)
-        return None
-
-    def _parse_validator_results(self, val, status: int, feedbackdir, testcase: TestCase) -> SubmissionResult:
-        score = None
-        # TODO: would be good to have some way of displaying the feedback for debugging uses
-        score_file = os.path.join(feedbackdir, 'score.txt')
-        if not self.problem.metadata.is_custom_score_allowed() and os.path.isfile(score_file):
-            return SubmissionResult(
-                'JE', reason='validator produced "score.txt" but problem does not have custom scoring activated'
-            )
-
-        if not os.WIFEXITED(status):
-            return SubmissionResult(
-                'JE',
-                reason=f'output validator {val} crashed, status {status}',
-                additional_info=OutputValidators._get_feedback(feedbackdir),
-            )
-        ret = os.WEXITSTATUS(status)
-        if ret not in [42, 43]:
-            return SubmissionResult(
-                'JE',
-                reason=f'output validator {val} exited with status {ret}',
-                additional_info=OutputValidators._get_feedback(feedbackdir),
-            )
-
-        if ret == 43:
-            return SubmissionResult('WA', additional_info=OutputValidators._get_feedback(feedbackdir))
-
-        if self.problem.metadata.is_custom_score_mandatory():
-            if os.path.isfile(score_file):
-                try:
-                    score_str = open(score_file).read()
-                    score = float(score_str)
-                except Exception as e:
-                    return SubmissionResult('JE', reason=f'failed to parse validator score: {e}')
-            else:
-                # If we're running multipass, we do not need to output a score after every pass
-                # We accept the small risk of allowing a non-multipass output validator to not output score.txt
-                # if it produces a file called nextpass.in
-                if (Path(feedbackdir) / 'nextpass.in').exists():
-                    score = 0
-                else:
-                    return SubmissionResult('JE', reason='problem has custom scoring but validator did not produce "score.txt"')
-
-        return SubmissionResult('AC', score=score)
-
-    def _actual_validators(self) -> list:
-        if self.uses_default_validator():
-            return [self._default_validator]
-        return self._validators
-
-    def validate_interactive(
-        self,
-        testcase: TestCase,
-        submission,
-        timelim: float,
-        errorhandler: Submissions,
-        infile: str | None = None,
-        feedback_dir_path: str | None = None,
-    ) -> SubmissionResult:
-        # This may be called off-main thread.
-        interactive_output_re = r'\d+ \d+\.\d+ \d+ \d+\.\d+ (validator|submission)'
-        res = SubmissionResult('JE')
-        interactive = run.get_tool('interactive')
-        if interactive is None:
-            errorhandler.error('Could not locate interactive runner')
-            return res
-        # file descriptor, wall time lim
-        initargs = ['1', str(math.ceil(2 * timelim))]
-        validator_args = [infile if infile else testcase.infile, testcase.ansfile, '<feedbackdir>']
-        submission_args = submission.get_runcmd(memlim=self.problem.metadata.limits.memory)
-
-        val_memlim = self.problem.metadata.limits.validation_memory
-        for i, val in enumerate(self._actual_validators()):
-            if val.compile()[0]:
-                # If we are running multiple output validators in legacy, make sure to wipe it
-                # If we are running multipass, i will always be 0 and we do not accidentally wipe feedback
-                if i > 0 and feedback_dir_path:
-                    shutil.rmtree(feedback_dir_path)
-                    Path(feedback_dir_path).mkdir()
-
-                if feedback_dir_path:
-                    feedbackdir = feedback_dir_path
-                else:
-                    feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
-
-                validator_args[2] = feedbackdir + os.sep
-                f = tempfile.NamedTemporaryFile(delete=False)
-                interactive_out = f.name
-                f.close()
-                i_status, _ = interactive.run(
-                    outfile=interactive_out,
-                    args=initargs + val.get_runcmd(memlim=val_memlim) + validator_args + [';'] + submission_args,
-                    work_dir=submission.path,
-                )
-                if is_RTE(i_status):
-                    errorhandler.error(f'Interactive crashed, status {i_status}')
-                else:
-                    interactive_output = open(interactive_out).read()
-                    errorhandler.debug(f'Interactive output: "{interactive_output}"')
-                    if not re.match(interactive_output_re, interactive_output):
-                        errorhandler.error(
-                            f'Output from interactive does not follow expected format, got output "{interactive_output}"'
-                        )
-                    else:
-                        val_status_str, _, sub_status_str, sub_runtime_str, first = interactive_output.split()
-                        sub_status = int(sub_status_str)
-                        sub_runtime = float(sub_runtime_str)
-                        val_status = int(val_status_str)
-                        val_JE = not os.WIFEXITED(val_status) or os.WEXITSTATUS(val_status) not in [42, 43]
-                        val_WA = os.WIFEXITED(val_status) and os.WEXITSTATUS(val_status) == 43
-                        if val_JE or (val_WA and first == 'validator'):
-                            # If the validator crashed, or exited first with WA,
-                            # always follow validator verdict, even if that early
-                            # exit caused the submission to behave erratically and
-                            # time out.
-                            if sub_runtime > timelim:
-                                sub_runtime = timelim
-                            res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
-                        elif is_TLE(sub_status, True) or sub_runtime > timelim:
-                            res = SubmissionResult('TLE')
-                        elif is_RTE(sub_status):
-                            res = SubmissionResult('RTE')
-                        else:
-                            res = self._parse_validator_results(val, val_status, feedbackdir, testcase)
-
-                        res.runtime = sub_runtime
-                        res.validator_first = first == 'validator'
-
-                os.unlink(interactive_out)
-                if feedback_dir_path is None:
-                    shutil.rmtree(feedbackdir)
-                if res.verdict != 'AC':
-                    return res
-        return res
-
-    def validate(
-        self, testcase: TestCase, submission_output: str, infile: str | None = None, feedback_dir_path: str | None = None
-    ) -> SubmissionResult:
-        """
-        Run all output validators on the given test case and submission output.
-        Parameters:
-            testcase: The test case we are validating.
-            submission_output: Path to out file of submission.
-            infile: The input file. Overrides testcase.infile if we are running multipass.
-            feedback_dir_path: Path to feedback directory. If None, a temporary directory will be created and cleaned up.
-        """
-        res = SubmissionResult('JE')
-        val_timelim = self.problem.metadata.limits.validation_time
-        val_memlim = self.problem.metadata.limits.validation_memory
-        flags = (
-            self.problem.metadata.legacy_validator_flags.split() + testcase.testcasegroup.config['output_validator_flags'].split()
-        )
-        for i, val in enumerate(self._actual_validators()):
-            if val.compile()[0]:
-                # If we are running multiple output validators in legacy, make sure to wipe it
-                # If we are running multipass, i will always be 0 and we do not accidentally wipe feedback
-                if i > 0 and feedback_dir_path:
-                    shutil.rmtree(feedback_dir_path)
-                    Path(feedback_dir_path).mkdir()
-
-                if feedback_dir_path:
-                    feedbackdir = feedback_dir_path
-                else:
-                    feedbackdir = tempfile.mkdtemp(prefix='feedback', dir=self.problem.tmpdir)
-
-                validator_output = tempfile.mkdtemp(prefix='checker_out', dir=self.problem.tmpdir)
-                outfile = validator_output + '/out.txt'
-                errfile = validator_output + '/err.txt'
-                status, runtime = val.run(
-                    infile=submission_output,
-                    args=[infile if infile else testcase.infile, testcase.ansfile, feedbackdir] + flags,
-                    timelim=val_timelim,
-                    memlim=val_memlim,
-                    outfile=outfile,
-                    errfile=errfile,
-                )
-                try:
-                    with open(outfile, mode='rt') as f:
-                        output = f.read()
-                    if output:
-                        self.debug(f'Validator output:\n{output}')
-                    with open(errfile, mode='rt') as f:
-                        error = f.read()
-                    if error:
-                        self.debug(f'Validator stderr:\n{error}')
-                except IOError as e:
-                    self.info(f'Failed to read validator output: {e}')
-                res = self._parse_validator_results(val, status, feedbackdir, testcase)
-                shutil.rmtree(validator_output)
-                if feedback_dir_path is None:
-                    shutil.rmtree(feedbackdir)
-                if res.verdict != 'AC':
-                    return res
-
-        # TODO: check that all output validators give same result
-        return res
 
 
 class Runner:
@@ -1924,9 +1568,6 @@ class Submissions(ProblemPart):
                 self.problem._set_timelim(timelim)
 
         return self._check_res
-
-
-PROBLEM_PARTS = ['config', 'data', 'graders', 'statement', 'submissions', 'validators']
 
 
 class Problem(ProblemAspect):

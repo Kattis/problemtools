@@ -18,6 +18,7 @@ class Program(ABC):
     """Abstract base class for programs."""
 
     def __init__(self) -> None:
+        self.path: str = ''
         self.runtime = 0
         self._compile_lock = threading.Lock()
         self._compile_result: tuple[bool, str | None] | None = None
