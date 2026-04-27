@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import sys
 from concurrent.futures import Future
 from pathlib import Path
 from threading import Lock
@@ -164,7 +165,14 @@ class SubmissionJudge:
                 all_results.extend(sub)
                 result = sub[-1]  # last element is the subgroup's own result
             else:
+                if sys.stdout.isatty():
+                    msg = f'Running {self._sub} on {item}...'
+                    sys.stdout.write(msg)
+                    sys.stdout.flush()
                 result = self._judge_testcase(item, timelim)
+                if sys.stdout.isatty():
+                    sys.stdout.write('\b \b' * len(msg))
+
                 # Apply default score here - after we've entered it into the cache, as it may also be present in other groups with different defaults
                 if result.score is None:
                     result = copy.copy(result)
