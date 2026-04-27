@@ -35,7 +35,7 @@ from . import statement_util
 from .context import Context, PROBLEM_PARTS
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
-from .judge import CacheKey, SubmissionResult, Verdict, TimeLimits, validate_output, execute_testcase
+from .judge import CacheKey, SubmissionJudge, SubmissionResult, Verdict, TimeLimits, validate_output, execute_testcase
 from .version import add_version_arg
 
 from abc import ABC
@@ -418,6 +418,17 @@ class TestCaseGroup(ProblemAspect):
             return (min_score, max_score)
         except Exception:
             return (float('-inf'), float('inf'))
+
+    def check_score_in_bounds(self, sub: run.Program, score: float) -> None:
+        # Don't warn twice on the same subgroup, since every submission is likely
+        # to have the same error.
+        min_score, max_score = self.get_score_range()
+        if not (min_score <= score <= max_score) and not self._seen_oob_scores:
+            self._seen_oob_scores = True
+            groupname = os.path.relpath(self._datadir, self._problem.probdir)
+            self.error(
+                f'submission {sub} got score {score} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]'
+            )
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
@@ -1423,42 +1434,76 @@ class Submissions(ProblemPart):
         self, sub, context: Context, expected_verdict: Verdict, timelim: float, timelim_high: float
     ) -> SubmissionResult:
         desc = f'{expected_verdict} submission {sub}'
-        partial = False
-        if expected_verdict == 'PAC':
-            expected_verdict = 'AC'
-            partial = True
-            # For partially accepted, we don't want to use them to lower bound the time limit, but we do want
-            # to warn if they're slow enough that they would have affected the time limit, had they been used
-            # to compute it.
-            timelim_low = timelim / self.problem.metadata.limits.time_multipliers.ac_to_time_limit
-        else:
-            timelim_low = timelim
+        partial = expected_verdict == 'PAC'
 
-        with Runner(self.problem, sub, context, timelim, timelim_low, timelim_high) as runner:
-            result, result_low, result_high = self.problem.testdata.run_submission(sub, runner, context)
+        judge = SubmissionJudge(
+            sub=sub,
+            output_validator=self.problem.output_validators.output_validator,
+            metadata=self.problem.metadata,
+            root=self.problem.testdata,
+            base_dir=Path(self.problem.tmpdir),
+            context=context,
+            diag=self._diag,
+            custom_grader=self.problem.graders._grader,
+        )
+        if context.executor is not None:
+            judge.precompute(TimeLimits(nominal=timelim_high, low=timelim_high, high=timelim_high))
+        results_high = judge.judge(timelim_high)
+        if not results_high:  # TODO: We should move this check further out to avoid needing to fake a result here
+            self.info('Found no test cases to run on. Did you filter them all out?')
+            return SubmissionResult(expected_verdict)
+        result_high = results_high[-1]
 
-        if result.verdict == 'AC' and expected_verdict == 'AC' and not partial and result.sample_failures:
-            res = result.sample_failures[0]
-            self.warning(f'{desc} got {res.verdict} on sample: {res}')
+        results = judge.judge(timelim)
+        result = results[-1]
 
-        if result_low.verdict != result_high.verdict or result_low.score != result_high.score:
-            r1, r2 = (
-                (result_low, result_high)
-                if result_low.verdict == result_high.verdict
-                else (result_low.verdict, result_high.verdict)
+        # Check if scores were outside of the range for any groups
+        if self.problem.is_scoring():
+            for r in results:
+                if r.score is not None and isinstance(r.test_item, TestCaseGroup):
+                    r.test_item.check_score_in_bounds(sub, r.score)
+
+        # Warn if AC (but not PAC) submissions fail on samples. It's not uncommon for sample cases to be
+        # ignored, so failing on them could be silent otherwise. Skip warning if the result isn't AC -
+        # then something worse has gone wrong, and we'll error later.
+        if expected_verdict == 'AC' and result.verdict == 'AC':
+            sample_failure = next(
+                (
+                    r
+                    for r in results
+                    if r.verdict != 'AC' and isinstance(r.test_item, TestCase) and r.test_item.is_in_sample_group()
+                ),
+                None,
             )
+            if sample_failure:
+                self.warning(f'{desc} got {sample_failure.verdict} on sample: {sample_failure}')
+
+        # Warn if a PAC submission would affect time limit, had it been use to compute the time limit. Only do this
+        # if it gets AC on the computed time limit, otherwise we have other warnings below.
+        if partial and result.verdict == 'AC':
+            runtime_without_affecting_tl = timelim / self.problem.metadata.limits.time_multipliers.ac_to_time_limit
+            result_without_affecting_tl = judge.judge(runtime_without_affecting_tl)[-1]
+            if result_without_affecting_tl.verdict != 'AC':
+                timelimits_to_test = set(r.runtime for r in results if r.runtime > runtime_without_affecting_tl)
+                for t in sorted(timelimits_to_test):
+                    r = judge.judge(t)[-1]
+                    if r.verdict == 'AC':
+                        self.warning(f'{desc} is slower than all AC submissions. It needs {t:.2f}s to get AC')
+
+        if result.verdict != result_high.verdict or result.score != result_high.score:
             self.warning(
-                f'{desc} sensitive to time limit: limit of {timelim_low} secs -> {r1}, limit of {timelim_high} secs -> {r2}'
+                f'{desc} sensitive to time limit: limit of {timelim} secs -> {result}, limit of {timelim_high} secs -> {result_high}'
             )
 
+        required_verdict: Verdict = 'AC' if partial else expected_verdict
         if partial and self.fully_accepted(result):
-            self.warning(f'{desc} got {result}')
-        elif result.verdict == expected_verdict:
+            self.warning(f'{desc} was fully accepted: {result}')
+        elif result.verdict == required_verdict:
             self.msg(f'   {desc} OK: {result}')
-            if expected_verdict == 'AC' and not partial and not self.fully_accepted(result) and self.full_score_finite():
+            if not partial and required_verdict == 'AC' and not self.fully_accepted(result) and self.full_score_finite():
                 # For some heuristic problems, this is expected. Thus, only warn.
                 self.warning(f'{desc} did not attain full score (consider moving it to partially_accepted)')
-        elif result_high.verdict == expected_verdict and not (partial and self.fully_accepted(result_high)):
+        elif result_high.verdict == required_verdict and not (partial and self.fully_accepted(result_high)):
             self.msg(f'   {desc} OK with extra time: {result_high}')
         else:
             self.error(f'{desc} got {result}', result_high.additional_info)

@@ -195,6 +195,7 @@ class SubmissionJudge:
                 grader_flags = group.config.get('grader_flags', '').split()
                 verdict, score = grade_group(child_results, grader, grader_flags, self._base_dir, self._diag)
                 group_verdict = SubmissionResult(verdict, score=score)
+                group_verdict.runtime = max(v.runtime for v in child_results)
 
         group_verdict.test_item = group
         all_results.append(group_verdict)
