@@ -40,12 +40,12 @@ def _reclassify(result: SubmissionResult, timelim: float) -> SubmissionResult:
     return result
 
 
-def _with_test_item(result: SubmissionResult, testcase: TestCase) -> SubmissionResult:
-    """Return result with test_item set to testcase, copying only if needed."""
-    if result.test_item is testcase:
+def _with_test_node(result: SubmissionResult, testcase: TestCase) -> SubmissionResult:
+    """Return result with test_node set to testcase, copying only if needed."""
+    if result.test_node is testcase:
         return result
     result = copy.copy(result)
-    result.test_item = testcase
+    result.test_node = testcase
     return result
 
 
@@ -105,9 +105,9 @@ class ResultStore:
             return None
         if isinstance(val, Future):
             chained: Future[SubmissionResult] = Future()
-            val.add_done_callback(lambda f: chained.set_result(_with_test_item(_reclassify(f.result(), timelim), testcase)))
+            val.add_done_callback(lambda f: chained.set_result(_with_test_node(_reclassify(f.result(), timelim), testcase)))
             return chained
         if timelim > val.run_timelim:
             # Entry was produced at a lower limit; cannot safely reclassify upward.
             return None
-        return _with_test_item(_reclassify(val.result, timelim), testcase)
+        return _with_test_node(_reclassify(val.result, timelim), testcase)

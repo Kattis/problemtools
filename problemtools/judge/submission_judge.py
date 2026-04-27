@@ -96,7 +96,7 @@ class SubmissionJudge:
     def judge(self, timelim: float) -> list[SubmissionResult]:
         """Walk the test tree in DFS order and return results as a flat list.
 
-        Each SubmissionResult has test_item set to the TestCase or TestCaseGroup it
+        Each SubmissionResult has test_node set to the TestCase or TestCaseGroup it
         covers.  Group results immediately follow all their descendants; the root
         group's result is the last element.  Returns an empty list if all testcases
         were filtered out.
@@ -195,6 +195,6 @@ class SubmissionJudge:
                 group_verdict = SubmissionResult(verdict, score=score)
                 group_verdict.runtime = max(v.runtime for v in child_results)
 
-        group_verdict.test_item = group
+        group_verdict.test_node = group
         all_results.append(group_verdict)
         return all_results

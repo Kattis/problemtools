@@ -21,7 +21,7 @@ class SubmissionResult:
         self.reason = reason
         self.additional_info = additional_info
         self.testcase: TestCase | None = None
-        self.test_item: TestCase | TestCaseGroup | None = None
+        self.test_node: TestCase | TestCaseGroup | None = None
         self.runtime_testcase: TestCase | None = None
         self.runtime = -1.0
         self.ac_runtime = -1.0

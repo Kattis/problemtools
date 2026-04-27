@@ -1109,8 +1109,8 @@ class Submissions(ProblemPart):
         # Check if scores were outside of the range for any groups
         if self.problem.is_scoring():
             for r in results:
-                if r.score is not None and isinstance(r.test_item, TestCaseGroup):
-                    r.test_item.check_score_in_bounds(sub, r.score)
+                if r.score is not None and isinstance(r.test_node, TestCaseGroup):
+                    r.test_node.check_score_in_bounds(sub, r.score)
 
         # Warn if AC (but not PAC) submissions fail on samples. It's not uncommon for sample cases to be
         # ignored, so failing on them could be silent otherwise. Skip warning if the result isn't AC -
@@ -1120,7 +1120,7 @@ class Submissions(ProblemPart):
                 (
                     r
                     for r in results
-                    if r.verdict != 'AC' and isinstance(r.test_item, TestCase) and r.test_item.is_in_sample_group()
+                    if r.verdict != 'AC' and isinstance(r.test_node, TestCase) and r.test_node.is_in_sample_group()
                 ),
                 None,
             )
