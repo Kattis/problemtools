@@ -1082,7 +1082,7 @@ class Submissions(ProblemPart):
 
     def check_submission(
         self, sub, context: Context, expected_verdict: Verdict, timelim: float, timelim_high: float
-    ) -> SubmissionResult:
+    ) -> list[SubmissionResult]:
         desc = f'{expected_verdict} submission {sub}'
         partial = expected_verdict == 'PAC'
 
@@ -1142,7 +1142,7 @@ class Submissions(ProblemPart):
         else:
             self.error(f'{desc} got {result}', result_high.additional_info)
 
-        return result
+        return results
 
     def _find_sample_failure(self, results: list[SubmissionResult]) -> SubmissionResult | None:
         for r in results:
@@ -1158,6 +1158,68 @@ class Submissions(ProblemPart):
         for t in sorted(r.runtime for r in results if r.runtime > runtime_without_affecting_tl):
             if judge.judge(t)[-1].verdict == 'AC':
                 self.warning(f'{desc} is slower than all AC submissions. It needs {t:.2f}s to get AC')
+
+    def _get_table_groups(self) -> list[TestCaseGroup]:
+        """Return the groups to show as columns: expand any root child that has subgroups."""
+        result = []
+        for group in self.problem.testdata.get_subgroups():
+            subgroups = group.get_subgroups()
+            if subgroups:
+                result.extend(subgroups)
+            else:
+                result.append(group)
+        return result
+
+    def _print_results_table(self, all_submission_results: list[tuple[run.Program, list[SubmissionResult]]]) -> None:
+        groups = self._get_table_groups()
+        is_scoring = self.problem.is_scoring()
+
+        def cell_for_group(results: list[SubmissionResult], group: TestCaseGroup) -> str:
+            for r in results:
+                if r.test_node is group:
+                    if r.verdict == 'AC':
+                        if is_scoring and r.score is not None:
+                            score_str = f'{int(r.score)}' if r.score == int(r.score) else f'{r.score:.2f}'
+                            score_part = f'({score_str})'
+                        else:
+                            score_part = ''
+                        return f'AC{score_part}:{r.runtime:.2f}s'
+                    return r.verdict
+            return '-'
+
+        def cell_for_pts(results: list[SubmissionResult]) -> str:
+            score = results[-1].score
+            return f'{score:.0f}' if score is not None else '-'
+
+        def cell_for_time(results: list[SubmissionResult]) -> str:
+            t = results[-1].runtime
+            return f'{t:.2f}s' if t >= 0 else '-'
+
+        headers = ['Submission'] + [os.path.basename(g._datadir) for g in groups]
+        if is_scoring:
+            headers.append('Pts')
+        headers.append('Time')
+
+        rows = []
+        for sub, results in all_submission_results:
+            row = [sub.name]  # type: ignore
+            for g in groups:
+                row.append(cell_for_group(results, g))
+            if is_scoring:
+                row.append(cell_for_pts(results))
+            row.append(cell_for_time(results))
+            rows.append(row)
+
+        widths = [len(h) for h in headers]
+        for row in rows:
+            for i, cell in enumerate(row):
+                widths[i] = max(widths[i], len(cell))
+
+        self.msg('Submission results:')
+        indent = '   '
+        self.msg(indent + '  '.join(h.ljust(widths[i]) for i, h in enumerate(headers)))
+        for row in rows:
+            self.msg(indent + '  '.join(cell.ljust(widths[i]) for i, cell in enumerate(row)))
 
     def full_score_finite(self) -> bool:
         min_score, max_score = self.problem.testdata.get_score_range()
@@ -1215,6 +1277,8 @@ class Submissions(ProblemPart):
         if not has_testcases:
             self.warning('Found no test cases to run on. Did you filter them all out?')
 
+        all_submission_results: list[tuple[run.Program, list[SubmissionResult]]] = []
+
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             if verdict[2] and not self._submissions[acr]:
@@ -1240,8 +1304,9 @@ class Submissions(ProblemPart):
 
                     if has_testcases:
                         timelim, timelim_high = self._compute_time_limit(fixed_limit, lower_bound_runtime)
-                        res = self.check_submission(sub, context, acr, timelim, timelim_high)
-                        runtimes.append(res.runtime)
+                        sub_results = self.check_submission(sub, context, acr, timelim, timelim_high)
+                        runtimes.append(sub_results[-1].runtime)
+                        all_submission_results.append((sub, sub_results))
 
             if acr == 'AC' and has_testcases:
                 if len(runtimes) > 0:
@@ -1267,6 +1332,9 @@ class Submissions(ProblemPart):
                     f'   Slowest AC runtime: {_f_n(lower_bound_runtime)}, setting timelim to {_f_n(timelim)} secs, safety margin to {_f_n(timelim_margin)} secs'
                 )
                 self.problem._set_timelim(timelim)
+
+        if all_submission_results:
+            self._print_results_table(all_submission_results)
 
         return self._check_res
 
