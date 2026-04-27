@@ -311,7 +311,7 @@ class TestCaseGroup(ProblemAspect):
     def matches_filter(self, filter_re: Pattern[str]) -> bool:
         return True
 
-    def get_all_testcases(self) -> list:
+    def get_all_testcases(self) -> list[TestCase]:
         res: list = []
         for child in self._items:
             res += child.get_all_testcases()
@@ -1099,9 +1099,8 @@ class Submissions(ProblemPart):
         if context.executor is not None:
             judge.precompute(timelim_high)
         results_high = judge.judge(timelim_high)
-        if not results_high:  # TODO: We should move this check further out to avoid needing to fake a result here
-            self.info('Found no test cases to run on. Did you filter them all out?')
-            return SubmissionResult(expected_verdict)
+        if not results_high:
+            self.fatal('check_submission called, but found no test cases to run on.')
         result_high = results_high[-1]
 
         results = judge.judge(timelim)
@@ -1212,6 +1211,10 @@ class Submissions(ProblemPart):
         if limits.time_limit is not None and context.fixed_timelim is not None:
             self.warning('There is a fixed time limit in problem.yaml, and you provided one on command line. Using command line.')
 
+        has_testcases = any(tc.matches_filter(context.data_filter) for tc in self.problem.testdata.get_all_testcases())
+        if not has_testcases:
+            self.warning('Found no test cases to run on. Did you filter them all out?')
+
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             if verdict[2] and not self._submissions[acr]:
@@ -1235,11 +1238,12 @@ class Submissions(ProblemPart):
                         self.error(f'Compile error for {acr} submission {sub}', additional_info=msg)
                         continue
 
-                    timelim, timelim_high = self._compute_time_limit(fixed_limit, lower_bound_runtime)
-                    res = self.check_submission(sub, context, acr, timelim, timelim_high)
-                    runtimes.append(res.runtime)
+                    if has_testcases:
+                        timelim, timelim_high = self._compute_time_limit(fixed_limit, lower_bound_runtime)
+                        res = self.check_submission(sub, context, acr, timelim, timelim_high)
+                        runtimes.append(res.runtime)
 
-            if acr == 'AC':
+            if acr == 'AC' and has_testcases:
                 if len(runtimes) > 0:
                     lower_bound_runtime = max(runtimes)
 
