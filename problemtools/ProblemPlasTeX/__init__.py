@@ -59,9 +59,11 @@ class ImageConverter(object):
                 newext = self.imageConversion[oldext][0]
                 path = os.path.splitext(path)[0] + newext
                 cmd = self.imageConversion[oldext][1] + [path, name]
-                status = subprocess.call(cmd)
-                if status:
-                    log.warning('Failed to convert %s image "%s to %s', oldext, name, newext)
+                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                if result.returncode:
+                    log.error(
+                        'Failed to convert %s image "%s" to %s.\n%s', oldext, name, newext, result.stderr.decode(errors='replace')
+                    )
             else:
                 # Just copy it
                 path = os.path.splitext(path)[0] + oldext
