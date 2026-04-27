@@ -126,7 +126,11 @@ class SubmissionJudge:
             return
         if not self._store.claim(testcase):
             return  # duplicate testcase (same reuse_key) or already in store
-        self._store.complete(testcase, self._run(testcase, timelim), timelim)
+        try:
+            result = self._run(testcase, timelim)
+        except Exception as e:
+            result = SubmissionResult('JE', reason=f'Internal error: {e}')
+        self._store.complete(testcase, result, timelim)
 
     def _judge_testcase(self, testcase: TestCase, timelim: float) -> SubmissionResult:
         val = self._store.get(testcase, timelim)
