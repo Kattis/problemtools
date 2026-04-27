@@ -13,7 +13,7 @@ from ..run import Program, get_tool
 from .cache import ResultStore
 from .execute import execute_testcase
 from .grade import grade_group
-from .result import SubmissionResult, TimeLimits
+from .result import SubmissionResult
 
 if TYPE_CHECKING:
     from ..verifyproblem import TestCase, TestCaseGroup
@@ -80,7 +80,7 @@ class SubmissionJudge:
         self._cancelled = _Cancelled()
         self._precompute_started = False
 
-    def precompute(self, timelimits: TimeLimits) -> None:
+    def precompute(self, timelim: float) -> None:
         """Submit all filtered testcases as background jobs.
 
         Returns immediately; workers run concurrently and deposit results into the
@@ -91,7 +91,7 @@ class SubmissionJudge:
         self._precompute_started = True
         filtered_testcases = (item for item in self._root.get_all_testcases() if item.matches_filter(self._context.data_filter))
         for testcase in filtered_testcases:
-            self._context.submit_background_work(self._populate_cache_for_testcase, testcase, timelimits)
+            self._context.submit_background_work(self._populate_cache_for_testcase, testcase, timelim)
 
     def judge(self, timelim: float) -> list[SubmissionResult]:
         """Walk the test tree in DFS order and return results as a flat list.
@@ -110,24 +110,22 @@ class SubmissionJudge:
         return self._judge_group(self._root, timelim)
 
     def _run(self, testcase: TestCase, timelim: float) -> SubmissionResult:
-        flat = TimeLimits(nominal=timelim, low=timelim, high=timelim)
-        _, _, raw = execute_testcase(
+        return execute_testcase(
             testcase,
             self._sub,
             self._output_validator,
             self._metadata,
-            flat,
+            timelim,
             self._base_dir,
             self._diag,
         )
-        return raw
 
-    def _populate_cache_for_testcase(self, testcase: TestCase, timelimits: TimeLimits) -> None:
+    def _populate_cache_for_testcase(self, testcase: TestCase, timelim: float) -> None:
         if testcase in self._cancelled:
             return
         if not self._store.claim(testcase):
             return  # duplicate testcase (same reuse_key) or already in store
-        self._store.complete(testcase, self._run(testcase, timelimits.high), timelimits.high)
+        self._store.complete(testcase, self._run(testcase, timelim), timelim)
 
     def _judge_testcase(self, testcase: TestCase, timelim: float) -> SubmissionResult:
         val = self._store.get(testcase, timelim)

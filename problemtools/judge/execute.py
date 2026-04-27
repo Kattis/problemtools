@@ -32,7 +32,7 @@ from ..run import Program, get_tool
 
 if TYPE_CHECKING:
     from ..verifyproblem import TestCase
-from .result import SubmissionResult, TimeLimits, classify_result
+from .result import SubmissionResult
 from .validate import _parse_validator_result, _validate_output
 
 _INTERACTIVE_OUTPUT_RE = re.compile(r'\d+ \d+\.\d+ \d+ \d+\.\d+ (validator|submission)')
@@ -206,16 +206,15 @@ def execute_testcase(
     sub: Program,
     output_validator: Program,
     metadata: Metadata,
-    timelimits: TimeLimits,
+    timelim: float,
     base_dir: Path,
     diag: Diagnostics,
-) -> tuple[SubmissionResult, SubmissionResult, SubmissionResult]:
-    """Run sub on testcase and return (nominal, low, high) SubmissionResults."""
+) -> SubmissionResult:
+    """Run sub on a single testcase."""
     with tempfile.TemporaryDirectory(dir=base_dir) as exec_dir:
         execution_dir = Path(exec_dir)
         (execution_dir / 'feedback').mkdir()
         if metadata.is_multi_pass():
-            raw = _run_multipass(testcase, sub, output_validator, metadata, timelimits.high, execution_dir, diag)
+            return _run_multipass(testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
         else:
-            raw = _run_pass(testcase.infile_path, testcase, sub, output_validator, metadata, timelimits.high, execution_dir, diag)
-    return classify_result(raw, timelimits)
+            return _run_pass(testcase.infile_path, testcase, sub, output_validator, metadata, timelim, execution_dir, diag)

@@ -32,7 +32,7 @@ from . import statement_util
 from .context import Context, PROBLEM_PARTS
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
-from .judge import CacheKey, SubmissionJudge, SubmissionResult, Verdict, TimeLimits, validate_output
+from .judge import CacheKey, SubmissionJudge, SubmissionResult, Verdict, validate_output
 from .version import add_version_arg
 
 from abc import ABC
@@ -126,7 +126,6 @@ class ProblemPart(ProblemAspect):
 
 
 class TestCase(ProblemAspect):
-    Result = tuple[SubmissionResult, SubmissionResult, SubmissionResult]
     is_group: Literal[False] = False  # Temporary workaround for a circular import in judge/submission_judge.py
 
     def __init__(self, problem: Problem, base: str, testcasegroup: TestCaseGroup) -> None:
@@ -1098,7 +1097,7 @@ class Submissions(ProblemPart):
             custom_grader=self.problem.graders._grader,
         )
         if context.executor is not None:
-            judge.precompute(TimeLimits(nominal=timelim_high, low=timelim_high, high=timelim_high))
+            judge.precompute(timelim_high)
         results_high = judge.judge(timelim_high)
         if not results_high:  # TODO: We should move this check further out to avoid needing to fake a result here
             self.info('Found no test cases to run on. Did you filter them all out?')
