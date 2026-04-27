@@ -1116,28 +1116,13 @@ class Submissions(ProblemPart):
         # ignored, so failing on them could be silent otherwise. Skip warning if the result isn't AC -
         # then something worse has gone wrong, and we'll error later.
         if expected_verdict == 'AC' and result.verdict == 'AC':
-            sample_failure = next(
-                (
-                    r
-                    for r in results
-                    if r.verdict != 'AC' and isinstance(r.test_node, TestCase) and r.test_node.is_in_sample_group()
-                ),
-                None,
-            )
-            if sample_failure:
+            if sample_failure := self._find_sample_failure(results):
                 self.warning(f'{desc} got {sample_failure.verdict} on sample: {sample_failure}')
 
         # Warn if a PAC submission would affect time limit, had it been use to compute the time limit. Only do this
         # if it gets AC on the computed time limit, otherwise we have other warnings below.
         if partial and result.verdict == 'AC':
-            runtime_without_affecting_tl = timelim / self.problem.metadata.limits.time_multipliers.ac_to_time_limit
-            result_without_affecting_tl = judge.judge(runtime_without_affecting_tl)[-1]
-            if result_without_affecting_tl.verdict != 'AC':
-                timelimits_to_test = set(r.runtime for r in results if r.runtime > runtime_without_affecting_tl)
-                for t in sorted(timelimits_to_test):
-                    r = judge.judge(t)[-1]
-                    if r.verdict == 'AC':
-                        self.warning(f'{desc} is slower than all AC submissions. It needs {t:.2f}s to get AC')
+            self._warn_pac_too_slow(judge, results, timelim, desc)
 
         if result.verdict != result_high.verdict or result.score != result_high.score:
             self.warning(
@@ -1158,6 +1143,21 @@ class Submissions(ProblemPart):
             self.error(f'{desc} got {result}', result_high.additional_info)
 
         return result
+
+    def _find_sample_failure(self, results: list[SubmissionResult]) -> SubmissionResult | None:
+        for r in results:
+            if r.verdict != 'AC' and isinstance(r.test_node, TestCase) and r.test_node.is_in_sample_group():
+                return r
+        return None
+
+    def _warn_pac_too_slow(self, judge: SubmissionJudge, results: list[SubmissionResult], timelim: float, desc: str) -> None:
+        """Warn if a PAC submission is slow enough that it would have affected the time limit."""
+        runtime_without_affecting_tl = timelim / self.problem.metadata.limits.time_multipliers.ac_to_time_limit
+        if judge.judge(runtime_without_affecting_tl)[-1].verdict == 'AC':
+            return
+        for t in sorted(r.runtime for r in results if r.runtime > runtime_without_affecting_tl):
+            if judge.judge(t)[-1].verdict == 'AC':
+                self.warning(f'{desc} is slower than all AC submissions. It needs {t:.2f}s to get AC')
 
     def full_score_finite(self) -> bool:
         min_score, max_score = self.problem.testdata.get_score_range()
