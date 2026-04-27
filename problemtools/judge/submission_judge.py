@@ -193,7 +193,16 @@ class SubmissionJudge:
                 grader_flags = group.config.get('grader_flags', '').split()
                 verdict, score = grade_group(child_results, grader, grader_flags, self._base_dir, self._diag)
                 group_verdict = SubmissionResult(verdict, score=score)
-                group_verdict.runtime = max(v.runtime for v in child_results)
+                slowest = max(child_results, key=lambda r: r.runtime)
+                group_verdict.runtime = slowest.runtime
+                group_verdict.runtime_testcase = slowest.runtime_testcase
+                # The grader doesn't tell us why it gave a certain result. We still want to propagate reason
+                # and additional_info. As a heuristic, look for the last entry with the same verdict as the
+                # group got, and copy from there.
+                matching = next((r for r in reversed(child_results) if r.verdict == verdict), None)
+                if matching:
+                    group_verdict.reason = matching.reason
+                    group_verdict.additional_info = matching.additional_info
 
         group_verdict.test_node = group
         all_results.append(group_verdict)

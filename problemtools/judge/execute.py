@@ -215,6 +215,9 @@ def execute_testcase(
         execution_dir = Path(exec_dir)
         (execution_dir / 'feedback').mkdir()
         if metadata.is_multi_pass():
-            return _run_multipass(testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
+            result = _run_multipass(testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
         else:
-            return _run_pass(testcase.infile_path, testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
+            result = _run_pass(testcase.infile_path, testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
+    result.test_node = testcase
+    result.runtime_testcase = testcase
+    return result

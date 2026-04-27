@@ -20,19 +20,10 @@ class SubmissionResult:
         self.score = score
         self.reason = reason
         self.additional_info = additional_info
-        self.testcase: TestCase | None = None
         self.test_node: TestCase | TestCaseGroup | None = None
         self.runtime_testcase: TestCase | None = None
         self.runtime = -1.0
-        self.ac_runtime = -1.0
-        self.ac_runtime_testcase: TestCase | None = None
-        self.validator_first = False
-        self.sample_failures: list[SubmissionResult] = []
-
-    def set_ac_runtime(self) -> None:
-        if self.verdict == 'AC':
-            self.ac_runtime = self.runtime
-            self.ac_runtime_testcase = self.runtime_testcase
+        self.validator_first = False  # Needed to work around interactive giving unreliable runtime on WA
 
     def __str__(self) -> str:
         verdict = self.verdict
@@ -41,8 +32,8 @@ class SubmissionResult:
             verdict += f' ({self.score:.0f})'
         if self.reason is not None:
             details.append(self.reason)
-        if self.testcase is not None:
-            details.append(f'testcase: {self.testcase}')
+        if self.test_node is not None and not self.test_node.is_group:
+            details.append(f'testcase: {self.test_node}')
         if self.runtime != -1:
             details.append(f'CPU: {self.runtime:.2f}s @ {self.runtime_testcase}')
         return verdict if not details else f'{verdict} [{", ".join(details)}]'

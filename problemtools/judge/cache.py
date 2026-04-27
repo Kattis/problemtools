@@ -41,11 +41,12 @@ def _reclassify(result: SubmissionResult, timelim: float) -> SubmissionResult:
 
 
 def _with_test_node(result: SubmissionResult, testcase: TestCase) -> SubmissionResult:
-    """Return result with test_node set to testcase, copying only if needed."""
-    if result.test_node is testcase:
+    """Return result with test_node and runtime_testcase set to testcase, copying only if needed."""
+    if result.test_node is testcase and result.runtime_testcase is testcase:
         return result
     result = copy.copy(result)
     result.test_node = testcase
+    result.runtime_testcase = testcase
     return result
 
 
