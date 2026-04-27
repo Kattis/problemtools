@@ -190,28 +190,31 @@ class SubmissionJudge:
         if not all_results:  # All our children were filtered
             return []
 
+        group_verdict = self._aggregate_group_result(child_results, group)
+        all_results.append(group_verdict)
+        return all_results
+
+    def _aggregate_group_result(self, child_results: list[SubmissionResult], group: TestCaseGroup) -> SubmissionResult:
         judge_error = next((r for r in child_results if r.verdict == 'JE'), None)
         if judge_error:
-            group_verdict = copy.copy(judge_error)
+            result = copy.copy(judge_error)
         else:
             grader = self._grader_for(group)
             if grader is None:
-                group_verdict = SubmissionResult('JE', reason='grader not found')
+                result = SubmissionResult('JE', reason='grader not found')
             else:
                 grader_flags = group.config.get('grader_flags', '').split()
                 verdict, score = grade_group(child_results, grader, grader_flags, self._base_dir, self._diag)
-                group_verdict = SubmissionResult(verdict, score=score)
+                result = SubmissionResult(verdict, score=score)
                 slowest = max(child_results, key=lambda r: r.runtime)
-                group_verdict.runtime = slowest.runtime
-                group_verdict.runtime_testcase = slowest.runtime_testcase
+                result.runtime = slowest.runtime
+                result.runtime_testcase = slowest.runtime_testcase
                 # The grader doesn't tell us why it gave a certain result. We still want to propagate reason
                 # and additional_info. As a heuristic, look for the last entry with the same verdict as the
                 # group got, and copy from there.
                 matching = next((r for r in reversed(child_results) if r.verdict == verdict), None)
                 if matching:
-                    group_verdict.reason = matching.reason
-                    group_verdict.additional_info = matching.additional_info
-
-        group_verdict.test_node = group
-        all_results.append(group_verdict)
-        return all_results
+                    result.reason = matching.reason
+                    result.additional_info = matching.additional_info
+        result.test_node = group
+        return result
