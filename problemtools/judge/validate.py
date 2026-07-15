@@ -50,11 +50,12 @@ def _parse_validator_result(
             additional_info=_get_feedback(feedback_dir),
         )
 
-    if ret == 43:
-        return SubmissionResult('WA', additional_info=_get_feedback(feedback_dir))
-
-    # ret == 42 (AC); check score handling
     score_file = feedback_dir / 'score.txt'
+
+    if ret == 43:
+        if score_file.is_file():
+            return SubmissionResult('JE', reason='validator produced "score.txt" on a WA verdict')
+        return SubmissionResult('WA', additional_info=_get_feedback(feedback_dir))
 
     if not metadata.is_custom_score_allowed() and score_file.is_file():
         return SubmissionResult('JE', reason='validator produced "score.txt" but problem does not have custom scoring activated')
