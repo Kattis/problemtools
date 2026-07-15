@@ -10,7 +10,7 @@ from ..diagnostics import Diagnostics
 from ..run import Program
 from .result import SubmissionResult, Verdict
 
-_GRADER_OUTPUT_RE = re.compile(r'^((AC)|(WA)|(TLE)|(RTE)|(JE))\s+-?[0-9.]+\s*$')
+_GRADER_OUTPUT_RE = re.compile(r'^((AC)|(WA)|(TLE)|(RTE)|(MLE)|(OLE)|(JE))\s+-?[0-9.]+\s*$')
 
 
 def grade_group(
