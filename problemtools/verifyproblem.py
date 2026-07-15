@@ -1318,11 +1318,14 @@ class Submissions(ProblemPart):
                     return f'{round(number, 3):g}' if number is not None else '-'
 
                 if fixed_limit is not None and lower_bound_runtime is not None:
-                    if lower_bound_runtime * ac_to_time_limit > fixed_limit:
-                        self.error(
-                            f'Time limit fixed to {_f_n(fixed_limit)}, but slowest AC runs in {_f_n(lower_bound_runtime)} which is within a factor {_f_n(ac_to_time_limit)}.'
-                        )
                     tl_from_subs, _ = self._compute_time_limit(None, lower_bound_runtime)
+                    if lower_bound_runtime * ac_to_time_limit > fixed_limit:
+                        msg = f'Fixed time limit ({_f_n(fixed_limit)}) is tighter than the auto-computed limit ({_f_n(tl_from_subs)}) — slowest AC: {_f_n(lower_bound_runtime)} x multiplier {_f_n(ac_to_time_limit)}'
+                        if context.fixed_timelim is not None:  # We just warn when the fixed time limit comes from command line
+                            self.warning(msg)
+                        else:
+                            self.error(msg)  # ... but if it came from problem.yaml, it's an error if bounds aren't kept
+
                     if not math.isclose(fixed_limit, tl_from_subs):
                         self.msg(
                             f'   Solutions give timelim of {_f_n(tl_from_subs)} seconds, but will use provided fixed limit of {_f_n(fixed_limit)} seconds instead'
