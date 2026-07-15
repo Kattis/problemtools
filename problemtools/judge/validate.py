@@ -89,6 +89,10 @@ def _validate_output(
     val_timelim = metadata.limits.validation_time
     val_memlim = metadata.limits.validation_memory
 
+    output_size = os.path.getsize(submission_output) / 1024.0 / 1024.0
+    if output_size > metadata.limits.output:
+        return SubmissionResult('OLE', reason=f'output ({output_size:.1f} Mb) exceeds output limit ({metadata.limits.output} Mb)')
+
     if not output_validator.compile()[0]:
         return SubmissionResult('JE', reason=f'output validator {output_validator} failed to compile')
     val_stdout = execution_dir / 'val_stdout'
