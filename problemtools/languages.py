@@ -24,6 +24,7 @@ class Language(object):
 
     __KEYS = ['name', 'priority', 'files', 'shebang', 'compile', 'run']
     __VARIABLES = ['path', 'files', 'binary', 'mainfile', 'mainclass', 'Mainclass', 'memlim']
+    __MAINFILE_RE = re.compile(r'^main\.', re.IGNORECASE)
 
     def __init__(self, lang_id, lang_spec):
         """Construct language object
@@ -59,6 +60,18 @@ class Language(object):
                 and self.__matches_shebang(file_name)
             )
         ]
+
+    def mainfile_candidates(self, files: list[str | Path]) -> list[str | Path]:
+        """Given a list of files, determine which ones would be considered
+        plausible mainfiles for the language, i.e. an entrypoint override.
+
+        Only the basename of each file is inspected, so callers may pass
+        either full or relative paths.
+
+        Args:
+            files: list of file paths (str or Path)
+        """
+        return [f for f in files if Language.__MAINFILE_RE.match(Path(f).name)]
 
     def update(self, values):
         """Update a language specification with new values.
