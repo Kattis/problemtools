@@ -22,9 +22,11 @@ from pathlib import Path
 
 import yaml
 
+from . import checks
 from . import config
 from . import languages
 from . import metadata
+from . import model
 from . import problem2html
 from . import problem2pdf
 from . import run
@@ -1052,6 +1054,30 @@ class OutputValidators(ProblemPart):
         return self._check_res
 
 
+class Includes(ProblemPart):
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
+
+    PART_NAME = 'includes'
+
+    def setup(self):
+        self.includes = model.load_includes(Path(self.problem.probdir), self.problem.language_config)
+
+    def check(self, context: Context) -> bool:
+        if self._check_res is not None:
+            return self._check_res
+        self._check_res = True
+
+        errors_before = self.errors
+        checks.check_includes(self.includes, self.problem.language_config, self.problem.format, self._diag)
+        if self.errors > errors_before:
+            self._check_res = False
+
+        return self._check_res
+
+    def __str__(self) -> str:
+        return 'includes'
+
+
 class Submissions(ProblemPart):
     # (verdict, directory, required)
     _VERDICTS: list[tuple[Verdict, str, bool]] = [
@@ -1421,6 +1447,7 @@ class Problem(ProblemAspect):
         self.output_validators = OutputValidators(self)
         self.graders = Graders(self)
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
+        self.includes = Includes(self)
         self.submissions = Submissions(self)
         self.loaded = True
 
@@ -1459,7 +1486,7 @@ class Problem(ProblemAspect):
                 'validators': [self.input_validators, self.output_validators],
                 'graders': [self.graders],
                 'data': [self.testdata],
-                'submissions': [self.submissions],
+                'submissions': [self.includes, self.submissions],
             }
             assert sorted(part_mapping.keys()) == sorted(PROBLEM_PARTS), 'part_mapping and PROBLEM_PARTS must be kept in sync'
 
