@@ -2,7 +2,6 @@
 Implementation of programs provided by source code.
 """
 
-import re
 import os
 import shlex
 import tempfile
@@ -68,9 +67,8 @@ class SourceCode(Program):
         if len(self.src) == 0:
             raise ProgramError('No source files found for language %s in %s' % (self.language.lang_id, self.name))
 
-        self.mainfile = next((x for x in self.src if re.match(r'^main\.', os.path.basename(x), re.IGNORECASE)), None)
-        if self.mainfile is None:
-            self.mainfile = self.src[0]
+        candidates = self.language.mainfile_candidates(self.src)
+        self.mainfile = candidates[0] if candidates else self.src[0]
 
         self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
         self.Mainclass = self.mainclass[0].upper() + self.mainclass[1:]
