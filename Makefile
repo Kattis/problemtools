@@ -1,6 +1,9 @@
 all:
 	make -C support
 
+test:
+	./run_tests.sh
+
 builddeb:
 	dpkg-buildpackage -us -uc -tc -b
 
