@@ -32,6 +32,8 @@ jobs:
         venv/bin/python --version
         venv/bin/pip install -r requirements-dev.txt
         if [ -f requirements.txt ]; then venv/bin/pip install -r requirements.txt; fi
+    - name: Check ruff version matches .pre-commit-config.yaml
+      run: venv/bin/python admin/check_ruff_version.py
     - name: Lint with ruff
       run: venv/bin/ruff check --output-format=github
     - name: Check ruff formatting
