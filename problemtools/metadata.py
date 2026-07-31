@@ -1,3 +1,4 @@
+import builtins
 import copy
 import datetime
 import re
@@ -242,7 +243,7 @@ class Metadata(BaseModel):
         return ProblemType.SUBMIT_ANSWER in self.type
 
     @classmethod
-    def from_legacy(cls: type[Self], legacy: MetadataLegacy, names_from_statements: dict[str, str]) -> Self:
+    def from_legacy(cls: builtins.type[Self], legacy: MetadataLegacy, names_from_statements: dict[str, str]) -> Self:
         metadata = legacy.model_dump()
         metadata['type'] = [metadata['type']]
         # Support for *ancient* problems where names_from_statements is empty
@@ -292,7 +293,7 @@ class Metadata(BaseModel):
         return cls.model_validate(metadata)
 
     @classmethod
-    def from_2023_07(cls: type[Self], md2023_07: Metadata2023_07) -> Self:
+    def from_2023_07(cls: builtins.type[Self], md2023_07: Metadata2023_07) -> Self:
         metadata = md2023_07.model_dump()
         metadata['type'] = [metadata['type']] if isinstance(metadata['type'], str) else metadata['type']
         metadata['name'] = {'en': metadata['name']} if isinstance(metadata['name'], str) else metadata['name']
