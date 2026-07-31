@@ -16,9 +16,9 @@
 
 import argparse
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
-import sys
 
 
 def main():

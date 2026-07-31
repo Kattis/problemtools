@@ -14,10 +14,8 @@ from . import config
 class LanguageConfigError(Exception):
     """Exception class for errors in language configuration."""
 
-    pass
 
-
-class Language(object):
+class Language:
     """
     Class representing a single language.
     """
@@ -151,7 +149,7 @@ class Language(object):
         return self.shebang.search(shebang_line) is not None
 
 
-class Languages(object):
+class Languages:
     """A set of languages."""
 
     def __init__(self, data=None):

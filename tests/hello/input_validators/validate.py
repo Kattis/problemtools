@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from sys import stdin
 import sys
+from sys import stdin
 
 # There shouldn't be any input
 assert len(stdin.readline()) == 0

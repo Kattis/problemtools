@@ -1,8 +1,8 @@
 import os
-from pathlib import Path
-from problemtools import problem2html
-from problemtools import problem2pdf
 import tempfile
+from pathlib import Path
+
+from problemtools import problem2html, problem2pdf
 
 
 def render(problem_path):

@@ -2,17 +2,18 @@
 Problemtools.
 """
 
-import re
 import os
+import re
 
+from . import rutil
 from .buildrun import BuildRun
 from .checktestdata import Checktestdata
 from .errors import ProgramError as ProgramError
 from .program import Program
 from .source import SourceCode
+from .tools import get_tool as get_tool
+from .tools import get_tool_path as get_tool_path
 from .viva import Viva
-from .tools import get_tool as get_tool, get_tool_path as get_tool_path
-from . import rutil
 
 
 def find_programs(

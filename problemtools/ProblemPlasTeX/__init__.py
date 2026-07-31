@@ -1,17 +1,18 @@
-import re
 import os
+import re
 import shutil
 import subprocess
-from plasTeX.Renderers.PageTemplate import Renderer
+
 from plasTeX.Filenames import Filenames
 from plasTeX.Imagers import Image
 from plasTeX.Logging import getLogger
+from plasTeX.Renderers.PageTemplate import Renderer
 
 log = getLogger()
 
 
 # Adapted from plasTeX.Imagers.Imager class
-class ImageConverter(object):
+class ImageConverter:
     fileExtension = '.png'
     imageAttrs = ''
     imageUnits = ''
@@ -74,7 +75,6 @@ class ImageConverter(object):
 
         except Exception as msg:
             log.warning('%s in image "%s".' % (msg, name))
-            pass
         return None
 
 
@@ -117,12 +117,12 @@ class ProblemRenderer(Renderer):
         s = Renderer.processFileContent(self, document, s)
 
         # Force XHTML syntax on empty tags
-        s = re.compile(r'(<(?:hr|br|img|link|meta)\b.*?)\s*/?\s*(>)', re.I | re.S).sub(r'\1 /\2', s)
+        s = re.compile(r'(<(?:hr|br|img|link|meta)\b.*?)\s*/?\s*(>)', re.IGNORECASE | re.DOTALL).sub(r'\1 /\2', s)
 
         # Remove empty paragraphs
-        s = re.compile(r'<p>\s*</p>', re.I).sub(r'', s)
+        s = re.compile(r'<p>\s*</p>', re.IGNORECASE).sub(r'', s)
 
         # Add a non-breaking space to empty table cells
-        s = re.compile(r'(<(td|th)\b[^>]*>)\s*(</\2>)', re.I).sub(r'\1&nbsp;\3', s)
+        s = re.compile(r'(<(td|th)\b[^>]*>)\s*(</\2>)', re.IGNORECASE).sub(r'\1&nbsp;\3', s)
 
         return s

@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 from pathlib import Path
 
 import pytest
-
 from pydantic import ValidationError
+
 from problemtools import metadata
 from problemtools.formatversion import FormatVersion
 

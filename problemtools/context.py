@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
 import re
-from typing import Callable, Pattern, ParamSpec, TypeVar
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from re import Pattern
+from typing import ParamSpec, TypeVar
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')

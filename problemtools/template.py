@@ -1,6 +1,6 @@
 import os.path
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 
 
@@ -123,6 +123,6 @@ class Template:
                             for char in line:
                                 if not char.isascii() and not char.isspace():
                                     res.add(char)
-                except (UnicodeDecodeError, IOError):
+                except (OSError, UnicodeDecodeError):
                     pass
         return ''.join(sorted(list(res)))

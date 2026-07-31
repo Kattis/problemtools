@@ -1,6 +1,6 @@
-from pathlib import Path
 import re
 import tempfile
+from pathlib import Path
 
 from problemtools import problem2html, problem2pdf
 

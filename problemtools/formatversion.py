@@ -1,6 +1,7 @@
-import yaml
 from enum import StrEnum
 from pathlib import Path
+
+import yaml
 
 
 class FormatVersion(StrEnum):

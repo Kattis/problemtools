@@ -1,8 +1,7 @@
+import os
+
 from plasTeX.Base import Command
 from plasTeX.Logging import getLogger
-
-import os
-import io
 
 log = getLogger()
 
@@ -14,7 +13,7 @@ class lstinputlisting(Command):
     args = '* [ options:dict ] file:str'
 
     def read_file(self, filename) -> str:
-        return io.open(filename, 'r', encoding='utf-8').read()
+        return open(filename, 'r', encoding='utf-8').read()
 
     def invoke(self, tex) -> None:
         super().invoke(tex)

@@ -1,15 +1,14 @@
 """Abstract base class for programs."""
 
+import logging
 import os
-from . import limit
 import resource
 import signal
-import logging
 import threading
-
-from .errors import ProgramError
-
 from abc import ABC, abstractmethod
+
+from . import limit
+from .errors import ProgramError
 
 log = logging.getLogger(__name__)
 

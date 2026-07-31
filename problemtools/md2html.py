@@ -1,14 +1,13 @@
 #! /usr/bin/env python3
-# -*- coding: utf-8 -*-
 import argparse
 import hashlib
 import html
 import os
-from pathlib import Path
 import re
 import shutil
 import string
 import subprocess
+from pathlib import Path
 
 import nh3
 
