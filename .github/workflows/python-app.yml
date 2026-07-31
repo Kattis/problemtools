@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"] # 3.11 is the lowest we support, since we want StrEnum
+        python-version: ["3.11", "3.12", "3.13", "3.14"] # 3.11 is the lowest we support, since we want StrEnum
     container:
       image: problemtools/githubci:latest
     steps:
@@ -30,8 +30,10 @@ jobs:
       run: |
         python -m venv venv
         venv/bin/python --version
-        venv/bin/pip install mypy ruff pytest
+        venv/bin/pip install -r requirements-dev.txt
         if [ -f requirements.txt ]; then venv/bin/pip install -r requirements.txt; fi
+    - name: Check ruff version matches .pre-commit-config.yaml
+      run: venv/bin/python admin/check_ruff_version.py
     - name: Lint with ruff
       run: venv/bin/ruff check --output-format=github
     - name: Check ruff formatting

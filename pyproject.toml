@@ -13,15 +13,7 @@ license = "MIT"
 keywords = ["kattis", "problemtools", "icpc", "clics"]
 requires-python = ">= 3.11"
 
-dependencies = [
-    "colorlog",
-    "nh3",
-    "PyYAML",
-    "plasTeX>=3.0",
-    "pydantic>=2.11",
-    "checktestdata>=2026.7.1",
-]
-dynamic = [ "version" ]
+dynamic = [ "version", "dependencies" ]
 
 [project.scripts]
 verifyproblem = "problemtools.verifyproblem:main"
@@ -39,6 +31,9 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["problemtools", "problemtools.*"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools_scm]
 version_file = "problemtools/_version.py"
