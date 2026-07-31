@@ -1,0 +1,5 @@
+# ruff 0.16 adds a ton of new default rules that our codebase doesn't yet pass;
+# holding at the latest 0.15.x release until we've triaged those.
+ruff==0.15.22
+mypy
+pytest

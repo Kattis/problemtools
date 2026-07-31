@@ -30,7 +30,7 @@ jobs:
       run: |
         python -m venv venv
         venv/bin/python --version
-        venv/bin/pip install mypy ruff pytest
+        venv/bin/pip install -r requirements-dev.txt
         if [ -f requirements.txt ]; then venv/bin/pip install -r requirements.txt; fi
     - name: Lint with ruff
       run: venv/bin/ruff check --output-format=github
