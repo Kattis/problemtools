@@ -97,6 +97,9 @@ class Program(ABC):
         pid = os.fork()
         if pid == 0:  # child
             try:
+                # Keep the submission and everything it forks in a group that
+                # can be cleaned up after the submission process exits.
+                os.setsid()
                 # The Python interpreter internally sets some signal dispositions
                 # to SIG_IGN (notably SIGPIPE), and unless we reset them manually
                 # this leaks through to the program we exec. That can has some
@@ -133,6 +136,11 @@ class Program(ABC):
             log.error('Unreachable part of run_wait reached')
             os.kill(os.getpid(), signal.SIGTERM)
         (pid, status, rusage) = os.wait4(pid, 0)
+        # The process waited for above may have left descendants behind.
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         return status, rusage.ru_utime + rusage.ru_stime
 
     @staticmethod
