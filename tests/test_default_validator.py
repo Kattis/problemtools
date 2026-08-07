@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import pytest
 import subprocess
 import tempfile
 from pathlib import Path
+
+import pytest
 
 # The validator executable path, resolved relative to this test file.
 VALIDATOR_PATH = Path(__file__).parent.parent / 'support' / 'default_validator' / 'default_validator'

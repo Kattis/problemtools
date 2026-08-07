@@ -1,4 +1,5 @@
-import plasTeX.Packages.graphics as graphics
+from plasTeX.Packages import graphics
+
 from problemtools.ProblemPlasTeX.ProblemsetMacros import _graphics_command, clean_width
 
 # Reimplementation of graphicx package because plasTeX is broken and

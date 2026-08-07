@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
-from unittest import TestCase
-import pytest
 import os
 import re
+from unittest import TestCase
+
+import pytest
 
 from problemtools import languages
 

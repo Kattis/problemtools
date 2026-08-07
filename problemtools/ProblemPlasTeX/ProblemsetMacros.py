@@ -1,9 +1,9 @@
-import sys
 import os
 import os.path
+import sys
+
+from plasTeX.Base import Command, DimenCommand
 from plasTeX.DOM import Node
-from plasTeX.Base import Command
-from plasTeX.Base import DimenCommand
 from plasTeX.Logging import getLogger
 
 log = getLogger()
@@ -56,7 +56,7 @@ class sampletable(Command):
             status.info(') ( verbatim %s ' % file2)
             self.attributes['data2'] = self.read_sample_file(file2)
             status.info(') ')
-        except (OSError, IOError):
+        except OSError:
             log.warning('\nProblem opening files "%s" and "%s"', file1, file2)
 
 
@@ -97,7 +97,7 @@ class sampletableinteractive(Command):
             status.info(' ( sampletableinteractive %s ' % file)
             self.attributes['messages'] = self.read_sample_interaction(file)
             status.info(') ')
-        except (OSError, IOError):
+        except OSError:
             log.warning('\nProblem opening file "%s"', file)
 
 
@@ -131,7 +131,7 @@ class _graphics_command(Command):
                 try:
                     img = os.path.abspath(basetex.kpsewhich(f + e))
                     break
-                except (OSError, IOError):
+                except OSError:
                     pass
 
         if img is None or not os.path.isfile(img):

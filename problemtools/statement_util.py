@@ -1,13 +1,12 @@
 import collections
 import html
 import json
+import logging
 import os
 import re
 import subprocess
 import tempfile
-import logging
 from pathlib import Path
-from typing import Optional, List, Tuple
 from urllib.parse import urlparse
 
 from . import metadata
@@ -67,7 +66,7 @@ def find_statement(problem_root: Path, language: str) -> Path:
     if language not in candidates:
         raise FileNotFoundError(f'No statement found in language {language}. Found languages: {", ".join(candidates)}')
     elif len(candidates[language]) > 1:
-        raise ValueError(f'Multiple statements in language {language}: {", ".join((file.name for file in candidates[language]))}')
+        raise ValueError(f'Multiple statements in language {language}: {", ".join(file.name for file in candidates[language])}')
     else:
         return candidates[language][0]
 
@@ -136,7 +135,7 @@ def assert_images_are_valid_md(statement_path: Path) -> None:
     foreach_image(statement_path, lambda img_name: assert_image_is_valid(statement_dir, img_name))
 
 
-def find_footnotes(statement_html: str) -> Optional[int]:
+def find_footnotes(statement_html: str) -> int | None:
     """Find the position of the footnotes in the statement and return it or None"""
     for footnote_string in FOOTNOTES_STRINGS:
         if footnote_string in statement_html:
@@ -144,7 +143,7 @@ def find_footnotes(statement_html: str) -> Optional[int]:
     return None
 
 
-def inject_samples(statement_html: str, samples: List[str]) -> Tuple[str, List[str]]:
+def inject_samples(statement_html: str, samples: list[str]) -> tuple[str, list[str]]:
     """Injects samples at occurences of {{nextsample}} and {{remainingsamples}}
     Non-destructive
 
@@ -172,7 +171,7 @@ def inject_samples(statement_html: str, samples: List[str]) -> Tuple[str, List[s
     return statement_html, samples
 
 
-def format_samples(problem_root: Path) -> List[str]:
+def format_samples(problem_root: Path) -> list[str]:
     """Read all samples from the problem directory and convert them to pandoc-valid markdown
 
     Args:

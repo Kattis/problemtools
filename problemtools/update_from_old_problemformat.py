@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
-
 import argparse
 import glob
 import os.path
+
 import yaml
 
 

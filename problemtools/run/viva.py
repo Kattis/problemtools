@@ -3,8 +3,9 @@ verification language (http://viva.vanb.org/).
 """
 
 import os
-from .executable import Executable
+
 from .errors import ProgramError
+from .executable import Executable
 from .tools import get_tool_path
 
 
@@ -62,7 +63,7 @@ class Viva(Executable):
         if infile != '/dev/null':
             args = args + [infile]
 
-        (status, runtime) = super(Viva, self).run(
+        (status, runtime) = super().run(
             outfile=outfile, errfile=errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir
         )
         # This is ugly, switches the accept exit status and our accept

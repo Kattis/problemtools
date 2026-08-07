@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-# -*- coding: utf-8 -*-
 import argparse
 import os
 import re
@@ -10,8 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import template
-from . import statement_util
+from . import statement_util, template
 from .version import add_version_arg
 
 

@@ -23,7 +23,6 @@ import re
 import signal
 import tempfile
 from pathlib import Path
-
 from typing import TYPE_CHECKING
 
 from ..diagnostics import Diagnostics

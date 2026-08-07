@@ -2,15 +2,14 @@
 Implementation of programs provided by a directory with build/run scripts.
 """
 
-import os
-import tempfile
-import subprocess
-
 import logging
+import os
+import subprocess
+import tempfile
 
+from . import rutil
 from .errors import ProgramError
 from .program import Program
-from . import rutil
 
 log = logging.getLogger(__file__)
 

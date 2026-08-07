@@ -34,7 +34,7 @@ def add_files(src, dstdir):
                     shutil.copytree(srcfile, destfile, dirs_exist_ok=True)
                 else:
                     shutil.copy(srcfile, destfile)
-    except IOError as exc:
+    except OSError as exc:
         # FIXME why is this specific error special-cased
         if exc.errno == errno.ENOENT:
             raise ProgramError('File not found when copying program:\n %s' % exc.filename)

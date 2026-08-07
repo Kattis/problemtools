@@ -2,15 +2,15 @@
 Implementation of programs provided by source code.
 """
 
+import logging
 import os
 import shlex
-import tempfile
-import logging
 import subprocess
+import tempfile
 
+from . import rutil
 from .errors import ProgramError
 from .program import Program
-from . import rutil
 
 log = logging.getLogger(__name__)
 

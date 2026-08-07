@@ -4,6 +4,7 @@ verification language (https://github.com/DOMjudge/checktestdata)
 
 import os
 import sys
+
 from .executable import Executable
 
 
@@ -54,7 +55,7 @@ class Checktestdata(Executable):
                 runtime (float): runtime of the Checktestdata process
                     in seconds
         """
-        (status, runtime) = super(Checktestdata, self).run(
+        (status, runtime) = super().run(
             infile=infile, outfile=outfile, errfile=errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir
         )
         # This is ugly, switches the accept exit status and our accept

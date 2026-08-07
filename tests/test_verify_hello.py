@@ -1,5 +1,6 @@
 import logging
 import pathlib
+
 import problemtools.verifyproblem as verify
 from problemtools.diagnostics import LoggingDiagnostics
 

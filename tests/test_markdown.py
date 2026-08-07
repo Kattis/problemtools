@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import pytest
-from tests.test_xss import render, renderpdf
+
 from problemtools.statement_util import find_footnotes
+from tests.test_xss import render, renderpdf
 
 # TODO: add when guess is updated to 2023-07
 # def test_pdf_render():

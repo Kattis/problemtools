@@ -1,17 +1,17 @@
+import builtins
 import copy
 import datetime
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self, Type, Union
+from typing import Any, Literal, Self, Union
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
 import yaml
+from pydantic import BaseModel, ConfigDict, Field
 
-from . import config
-from . import statement_util
+from . import config, statement_util
 from .formatversion import FormatVersion
 
 
@@ -41,7 +41,7 @@ class Person:
     kattis: str | None = None
 
     @classmethod
-    def from_string(cls: Type[Self], s: str) -> Self:
+    def from_string(cls: type[Self], s: str) -> Self:
         match = re.match(r'^(.*?)\s+<(.*)>$', s.strip())
         if match:
             return cls(name=match.group(1), email=match.group(2))
@@ -99,7 +99,7 @@ class InputCredits:
     """
 
     # Type in the input format is messy
-    PersonOrPersons = Union[str | list[Union[Person, str]]]
+    PersonOrPersons = Union[str | list[Person | str]]
 
     authors: PersonOrPersons = field(default_factory=list)
     contributors: PersonOrPersons = field(default_factory=list)
@@ -120,7 +120,7 @@ class Metadata2023_07(BaseModel):
     type: list[ProblemType] | ProblemType = ProblemType.PASS_FAIL
     version: str | None = None
     credits: dict | str | None = None
-    source: list[Union[str, Source]] | Source | str = []
+    source: list[str | Source] | Source | str = []
     license: License = License.UNKNOWN
     rights_owner: str | None = None
     embargo_until: datetime.datetime | None = None
@@ -165,7 +165,7 @@ class MetadataLegacy(BaseModel):
     """
 
     problem_format_version: FormatVersion = FormatVersion.LEGACY
-    type: Literal['pass-fail'] | Literal['scoring'] = 'pass-fail'
+    type: Literal['pass-fail', 'scoring'] = 'pass-fail'
     name: str | None = None
     uuid: UUID | None = None
     author: str | None = None
@@ -243,7 +243,7 @@ class Metadata(BaseModel):
         return ProblemType.SUBMIT_ANSWER in self.type
 
     @classmethod
-    def from_legacy(cls: Type[Self], legacy: MetadataLegacy, names_from_statements: dict[str, str]) -> Self:
+    def from_legacy(cls: builtins.type[Self], legacy: MetadataLegacy, names_from_statements: dict[str, str]) -> Self:
         metadata = legacy.model_dump()
         metadata['type'] = [metadata['type']]
         # Support for *ancient* problems where names_from_statements is empty
@@ -293,7 +293,7 @@ class Metadata(BaseModel):
         return cls.model_validate(metadata)
 
     @classmethod
-    def from_2023_07(cls: Type[Self], md2023_07: Metadata2023_07) -> Self:
+    def from_2023_07(cls: builtins.type[Self], md2023_07: Metadata2023_07) -> Self:
         metadata = md2023_07.model_dump()
         metadata['type'] = [metadata['type']] if isinstance(metadata['type'], str) else metadata['type']
         metadata['name'] = {'en': metadata['name']} if isinstance(metadata['name'], str) else metadata['name']

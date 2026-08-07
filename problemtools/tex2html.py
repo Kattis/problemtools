@@ -1,7 +1,7 @@
-import os
-import logging
-import string
 import argparse
+import logging
+import os
+import string
 from pathlib import Path
 
 from . import template
@@ -9,10 +9,10 @@ from . import template
 
 def convert(problem_root: Path, options: argparse.Namespace, statement_file: Path) -> None:
     # PlasTeX.Logging statically overwrites logging and formatting, so delay loading
-    import plasTeX.TeX
     import plasTeX.Logging
-    from .ProblemPlasTeX import ProblemRenderer
-    from .ProblemPlasTeX import ProblemsetMacros
+    import plasTeX.TeX
+
+    from .ProblemPlasTeX import ProblemRenderer, ProblemsetMacros
 
     if options.quiet:
         plasTeX.Logging.disableLogging()

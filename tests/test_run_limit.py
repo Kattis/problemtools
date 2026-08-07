@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-from unittest import TestCase
 import resource
+from unittest import TestCase
 
 from problemtools.run import limit
 

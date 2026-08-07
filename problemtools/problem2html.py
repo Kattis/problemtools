@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-# -*- coding: utf-8 -*-
 import argparse
 import os.path
 import re
@@ -8,9 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import tex2html
-from . import md2html
-from . import statement_util
+from . import md2html, statement_util, tex2html
 from .version import add_version_arg
 
 

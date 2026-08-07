@@ -1,5 +1,6 @@
 import codecs
 import os
+
 from plasTeX.Base import Command
 from plasTeX.Logging import getLogger
 
@@ -22,7 +23,7 @@ class import_sty(Command):
         try:
             encoding = self.config['files']['input-encoding']
             tex.input(codecs.open(fullpath, 'r', encoding, 'replace'))
-        except (OSError, IOError):
+        except OSError:
             log.warning('\nProblem opening file "%s"', fullpath)
         status.info(' ) ')
         return []
