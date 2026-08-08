@@ -97,9 +97,11 @@ class Program(ABC):
         pid = os.fork()
         if pid == 0:  # child
             try:
-                # Keep the submission and everything it forks in a group that
-                # can be cleaned up after the submission process exits.
-                os.setsid()
+                # Keep the submission and everything it forks in a process
+                # group that can be cleaned up after the submission exits.
+                # Unlike setsid(), this does not detach the submission from
+                # its parent session or terminal.
+                os.setpgrp()
                 # The Python interpreter internally sets some signal dispositions
                 # to SIG_IGN (notably SIGPIPE), and unless we reset them manually
                 # this leaks through to the program we exec. That can has some
@@ -135,11 +137,35 @@ class Program(ABC):
             # Unreachable
             log.error('Unreachable part of run_wait reached')
             os.kill(os.getpid(), signal.SIGTERM)
-        (pid, status, rusage) = os.wait4(pid, 0)
+        try:
+            # Keep the group leader unreaped while killing its descendants so
+            # a recycled pid cannot make killpg target an unrelated group.
+            (_, status, rusage) = os.wait4(pid, os.WNOWAIT)
+        except KeyboardInterrupt:
+            # Ctrl-C interrupts the parent, not the separate submission group.
+            # Clean up the whole group before re-raising so both serial and
+            # threaded verification can abort without leaking submissions.
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                os.wait4(pid, 0)
+            except ChildProcessError:
+                # macOS may already reap the child during WNOWAIT.
+                pass
+            raise
+
         # The process waited for above may have left descendants behind.
         try:
             os.killpg(pid, signal.SIGKILL)
         except ProcessLookupError:
+            pass
+        try:
+            os.wait4(pid, 0)
+        except ChildProcessError:
+            # macOS exposes WNOWAIT but wait4() still reaps on that platform;
+            # the first wait already collected the status there.
             pass
         return status, rusage.ru_utime + rusage.ru_stime
 
