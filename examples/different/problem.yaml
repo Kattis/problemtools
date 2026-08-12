@@ -32,12 +32,12 @@ validation: custom
 limits:
 #  time_multiplier: 5
   time_safety_margin: 4           # (default is 2)
-#  memory: 1024                   # MB
-#  output: 8                      # MB
+#  memory: 1024                   # MiB
+#  output: 8                      # MiB
 #  compilation_time: 60           # seconds
 #  validation_time: 60            # seconds
-#  validation_memory: 1024        # MB
-#  validation_output: 8           # MB
+#  validation_memory: 1024        # MiB
+#  validation_output: 8           # MiB
 
 
 ############################################################################

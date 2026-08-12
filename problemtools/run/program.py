@@ -38,7 +38,7 @@ class Program(ABC):
             args (list of str): additional command-line arguments to
                 pass to the program
             timelim (int): CPU time limit in seconds
-            memlim (int): memory limit in MB
+            memlim (int): memory limit in MiB
 
         Returns:
             pair (status, runtime):

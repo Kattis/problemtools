@@ -92,7 +92,9 @@ def _validate_output(
 
     output_size = os.path.getsize(submission_output) / 1024.0 / 1024.0
     if output_size > metadata.limits.output:
-        return SubmissionResult('OLE', reason=f'output ({output_size:.1f} Mb) exceeds output limit ({metadata.limits.output} Mb)')
+        return SubmissionResult(
+            'OLE', reason=f'output ({output_size:.1f} MiB) exceeds output limit ({metadata.limits.output} MiB)'
+        )
 
     if not output_validator.compile()[0]:
         return SubmissionResult('JE', reason=f'output validator {output_validator} failed to compile')

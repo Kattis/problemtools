@@ -148,10 +148,10 @@ class TestCase(ProblemAspect):
     def check_size_limits(self, filename: str) -> None:
         filesize = os.path.getsize(filename) / 1024.0 / 1024.0
         if filesize > 1000:
-            self.error(f'The file {filename} ({filesize:.1f} Mb) is larger than 1000 Mb and can not be installed.')
+            self.error(f'The file {filename} ({filesize:.1f} MiB) is larger than 1000 MiB and can not be installed.')
         elif filesize > 100:
             self.warning(
-                f'The file {filename} ({filesize:.1f} Mb) is larger than 100 Mb. This may cause performance issues and is not recommended.'
+                f'The file {filename} ({filesize:.1f} MiB) is larger than 100 MiB. This may cause performance issues and is not recommended.'
             )
 
     def strip_path_prefix(self, path: str) -> str:
@@ -197,11 +197,11 @@ class TestCase(ProblemAspect):
         outputlim = self._problem.metadata.limits.output
         if anssize > outputlim:
             self.error(
-                f'Answer file ({anssize:.1f} Mb) is larger than output limit ({outputlim} Mb), you need to increase output limit'
+                f'Answer file ({anssize:.1f} MiB) is larger than output limit ({outputlim} MiB), you need to increase output limit'
             )
         elif 2 * anssize > outputlim:
             self.warning(
-                f'Answer file ({anssize:.1f} Mb) is within 50% of output limit ({outputlim} Mb), you might want to increase output limit'
+                f'Answer file ({anssize:.1f} MiB) is within 50% of output limit ({outputlim} MiB), you might want to increase output limit'
             )
         if not self._problem.is_interactive() and not self._problem.is_multi_pass():
             val_res = validate_output(

@@ -111,7 +111,7 @@ class SourceCode(Program):
         Args:
             cwd (str): if not None, the run command is provided
                 relative to cwd (otherwise absolute paths are given).
-            memlim (int): if not None, memory limit in MB (only
+            memlim (int): if not None, memory limit in MiB (only
                 relevant for languages where memory limit is passed on
                 command line)
         """
