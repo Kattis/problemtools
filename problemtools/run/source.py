@@ -11,6 +11,7 @@ import tempfile
 from . import rutil
 from .errors import ProgramError
 from .program import Program
+from ..languages import Language
 from ..model import LanguageIncludes
 
 log = logging.getLogger(__name__)
@@ -19,20 +20,19 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path, language, work_dir=None, includes: LanguageIncludes = LanguageIncludes()):
+    def __init__(self, path: str, language: Language, work_dir: str, includes: LanguageIncludes):
         """Instantiate SourceCode object
 
         Args:
-            path (str): path of source code.  Can be either a single
+            path: path of source code.  Can be either a single
                 file or a directory (in which case the program is
                 considered to consist of all files and subdirectories
                 in the path).
 
-            language (problemtools.Language): language definition for
-                the programming language of the code.
+            language: language definition for the programming
+                language of the code.
 
-            work_dir (str): temp directory in which to compile programs
-                etc
+            work_dir: temp directory in which to compile programs etc
 
             includes: include files to add alongside the source
                 file(s), already resolved for this program's language
@@ -48,8 +48,6 @@ class SourceCode(Program):
         self.language = language
 
         # Set up work-space
-        if work_dir is None:
-            work_dir = tempfile.mkdtemp()
         self.path = os.path.join(work_dir, self.name)
         if os.path.exists(self.path):
             self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=work_dir)
@@ -73,7 +71,7 @@ class SourceCode(Program):
             self.mainfile = os.path.join(self.path, includes.mainfile)
         else:
             candidates = self.language.mainfile_candidates(self.src)
-            self.mainfile = candidates[0] if candidates else self.src[0]
+            self.mainfile = str(candidates[0]) if candidates else self.src[0]
 
         self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
         self.Mainclass = self.mainclass[0].upper() + self.mainclass[1:]
@@ -108,6 +106,7 @@ class SourceCode(Program):
             return (False, err.output.decode('utf8', 'replace'))
 
     def get_compilecmd(self) -> list[str]:
+        assert self.language.compile is not None, 'get_compilecmd called for a language with no compile command'
         return shlex.split(self.language.compile.format(**self.__get_substitution()))
 
     def get_runcmd(self, cwd=None, memlim=1024):
@@ -126,6 +125,7 @@ class SourceCode(Program):
             subs['path'] = os.path.relpath(subs['path'], cwd)
             subs['binary'] = os.path.relpath(subs['binary'], cwd)
             subs['mainfile'] = os.path.relpath(subs['mainfile'], cwd)
+        assert self.language.run is not None, 'Language.__check() guarantees run is always set'
         return shlex.split(self.language.run.format(**subs))
 
     def should_skip_memory_rlimit(self) -> bool:

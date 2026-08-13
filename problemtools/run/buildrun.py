@@ -17,21 +17,17 @@ log = logging.getLogger(__file__)
 class BuildRun(Program):
     """Class for build/run-script program."""
 
-    def __init__(self, path, work_dir=None):
+    def __init__(self, path: str, work_dir: str):
         """Instantiate BuildRun object.
 
         Args:
-            path (str): directory containing the build script.
-            work_dir (str): name of temp directory in which to run the
-                scripts (if None, will make new temp directory).
+            path: directory containing the build script.
+            work_dir: name of temp directory in which to run the scripts.
         """
         super().__init__()
 
         if not os.path.isdir(path):
             raise ProgramError('%s is not a directory' % path)
-
-        if work_dir is None:
-            work_dir = tempfile.mkdtemp()
 
         if path[-1] == '/':
             path = path[:-1]

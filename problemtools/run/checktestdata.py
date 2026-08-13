@@ -11,11 +11,11 @@ from .executable import Executable
 class Checktestdata(Executable):
     """Wrapper class for running Checktestdata scripts."""
 
-    def __init__(self, path):
+    def __init__(self, path: str):
         """Create a Checktestdata wrapper.
 
         Args:
-            path (str): path to .ctd source file
+            path: path to .ctd source file
         """
         super().__init__(sys.executable, args=['-m', 'checktestdata', path])
 

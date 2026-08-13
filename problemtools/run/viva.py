@@ -14,11 +14,11 @@ class Viva(Executable):
 
     _VIVA_PATH = get_tool_path('viva.sh')
 
-    def __init__(self, path):
+    def __init__(self, path: str):
         """Create a VIVA wrapper.
 
         Args:
-            path (str): path to .viva source file
+            path: path to .viva source file
         """
         if Viva._VIVA_PATH is None:
             raise ProgramError('Could not locate the VIVA program to run %s' % path)
