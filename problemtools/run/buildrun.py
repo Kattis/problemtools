@@ -17,7 +17,7 @@ log = logging.getLogger(__file__)
 class BuildRun(Program):
     """Class for build/run-script program."""
 
-    def __init__(self, path, work_dir=None, include_dir=None):
+    def __init__(self, path, work_dir=None):
         """Instantiate BuildRun object.
 
         Args:
@@ -43,10 +43,7 @@ class BuildRun(Program):
             os.makedirs(self.path)
 
         rutil.add_files(path, self.path)
-        if include_dir is not None and os.path.isdir(include_dir):
-            rutil.add_files(include_dir, self.path)
 
-        # Check for existence of build script after copying include_dir, since that could contain the script
         build = os.path.join(self.path, 'build')
         if not os.path.isfile(build):
             raise ProgramError('%s does not have a build script' % path)
