@@ -58,15 +58,14 @@ def load_includes(probdir: Path, language_config: Languages) -> Includes:
 
 
 def _load_language_includes(lang_dir: Path, language: Language | None) -> LanguageIncludes:
-    files = [
-        IncludeFile(path=path.relative_to(lang_dir), data=path.read_bytes())
-        for path in sorted(p for p in lang_dir.rglob('*') if p.is_file())
-    ]
+    paths = sorted(p for p in lang_dir.rglob('*') if p.is_file())
+    files = [IncludeFile(path=path.relative_to(lang_dir), data=path.read_bytes()) for path in paths]
 
     mainfile = None
     if language is not None:
-        candidates = language.mainfile_candidates([f.path for f in files])
+        source_files = language.get_source_files(paths)
+        candidates = language.mainfile_candidates(source_files)
         if candidates:
-            mainfile = str(candidates[0])
+            mainfile = str(Path(candidates[0]).relative_to(lang_dir))
 
     return LanguageIncludes(mainfile=mainfile, files=files)
