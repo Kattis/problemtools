@@ -15,8 +15,15 @@
 #   files: String, space-separated glob patterns indicating what files
 #          are considered source files.
 #
-#   shebang: Optional, string, for language detection only.  See
-#            semantics under "language detection" below.
+#   shebang_files: Optional, string, space-separated glob patterns, for
+#                   language detection only.  Must be given together
+#                   with "shebang".  See semantics under "language
+#                   detection" below.
+#
+#   shebang: Optional, string, regular expression, for language
+#            detection only.  Must be given together with
+#            "shebang_files".  See semantics under "language detection"
+#            below.
 #
 #   compile: Optional, string, command to compile or syntax-check the
 #            source code.
@@ -31,14 +38,24 @@
 #
 # 1. For each language, a file included in the program is considered
 #    to be a source file if its name matches the "files" glob for the
-#    language.  If the language specifies a "shebang" entry, the
-#    first line of the file *must additionally* match the shebang.
+#    language.  Once a program's language has been settled, this is
+#    the full set of source files for the program -- "shebang_files"
+#    and "shebang" (see below) play no further part.
 #
-# 2. For each language, count how many files in the program are source
-#    files for that language.
+# 2. For the purposes of auto-detection only, a source file additionally
+#    counts as *evidence* for a language if either it doesn't match the
+#    language's "shebang_files" glob, or its first line matches
+#    "shebang".  This lets a language claim only some of the files
+#    matching its "files" glob as its own during detection, e.g. to
+#    distinguish Python 2 from Python 3 based on a "#!...python2"
+#    shebang while still treating shebang-less helper files as
+#    belonging to whichever language wins.
 #
-# 3. The language of the program is the one under which the program
-#    has the maximum number of source files.  In case of ties, the
+# 3. For each language, count how many files in the program count as
+#    evidence for that language (per step 2).
+#
+# 4. The language of the program is the one under which the program
+#    has the maximum number of matching files.  In case of ties, the
 #    language that has the highest priority takes precedence.
 #
 #
@@ -207,11 +224,16 @@ prolog:
     compile: '/usr/bin/swipl -O -q -g main -t halt -o {binary} -c {files}'
     run: '{binary}'
 
-# Python2 with shebang comes before default python3.
-python2_with_shebang:
+# *.py2 files are unconditionally Python 2. *.py files are only counted
+# as Python 2 (over Python 3) when they carry a python2 shebang; a *.py
+# file without one is only evidence for python3. Priority is higher than
+# python3's so that ties (i.e. every *.py file in the program has the
+# shebang) resolve to python2.
+python2:
     name: 'Python 2 (w/PyPy)'
     priority: 860
     files: '*.py *.py2'
+    shebang_files: '*.py'
     shebang: '^#!.*python2\b'
     compile: '/usr/bin/pypy -m py_compile {files}'
     run: '/usr/bin/pypy "{mainfile}"'
@@ -222,14 +244,6 @@ python3:
     files: '*.py *.py3'
     compile: '/usr/bin/pypy3 -m py_compile {files}'
     run: '/usr/bin/pypy3 "{mainfile}"'
-
-# Python2 without shebang comes after python3.
-python2:
-    name: 'Python 2 (w/PyPy)'
-    priority: 840
-    files: '*.py2'
-    compile: '/usr/bin/pypy -m py_compile {files}'
-    run: '/usr/bin/pypy "{mainfile}"'
 
 ruby:
     name: 'Ruby'

@@ -14,6 +14,7 @@ class Language_test(TestCase):
             'name': 'A Language',
             'priority': 100,
             'files': '*.foo *.bar',
+            'shebang_files': '*.foo',
             'shebang': '.*',
             'compile': 'echo {path} {files} {binary}',
             'run': '{binary} {memlim}',
@@ -104,6 +105,7 @@ class Language_test(TestCase):
     def test_without_shebang(self):
         vals = self.__language_dict()
         del vals['shebang']
+        del vals['shebang_files']
         languages.Language('id', vals)
 
     def test_invalid_shebang(self):
@@ -111,6 +113,36 @@ class Language_test(TestCase):
         vals['shebang'] = '(Not an RE'
         with pytest.raises(re.error):
             languages.Language('id', vals)
+
+    def test_shebang_requires_shebang_files(self):
+        vals = self.__language_dict()
+        del vals['shebang_files']
+        with pytest.raises(languages.LanguageConfigError):
+            languages.Language('id', vals)
+
+    def test_shebang_files_requires_shebang(self):
+        vals = self.__language_dict()
+        del vals['shebang']
+        with pytest.raises(languages.LanguageConfigError):
+            languages.Language('id', vals)
+
+    def test_invalid_shebang_files(self):
+        vals = self.__language_dict()
+        vals['shebang_files'] = ['*.foo', '*.bar']
+        with pytest.raises(languages.LanguageConfigError):
+            languages.Language('id', vals)
+
+    def test_get_source_files_does_not_require_readable_files(self):
+        """get_source_files only inspects file names -- unlike
+        get_source_files_for_detection, it must work even for files that
+        don't exist, since it's used on a program whose language is
+        already known."""
+        lang = languages.Language('id', self.__language_dict())
+        missing = '/nonexistent/path/does_not_exist.foo'
+
+        assert lang.get_source_files([missing]) == [missing]
+        with pytest.raises(OSError):
+            lang.get_source_files_for_detection([missing])
 
     def test_without_compile(self):
         vals = self.__language_dict()
@@ -245,7 +277,14 @@ class Languages_test(TestCase):
 
         zoo = {
             'zoo': {'name': 'Zoo', 'priority': 10, 'files': '*.zoo', 'run': '{binary}'},
-            'zoork': {'name': 'Zoork', 'priority': 20, 'files': '*.zoo', 'shebang': '>.*Zoork', 'run': '{binary}'},
+            'zoork': {
+                'name': 'Zoork',
+                'priority': 20,
+                'files': '*.zoo',
+                'shebang_files': '*.zoo',
+                'shebang': '>.*Zoork',
+                'run': '{binary}',
+            },
             'zoopp': {'name': 'Zoo++', 'priority': 0, 'files': '*.zoo *.zpp', 'run': '{binary}'},
         }
 
@@ -259,3 +298,40 @@ class Languages_test(TestCase):
 
         lang = langs.detect_language([examples_path(x) for x in ['src2.zoo', 'src3.zpp']])
         assert lang.lang_id == 'zoopp'
+
+    def test_shebang_gate_only_affects_detection_not_actual_source_files(self):
+        """Regression test: once a language has won detection, a helper
+        file matching its "files" glob must not be dropped just because it
+        individually lacks the shebang that broke the tie against another
+        language (see py2nosheb.py below)."""
+        langs = languages.Languages()
+        langs.update(
+            {
+                'py2': {
+                    'name': 'Python 2',
+                    'priority': 60,
+                    'files': '*.py *.py2',
+                    'shebang_files': '*.py',
+                    'shebang': r'^#!.*python2\b',
+                    'run': '{mainfile}',
+                },
+                'py3': {
+                    'name': 'Python 3',
+                    'priority': 50,
+                    'files': '*.py *.py3',
+                    'run': '{mainfile}',
+                },
+            }
+        )
+
+        files = [examples_path(x) for x in ['py2main.py', 'py2helper.py2', 'py2nosheb.py']]
+
+        # py2 evidence: py2main.py (shebang matches) + py2helper.py2
+        # (unconditional, not gated) = 2.  py3 evidence: py2main.py +
+        # py2nosheb.py (both unconditional) = 2.  Tie -> priority decides.
+        lang = langs.detect_language(files)
+        assert lang.lang_id == 'py2'
+
+        # All three files -- including the shebang-less helper -- belong
+        # to the now-settled py2 program.
+        assert set(lang.get_source_files(files)) == set(files)
