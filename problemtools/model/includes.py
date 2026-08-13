@@ -7,7 +7,7 @@ from ..languages import Language, Languages
 DEFAULT_LANGUAGE = 'default'
 
 
-@dataclass
+@dataclass(frozen=True)
 class IncludeFile:
     """A single include file.
 
@@ -19,13 +19,13 @@ class IncludeFile:
     data: bytes
 
 
-@dataclass
+@dataclass(frozen=True)
 class LanguageIncludes:
     mainfile: str | None = None
     files: list[IncludeFile] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Includes:
     """All include files for a problem, keyed by language ID.
 
