@@ -20,7 +20,7 @@ class Language:
     Class representing a single language.
     """
 
-    __KEYS = ['name', 'priority', 'files', 'shebang', 'compile', 'run']
+    __KEYS = ['name', 'priority', 'files', 'shebang', 'shebang_files', 'compile', 'run']
     __VARIABLES = ['path', 'files', 'binary', 'mainfile', 'mainclass', 'Mainclass', 'memlim']
     __MAINFILE_RE = re.compile(r'^main\.', re.IGNORECASE)
 
@@ -39,6 +39,7 @@ class Language:
         self.priority = None
         self.files = None
         self.shebang = None
+        self.shebang_files = None
         self.compile = None
         self.run = None
         self.update(lang_spec)
@@ -47,17 +48,29 @@ class Language:
         """Given a list of files, determine which ones would be considered
         source files for the language.
 
+        This method only looks at file names, not at file contents, so it
+        works even if the files don't exist or aren't readable.
+
         Args:
             file_list (list of str): list of file names
         """
-        return [
-            file_name
-            for file_name in file_list
-            if (
-                any(fnmatch.fnmatch(file_name, glob) for glob in self.files)  # type: ignore[union-attr]
-                and self.__matches_shebang(file_name)
-            )
-        ]
+        return [file_name for file_name in file_list if any(fnmatch.fnmatch(file_name, glob) for glob in self.files)]  # type: ignore[union-attr]
+
+    def get_source_files_for_detection(self, file_list):
+        """Given a list of files, determine which ones count as positive
+        evidence that a program is written in this language, for use when
+        auto-detecting a program's language (see Languages.detect_language).
+
+        This is a subset of get_source_files(file_list): files matched by
+        shebang_files must additionally have their first line match
+        shebang. Unlike get_source_files, this method needs to open and
+        read each candidate file, so all files in file_list must exist and
+        be readable.
+
+        Args:
+            file_list (list of str): list of file names
+        """
+        return [file_name for file_name in self.get_source_files(file_list) if self.__passes_shebang_gate(file_name)]
 
     def mainfile_candidates(self, files: list[str | Path]) -> list[str | Path]:
         """Given a list of files, determine which ones would be considered
@@ -96,9 +109,9 @@ class Language:
             if key == 'shebang':
                 # Compile shebang RE
                 self.shebang = re.compile(value)
-            elif key == 'files':
+            elif key in ('files', 'shebang_files'):
                 # Split glob patterns
-                self.files = value.split()
+                self.__dict__[key] = value.split()
             else:
                 # Other keys, just copy the value
                 self.__dict__[key] = value
@@ -119,6 +132,8 @@ class Language:
             raise LanguageConfigError(f'Language {self.lang_id} has no files glob')
         if self.run is None:
             raise LanguageConfigError(f'Language {self.lang_id} has no run command')
+        if (self.shebang is None) != (self.shebang_files is None):
+            raise LanguageConfigError(f'Language {self.lang_id} must specify both "shebang" and "shebang_files", or neither')
 
         # Check that all variables appearing are valid
         variables = Language.__variables_in_command(self.run)
@@ -140,13 +155,16 @@ class Language:
         formatter = string.Formatter()
         return set(field for _, field, _, _ in formatter.parse(cmd) if field is not None)
 
-    def __matches_shebang(self, filename):
-        """Check if a file matches the shebang rule for the language."""
-        if self.shebang is None:
+    def __passes_shebang_gate(self, filename):
+        """Check if a file matched by shebang_files also matches shebang.
+        Files not matched by shebang_files are unaffected by the gate."""
+        if self.shebang_files is None:
+            return True
+        if not any(fnmatch.fnmatch(filename, glob) for glob in self.shebang_files):
             return True
         with open(filename, 'r') as f_in:
             shebang_line = f_in.readline()
-        return self.shebang.search(shebang_line) is not None
+        return self.shebang.search(shebang_line) is not None  # type: ignore[union-attr]
 
 
 class Languages:
@@ -178,7 +196,7 @@ class Languages:
         src: list[str] = []
         prio = 1e99
         for lang in self.languages.values():
-            lang_src = lang.get_source_files(file_list)
+            lang_src = lang.get_source_files_for_detection(file_list)
             if (len(lang_src), lang.priority) > (len(src), prio):
                 result = lang
                 src = lang_src
