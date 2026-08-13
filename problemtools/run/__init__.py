@@ -3,7 +3,6 @@ Problemtools.
 """
 
 import os
-import re
 
 from . import rutil
 from .buildrun import BuildRun
@@ -14,33 +13,34 @@ from .source import SourceCode
 from .tools import get_tool as get_tool
 from .tools import get_tool_path as get_tool_path
 from .viva import Viva
+from ..languages import Languages
 
 
 def find_programs(
-    path, pattern='.*', language_config=None, work_dir=None, include_dir=None, allow_validation_script=False
+    path: str,
+    language_config: Languages,
+    work_dir: str,
+    include_dir: str | None = None,
+    allow_validation_script: bool = False,
 ) -> list[Program]:
     """Find all programs in a directory.
 
     Args:
-        path (str): directory in which to search for programs
+        path: directory in which to search for programs
 
-        pattern (str): only files/subdirectories in path whose base
-            name matches this regular expression will be included.
+        language_config: language config, used for auto-detecting
+            programming language of source code and providing info
+            on how to compile and run the source code.
 
-        language_config (problemtools.languages.Languages):
-            language config, used for auto-detecting programming
-            language of source code and providing info on how to
-            compile and run the source code.
+        work_dir: temp directory in which to compile programs etc
 
-        work_dir (str): temp directory in which to compile programs etc
-
-        include_dir (str): directory containing language-specific
+        include_dir: directory containing language-specific
             include files to use.  If a program is found with source
             code for language ID <foo> (e.g. <foo>="cpp"), then the
             files in include_dir/<foo>/ will be copied into the
             work_dir along with the source file(s).
 
-        allow_validation_script (bool): if true, also looks for
+        allow_validation_script: if true, also looks for
             validation scripts in the Checktestdata and VIVA formats.
 
     Returns:
@@ -51,43 +51,46 @@ def find_programs(
         return []
     ret = []
     for name in sorted(os.listdir(path)):
-        if re.match(pattern, name):
-            fullpath = os.path.join(path, name)
-            run = get_program(
-                fullpath,
-                language_config=language_config,
-                work_dir=work_dir,
-                include_dir=include_dir,
-                allow_validation_script=allow_validation_script,
-            )
-            if run is not None:
-                ret.append(run)
+        fullpath = os.path.join(path, name)
+        run = get_program(
+            fullpath,
+            language_config=language_config,
+            work_dir=work_dir,
+            include_dir=include_dir,
+            allow_validation_script=allow_validation_script,
+        )
+        if run is not None:
+            ret.append(run)
     return ret
 
 
-def get_program(path, language_config=None, work_dir=None, include_dir=None, allow_validation_script=False) -> Program | None:
+def get_program(
+    path: str,
+    language_config: Languages,
+    work_dir: str,
+    include_dir: str | None = None,
+    allow_validation_script: bool = False,
+) -> Program | None:
     """Get a Program object for a program
 
     Args:
-
-        path (str): path of program.  Can be either a single file or a
+        path: path of program.  Can be either a single file or a
             directory (in which case the program is considered to
             consist of all files and subdirectories in the path).
 
-        language_config (problemtools.languages.Languages):
-            language config, used for auto-detecting programming
-            language of source code and providing info on how to
-            compile and run the source code.
+        language_config: language config, used for auto-detecting
+            programming language of source code and providing info
+            on how to compile and run the source code.
 
-        work_dir (str): temp directory in which to compile programs etc
+        work_dir: temp directory in which to compile programs etc
 
-        include_dir (str): directory containing language-specific
+        include_dir: directory containing language-specific
             include files to use.  If a program is found with source
             code for language ID <foo> (e.g. <foo>="cpp"), then the
             files in include_dir/<foo>/ will be copied into the
             work_dir along with the source file(s).
 
-        allow_validation_script (bool): if true, also looks for
+        allow_validation_script: if true, also looks for
             validation scripts in the Checktestdata and VIVA formats.
 
     Returns:
@@ -109,8 +112,7 @@ def get_program(path, language_config=None, work_dir=None, include_dir=None, all
             return BuildRun(path, work_dir)
         files = rutil.list_files_recursive(path)
 
-    if language_config is not None:
-        lang = language_config.detect_language(files)
-        if lang is not None:
-            return SourceCode(path, lang, work_dir=work_dir, include_dir=include_dir)
+    lang = language_config.detect_language(files)
+    if lang is not None:
+        return SourceCode(path, lang, work_dir=work_dir, include_dir=include_dir)
     return None
