@@ -1091,7 +1091,7 @@ class Submissions(ProblemPart):
                 os.path.join(srcdir, verdict[1]),
                 language_config=self.problem.language_config,
                 work_dir=self.problem.tmpdir,
-                include_dir=os.path.join(self.problem.probdir, 'include'),
+                includes=self.problem.includes.includes,
             )
         return {}
 
@@ -1440,6 +1440,7 @@ class Problem(ProblemAspect):
         self.graders = Graders(self)
         self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
         self.includes = Includes(self)
+        # Submissions.setup() reads self.includes.includes, so includes must be loaded first.
         self.submissions = Submissions(self)
         self.loaded = True
 

@@ -11,6 +11,7 @@ import tempfile
 from . import rutil
 from .errors import ProgramError
 from .program import Program
+from ..model import LanguageIncludes
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path, language, work_dir=None, include_dir=None):
+    def __init__(self, path, language, work_dir=None, includes: LanguageIncludes = LanguageIncludes()):
         """Instantiate SourceCode object
 
         Args:
@@ -33,11 +34,11 @@ class SourceCode(Program):
             work_dir (str): temp directory in which to compile programs
                 etc
 
-            include_dir (str): directory containing language-specific
-                include files to use.  If a program is found with
-                source code for language ID <foo> (e.g. <foo>="cpp"),
-                then the files in include_dir/<foo>/ will be copied
-                into the work_dir along with the source file(s).
+            includes: include files to add alongside the source
+                file(s), already resolved for this program's language
+                (see Includes.get_includes_for_language). If it specifies
+                a mainfile, that takes precedence over the one we would
+                otherwise have detected.
         """
         super().__init__()
 
@@ -58,17 +59,21 @@ class SourceCode(Program):
         # Copy all files
         rutil.add_files(path, self.path)
         self._code_size = sum(os.path.getsize(f) for f in rutil.list_files_recursive(self.path))
-        if include_dir is not None:
-            include_dir = os.path.join(include_dir, self.language.lang_id)
-            if os.path.isdir(include_dir):
-                rutil.add_files(include_dir, self.path)
+        for include_file in includes.files:
+            dest = os.path.join(self.path, include_file.path)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, 'wb') as f:
+                f.write(include_file.data)
 
         self.src = sorted(self.language.get_source_files(rutil.list_files_recursive(self.path)))
         if len(self.src) == 0:
             raise ProgramError('No source files found for language %s in %s' % (self.language.lang_id, self.name))
 
-        candidates = self.language.mainfile_candidates(self.src)
-        self.mainfile = candidates[0] if candidates else self.src[0]
+        if includes.mainfile is not None:
+            self.mainfile = os.path.join(self.path, includes.mainfile)
+        else:
+            candidates = self.language.mainfile_candidates(self.src)
+            self.mainfile = candidates[0] if candidates else self.src[0]
 
         self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
         self.Mainclass = self.mainclass[0].upper() + self.mainclass[1:]

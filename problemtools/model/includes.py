@@ -34,6 +34,15 @@ class Includes:
 
     languages: dict[str, LanguageIncludes] = field(default_factory=dict)
 
+    def get_includes_for_language(self, language: str) -> LanguageIncludes:
+        """All includes relevant for `language`: the files registered for
+        DEFAULT_LANGUAGE (which apply to every language) plus those registered
+        for `language` itself, with the mainfile taken from `language`.
+        """
+        default_includes = self.languages.get(DEFAULT_LANGUAGE, LanguageIncludes())
+        lang_includes = self.languages.get(language, LanguageIncludes())
+        return LanguageIncludes(mainfile=lang_includes.mainfile, files=default_includes.files + lang_includes.files)
+
 
 def load_includes(probdir: Path, language_config: Languages) -> Includes:
     include_dir = probdir / 'include'

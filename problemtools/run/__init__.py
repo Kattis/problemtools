@@ -14,13 +14,14 @@ from .tools import get_tool as get_tool
 from .tools import get_tool_path as get_tool_path
 from .viva import Viva
 from ..languages import Languages
+from ..model import Includes
 
 
 def find_programs(
     path: str,
     language_config: Languages,
     work_dir: str,
-    include_dir: str | None = None,
+    includes: Includes = Includes(),
     allow_validation_script: bool = False,
 ) -> list[Program]:
     """Find all programs in a directory.
@@ -34,11 +35,9 @@ def find_programs(
 
         work_dir: temp directory in which to compile programs etc
 
-        include_dir: directory containing language-specific
-            include files to use.  If a program is found with source
-            code for language ID <foo> (e.g. <foo>="cpp"), then the
-            files in include_dir/<foo>/ will be copied into the
-            work_dir along with the source file(s).
+        includes: include files to add to programs found, resolved
+            per-program based on its detected language (see
+            Includes.get_includes_for_language).
 
         allow_validation_script: if true, also looks for
             validation scripts in the Checktestdata and VIVA formats.
@@ -56,7 +55,7 @@ def find_programs(
             fullpath,
             language_config=language_config,
             work_dir=work_dir,
-            include_dir=include_dir,
+            includes=includes,
             allow_validation_script=allow_validation_script,
         )
         if run is not None:
@@ -68,7 +67,7 @@ def get_program(
     path: str,
     language_config: Languages,
     work_dir: str,
-    include_dir: str | None = None,
+    includes: Includes = Includes(),
     allow_validation_script: bool = False,
 ) -> Program | None:
     """Get a Program object for a program
@@ -84,11 +83,9 @@ def get_program(
 
         work_dir: temp directory in which to compile programs etc
 
-        include_dir: directory containing language-specific
-            include files to use.  If a program is found with source
-            code for language ID <foo> (e.g. <foo>="cpp"), then the
-            files in include_dir/<foo>/ will be copied into the
-            work_dir along with the source file(s).
+        includes: include files to add to the program, resolved per
+            the program's detected language (see
+            Includes.get_includes_for_language).
 
         allow_validation_script: if true, also looks for
             validation scripts in the Checktestdata and VIVA formats.
@@ -114,5 +111,5 @@ def get_program(
 
     lang = language_config.detect_language(files)
     if lang is not None:
-        return SourceCode(path, lang, work_dir=work_dir, include_dir=include_dir)
+        return SourceCode(path, lang, work_dir=work_dir, includes=includes.get_includes_for_language(lang.lang_id))
     return None
