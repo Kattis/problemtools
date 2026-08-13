@@ -18,7 +18,6 @@ class Program(ABC):
 
     def __init__(self) -> None:
         self.path: str = ''
-        self.runtime = 0
         self._compile_lock = threading.Lock()
         self._compile_result: tuple[bool, str | None] | None = None
 
@@ -54,8 +53,6 @@ class Program(ABC):
             memlim = None
 
         status, runtime = self.__run_wait(runcmd + args, infile, outfile, errfile, timelim, memlim, work_dir)
-
-        self.runtime = max(self.runtime, runtime)
 
         return status, runtime
 

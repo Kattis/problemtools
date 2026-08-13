@@ -11,11 +11,11 @@ from .program import Program
 class Executable(Program):
     """Class for executable files."""
 
-    def __init__(self, path, args=None):
+    def __init__(self, path: str, args: list[str] | None = None):
         """Instantiate executable object.
 
         Args:
-            path (str): path to the executable file.  Must be a file,
+            path: path to the executable file.  Must be a file,
                 and must be executable.
             args: list of additional command line arguments that
                 should be passed to the program every time it is executed.

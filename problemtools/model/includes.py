@@ -7,7 +7,7 @@ from ..languages import Language, Languages
 DEFAULT_LANGUAGE = 'default'
 
 
-@dataclass
+@dataclass(frozen=True)
 class IncludeFile:
     """A single include file.
 
@@ -19,13 +19,13 @@ class IncludeFile:
     data: bytes
 
 
-@dataclass
+@dataclass(frozen=True)
 class LanguageIncludes:
     mainfile: str | None = None
     files: list[IncludeFile] = field(default_factory=list)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Includes:
     """All include files for a problem, keyed by language ID.
 
@@ -33,6 +33,15 @@ class Includes:
     """
 
     languages: dict[str, LanguageIncludes] = field(default_factory=dict)
+
+    def get_includes_for_language(self, language: str) -> LanguageIncludes:
+        """All includes relevant for `language`: the files registered for
+        DEFAULT_LANGUAGE (which apply to every language) plus those registered
+        for `language` itself, with the mainfile taken from `language`.
+        """
+        default_includes = self.languages.get(DEFAULT_LANGUAGE, LanguageIncludes())
+        lang_includes = self.languages.get(language, LanguageIncludes())
+        return LanguageIncludes(mainfile=lang_includes.mainfile, files=default_includes.files + lang_includes.files)
 
 
 def load_includes(probdir: Path, language_config: Languages) -> Includes:
@@ -49,15 +58,14 @@ def load_includes(probdir: Path, language_config: Languages) -> Includes:
 
 
 def _load_language_includes(lang_dir: Path, language: Language | None) -> LanguageIncludes:
-    files = [
-        IncludeFile(path=path.relative_to(lang_dir), data=path.read_bytes())
-        for path in sorted(p for p in lang_dir.rglob('*') if p.is_file())
-    ]
+    paths = sorted(p for p in lang_dir.rglob('*') if p.is_file())
+    files = [IncludeFile(path=path.relative_to(lang_dir), data=path.read_bytes()) for path in paths]
 
     mainfile = None
     if language is not None:
-        candidates = language.mainfile_candidates([f.path for f in files])
+        source_files = language.get_source_files(paths)
+        candidates = language.mainfile_candidates(source_files)
         if candidates:
-            mainfile = str(candidates[0])
+            mainfile = str(Path(candidates[0]).relative_to(lang_dir))
 
     return LanguageIncludes(mainfile=mainfile, files=files)
