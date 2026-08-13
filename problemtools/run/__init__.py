@@ -4,6 +4,8 @@ Problemtools.
 
 import os
 
+from ..languages import Languages
+from ..model import Includes
 from . import rutil
 from .buildrun import BuildRun
 from .checktestdata import Checktestdata
@@ -13,8 +15,6 @@ from .source import SourceCode
 from .tools import get_tool as get_tool
 from .tools import get_tool_path as get_tool_path
 from .viva import Viva
-from ..languages import Languages
-from ..model import Includes
 
 
 def find_programs(

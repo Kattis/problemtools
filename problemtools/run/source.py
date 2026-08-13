@@ -8,11 +8,11 @@ import shlex
 import subprocess
 import tempfile
 
+from ..languages import Language
+from ..model import LanguageIncludes
 from . import rutil
 from .errors import ProgramError
 from .program import Program
-from ..languages import Language
-from ..model import LanguageIncludes
 
 log = logging.getLogger(__name__)
 
