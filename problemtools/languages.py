@@ -6,9 +6,16 @@ of programming languages.
 import fnmatch
 import re
 import string
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TypeVar
 
 from . import config
+
+# Used to preserve the str-vs-Path type of file names through the
+# file-list-filtering methods below. We eventually want to move
+# to Path.
+StrOrPath = TypeVar('StrOrPath', str, Path)
 
 
 class LanguageConfigError(Exception):
@@ -32,7 +39,7 @@ class Language:
     shebang_files: list[str] | None = None
     compile: str | None = None
 
-    def __init__(self, lang_id, lang_spec):
+    def __init__(self, lang_id: str, lang_spec: dict):
         """Construct language object
 
         Args:
@@ -45,7 +52,7 @@ class Language:
         self.lang_id = lang_id
         self.update(lang_spec)
 
-    def get_source_files(self, file_list):
+    def get_source_files(self, file_list: Sequence[StrOrPath]) -> list[StrOrPath]:
         """Given a list of files, determine which ones would be considered
         source files for the language.
 
@@ -57,7 +64,7 @@ class Language:
         """
         return [file_name for file_name in file_list if any(fnmatch.fnmatch(file_name, glob) for glob in self.files)]
 
-    def get_source_files_for_detection(self, file_list):
+    def get_source_files_for_detection(self, file_list: Sequence[StrOrPath]) -> list[StrOrPath]:
         """Given a list of files, determine which ones count as positive
         evidence that a program is written in this language, for use when
         auto-detecting a program's language (see Languages.detect_language).
@@ -73,7 +80,7 @@ class Language:
         """
         return [file_name for file_name in self.get_source_files(file_list) if self.__passes_shebang_gate(file_name)]
 
-    def mainfile_candidates(self, files: list[str | Path]) -> list[str | Path]:
+    def mainfile_candidates(self, files: Sequence[StrOrPath]) -> list[StrOrPath]:
         """Given a list of files, determine which ones would be considered
         plausible mainfiles for the language, i.e. an entrypoint override.
 
@@ -88,7 +95,7 @@ class Language:
     # Update is no longer really needed - we only call it from the constructor.
     # But cleaning that up doesn't simplify the code much, so we keep it around
     # for now.
-    def update(self, values):
+    def update(self, values: dict) -> None:
         """Update a language specification with new values.
 
         Args:
@@ -122,7 +129,7 @@ class Language:
 
         self.__check()
 
-    def __check(self):
+    def __check(self) -> None:
         """Check that the language specification is valid (all mandatory
         fields provided, all metavariables used in compile/run
         commands valid, and uniquely defined entry point.
@@ -155,12 +162,12 @@ class Language:
             raise LanguageConfigError('More than one entry point type variable used for language %s' % self.lang_id)
 
     @staticmethod
-    def __variables_in_command(cmd):
+    def __variables_in_command(cmd: str) -> set[str]:
         """List all meta-variables appearing in a string."""
         formatter = string.Formatter()
         return set(field for _, field, _, _ in formatter.parse(cmd) if field is not None)
 
-    def __passes_shebang_gate(self, filename):
+    def __passes_shebang_gate(self, filename: str | Path) -> bool:
         """Check if a file matched by shebang_files also matches shebang.
         Files not matched by shebang_files are unaffected by the gate."""
         if self.shebang_files is None:
@@ -176,7 +183,7 @@ class Language:
 class Languages:
     """A set of languages."""
 
-    def __init__(self, data=None):
+    def __init__(self, data: dict | None = None):
         """Create a set of languages from a dict.
 
         Args:
@@ -184,11 +191,11 @@ class Languages:
                 If None, resulting set of languages is empty.
                 See documentation of update() method below for details.
         """
-        self.languages = {}
+        self.languages: dict[str, Language] = {}
         if data is not None:
             self.update(data)
 
-    def detect_language(self, file_list):
+    def detect_language(self, file_list: Sequence[StrOrPath]) -> Language | None:
         """Auto-detect language for a set of files.
 
         Args:
@@ -199,7 +206,7 @@ class Languages:
             list of files did not match any language in the set.
         """
         result = None
-        src: list[str] = []
+        src: list[StrOrPath] = []
         prio = 1e99
         for lang in self.languages.values():
             lang_src = lang.get_source_files_for_detection(file_list)
@@ -209,12 +216,12 @@ class Languages:
                 prio = lang.priority
         return result
 
-    def get(self, lang_id):
+    def get(self, lang_id: str) -> Language | None:
         if not isinstance(lang_id, str):
             raise LanguageConfigError('Config file error: language IDs must be strings, but %s is %s.' % (lang_id, type(lang_id)))
         return self.languages.get(lang_id, None)
 
-    def update(self, data):
+    def update(self, data: dict) -> None:
         """Update the set with language configuration data from a dict.
 
         Args:
@@ -245,7 +252,7 @@ class Languages:
             else:
                 self.languages[lang_id].update(lang_spec)
 
-        priorities: dict[int, Language] = {}
+        priorities: dict[int, str] = {}
         for lang_id, lang in self.languages.items():
             if lang.priority in priorities:
                 raise LanguageConfigError(
