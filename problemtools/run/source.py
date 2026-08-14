@@ -125,7 +125,6 @@ class SourceCode(Program):
             subs['path'] = os.path.relpath(subs['path'], cwd)
             subs['binary'] = os.path.relpath(subs['binary'], cwd)
             subs['mainfile'] = os.path.relpath(subs['mainfile'], cwd)
-        assert self.language.run is not None, 'Language.__check() guarantees run is always set'
         return shlex.split(self.language.run.format(**subs))
 
     def should_skip_memory_rlimit(self) -> bool:

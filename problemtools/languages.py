@@ -24,6 +24,14 @@ class Language:
     __VARIABLES = ['path', 'files', 'binary', 'mainfile', 'mainclass', 'Mainclass', 'memlim']
     __MAINFILE_RE = re.compile(r'^main\.', re.IGNORECASE)
 
+    name: str
+    priority: int
+    files: list[str]
+    run: str
+    shebang: re.Pattern[str] | None = None
+    shebang_files: list[str] | None = None
+    compile: str | None = None
+
     def __init__(self, lang_id, lang_spec):
         """Construct language object
 
@@ -35,13 +43,6 @@ class Language:
         if not re.match('[a-z][a-z0-9]*', lang_id):
             raise LanguageConfigError('Invalid language ID "%s"' % lang_id)
         self.lang_id = lang_id
-        self.name = None
-        self.priority = None
-        self.files = None
-        self.shebang = None
-        self.shebang_files = None
-        self.compile = None
-        self.run = None
         self.update(lang_spec)
 
     def get_source_files(self, file_list):
@@ -54,7 +55,7 @@ class Language:
         Args:
             file_list (list of str): list of file names
         """
-        return [file_name for file_name in file_list if any(fnmatch.fnmatch(file_name, glob) for glob in self.files)]  # type: ignore[union-attr]
+        return [file_name for file_name in file_list if any(fnmatch.fnmatch(file_name, glob) for glob in self.files)]
 
     def get_source_files_for_detection(self, file_list):
         """Given a list of files, determine which ones count as positive
@@ -84,6 +85,9 @@ class Language:
         """
         return [f for f in files if Language.__MAINFILE_RE.match(Path(f).name)]
 
+    # Update is no longer really needed - we only call it from the constructor.
+    # But cleaning that up doesn't simplify the code much, so we keep it around
+    # for now.
     def update(self, values):
         """Update a language specification with new values.
 
@@ -123,14 +127,15 @@ class Language:
         fields provided, all metavariables used in compile/run
         commands valid, and uniquely defined entry point.
         """
-        # Check that all mandatory fields are provided
-        if self.name is None:
+        # Check that all mandatory fields are provided. These attributes
+        # may not exist yet -- hence getattr() rather than a direct read.
+        if getattr(self, 'name', None) is None:
             raise LanguageConfigError(f'Language {self.lang_id} has no name')
-        if self.priority is None:
+        if getattr(self, 'priority', None) is None:
             raise LanguageConfigError(f'Language {self.lang_id} has no priority')
-        if self.files is None:
+        if getattr(self, 'files', None) is None:
             raise LanguageConfigError(f'Language {self.lang_id} has no files glob')
-        if self.run is None:
+        if getattr(self, 'run', None) is None:
             raise LanguageConfigError(f'Language {self.lang_id} has no run command')
         if (self.shebang is None) != (self.shebang_files is None):
             raise LanguageConfigError(f'Language {self.lang_id} must specify both "shebang" and "shebang_files", or neither')
@@ -160,11 +165,12 @@ class Language:
         Files not matched by shebang_files are unaffected by the gate."""
         if self.shebang_files is None:
             return True
+        assert self.shebang is not None, '__check() guarantees shebang and shebang_files are set together'
         if not any(fnmatch.fnmatch(filename, glob) for glob in self.shebang_files):
             return True
         with open(filename, 'r') as f_in:
             shebang_line = f_in.readline()
-        return self.shebang.search(shebang_line) is not None  # type: ignore[union-attr]
+        return self.shebang.search(shebang_line) is not None
 
 
 class Languages:
