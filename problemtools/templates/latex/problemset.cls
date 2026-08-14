@@ -459,6 +459,20 @@
 % and should not be used in plastex mode
 \ifplastex\else
 
+% For md files, we use pandoc to convert to latex. Pandoc since 3.2.1
+% requires us to include this macro. Copied from
+% https://github.com/jgm/pandoc-templates/commit/6c0e7b0a4f990debcd38b5c3bd8599193ae8f5a6#diff-f218051b4ca8f740a9f585a149101d4a3025037c568b391b5216edf7b14cfadc
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+
 \AtBeginDocument{
   %% Set up headers
   \fancypagestyle{problem}{
