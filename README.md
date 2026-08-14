@@ -189,26 +189,25 @@ problemtools' configuration:
 
 1. `languages.yaml`.  Use it to override problemtools' default
    programming language configuration.  For instance, while the
-   problemtools default is to use the CPython `/usr/bin/python3`
-   interpreter for Python 3, many contests, as well as the Kattis
-   online judge, use Pypy as the interpreter for Python 3.  To change
-   this on your machine, you can simply place a file
-   `/etc/kattis/problemtools/languages.yaml` (or
-   `~/.config/problemtools/languages.yaml` if you only want to make the
-   change for your user) containing the following:
+   problemtools default is to use the PyPy `/usr/bin/pypy3`
+   interpreter for Python 3. If you prefer  CPython, you can
+   use the following `languages.yaml`:
 
    ```yaml
    python3:
-      name: 'Python 3 w/Pypy'
-      run: '/usr/bin/pypy3 "{mainfile}"'
+      name: 'Python 3'
+      compile: '/usr/bin/python3 -m py_compile {files}'
+      run: '/usr/bin/python3 "{mainfile}"'
    ```
    Here, overriding the name of the language is not strictly
-   necessary, but it is often helpful to clearly indicate that Pypy is
-   being used.
+   necessary, but the default configuration mentions PyPy.
 
    For more details on the format of the language specifications and
    what the default settings are, see the [default version of
    languages.yaml](problemtools/config/languages.yaml)
+
+   The file `languages.yaml` may also be placed as a sibling to the problem
+   package being checked (e.g., for contest-specific language configuration).
 
 2. `problem.yaml`.  For most users, this should not be edited.  If you
    are not sure whether you should use it, then you probably shouldn't.
