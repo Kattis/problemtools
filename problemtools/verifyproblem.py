@@ -409,7 +409,7 @@ class TestCaseGroup(ProblemAspect):
                 for filename in files:
                     filepath = os.path.join(root, filename)
                     if filepath.endswith('.in') and not os.path.islink(filepath):
-                        md5 = hashlib.md5()
+                        md5 = hashlib.md5(usedforsecurity=False)
                         with open(filepath, 'rb') as f:
                             for buf in iter(lambda: f.read(1024), b''):
                                 md5.update(buf)
