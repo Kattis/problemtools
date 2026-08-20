@@ -11,7 +11,7 @@ from .program import Program
 class Executable(Program):
     """Class for executable files."""
 
-    def __init__(self, path: str, args: list[str] | None = None):
+    def __init__(self, path: str, args: list[str] | None = None) -> None:
         """Instantiate executable object.
 
         Args:
@@ -27,14 +27,14 @@ class Executable(Program):
         self.path = path
         self.args = args if args is not None else []
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String representation"""
         return '%s' % (self.path)
 
-    def get_runcmd(self, cwd=None, memlim=None):
+    def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
         """Command to run the program."""
         return [self.path] + self.args
 
-    def should_skip_memory_rlimit(self):
+    def should_skip_memory_rlimit(self) -> bool:
         """Ugly hack (see program.py for details)."""
         return True

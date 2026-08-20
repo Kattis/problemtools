@@ -14,7 +14,7 @@ from .program import Program
 class BuildRun(Program):
     """Class for build/run-script program."""
 
-    def __init__(self, path: str, work_dir: str):
+    def __init__(self, path: str, work_dir: str) -> None:
         """Instantiate BuildRun object.
 
         Args:
@@ -59,11 +59,11 @@ class BuildRun(Program):
             return (False, 'build script did not produce an executable called "run"')
         return (True, None)
 
-    def get_runcmd(self, cwd=None, memlim=None) -> list[str]:
+    def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
         """Run command for the program.
 
         Args:
-            cwd (str): if not None, the run command is provided
+            cwd: if not None, the run command is provided
                 relative to cwd (otherwise absolute paths are given).
         """
         path = self.path if cwd is None else os.path.relpath(self.path, cwd)

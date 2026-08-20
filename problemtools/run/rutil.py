@@ -7,21 +7,18 @@ import shutil
 from .errors import ProgramError
 
 
-def add_files(src, dstdir):
+def add_files(src: str, dstdir: str) -> None:
     """Copy src to dstdir.
 
     Args:
-        src (str): path of file(s) to copy.
+        src: path of file(s) to copy.
             If path is a file, that file will simply be copied to
             dstdir.
             If path is a directory, then every entry (both files and
             subdirectories) in that directory will be copied to
             dstdir.
-        dstdir (str): directory into which to copy src.  Must be an
+        dstdir: directory into which to copy src.  Must be an
             existing directory.
-
-    Returns:
-        None
     """
     try:
         if os.path.isfile(src):
@@ -41,12 +38,12 @@ def add_files(src, dstdir):
         raise
 
 
-def list_files_recursive(root):
+def list_files_recursive(root: str) -> list[str]:
     """List files in a directory with subdirectories.
 
     Returns:
-        list of str, all file names for all files contained in a
-        directory and its subdirectories.
+        all file names for all files contained in a directory and its
+        subdirectories.
     """
     ret = []
     for path, _, files in os.walk(root):

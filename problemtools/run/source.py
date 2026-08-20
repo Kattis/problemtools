@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path: str, language: Language, work_dir: str, includes: LanguageIncludes):
+    def __init__(self, path: str, language: Language, work_dir: str, includes: LanguageIncludes) -> None:
         """Instantiate SourceCode object
 
         Args:
@@ -103,15 +103,14 @@ class SourceCode(Program):
         except subprocess.CalledProcessError as err:
             return (False, err.output.decode('utf8', 'replace'))
 
-    def get_runcmd(self, cwd=None, memlim=1024):
+    def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
         """Run command for the program.
 
         Args:
-            cwd (str): if not None, the run command is provided
+            cwd: if not None, the run command is provided
                 relative to cwd (otherwise absolute paths are given).
-            memlim (int): if not None, memory limit in MiB (only
-                relevant for languages where memory limit is passed on
-                command line)
+            memlim: memory limit in MiB (only relevant for
+                languages where memory limit is passed on command line)
         """
         self.compile()
         subs = self.__get_substitution(memlim)

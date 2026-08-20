@@ -14,7 +14,7 @@ class Viva(Executable):
 
     _VIVA_PATH = get_tool_path('viva.sh')
 
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
         """Create a VIVA wrapper.
 
         Args:
@@ -24,7 +24,7 @@ class Viva(Executable):
             raise ProgramError('Could not locate the VIVA program to run %s' % path)
         super().__init__(Viva._VIVA_PATH, args=[path])
 
-    def __str__(self):
+    def __str__(self) -> str:
         """String representation"""
         return '%s' % (self.args[0])
 
@@ -38,24 +38,30 @@ class Viva(Executable):
         return ((os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0), None)
 
     def run(
-        self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null', args=None, timelim=1000, memlim=1024, work_dir=None
-    ):
+        self,
+        infile: str = '/dev/null',
+        outfile: str = '/dev/null',
+        errfile: str = '/dev/null',
+        args: list[str] | None = None,
+        timelim: int = 1000,
+        memlim: int = 1024,
+        work_dir: str | None = None,
+    ) -> tuple[int, float]:
         """Run the VIVA script to validate an input file.
 
         Args:
-            infile (str): name of input file to validate
-            outfile (str): file name to save stdout of VIVA in
-            errfile (str): file name to save stderr of VIVA in
-            args (list of str): additional command-line arguments to
-                pass to VIVA
-            timelim (int): time limit for the VIVA process in seconds
+            infile: name of input file to validate
+            outfile: file name to save stdout of VIVA in
+            errfile: file name to save stderr of VIVA in
+            args: additional command-line arguments to pass to VIVA
+            timelim: time limit for the VIVA process in seconds
 
         Returns:
             tuple (status, runtime):
-                status (int): exit status of the validator.
+                status: exit status of the validator.
                     WEXITSTATUS(status) will be 42 if and only if VIVA
                     accepted the input file.
-                runtime (float): runtime of the VIVA process in seconds
+                runtime: runtime of the VIVA process in seconds
         """
         if args is None:
             args = []
