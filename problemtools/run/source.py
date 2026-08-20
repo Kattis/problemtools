@@ -49,7 +49,7 @@ class SourceCode(Program):
         # Set up work-space
         self.path = os.path.join(work_dir, self.name)
         if os.path.exists(self.path):
-            self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=work_dir)
+            self.path = tempfile.mkdtemp(prefix=f'{self.name}-', dir=work_dir)
         else:
             os.makedirs(self.path)
 
@@ -64,7 +64,7 @@ class SourceCode(Program):
 
         self.src = sorted(self.language.get_source_files(rutil.list_files_recursive(self.path)))
         if len(self.src) == 0:
-            raise ProgramError('No source files found for language %s in %s' % (self.language.lang_id, self.name))
+            raise ProgramError(f'No source files found for language {self.language.lang_id} in {self.name}')
 
         if includes.mainfile is not None:
             self.mainfile = os.path.join(self.path, includes.mainfile)
@@ -126,7 +126,7 @@ class SourceCode(Program):
 
     def __str__(self) -> str:
         """String representation"""
-        return '%s (%s)' % (self.name, self.language.name)
+        return f'{self.name} ({self.language.name})'
 
     def __get_substitution(self, memlim: int = 1024) -> CommandSubstitution:
         return CommandSubstitution(

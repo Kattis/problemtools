@@ -21,7 +21,7 @@ class Checktestdata(Executable):
 
     def __str__(self) -> str:
         """String representation"""
-        return '%s' % (self.args[-1])
+        return self.args[-1]
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Syntax-check the Checktestdata script

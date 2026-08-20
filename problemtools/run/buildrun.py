@@ -24,14 +24,14 @@ class BuildRun(Program):
         super().__init__()
 
         if not os.path.isdir(path):
-            raise ProgramError('%s is not a directory' % path)
+            raise ProgramError(f'{path} is not a directory')
 
         if path[-1] == '/':
             path = path[:-1]
         self.name = os.path.basename(path)
         self.path = os.path.join(work_dir, self.name)
         if os.path.exists(self.path):
-            self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=work_dir)
+            self.path = tempfile.mkdtemp(prefix=f'{self.name}-', dir=work_dir)
         else:
             os.makedirs(self.path)
 
@@ -39,13 +39,13 @@ class BuildRun(Program):
 
         build = os.path.join(self.path, 'build')
         if not os.path.isfile(build):
-            raise ProgramError('%s does not have a build script' % path)
+            raise ProgramError(f'{path} does not have a build script')
         if not os.access(build, os.X_OK):
-            raise ProgramError('%s/build is not executable' % path)
+            raise ProgramError(f'{path}/build is not executable')
 
     def __str__(self) -> str:
         """String representation"""
-        return '%s (build-run)' % (self.name)
+        return f'{self.name} (build-run)'
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Run the build script."""

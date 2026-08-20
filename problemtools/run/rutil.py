@@ -34,7 +34,7 @@ def add_files(src: str, dstdir: str) -> None:
     except OSError as exc:
         # FIXME why is this specific error special-cased
         if exc.errno == errno.ENOENT:
-            raise ProgramError('File not found when copying program:\n %s' % exc.filename)
+            raise ProgramError(f'File not found when copying program:\n {exc.filename}')
         raise
 
 

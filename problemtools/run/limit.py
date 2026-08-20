@@ -19,22 +19,18 @@ def check_limit_capabilities(diagnostics: Diagnostics) -> None:
     """
     (_, cpu_hard) = resource.getrlimit(resource.RLIMIT_CPU)
     if cpu_hard != resource.RLIM_INFINITY:
-        diagnostics.warning(
-            'Hard CPU rlimit of %d, runs involving higher CPU limits than this may behave incorrectly.' % cpu_hard
-        )
+        diagnostics.warning(f'Hard CPU rlimit of {cpu_hard}, runs involving higher CPU limits than this may behave incorrectly.')
 
     (_, stack_hard) = resource.getrlimit(resource.RLIMIT_STACK)
     if stack_hard != resource.RLIM_INFINITY:
         diagnostics.warning(
-            "Hard stack rlimit of %d so I can't set it to unlimited. I will keep it at %d. If you experience unexpected issues (in particular run-time errors) this may be the cause."
-            % (stack_hard, stack_hard)
+            f"Hard stack rlimit of {stack_hard} so I can't set it to unlimited. I will keep it at {stack_hard}. If you experience unexpected issues (in particular run-time errors) this may be the cause."
         )
 
     (_, mem_hard) = resource.getrlimit(resource.RLIMIT_AS)
     if mem_hard != resource.RLIM_INFINITY:
         diagnostics.warning(
-            'Hard memory rlimit of %.0f MiB, runs involving a higher memory limit may behave incorrectly.  If you experience unexpected issues (in particular run-time errors) this may be the cause.'
-            % (mem_hard / 1024.0 / 1024.0)
+            f'Hard memory rlimit of {mem_hard / 1024.0 / 1024.0:.0f} MiB, runs involving a higher memory limit may behave incorrectly.  If you experience unexpected issues (in particular run-time errors) this may be the cause.'
         )
 
 

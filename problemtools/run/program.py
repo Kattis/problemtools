@@ -52,7 +52,7 @@ class Program(ABC):
         """
         runcmd = self.get_runcmd(memlim=memlim)
         if runcmd == []:
-            raise ProgramError('Could not figure out how to run %s' % self)
+            raise ProgramError(f'Could not figure out how to run {self}')
         if args is None:
             args = []
 
