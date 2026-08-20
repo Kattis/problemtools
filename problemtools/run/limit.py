@@ -4,37 +4,37 @@ Module for dealing with resource limits for problemtools runs.
 
 import resource
 
+from ..diagnostics import Diagnostics
 
-def check_limit_capabilities(logger):
+
+def check_limit_capabilities(diagnostics: Diagnostics) -> None:
     """Check if the problemtools process is run with appropriate
     capabilities to set rlimits, and if not, issue warnings.
 
     Params:
-        logger: object to issue warnings to (by calling 'warning' method)
+        diagnostics: Diagnostics to issue warnings to
 
     FIXME: if running as root with a hard stack or cpu rlimit set,
     this will still issue warnings.
     """
     (_, cpu_hard) = resource.getrlimit(resource.RLIMIT_CPU)
     if cpu_hard != resource.RLIM_INFINITY:
-        logger.warning('Hard CPU rlimit of %d, runs involving higher CPU limits than this may behave incorrectly.' % cpu_hard)
+        diagnostics.warning(f'Hard CPU rlimit of {cpu_hard}, runs involving higher CPU limits than this may behave incorrectly.')
 
     (_, stack_hard) = resource.getrlimit(resource.RLIMIT_STACK)
     if stack_hard != resource.RLIM_INFINITY:
-        logger.warning(
-            "Hard stack rlimit of %d so I can't set it to unlimited. I will keep it at %d. If you experience unexpected issues (in particular run-time errors) this may be the cause."
-            % (stack_hard, stack_hard)
+        diagnostics.warning(
+            f"Hard stack rlimit of {stack_hard} so I can't set it to unlimited. I will keep it at {stack_hard}. If you experience unexpected issues (in particular run-time errors) this may be the cause."
         )
 
     (_, mem_hard) = resource.getrlimit(resource.RLIMIT_AS)
     if mem_hard != resource.RLIM_INFINITY:
-        logger.warning(
-            'Hard memory rlimit of %.0f MiB, runs involving a higher memory limit may behave incorrectly.  If you experience unexpected issues (in particular run-time errors) this may be the cause.'
-            % (mem_hard / 1024.0 / 1024.0)
+        diagnostics.warning(
+            f'Hard memory rlimit of {mem_hard / 1024.0 / 1024.0:.0f} MiB, runs involving a higher memory limit may behave incorrectly.  If you experience unexpected issues (in particular run-time errors) this may be the cause.'
         )
 
 
-def try_limit(limit, soft, hard):
+def try_limit(limit: int, soft: int, hard: int) -> None:
     """Attempt to set an rlimit, but caps it at the current hard limit for
     the resource (instead of failing like a call to resource.setrlimit
     would).
@@ -52,12 +52,12 @@ def try_limit(limit, soft, hard):
     resource.setrlimit(limit, (soft, hard))
 
 
-def __limit_less(lim1, lim2):
+def __limit_less(lim1: int, lim2: int) -> bool:
     """Helper function for comparing two rlimit values, handling "unlimited" correctly.
 
     Params:
-        lim1 (integer): first rlimit
-        lim2 (integer): second rlimit
+        lim1: first rlimit
+        lim2: second rlimit
 
     Returns:
         true if lim1 <= lim2

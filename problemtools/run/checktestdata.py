@@ -11,17 +11,13 @@ from .executable import Executable
 class Checktestdata(Executable):
     """Wrapper class for running Checktestdata scripts."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: str) -> None:
         """Create a Checktestdata wrapper.
 
         Args:
             path: path to .ctd source file
         """
-        super().__init__(sys.executable, args=['-m', 'checktestdata', path])
-
-    def __str__(self) -> str:
-        """String representation"""
-        return '%s' % (self.args[-1])
+        super().__init__(sys.executable, args=['-m', 'checktestdata', path], name=os.path.basename(path))
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Syntax-check the Checktestdata script
@@ -34,26 +30,30 @@ class Checktestdata(Executable):
         return ((os.WIFEXITED(status) and os.WEXITSTATUS(status) in [0, 1]), None)
 
     def run(
-        self, infile='/dev/null', outfile='/dev/null', errfile='/dev/null', args=None, timelim=1000, memlim=1024, work_dir=None
-    ):
+        self,
+        infile: str = '/dev/null',
+        outfile: str = '/dev/null',
+        errfile: str = '/dev/null',
+        args: list[str] | None = None,
+        timelim: int = 1000,
+        memlim: int = 1024,
+        work_dir: str | None = None,
+    ) -> tuple[int, float]:
         """Run the Checktestdata script to validate an input file.
 
         Args:
-            infile (str): name of input file to validate
-            outfile (str): file name to save stdout of Checktestdata in
-            errfile (str): file name to save stderr of Checktestdata in
-            args (list of str): additional command-line arguments to
-                pass to Checktestdata
-            timelim (int): time limit for the Checktestdata process in
-                seconds
+            infile: name of input file to validate
+            outfile: file name to save stdout of Checktestdata in
+            errfile: file name to save stderr of Checktestdata in
+            args: additional command-line arguments to pass to Checktestdata
+            timelim: time limit for the Checktestdata process in seconds
 
         Returns:
             tuple (status, runtime):
-                status (int): exit status of the validator.
+                status: exit status of the validator.
                     WEXITSTATUS(status) will be 42 if and only if
                     Checktestdata accepted the input file.
-                runtime (float): runtime of the Checktestdata process
-                    in seconds
+                runtime: runtime of the Checktestdata process in seconds
         """
         (status, runtime) = super().run(
             infile=infile, outfile=outfile, errfile=errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir

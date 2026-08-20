@@ -2,7 +2,6 @@
 Implementation of programs provided by a directory with build/run scripts.
 """
 
-import logging
 import os
 import subprocess
 import tempfile
@@ -11,64 +10,55 @@ from . import rutil
 from .errors import ProgramError
 from .program import Program
 
-log = logging.getLogger(__file__)
-
 
 class BuildRun(Program):
     """Class for build/run-script program."""
 
-    def __init__(self, path: str, work_dir: str):
+    def __init__(self, path: str, work_dir: str) -> None:
         """Instantiate BuildRun object.
 
         Args:
             path: directory containing the build script.
             work_dir: name of temp directory in which to run the scripts.
         """
-        super().__init__()
-
         if not os.path.isdir(path):
-            raise ProgramError('%s is not a directory' % path)
+            raise ProgramError(f'{path} is not a directory')
 
         if path[-1] == '/':
             path = path[:-1]
-        self.name = os.path.basename(path)
-        self.path = os.path.join(work_dir, self.name)
-        if os.path.exists(self.path):
-            self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=work_dir)
+        name = os.path.basename(path)
+        run_path = os.path.join(work_dir, name)
+        if os.path.exists(run_path):
+            run_path = tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir)
         else:
-            os.makedirs(self.path)
+            os.makedirs(run_path)
+        super().__init__(path=run_path, name=name)
 
         rutil.add_files(path, self.path)
 
         build = os.path.join(self.path, 'build')
         if not os.path.isfile(build):
-            raise ProgramError('%s does not have a build script' % path)
+            raise ProgramError(f'{path} does not have a build script')
         if not os.access(build, os.X_OK):
-            raise ProgramError('%s/build is not executable' % path)
-
-    def __str__(self) -> str:
-        """String representation"""
-        return '%s/' % (self.path)
+            raise ProgramError(f'{path}/build is not executable')
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Run the build script."""
-        with open(os.devnull, 'w') as devnull:
-            status = subprocess.call(['./build'], stdout=devnull, stderr=devnull, cwd=self.path)
+        try:
+            subprocess.check_output(['./build'], stderr=subprocess.STDOUT, cwd=self.path)
+        except subprocess.CalledProcessError as err:
+            return (False, err.output.decode('utf8', 'replace'))
+
         run = os.path.join(self.path, 'run')
-
-        if status:
-            logging.debug('Build script failed (status %d) when compiling %s\n', status, self.name)
-            return (False, 'build script failed with exit code %d' % (status))
-        elif not os.path.isfile(run) or not os.access(run, os.X_OK):
+        if not os.path.isfile(run) or not os.access(run, os.X_OK):
             return (False, 'build script did not produce an executable called "run"')
-        else:
-            return (True, None)
+        return (True, None)
 
-    def get_runcmd(self, cwd=None, memlim=None) -> list[str]:
+    def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
         """Run command for the program.
 
         Args:
-            cwd (str): if not None, the run command is provided
+            cwd: if not None, the run command is provided
                 relative to cwd (otherwise absolute paths are given).
         """
         path = self.path if cwd is None else os.path.relpath(self.path, cwd)
