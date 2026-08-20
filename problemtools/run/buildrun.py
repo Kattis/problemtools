@@ -21,19 +21,18 @@ class BuildRun(Program):
             path: directory containing the build script.
             work_dir: name of temp directory in which to run the scripts.
         """
-        super().__init__()
-
         if not os.path.isdir(path):
             raise ProgramError(f'{path} is not a directory')
 
         if path[-1] == '/':
             path = path[:-1]
-        self.name = os.path.basename(path)
-        self.path = os.path.join(work_dir, self.name)
-        if os.path.exists(self.path):
-            self.path = tempfile.mkdtemp(prefix=f'{self.name}-', dir=work_dir)
+        name = os.path.basename(path)
+        run_path = os.path.join(work_dir, name)
+        if os.path.exists(run_path):
+            run_path = tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir)
         else:
-            os.makedirs(self.path)
+            os.makedirs(run_path)
+        super().__init__(path=run_path, name=name)
 
         rutil.add_files(path, self.path)
 
@@ -42,10 +41,6 @@ class BuildRun(Program):
             raise ProgramError(f'{path} does not have a build script')
         if not os.access(build, os.X_OK):
             raise ProgramError(f'{path}/build is not executable')
-
-    def __str__(self) -> str:
-        """String representation"""
-        return f'{self.name} (build-run)'
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Run the build script."""

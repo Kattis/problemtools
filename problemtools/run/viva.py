@@ -22,11 +22,7 @@ class Viva(Executable):
         """
         if Viva._VIVA_PATH is None:
             raise ProgramError(f'Could not locate the VIVA program to run {path}')
-        super().__init__(Viva._VIVA_PATH, args=[path])
-
-    def __str__(self) -> str:
-        """String representation"""
-        return self.args[0]
+        super().__init__(Viva._VIVA_PATH, args=[path], name=os.path.basename(path))
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Syntax-check the VIVA script

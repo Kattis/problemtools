@@ -16,10 +16,20 @@ log = logging.getLogger(__name__)
 class Program(ABC):
     """Abstract base class for programs."""
 
-    def __init__(self) -> None:
-        self.path: str = ''
+    def __init__(self, path: str, name: str) -> None:
+        """Instantiate program object.
+
+        Args:
+            path: full path to the program (possibly in a temporary directory).
+            name: human-readable name of the program.
+        """
+        self.path = path
+        self.name = name
         self._compile_lock = threading.Lock()
         self._compile_result: tuple[bool, str | None] | None = None
+
+    def __str__(self) -> str:
+        return self.name
 
     @abstractmethod
     def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:

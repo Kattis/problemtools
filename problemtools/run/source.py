@@ -39,19 +39,18 @@ class SourceCode(Program):
                 a mainfile, that takes precedence over the one we would
                 otherwise have detected.
         """
-        super().__init__()
-
         if path[-1] == '/':
             path = path[:-1]
-        self.name = os.path.basename(path)
-        self.language = language
+        name = os.path.basename(path)
 
         # Set up work-space
-        self.path = os.path.join(work_dir, self.name)
-        if os.path.exists(self.path):
-            self.path = tempfile.mkdtemp(prefix=f'{self.name}-', dir=work_dir)
+        run_path = os.path.join(work_dir, name)
+        if os.path.exists(run_path):
+            run_path = tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir)
         else:
-            os.makedirs(self.path)
+            os.makedirs(run_path)
+        super().__init__(path=run_path, name=name)
+        self.language = language
 
         # Copy all files
         rutil.add_files(path, self.path)

@@ -17,11 +17,7 @@ class Checktestdata(Executable):
         Args:
             path: path to .ctd source file
         """
-        super().__init__(sys.executable, args=['-m', 'checktestdata', path])
-
-    def __str__(self) -> str:
-        """String representation"""
-        return self.args[-1]
+        super().__init__(sys.executable, args=['-m', 'checktestdata', path], name=os.path.basename(path))
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Syntax-check the Checktestdata script

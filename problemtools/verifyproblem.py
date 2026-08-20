@@ -1220,7 +1220,7 @@ class Submissions(ProblemPart):
 
         rows = []
         for sub, results in all_submission_results:
-            row = [sub.name]  # type: ignore
+            row = [sub.name]
             for g in groups:
                 row.append(cell_for_group(results, g))
             if is_scoring:
@@ -1258,7 +1258,7 @@ class Submissions(ProblemPart):
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             for sub in self._submissions[acr]:
-                sub_name = sub.name  # type: ignore
+                sub_name = sub.name
                 if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     context.submit_background_work(lambda s: s.compile(), sub)
 
@@ -1305,7 +1305,7 @@ class Submissions(ProblemPart):
             runtimes = []
 
             for sub in self._submissions[acr]:
-                sub_name = sub.name  # type: ignore
+                sub_name = sub.name
                 if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     self.info(f'Check {acr} submission {sub}')
 
