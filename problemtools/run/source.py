@@ -4,11 +4,10 @@ Implementation of programs provided by source code.
 
 import logging
 import os
-import shlex
 import subprocess
 import tempfile
 
-from ..languages import Language
+from ..languages import CommandSubstitution, Language
 from ..model import LanguageIncludes
 from . import rutil
 from .errors import ProgramError
@@ -88,14 +87,13 @@ class SourceCode(Program):
             (True, None) if compilation succeeded
             (False, errmsg) otherwise
         """
-        if self.language.compile is None:
+        not_installed = self.language.check_installed()
+        if not_installed is not None:
+            return (False, not_installed)
+
+        command = self.language.get_compile_command(self.__get_substitution())
+        if command is None:
             return (True, None)
-
-        command = self.get_compilecmd()
-        compiler = command[0]
-
-        if not os.path.isfile(compiler) or not os.access(compiler, os.X_OK):
-            return (False, '%s does not seem to be installed, expected to find compiler at %s' % (self.language.name, compiler))
 
         log.debug('compile command: %s', command)
 
@@ -104,10 +102,6 @@ class SourceCode(Program):
             return (True, None)
         except subprocess.CalledProcessError as err:
             return (False, err.output.decode('utf8', 'replace'))
-
-    def get_compilecmd(self) -> list[str]:
-        assert self.language.compile is not None, 'get_compilecmd called for a language with no compile command'
-        return shlex.split(self.language.compile.format(**self.__get_substitution()))
 
     def get_runcmd(self, cwd=None, memlim=1024):
         """Run command for the program.
@@ -122,10 +116,10 @@ class SourceCode(Program):
         self.compile()
         subs = self.__get_substitution(memlim)
         if cwd is not None:
-            subs['path'] = os.path.relpath(subs['path'], cwd)
-            subs['binary'] = os.path.relpath(subs['binary'], cwd)
-            subs['mainfile'] = os.path.relpath(subs['mainfile'], cwd)
-        return shlex.split(self.language.run.format(**subs))
+            subs.path = os.path.relpath(subs.path, cwd)
+            subs.binary = os.path.relpath(subs.binary, cwd)
+            subs.mainfile = os.path.relpath(subs.mainfile, cwd)
+        return self.language.get_run_command(subs)
 
     def should_skip_memory_rlimit(self) -> bool:
         """Ugly hack (see program.py for details)."""
@@ -135,13 +129,13 @@ class SourceCode(Program):
         """String representation"""
         return '%s (%s)' % (self.name, self.language.name)
 
-    def __get_substitution(self, memlim=1024):
-        return {
-            'path': self.path,
-            'files': ' '.join(self.src),
-            'memlim': memlim,
-            'mainfile': self.mainfile,
-            'mainclass': self.mainclass,
-            'Mainclass': self.Mainclass,
-            'binary': self.binary,
-        }
+    def __get_substitution(self, memlim: int = 1024) -> CommandSubstitution:
+        return CommandSubstitution(
+            path=self.path,
+            files=' '.join(self.src),
+            memlim=memlim,
+            mainfile=self.mainfile,
+            mainclass=self.mainclass,
+            Mainclass=self.Mainclass,
+            binary=self.binary,
+        )

@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 from unittest import TestCase
 
 import pytest
@@ -201,6 +202,97 @@ class Language_test(TestCase):
         vals['compile'] = 'echo RUN'
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
+
+    @staticmethod
+    def __subs(**overrides):
+        values = {
+            'path': '/tmp/prog',
+            'files': 'main.foo',
+            'binary': '/tmp/prog/run',
+            'mainfile': '/tmp/prog/main.foo',
+            'mainclass': 'main',
+            'Mainclass': 'Main',
+            'memlim': 256,
+        }
+        values.update(overrides)
+        return languages.CommandSubstitution(**values)
+
+    def test_check_installed_ok(self):
+        # compile is 'echo ...' (found on PATH); run is '{binary} {memlim}',
+        # i.e. the program we just produced, so there's nothing external to
+        # check there.
+        lang = languages.Language('id', self.__language_dict())
+        assert lang.check_installed() is None
+
+    def test_check_installed_does_not_check_produced_entry_point(self):
+        # No compile step, and run is just the (self-contained) source file
+        # -- no external program is needed at all.
+        vals = self.__language_dict()
+        del vals['compile']
+        vals['run'] = '{mainfile}'
+        lang = languages.Language('id', vals)
+        assert lang.check_installed() is None
+
+    def test_check_installed_missing_compiler(self):
+        vals = self.__language_dict()
+        vals['compile'] = 'definitely_not_a_real_compiler_xyz {files} {binary}'
+        lang = languages.Language('id', vals)
+        msg = lang.check_installed()
+        assert msg is not None
+        assert 'compiler' in msg
+        assert 'definitely_not_a_real_compiler_xyz' in msg
+
+    def test_check_installed_missing_absolute_path(self):
+        vals = self.__language_dict()
+        vals['compile'] = '/nonexistent/path/to/compiler {files} {binary}'
+        lang = languages.Language('id', vals)
+        assert lang.check_installed() is not None
+
+    def test_check_installed_missing_runtime(self):
+        # No compile step -- the runtime must still be checked.
+        vals = self.__language_dict()
+        del vals['compile']
+        vals['run'] = 'definitely_not_a_real_runtime_xyz {mainfile}'
+        lang = languages.Language('id', vals)
+        msg = lang.check_installed()
+        assert msg is not None
+        assert 'runtime' in msg
+        assert 'definitely_not_a_real_runtime_xyz' in msg
+
+    def test_get_compile_command_none_without_compile_step(self):
+        vals = self.__language_dict()
+        del vals['compile']
+        lang = languages.Language('id', vals)
+        assert lang.get_compile_command(self.__subs()) is None
+
+    def test_get_compile_command_resolves_executable(self):
+        lang = languages.Language('id', self.__language_dict())
+        subs = self.__subs()
+        command = lang.get_compile_command(subs)
+        assert command == [shutil.which('echo'), subs.path, subs.files, subs.binary]
+
+    def test_get_run_command_resolves_executable(self):
+        vals = self.__language_dict()
+        vals['compile'] = 'echo {mainfile}'
+        vals['run'] = 'echo {mainfile}'
+        lang = languages.Language('id', vals)
+        subs = self.__subs()
+        assert lang.get_run_command(subs) == [shutil.which('echo'), subs.mainfile]
+
+    def test_get_run_command_leaves_produced_binary_untouched(self):
+        # run is '{binary} {memlim}' in the base dict -- the first token is
+        # the program we just compiled, not something to resolve via PATH.
+        lang = languages.Language('id', self.__language_dict())
+        subs = self.__subs()
+        assert lang.get_run_command(subs) == [subs.binary, str(subs.memlim)]
+
+    def test_get_compile_command_splits_multiple_files(self):
+        # {files} is a single space-separated string, but each file must
+        # end up as its own argument rather than one combined string.
+        lang = languages.Language('id', self.__language_dict())
+        subs = self.__subs(files='main.foo helper1.bar helper2.bar')
+        command = lang.get_compile_command(subs)
+        assert command == [shutil.which('echo'), subs.path, 'main.foo', 'helper1.bar', 'helper2.bar', subs.binary]
 
 
 __EXAMPLES_PATH = os.path.join(os.path.dirname(__file__), 'languages_examples')

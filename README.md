@@ -189,8 +189,8 @@ problemtools' configuration:
 
 1. `languages.yaml`.  Use it to override problemtools' default
    programming language configuration.  For instance, while the
-   problemtools default is to use the PyPy `/usr/bin/pypy3`
-   interpreter for Python 3. If you prefer  CPython, you can
+   problemtools default is to use the PyPy `pypy3` interpreter
+   for Python 3. If you prefer  CPython, you can
    use the following `languages.yaml`:
 
    ```yaml

@@ -1,0 +1,10 @@
+# We don't really use bandit ourselves, but codefactor runs it for us.
+# This config makes it less silly
+[bandit]
+# Plain directory names here (e.g. "tests") silently fail to exclude
+# anything, despite being the exact example bandit's docs uses...
+# https://bandit.readthedocs.io/en/latest/config.html#bandit-settings
+exclude = ./tests/*
+# Bandit warns about executing programs, using asserts, and also thinks
+# multi-pass is a hard-coded password...
+skips = B101,B105,B311,B404,B601,B603,B606,B607
