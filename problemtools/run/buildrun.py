@@ -2,7 +2,6 @@
 Implementation of programs provided by a directory with build/run scripts.
 """
 
-import logging
 import os
 import subprocess
 import tempfile
@@ -10,8 +9,6 @@ import tempfile
 from . import rutil
 from .errors import ProgramError
 from .program import Program
-
-log = logging.getLogger(__file__)
 
 
 class BuildRun(Program):
@@ -48,21 +45,19 @@ class BuildRun(Program):
 
     def __str__(self) -> str:
         """String representation"""
-        return '%s/' % (self.path)
+        return '%s (build-run)' % (self.name)
 
     def do_compile(self) -> tuple[bool, str | None]:
         """Run the build script."""
-        with open(os.devnull, 'w') as devnull:
-            status = subprocess.call(['./build'], stdout=devnull, stderr=devnull, cwd=self.path)
-        run = os.path.join(self.path, 'run')
+        try:
+            subprocess.check_output(['./build'], stderr=subprocess.STDOUT, cwd=self.path)
+        except subprocess.CalledProcessError as err:
+            return (False, err.output.decode('utf8', 'replace'))
 
-        if status:
-            logging.debug('Build script failed (status %d) when compiling %s\n', status, self.name)
-            return (False, 'build script failed with exit code %d' % (status))
-        elif not os.path.isfile(run) or not os.access(run, os.X_OK):
+        run = os.path.join(self.path, 'run')
+        if not os.path.isfile(run) or not os.access(run, os.X_OK):
             return (False, 'build script did not produce an executable called "run"')
-        else:
-            return (True, None)
+        return (True, None)
 
     def get_runcmd(self, cwd=None, memlim=None) -> list[str]:
         """Run command for the program.
