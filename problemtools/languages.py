@@ -3,8 +3,11 @@ This module contains functionality for reading and using configuration
 of programming languages.
 """
 
+import dataclasses
 import fnmatch
 import re
+import shlex
+import shutil
 import string
 from collections.abc import Sequence
 from pathlib import Path
@@ -22,13 +25,24 @@ class LanguageConfigError(Exception):
     """Exception class for errors in language configuration."""
 
 
+@dataclasses.dataclass
+class CommandSubstitution:
+    """Fields that may appear in a language's "compile" and "run" command templates"""
+
+    path: str
+    files: str
+    binary: str
+    mainfile: str
+    mainclass: str
+    Mainclass: str
+    memlim: int = 1024
+
+
 class Language:
-    """
-    Class representing a single language.
-    """
+    """Class representing a single language."""
 
     __KEYS = ['name', 'priority', 'files', 'shebang', 'shebang_files', 'compile', 'run']
-    __VARIABLES = ['path', 'files', 'binary', 'mainfile', 'mainclass', 'Mainclass', 'memlim']
+    __VARIABLES = {field.name for field in dataclasses.fields(CommandSubstitution)}
     __MAINFILE_RE = re.compile(r'^main\.', re.IGNORECASE)
 
     name: str
@@ -92,6 +106,58 @@ class Language:
         """
         return [f for f in files if Language.__MAINFILE_RE.match(Path(f).name)]
 
+    def check_installed(self) -> str | None:
+        """Check that the compiler and/or runtime seem available.
+
+        Returns:
+            None on success, or human-readable message describing what's missing
+        """
+        for role, template in (('compiler', self.compile), ('runtime', self.run)):
+            if template is None:
+                continue
+            executable = Language.__literal_executable(template)
+            if executable is not None and shutil.which(executable) is None:
+                return f'{self.name}: could not find {role} "{executable}" -- is it installed and on PATH?'
+        return None
+
+    def get_compile_command(self, subs: CommandSubstitution) -> list[str] | None:
+        """Command to compile a program, or None if there is no compile step."""
+        if self.compile is None:
+            return None
+        return self.__build_command(self.compile, subs)
+
+    def get_run_command(self, subs: CommandSubstitution) -> list[str]:
+        """Command to run a program in this language."""
+        return self.__build_command(self.run, subs)
+
+    def __build_command(self, template: str, subs: CommandSubstitution) -> list[str]:
+        """Substitute metavariables into a compile/run command template,
+        producing an argv list ready to execute.
+
+        If the template's command is a literal executable name/path rather
+        than one produced by compilation, it is resolved to an absolute path.
+
+        Args:
+            template: a "compile" or "run" command template, i.e.
+                self.compile or self.run.
+            subs: substitution values for the metavariables appearing
+                in template.
+        """
+        argv = shlex.split(template.format(**dataclasses.asdict(subs)))
+        executable = Language.__literal_executable(template)
+        if executable is not None:
+            argv[0] = shutil.which(executable) or executable
+        return argv
+
+    @staticmethod
+    def __literal_executable(template: str) -> str | None:
+        """The first token of a compile/run command template, if it's a
+        literal executable name/path -- as opposed to one produced by
+        compilation, such as {binary} or "{mainfile}.out". Returns None
+        for the latter case."""
+        first = shlex.split(template)[0]
+        return None if '{' in first else first
+
     # Update is no longer really needed - we only call it from the constructor.
     # But cleaning that up doesn't simplify the code much, so we keep it around
     # for now.
@@ -151,7 +217,7 @@ class Language:
         variables = Language.__variables_in_command(self.run)
         if self.compile is not None:
             variables = variables | Language.__variables_in_command(self.compile)
-        for unknown in variables - set(Language.__VARIABLES):
+        for unknown in variables - Language.__VARIABLES:
             raise LanguageConfigError('Unknown variable "{%s}" used for language %s' % (unknown, self.lang_id))
 
         # Check for uniquely defined entry point
