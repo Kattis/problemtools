@@ -42,7 +42,6 @@ fi
 echo "Building sdist and manylinux wheel"
 sudo rm -rf ./pypi_dist
 docker run --rm -v $(pwd)/..:/problemtools -v $(pwd)/pypi_dist:/dist quay.io/pypa/manylinux_2_28_x86_64 /bin/bash -c "
-    yum -y install boost-devel gmp-devel ;
     mkdir /build ;
     cd /build ;
     git config --global --add safe.directory /problemtools/.git ;

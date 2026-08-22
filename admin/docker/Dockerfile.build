@@ -20,5 +20,4 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         dpkg-dev \
         g++ \
         git \
-        make \
-        libboost-regex-dev
+        make

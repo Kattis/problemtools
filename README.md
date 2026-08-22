@@ -235,7 +235,7 @@ for any languages used in problem packages.
 
 The dependencies needed to *build/install* problemtools can be installed with:
 
-    sudo apt install python3-venv automake g++ make libboost-regex-dev libgmp-dev python3 git
+    sudo apt install python3-venv automake g++ make python3 git
 
 And the dependencies needed to *run* problemtools can be installed with:
 
@@ -249,7 +249,7 @@ To render problem statements to pdf with non-latin characters, also add the foll
 
 On Fedora, these dependencies can be installed with:
 
-    sudo dnf install boost-regex gcc gmp-devel gmp-c++ pandoc python3 python3-pyyaml texlive-latex texlive-collection-fontsrecommended texlive-fancyhdr texlive-subfigure texlive-wrapfig texlive-import texlive-ulem texlive-xifthen texlive-overpic texlive-pbox tidy ghostscript
+    sudo dnf install gcc pandoc python3 python3-pyyaml texlive-latex texlive-collection-fontsrecommended texlive-fancyhdr texlive-subfigure texlive-wrapfig texlive-import texlive-ulem texlive-xifthen texlive-overpic texlive-pbox tidy ghostscript
 
 Followed by:
 
