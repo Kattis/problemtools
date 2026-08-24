@@ -22,7 +22,7 @@ from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from re import Match, Pattern
-from typing import Any, ClassVar, Literal, ParamSpec, TypeVar
+from typing import Any, ClassVar, Literal, NoReturn, ParamSpec, TypeVar
 
 import yaml
 from pydantic import ValidationError
@@ -59,7 +59,7 @@ class ProblemAspect(ABC):
     def warnings(self) -> int:
         return self._diag.warnings
 
-    def fatal(self, msg: str, additional_info: str | None = None) -> None:
+    def fatal(self, msg: str, additional_info: str | None = None) -> NoReturn:
         self._check_res = False
         self._diag.fatal(msg, additional_info)
 
@@ -958,6 +958,8 @@ class OutputValidators(ProblemPart):
     @property
     def output_validator(self) -> run.Program:
         if self.uses_default_validator() or not self._validators:
+            if self._default_validator is None:
+                self.fatal('Unable to locate default validator')
             return self._default_validator
         return self._validators[0]
 
@@ -994,9 +996,6 @@ class OutputValidators(ProblemPart):
             self.error('There are validator programs but problem.yaml has validation = "default"')
         elif not self.uses_default_validator() and not self._validators:
             self.fatal('problem.yaml specifies custom validator but no validator programs found')
-
-        if self.uses_default_validator() and self._default_validator is None:
-            self.fatal('Unable to locate default validator')
 
         try:
             success, msg = self.output_validator.compile()
@@ -1221,7 +1220,7 @@ class Submissions(ProblemPart):
 
         rows = []
         for sub, results in all_submission_results:
-            row = [sub.name]  # type: ignore
+            row = [sub.name]
             for g in groups:
                 row.append(cell_for_group(results, g))
             if is_scoring:
@@ -1259,7 +1258,7 @@ class Submissions(ProblemPart):
         for verdict in Submissions._VERDICTS:
             acr = verdict[0]
             for sub in self._submissions[acr]:
-                sub_name = sub.name  # type: ignore
+                sub_name = sub.name
                 if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     context.submit_background_work(lambda s: s.compile(), sub)
 
@@ -1306,7 +1305,7 @@ class Submissions(ProblemPart):
             runtimes = []
 
             for sub in self._submissions[acr]:
-                sub_name = sub.name  # type: ignore
+                sub_name = sub.name
                 if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
                     self.info(f'Check {acr} submission {sub}')
 
@@ -1492,7 +1491,7 @@ class Problem(ProblemAspect):
             self._check_file_and_directory_names()
             self._check_submission_directory_names()
 
-            run.limit.check_limit_capabilities(self)
+            run.limit.check_limit_capabilities(self._diag)
 
             parts = [
                 part for part in part_mapping if part in context.parts

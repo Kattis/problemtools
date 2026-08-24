@@ -3,15 +3,15 @@ import os
 from .executable import Executable
 
 
-def get_tool_path(name):
+def get_tool_path(name: str) -> str | None:
     """Find the path to one of problemtools' external tools.
 
     Args:
-        name (str): which tool is wanted (one of [default_grader,
+        name: which tool is wanted (one of [default_grader,
             default_validator, interactive, checktestdata, viva.sh])
 
     Returns:
-        str, path to the tool, or None if the tool was not found.
+        path to the tool, or None if the tool was not found.
     """
     return __locate_executable(
         [
@@ -21,11 +21,11 @@ def get_tool_path(name):
     )
 
 
-def get_tool(name):
+def get_tool(name: str) -> Executable | None:
     """Get an Executable instance for one of problemtools' external tools.
 
     Args:
-        name(str): same as for get_tool_path
+        name: same as for get_tool_path
 
     Returns:
         problemtools.run.Executable object for the tool, or None if
@@ -35,15 +35,15 @@ def get_tool(name):
     return Executable(path) if path is not None else None
 
 
-def __locate_executable(candidate_paths):
+def __locate_executable(candidate_paths: list[str]) -> str | None:
     """Find executable among a set of paths.
 
     Args:
-        candidate_paths (list of str): list of locations in which to
-            look for an executable file.
+        candidate_paths: list of locations in which to look for an
+            executable file.
 
     Returns:
-        str, first entry of candidate_paths that is an executable
-            file, or None if no such entry.
+        first entry of candidate_paths that is an executable file, or
+        None if no such entry.
     """
     return next((p for p in candidate_paths if os.path.isfile(p) and os.access(p, os.X_OK)), None)

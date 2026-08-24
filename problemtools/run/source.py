@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path: str, language: Language, work_dir: str, includes: LanguageIncludes):
+    def __init__(self, path: str, language: Language, work_dir: str, includes: LanguageIncludes) -> None:
         """Instantiate SourceCode object
 
         Args:
@@ -39,19 +39,18 @@ class SourceCode(Program):
                 a mainfile, that takes precedence over the one we would
                 otherwise have detected.
         """
-        super().__init__()
-
         if path[-1] == '/':
             path = path[:-1]
-        self.name = os.path.basename(path)
-        self.language = language
+        name = os.path.basename(path)
 
         # Set up work-space
-        self.path = os.path.join(work_dir, self.name)
-        if os.path.exists(self.path):
-            self.path = tempfile.mkdtemp(prefix='%s-' % self.name, dir=work_dir)
+        run_path = os.path.join(work_dir, name)
+        if os.path.exists(run_path):
+            run_path = tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir)
         else:
-            os.makedirs(self.path)
+            os.makedirs(run_path)
+        super().__init__(path=run_path, name=name)
+        self.language = language
 
         # Copy all files
         rutil.add_files(path, self.path)
@@ -64,7 +63,7 @@ class SourceCode(Program):
 
         self.src = sorted(self.language.get_source_files(rutil.list_files_recursive(self.path)))
         if len(self.src) == 0:
-            raise ProgramError('No source files found for language %s in %s' % (self.language.lang_id, self.name))
+            raise ProgramError(f'No source files found for language {self.language.lang_id} in {self.name}')
 
         if includes.mainfile is not None:
             self.mainfile = os.path.join(self.path, includes.mainfile)
@@ -103,15 +102,14 @@ class SourceCode(Program):
         except subprocess.CalledProcessError as err:
             return (False, err.output.decode('utf8', 'replace'))
 
-    def get_runcmd(self, cwd=None, memlim=1024):
+    def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
         """Run command for the program.
 
         Args:
-            cwd (str): if not None, the run command is provided
+            cwd: if not None, the run command is provided
                 relative to cwd (otherwise absolute paths are given).
-            memlim (int): if not None, memory limit in MiB (only
-                relevant for languages where memory limit is passed on
-                command line)
+            memlim: memory limit in MiB (only relevant for
+                languages where memory limit is passed on command line)
         """
         self.compile()
         subs = self.__get_substitution(memlim)
@@ -127,7 +125,7 @@ class SourceCode(Program):
 
     def __str__(self) -> str:
         """String representation"""
-        return '%s (%s)' % (self.name, self.language.name)
+        return f'{self.name} ({self.language.name})'
 
     def __get_substitution(self, memlim: int = 1024) -> CommandSubstitution:
         return CommandSubstitution(
