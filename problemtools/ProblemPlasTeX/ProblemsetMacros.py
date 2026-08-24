@@ -36,7 +36,8 @@ class problemheader(Command):
         super().invoke(tex)
         timelimfile = os.path.join(os.path.dirname(tex.filename), '..', '.timelimit')
         if os.path.isfile(timelimfile):
-            self.attributes['timelim'] = open(timelimfile, 'r').read()
+            with open(timelimfile, 'r') as f:
+                self.attributes['timelim'] = f.read()
 
 
 # \sampletable
@@ -44,7 +45,8 @@ class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
     def read_sample_file(self, filename):
-        return open(filename, 'r', encoding='utf-8').read()
+        with open(filename, 'r', encoding='utf-8') as f:
+            return f.read()
 
     def invoke(self, tex):
         super().invoke(tex)
@@ -66,7 +68,8 @@ class sampletableinteractive(Command):
     args = 'header read write file:str'
 
     def read_sample_interaction(self, filename):
-        data = open(filename, 'r', encoding='utf-8').read()
+        with open(filename, 'r', encoding='utf-8') as f:
+            data = f.read()
         messages = []
         cur_msg: list[str] = []
         cur_mode = None

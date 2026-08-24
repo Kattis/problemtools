@@ -830,9 +830,8 @@ class InputValidators(ProblemPart):
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
             for desc, case in _JUNK_CASES:
-                f = open(file_name, 'wb')
-                f.write(case)
-                f.close()
+                with open(file_name, 'wb') as f:
+                    f.write(case)
                 for flags_str in all_flags:
                     flags = flags_str.split()
                     for val in self._validators:

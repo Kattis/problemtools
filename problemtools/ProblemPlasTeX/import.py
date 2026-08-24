@@ -1,5 +1,4 @@
 # noqa: N999 -- module name matches the plasTeX \import macro it implements, not PEP 8
-import codecs
 import os
 
 from plasTeX.Base import Command
@@ -23,7 +22,7 @@ class import_sty(Command):
         status.info(f' ( {fullpath} ')
         try:
             encoding = self.config['files']['input-encoding']
-            tex.input(codecs.open(fullpath, 'r', encoding, 'replace'))
+            tex.input(open(fullpath, 'r', encoding=encoding, errors='replace'))  # noqa: SIM115
         except OSError:
             log.warning('\nProblem opening file "%s"', fullpath)
         status.info(' ) ')
