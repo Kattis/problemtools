@@ -22,7 +22,7 @@ class BuildSupport(setuptools.Command):
 
     def run(self):
         dest = os.path.join(os.path.realpath(self.build_lib), 'problemtools', 'support')
-        command = ['make', '-C', 'support', 'install', 'DESTDIR=%s' % dest]
+        command = ['make', '-C', 'support', 'install', f'DESTDIR={dest}']
         subprocess.check_call(command)
 
 

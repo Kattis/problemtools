@@ -54,7 +54,7 @@ class Template:
         try:
             templatepath = next(p for p in templatepaths if p.is_dir() and (p / self.TEMPLATE_FILENAME).is_file())
         except StopIteration:
-            raise Exception('Could not find directory with latex template "%s"' % self.TEMPLATE_FILENAME)
+            raise Exception(f'Could not find directory with latex template "{self.TEMPLATE_FILENAME}"')
         self.templatefile = templatepath / self.TEMPLATE_FILENAME
 
         sample_dir = problem_root / 'data' / 'sample'

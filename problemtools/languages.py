@@ -62,7 +62,7 @@ class Language:
                 of the language.
         """
         if not re.match('[a-z][a-z0-9]*', lang_id):
-            raise LanguageConfigError('Invalid language ID "%s"' % lang_id)
+            raise LanguageConfigError(f'Invalid language ID "{lang_id}"')
         self.lang_id = lang_id
         self.update(lang_spec)
 
@@ -171,16 +171,16 @@ class Language:
 
         # Check that all provided values are known keys
         for unknown in set(values) - set(Language.__KEYS):
-            raise LanguageConfigError('Unknown key "%s" specified for language %s' % (unknown, self.lang_id))
+            raise LanguageConfigError(f'Unknown key "{unknown}" specified for language {self.lang_id}')
 
         for key, value in values.items():
             # Check type
             if key == 'priority':
                 if not isinstance(value, int):
-                    raise LanguageConfigError('Language %s: priority must be integer but is %s.' % (self.lang_id, type(value)))
+                    raise LanguageConfigError(f'Language {self.lang_id}: priority must be integer but is {type(value)}.')
             else:
                 if not isinstance(value, str):
-                    raise LanguageConfigError('Language %s: %s must be string but is %s.' % (self.lang_id, key, type(value)))
+                    raise LanguageConfigError(f'Language {self.lang_id}: {key} must be string but is {type(value)}.')
 
             # Save the value
             if key == 'shebang':
@@ -218,14 +218,14 @@ class Language:
         if self.compile is not None:
             variables = variables | Language.__variables_in_command(self.compile)
         for unknown in variables - Language.__VARIABLES:
-            raise LanguageConfigError('Unknown variable "{%s}" used for language %s' % (unknown, self.lang_id))
+            raise LanguageConfigError(f'Unknown variable "{{{unknown}}}" used for language {self.lang_id}')
 
         # Check for uniquely defined entry point
         entry = variables & set(['binary', 'mainfile', 'mainclass', 'Mainclass'])
         if len(entry) == 0:
-            raise LanguageConfigError('No entry point variable used for language %s' % self.lang_id)
+            raise LanguageConfigError(f'No entry point variable used for language {self.lang_id}')
         if len(entry) > 1:
-            raise LanguageConfigError('More than one entry point type variable used for language %s' % self.lang_id)
+            raise LanguageConfigError(f'More than one entry point type variable used for language {self.lang_id}')
 
     @staticmethod
     def __variables_in_command(cmd: str) -> set[str]:
@@ -284,7 +284,7 @@ class Languages:
 
     def get(self, lang_id: str) -> Language | None:
         if not isinstance(lang_id, str):
-            raise LanguageConfigError('Config file error: language IDs must be strings, but %s is %s.' % (lang_id, type(lang_id)))
+            raise LanguageConfigError(f'Config file error: language IDs must be strings, but {lang_id} is {type(lang_id)}.')
         return self.languages.get(lang_id, None)
 
     def update(self, data: dict) -> None:
@@ -297,18 +297,15 @@ class Languages:
                 for that language will be overridden and updated.
         """
         if not isinstance(data, dict):
-            raise LanguageConfigError('Config file error: content must be a dictionary, but is %s.' % (type(data)))
+            raise LanguageConfigError(f'Config file error: content must be a dictionary, but is {type(data)}.')
 
         for lang_id, lang_spec in data.items():
             if not isinstance(lang_id, str):
-                raise LanguageConfigError(
-                    'Config file error: language IDs must be strings, but %s is %s.' % (lang_id, type(lang_id))
-                )
+                raise LanguageConfigError(f'Config file error: language IDs must be strings, but {lang_id} is {type(lang_id)}.')
 
             if not isinstance(lang_spec, (dict, Language)):
                 raise LanguageConfigError(
-                    'Config file error: language spec must be a dictionary, but spec of language %s is %s.'
-                    % (lang_id, type(lang_spec))
+                    f'Config file error: language spec must be a dictionary, but spec of language {lang_id} is {type(lang_spec)}.'
                 )
 
             if isinstance(lang_spec, Language):
@@ -322,7 +319,7 @@ class Languages:
         for lang_id, lang in self.languages.items():
             if lang.priority in priorities:
                 raise LanguageConfigError(
-                    'Languages %s and %s both have priority %d.' % (lang_id, priorities[lang.priority], lang.priority)
+                    f'Languages {lang_id} and {priorities[lang.priority]} both have priority {lang.priority}.'
                 )
             priorities[lang.priority] = lang_id
 

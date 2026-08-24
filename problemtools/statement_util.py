@@ -29,7 +29,7 @@ def find_statements(problem_root: Path, version: FormatVersion) -> dict[str, lis
     directory = problem_root / version.statement_directory
     ret = collections.defaultdict(list)
     if directory.is_dir():
-        filename_re = re.compile(r'^problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$' % ('|'.join(version.statement_extensions)))
+        filename_re = re.compile(r'^problem(\.([a-z]{2,3}|[a-z]{2}-[A-Z]{2}))?\.(%s)$' % ('|'.join(version.statement_extensions)))  # noqa: UP031
         for file in directory.iterdir():
             if m := filename_re.search(file.name):
                 if m.group(2) is None:  # problem.tex is allowed and assumed to be 'en' in legacy. We ignore it in newer formats.
@@ -233,19 +233,19 @@ def format_normal_sample(sample_root: str, sample: str, casenum: int) -> str:
     with open(outpath, 'r', encoding='utf-8') as outfile:
         sample_output = outfile.read()
 
-    return """
+    return f"""
         <table class="sample" summary="sample data">
         <tbody>
             <tr>
-                <th>Sample Input %(case)d</th>
-                <th>Sample Output %(case)d</th>
+                <th>Sample Input {casenum}</th>
+                <th>Sample Output {casenum}</th>
             </tr>
             <tr>
-                <td><pre>%(input)s</pre></td>
-                <td><pre>%(output)s</pre></td>
+                <td><pre>{html.escape(sample_input)}</pre></td>
+                <td><pre>{html.escape(sample_output)}</pre></td>
             </tr>
         </tbody>
-        </table>""" % ({'case': casenum, 'input': html.escape(sample_input), 'output': html.escape(sample_output)})
+        </table>"""
 
 
 def format_interactive_sample(sample_root: str, sample: str, casenum: int, is_interactive: bool, is_multi_pass: bool) -> str:

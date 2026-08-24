@@ -42,7 +42,7 @@ class ImageConverter:
     def getImage(self, node):
         name = getattr(node, 'imageoverride', None)
         if name is None:
-            log.error('Image handler called for non-image node "%s"' % node.source)
+            log.error(f'Image handler called for non-image node "{node.source}"')
             return None
 
         if name in self.staticimages:
@@ -74,7 +74,7 @@ class ImageConverter:
             return img
 
         except Exception as msg:
-            log.warning('%s in image "%s".' % (msg, name))
+            log.warning(f'{msg} in image "{name}".')
         return None
 
 

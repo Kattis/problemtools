@@ -51,9 +51,9 @@ class sampletable(Command):
         file1 = os.path.join(dir, self.attributes['file1'])
         file2 = os.path.join(dir, self.attributes['file2'])
         try:
-            status.info(' ( verbatim %s ' % file1)
+            status.info(f' ( verbatim {file1} ')
             self.attributes['data1'] = self.read_sample_file(file1)
-            status.info(') ( verbatim %s ' % file2)
+            status.info(f') ( verbatim {file2} ')
             self.attributes['data2'] = self.read_sample_file(file2)
             status.info(') ')
         except OSError:
@@ -94,7 +94,7 @@ class sampletableinteractive(Command):
         dir = os.path.dirname(tex.filename)
         file = os.path.join(dir, self.attributes['file'])
         try:
-            status.info(' ( sampletableinteractive %s ' % file)
+            status.info(f' ( sampletableinteractive {file} ')
             self.attributes['messages'] = self.read_sample_interaction(file)
             status.info(') ')
         except OSError:
@@ -135,7 +135,7 @@ class _graphics_command(Command):
                     pass
 
         if img is None or not os.path.isfile(img):
-            log.warning('Could not identify image "%s"' % f)
+            log.warning(f'Could not identify image "{f}"')
 
         self.imageoverride = img
         return res

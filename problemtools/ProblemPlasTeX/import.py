@@ -19,7 +19,7 @@ class import_sty(Command):
         a = self.parse(tex)
         path = os.path.join(a['dir'], a['file'])
         fullpath = tex.kpsewhich(path)
-        status.info(' ( %s ' % fullpath)
+        status.info(f' ( {fullpath} ')
         try:
             encoding = self.config['files']['input-encoding']
             tex.input(codecs.open(fullpath, 'r', encoding, 'replace'))
