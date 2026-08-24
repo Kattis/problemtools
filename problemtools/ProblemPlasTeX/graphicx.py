@@ -1,3 +1,5 @@
+from typing import Any
+
 from plasTeX.Packages import graphics
 
 from problemtools.ProblemPlasTeX.ProblemsetMacros import _graphics_command, clean_width
@@ -11,7 +13,7 @@ class includegraphics(_graphics_command):
     packageName = 'graphicx'
     captionable = True
 
-    def invoke(self, tex):
+    def invoke(self, tex: Any) -> Any:
         res = _graphics_command.invoke(self, tex)
         options = self.attributes['options']
         if options is not None:

@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 import subprocess
-from typing import Final
+from typing import Any, Final
 
 from plasTeX.Filenames import Filenames
 from plasTeX.Imagers import Image
@@ -25,12 +25,12 @@ class ImageConverter:
         '.pdf': ('.png', ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o'])
     }
 
-    def __init__(self, document):
+    def __init__(self, document: Any) -> None:
         self.config = document.config
         self.ownerDocument = document
 
         # Cache of already seen images
-        self.staticimages = {}
+        self.staticimages: dict[str, Image] = {}
 
         # Filename generator
         self.newFilename = Filenames(
@@ -41,10 +41,10 @@ class ImageConverter:
             invalid={},
         )
 
-    def close(self):
+    def close(self) -> None:
         return
 
-    def getImage(self, node):
+    def getImage(self, node: Any) -> Image | None:
         name = getattr(node, 'imageoverride', None)
         if name is None:
             log.error(f'Image handler called for non-image node "{node.source}"')
@@ -93,7 +93,7 @@ class ProblemRenderer(Renderer):
     imageTypes: list[str] = ['.png', '.jpg', '.jpeg', '.gif']  # noqa: RUF012
     vectorImageTypes: list[str] = ['.svg']  # noqa: RUF012
 
-    def render(self, document, postProcess=None):
+    def render(self, document: Any, postProcess: Any = None) -> None:
         templatepaths = [
             os.path.join(os.path.dirname(__file__), '../templates/html'),
             os.path.join(os.path.dirname(__file__), '../../templates/html'),
@@ -121,7 +121,7 @@ class ProblemRenderer(Renderer):
 
         Renderer.render(self, document)
 
-    def processFileContent(self, document, s):
+    def processFileContent(self, document: Any, s: str) -> str:
         s = Renderer.processFileContent(self, document, s)
 
         # Force XHTML syntax on empty tags

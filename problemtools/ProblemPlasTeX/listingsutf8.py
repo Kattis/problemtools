@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from plasTeX.Base import Command
 from plasTeX.Logging import getLogger
@@ -12,10 +13,10 @@ log = getLogger()
 class lstinputlisting(Command):
     args = '* [ options:dict ] file:str'
 
-    def read_file(self, filename) -> str:
+    def read_file(self, filename: str) -> str:
         return open(filename, 'r', encoding='utf-8').read()
 
-    def invoke(self, tex) -> None:
+    def invoke(self, tex: Any) -> None:
         super().invoke(tex)
         assert self.ownerDocument is not None  # Keep mypy happy
         basetex = self.ownerDocument.userdata['base_tex_instance']
