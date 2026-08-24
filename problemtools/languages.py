@@ -11,7 +11,7 @@ import shutil
 import string
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TypeVar
+from typing import Final, TypeVar
 
 from . import config
 
@@ -41,8 +41,8 @@ class CommandSubstitution:
 class Language:
     """Class representing a single language."""
 
-    __KEYS = ['name', 'priority', 'files', 'shebang', 'shebang_files', 'compile', 'run']
-    __VARIABLES = {field.name for field in dataclasses.fields(CommandSubstitution)}
+    __KEYS: Final[list[str]] = ['name', 'priority', 'files', 'shebang', 'shebang_files', 'compile', 'run']
+    __VARIABLES: Final[set[str]] = {field.name for field in dataclasses.fields(CommandSubstitution)}
     __MAINFILE_RE = re.compile(r'^main\.', re.IGNORECASE)
 
     name: str

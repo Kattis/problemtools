@@ -22,7 +22,7 @@ from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from re import Match, Pattern
-from typing import Any, ClassVar, Literal, NoReturn, ParamSpec, TypeVar
+from typing import Any, ClassVar, Final, Literal, NoReturn, ParamSpec, TypeVar
 
 import yaml
 from pydantic import ValidationError
@@ -232,7 +232,7 @@ class TestCase(ProblemAspect):
 class TestCaseGroup(ProblemAspect):
     name: str
     _DEFAULT_CONFIG = config.load_config('testdata.yaml')
-    _SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
+    _SCORING_ONLY_KEYS: Final[list[str]] = ['accept_score', 'reject_score', 'range']
     is_group: Literal[True] = True  # Temporary workaround for a circular import in judge/submission_judge.py
 
     def __init__(self, problem: Problem, datadir: str | None = None, parent: TestCaseGroup | None = None):
@@ -1071,7 +1071,7 @@ class Includes(ProblemPart):
 
 class Submissions(ProblemPart):
     # (verdict, directory, required)
-    _VERDICTS: list[tuple[Verdict, str, bool]] = [
+    _VERDICTS: Final[list[tuple[Verdict, str, bool]]] = [
         ('AC', 'accepted', True),
         ('PAC', 'partially_accepted', False),
         ('WA', 'wrong_answer', False),

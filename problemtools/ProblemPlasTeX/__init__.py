@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import subprocess
+from typing import Final
 
 from plasTeX.Filenames import Filenames
 from plasTeX.Imagers import Image
@@ -17,8 +18,10 @@ class ImageConverter:
     imageAttrs = ''
     imageUnits = ''
 
-    imageTypes = ['.png', '.jpg', '.jpeg', '.gif']  # , '.svg']
-    imageConversion = {'.pdf': ('.png', ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o'])}
+    imageTypes: Final[list[str]] = ['.png', '.jpg', '.jpeg', '.gif']  # , '.svg']
+    imageConversion: Final[dict[str, tuple[str, list[str]]]] = {
+        '.pdf': ('.png', ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o'])
+    }
 
     def __init__(self, document):
         self.config = document.config
@@ -82,8 +85,11 @@ class ProblemRenderer(Renderer):
     """Renderer for ProblemHTML documents"""
 
     fileExtension = '.html'
-    imageTypes = ['.png', '.jpg', '.jpeg', '.gif']
-    vectorImageTypes = ['.svg']
+    # Overrides plasTeX's Renderer.imageTypes/vectorImageTypes, which are untyped instance
+    # attributes (assigned as bare `= []` with no ClassVar/Final) - mypy treats overriding them
+    # with ClassVar or Final as a Liskov violation, so we can't annotate these as constant.
+    imageTypes: list[str] = ['.png', '.jpg', '.jpeg', '.gif']  # noqa: RUF012
+    vectorImageTypes: list[str] = ['.svg']  # noqa: RUF012
 
     def render(self, document, postProcess=None):
         templatepaths = [
