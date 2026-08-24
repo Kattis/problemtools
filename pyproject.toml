@@ -43,5 +43,12 @@ local_scheme = "no-local-version"
 line-length = 130
 exclude = [ "examples" ]
 
+[tool.ruff.lint]
+ignore = [
+    "BLE001",  # Do not catch blind exception - we have several places where we do want to catch Exception
+    "EXE001",  # Shebang is present but file is not executable - harmless (and used to detect python2/3 in legacy problem packagse)
+    "SIM102",  # Use a single `if` statement instead of nested `if` statements - stylistic, stacking if:s can improve readability
+]
+
 [tool.ruff.format]
 quote-style = "single"
