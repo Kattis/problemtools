@@ -1,3 +1,4 @@
+# noqa: N999 -- module name matches the plasTeX \import macro it implements, not PEP 8
 import codecs
 import os
 

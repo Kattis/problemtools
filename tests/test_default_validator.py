@@ -76,7 +76,7 @@ def test_default_validator(validator: Path, test_dir: Path):
         with tempfile.NamedTemporaryFile() as dummy_judge_in:
             cmd = [str(validator), str(dummy_judge_in.name), str(judge_ans), str(feedback_dir), *args]
 
-            result = subprocess.run(cmd, stdin=user_out_f, capture_output=True, text=True, encoding='utf-8')
+            result = subprocess.run(cmd, stdin=user_out_f, capture_output=True, text=True, encoding='utf-8', check=False)
 
             assert result.returncode == expected_exit_code, f'Wrong exit code. Stderr: {result.stderr}'
 

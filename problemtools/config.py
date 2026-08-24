@@ -1,6 +1,7 @@
 import collections
+import itertools
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import yaml
@@ -10,17 +11,19 @@ class ConfigError(Exception):
     pass
 
 
-def load_config(configuration_file: str, priority_dirs: list[Path] = []) -> dict:
+def load_config(configuration_file: str, priority_dirs: Sequence[Path] = ()) -> dict:
     """Load a problemtools configuration file.
 
     Args:
         configuration_file (str): name of configuration file.  Name is
         relative to config directory so typically just a file name
         without paths, e.g. "languages.yaml".
+        priority_dirs: extra directories to search, in increasing order of
+        priority, on top of the default search path. Read-only - never mutated.
     """
     res: dict | None = None
 
-    for dirname in __config_file_paths() + priority_dirs:
+    for dirname in itertools.chain(__config_file_paths(), priority_dirs):
         path = dirname / configuration_file
         new_config = None
         if path.is_file():

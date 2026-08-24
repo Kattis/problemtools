@@ -4,6 +4,10 @@ import tempfile
 from pathlib import Path
 
 
+class TemplateError(Exception):
+    pass
+
+
 class Template:
     """Deals with the temporary .tex file template needed to render a LaTeX problem statement
 
@@ -54,7 +58,7 @@ class Template:
         try:
             templatepath = next(p for p in templatepaths if p.is_dir() and (p / self.TEMPLATE_FILENAME).is_file())
         except StopIteration:
-            raise Exception(f'Could not find directory with latex template "{self.TEMPLATE_FILENAME}"')
+            raise TemplateError(f'Could not find directory with latex template "{self.TEMPLATE_FILENAME}"')
         self.templatefile = templatepath / self.TEMPLATE_FILENAME
 
         sample_dir = problem_root / 'data' / 'sample'
@@ -125,4 +129,4 @@ class Template:
                                     res.add(char)
                 except (OSError, UnicodeDecodeError):
                     pass
-        return ''.join(sorted(list(res)))
+        return ''.join(sorted(res))

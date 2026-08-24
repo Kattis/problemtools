@@ -21,7 +21,7 @@ def find_programs(
     path: str,
     language_config: Languages,
     work_dir: str,
-    includes: Includes = Includes(),
+    includes: Includes = Includes(),  # noqa: B008 -- Includes is a frozen dataclass, so this is safe
     allow_validation_script: bool = False,
 ) -> list[Program]:
     """Find all programs in a directory.
@@ -67,7 +67,7 @@ def get_program(
     path: str,
     language_config: Languages,
     work_dir: str,
-    includes: Includes = Includes(),
+    includes: Includes = Includes(),  # noqa: B008 -- Includes is a frozen dataclass, so this is safe
     allow_validation_script: bool = False,
 ) -> Program | None:
     """Get a Program object for a program

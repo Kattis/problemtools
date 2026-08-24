@@ -221,7 +221,7 @@ class Language:
             raise LanguageConfigError(f'Unknown variable "{{{unknown}}}" used for language {self.lang_id}')
 
         # Check for uniquely defined entry point
-        entry = variables & set(['binary', 'mainfile', 'mainclass', 'Mainclass'])
+        entry = variables & {'binary', 'mainfile', 'mainclass', 'Mainclass'}
         if len(entry) == 0:
             raise LanguageConfigError(f'No entry point variable used for language {self.lang_id}')
         if len(entry) > 1:
@@ -231,7 +231,7 @@ class Language:
     def __variables_in_command(cmd: str) -> set[str]:
         """List all meta-variables appearing in a string."""
         formatter = string.Formatter()
-        return set(field for _, field, _, _ in formatter.parse(cmd) if field is not None)
+        return {field for _, field, _, _ in formatter.parse(cmd) if field is not None}
 
     def __passes_shebang_gate(self, filename: str | Path) -> bool:
         """Check if a file matched by shebang_files also matches shebang.

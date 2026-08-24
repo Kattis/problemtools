@@ -9,6 +9,8 @@ from plasTeX.Imagers import Image
 from plasTeX.Logging import getLogger
 from plasTeX.Renderers.PageTemplate import Renderer
 
+from problemtools.template import TemplateError
+
 log = getLogger()
 
 
@@ -63,7 +65,7 @@ class ImageConverter:
                 newext = self.imageConversion[oldext][0]
                 path = os.path.splitext(path)[0] + newext
                 cmd = self.imageConversion[oldext][1] + [path, name]
-                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
                 if result.returncode:
                     log.error(
                         'Failed to convert %s image "%s" to %s.\n%s', oldext, name, newext, result.stderr.decode(errors='replace')
@@ -103,7 +105,7 @@ class ProblemRenderer(Renderer):
                 templatepath = p
                 break
         if templatepath is None:
-            raise Exception('Could not find templates needed for conversion to HTML')
+            raise TemplateError('Could not find templates needed for conversion to HTML')
 
         # Ugly but unfortunately PlasTeX is quite inflexible when it comes to
         # configuring where to search for template files

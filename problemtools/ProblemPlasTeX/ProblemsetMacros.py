@@ -1,3 +1,4 @@
+# noqa: N999 -- module name matches the plasTeX macro file it implements, not PEP 8
 import os
 import os.path
 import sys

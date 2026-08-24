@@ -22,7 +22,7 @@ from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from re import Match, Pattern
-from typing import Any, ClassVar, Final, Literal, NoReturn, ParamSpec, TypeVar
+from typing import Any, ClassVar, Final, Literal, NoReturn, Self
 
 import yaml
 from pydantic import ValidationError
@@ -35,10 +35,6 @@ from .judge import CacheKey, SubmissionJudge, SubmissionResult, Verdict, validat
 from .version import add_version_arg
 
 random.seed(42)
-
-
-_T = TypeVar('_T')
-_P = ParamSpec('_P')
 
 
 class ProblemAspect(ABC):
@@ -360,8 +356,8 @@ class TestCaseGroup(ProblemAspect):
                     "'grader_flags: ignore_sample' is specified, but 'on_reject: break' may cause secret data not to be judged"
                 )
 
-        for field in self.config.keys():
-            if field not in TestCaseGroup._DEFAULT_CONFIG.keys():
+        for field in self.config:
+            if field not in TestCaseGroup._DEFAULT_CONFIG:
                 self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
 
         if not self._problem.is_scoring():
@@ -415,7 +411,7 @@ class TestCaseGroup(ProblemAspect):
                                 md5.update(buf)
                         filehash = md5.digest()
                         hashes[filehash].append(os.path.relpath(filepath, self._problem.probdir))
-            for _, files in hashes.items():
+            for files in hashes.values():
                 if len(files) > 1:
                     self.warning(f"Identical input files: '{files!s}'")
 
@@ -1443,7 +1439,7 @@ class Problem(ProblemAspect):
         self.submissions = Submissions(self)
         self.loaded = True
 
-    def __enter__(self) -> Problem:
+    def __enter__(self) -> Self:
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
         return self
 
