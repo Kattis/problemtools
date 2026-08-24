@@ -6,7 +6,9 @@ import os
 import re
 import subprocess
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 from . import metadata
@@ -85,7 +87,7 @@ def get_yaml_problem_name(problem_root: Path, language: str) -> str:
     return names[language]
 
 
-def json_dfs(data, callback) -> None:
+def json_dfs(data: Any, callback: Callable[[str], None]) -> None:
     """Traverse all items in a JSON tree, find all images, and call callback for each one"""
     if isinstance(data, dict):
         for key, value in data.items():
@@ -100,7 +102,7 @@ def json_dfs(data, callback) -> None:
             json_dfs(item, callback)
 
 
-def foreach_image(statement_path: Path, callback):
+def foreach_image(statement_path: Path, callback: Callable[[str], None]) -> None:
     """Find all images in the statement and call callback for each one"""
     command = ['pandoc', str(statement_path), '-t', 'json']
     # Must create a working directory for pytest to work

@@ -78,7 +78,7 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
 
 def sanitize_html(statement_dir: Path, statement_html: str, imgbasedir: str) -> str:
     # Allow footnote ids (the anchor points you jump to)
-    def is_fn_id(s):
+    def is_fn_id(s: str) -> bool:
         pattern_id_top = r'^fn\d+$'
         pattern_id_bottom = r'^fnref\d+$'
         return bool(re.fullmatch(pattern_id_top, s)) or bool(re.fullmatch(pattern_id_bottom, s))
@@ -88,7 +88,7 @@ def sanitize_html(statement_dir: Path, statement_html: str, imgbasedir: str) -> 
     # Annoying: nh3 will ignore exceptions in attribute_filter
     image_fail_reason: list[Exception] = []
 
-    def attribute_filter(tag, attribute, value):
+    def attribute_filter(tag: str, attribute: str, value: str) -> str | None:
         if attribute == 'class' and value in allowed_classes:
             return value
         # Never versions of Pandoc will give class="footnotes footnotes-end-of-document"

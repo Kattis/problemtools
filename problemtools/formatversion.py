@@ -1,5 +1,6 @@
 from enum import StrEnum
 from pathlib import Path
+from typing import Self
 
 import yaml
 
@@ -45,7 +46,7 @@ class FormatVersion(StrEnum):
     # Support 2023-07 and 2023-07-draft strings.
     # This method should be replaced with an alias once we require python 3.13
     @classmethod
-    def _missing_(cls, value):
+    def _missing_(cls, value: object) -> Self | None:
         if value == '2023-07':
             return cls.V_2023_07
         return None
