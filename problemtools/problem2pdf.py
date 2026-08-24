@@ -101,9 +101,7 @@ def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
 
         os.chdir(texfile.parent)
         params = ['lualatex', '--interaction=nonstopmode']
-        output = None
-        if options.quiet:
-            output = open(os.devnull, 'w')
+        output = subprocess.DEVNULL if options.quiet else None
         if options.nopdf:
             params.append('--draftmode')
 
@@ -112,9 +110,6 @@ def latex2pdf(options: argparse.Namespace, statement_file: Path) -> bool:
         status = subprocess.call(params, stdout=output)
         if status == 0:
             status = subprocess.call(params, stdout=output)
-
-        if output is not None:
-            output.close()
 
         os.chdir(origcwd)
 

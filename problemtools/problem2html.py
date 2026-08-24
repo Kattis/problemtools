@@ -59,10 +59,10 @@ def convert(options: argparse.Namespace, force_statement_file: Path | None = Non
                         print(f'Warning: file {f} has size {file_size_kib} KiB; consider reducing it')
 
         if options.bodyonly:
-            content = open(destfile).read()
+            content = Path(destfile).read_text(encoding='utf-8')
             body = re.search('<body>(.*)</body>', content, re.DOTALL)
             assert body
-            open(destfile, 'w').write(body.group(1))
+            Path(destfile).write_text(body.group(1), encoding='utf-8')
     finally:
         # restore cwd
         os.chdir(origcwd)

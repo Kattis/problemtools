@@ -2,11 +2,14 @@ import os
 import re
 import shutil
 import subprocess
+from typing import Final
 
 from plasTeX.Filenames import Filenames
 from plasTeX.Imagers import Image
 from plasTeX.Logging import getLogger
 from plasTeX.Renderers.PageTemplate import Renderer
+
+from problemtools.template import TemplateError
 
 log = getLogger()
 
@@ -17,8 +20,10 @@ class ImageConverter:
     imageAttrs = ''
     imageUnits = ''
 
-    imageTypes = ['.png', '.jpg', '.jpeg', '.gif']  # , '.svg']
-    imageConversion = {'.pdf': ('.png', ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o'])}
+    imageTypes: Final[list[str]] = ['.png', '.jpg', '.jpeg', '.gif']  # , '.svg']
+    imageConversion: Final[dict[str, tuple[str, list[str]]]] = {
+        '.pdf': ('.png', ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o'])
+    }
 
     def __init__(self, document):
         self.config = document.config
@@ -42,7 +47,7 @@ class ImageConverter:
     def getImage(self, node):
         name = getattr(node, 'imageoverride', None)
         if name is None:
-            log.error('Image handler called for non-image node "%s"' % node.source)
+            log.error(f'Image handler called for non-image node "{node.source}"')
             return None
 
         if name in self.staticimages:
@@ -60,7 +65,7 @@ class ImageConverter:
                 newext = self.imageConversion[oldext][0]
                 path = os.path.splitext(path)[0] + newext
                 cmd = self.imageConversion[oldext][1] + [path, name]
-                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
                 if result.returncode:
                     log.error(
                         'Failed to convert %s image "%s" to %s.\n%s', oldext, name, newext, result.stderr.decode(errors='replace')
@@ -74,7 +79,7 @@ class ImageConverter:
             return img
 
         except Exception as msg:
-            log.warning('%s in image "%s".' % (msg, name))
+            log.warning(f'{msg} in image "{name}".')
         return None
 
 
@@ -82,8 +87,11 @@ class ProblemRenderer(Renderer):
     """Renderer for ProblemHTML documents"""
 
     fileExtension = '.html'
-    imageTypes = ['.png', '.jpg', '.jpeg', '.gif']
-    vectorImageTypes = ['.svg']
+    # Overrides plasTeX's Renderer.imageTypes/vectorImageTypes, which are untyped instance
+    # attributes (assigned as bare `= []` with no ClassVar/Final) - mypy treats overriding them
+    # with ClassVar or Final as a Liskov violation, so we can't annotate these as constant.
+    imageTypes: list[str] = ['.png', '.jpg', '.jpeg', '.gif']  # noqa: RUF012
+    vectorImageTypes: list[str] = ['.svg']  # noqa: RUF012
 
     def render(self, document, postProcess=None):
         templatepaths = [
@@ -97,7 +105,7 @@ class ProblemRenderer(Renderer):
                 templatepath = p
                 break
         if templatepath is None:
-            raise Exception('Could not find templates needed for conversion to HTML')
+            raise TemplateError('Could not find templates needed for conversion to HTML')
 
         # Ugly but unfortunately PlasTeX is quite inflexible when it comes to
         # configuring where to search for template files

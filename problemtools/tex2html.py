@@ -24,9 +24,10 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
     imgbasedir = string.Template(options.imgbasedir).safe_substitute(problem=problem_root.name)
 
     # Set up template if necessary
-    with template.Template(problem_root, statement_file, options.language) as templ:
-        texfile = open(templ.get_file_name(), 'r')
-
+    with (
+        template.Template(problem_root, statement_file, options.language) as templ,
+        open(templ.get_file_name(), 'r') as texfile,
+    ):
         # Setup parser and renderer etc
         tex = plasTeX.TeX.TeX(file=texfile)
 
@@ -48,7 +49,6 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
         if not options.quiet:
             print('Parsing TeX source...')
         doc = tex.parse()
-        texfile.close()
 
     renderer.render(doc)
 

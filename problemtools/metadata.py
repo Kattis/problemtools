@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self, Union
+from typing import Any, Literal, Self
 from uuid import UUID
 
 import yaml
@@ -99,7 +99,7 @@ class InputCredits:
     """
 
     # Type in the input format is messy
-    PersonOrPersons = Union[str | list[Person | str]]
+    PersonOrPersons = str | list[Person | str]
 
     authors: PersonOrPersons = field(default_factory=list)
     contributors: PersonOrPersons = field(default_factory=list)
