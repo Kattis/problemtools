@@ -19,5 +19,4 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         dh-virtualenv \
         dpkg-dev \
         git \
-        make \
-        libboost-regex-dev
+        make
