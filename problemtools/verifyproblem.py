@@ -7,7 +7,6 @@ import difflib
 import glob
 import hashlib
 import logging
-import math
 import os
 import random
 import re
@@ -32,7 +31,7 @@ from . import checks, config, languages, metadata, model, problem2html, problem2
 from .context import PROBLEM_PARTS, Context
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
-from .judge import CacheKey, SubmissionJudge, SubmissionResult, Verdict, validate_output
+from .judge import CacheKey, SubmissionResult, validate_output
 from .version import add_version_arg
 
 random.seed(42)
@@ -1064,291 +1063,46 @@ class Includes(ProblemPart):
 
 
 class Submissions(ProblemPart):
-    # (verdict, directory, required)
-    _VERDICTS: Final[list[tuple[Verdict, str, bool]]] = [
-        ('AC', 'accepted', True),
-        ('PAC', 'partially_accepted', False),
-        ('WA', 'wrong_answer', False),
-        ('RTE', 'run_time_error', False),
-        ('TLE', 'time_limit_exceeded', False),
-    ]
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
 
     PART_NAME = 'submission'
 
     def setup(self) -> None:
-        self._submissions = {}
-        srcdir = os.path.join(self.problem.probdir, 'submissions')
-        for verdict in Submissions._VERDICTS:
-            acr = verdict[0]
-            self._submissions[acr] = run.find_programs(
-                os.path.join(srcdir, verdict[1]),
-                language_config=self.problem.language_config,
-                work_dir=self.problem.tmpdir,
-                includes=self.problem.includes.includes,
-            )
+        self.submissions = model.load_submissions(
+            Path(self.problem.probdir), self.problem.language_config, self.problem.tmpdir, self.problem.includes.includes
+        )
 
     def __str__(self) -> str:
         return 'submissions'
-
-    def check_submission(
-        self, sub: run.Program, context: Context, expected_verdict: Verdict, timelim: float, timelim_high: float
-    ) -> list[SubmissionResult]:
-        desc = f'{expected_verdict} submission {sub}'
-        partial = expected_verdict == 'PAC'
-
-        judge = SubmissionJudge(
-            sub=sub,
-            output_validator=self.problem.output_validators.output_validator,
-            metadata=self.problem.metadata,
-            root=self.problem.testdata,
-            base_dir=Path(self.problem.tmpdir),
-            context=context,
-            diag=self._diag,
-            custom_grader=self.problem.graders._grader,
-        )
-        if context.executor is not None:
-            judge.precompute(timelim_high)
-        results_high = judge.judge(timelim_high)
-        if not results_high:
-            self.fatal('check_submission called, but found no test cases to run on.')
-        result_high = results_high[-1]
-
-        results = judge.judge(timelim)
-        result = results[-1]
-
-        # Check if scores were outside of the range for any groups
-        if self.problem.is_scoring():
-            for r in results:
-                if r.score is not None and isinstance(r.test_node, TestCaseGroup):
-                    r.test_node.check_score_in_bounds(sub, r.score)
-
-        # Warn if AC (but not PAC) submissions fail on samples. It's not uncommon for sample cases to be
-        # ignored, so failing on them could be silent otherwise. Skip warning if the result isn't AC -
-        # then something worse has gone wrong, and we'll error later.
-        if expected_verdict == 'AC' and result.verdict == 'AC':
-            if sample_failure := self._find_sample_failure(results):
-                self.warning(f'{desc} got {sample_failure.verdict} on sample: {sample_failure}')
-
-        # Warn if a PAC submission would affect time limit, had it been use to compute the time limit. Only do this
-        # if it gets AC on the computed time limit, otherwise we have other warnings below.
-        if partial and result.verdict == 'AC':
-            self._warn_pac_too_slow(judge, results, timelim, desc)
-
-        if result.verdict != result_high.verdict or result.score != result_high.score:
-            self.warning(
-                f'{desc} sensitive to time limit: limit of {timelim} secs -> {result}, limit of {timelim_high} secs -> {result_high}'
-            )
-
-        required_verdict: Verdict = 'AC' if partial else expected_verdict
-        if partial and self.fully_accepted(result):
-            self.warning(f'{desc} was fully accepted: {result}')
-        elif result.verdict == required_verdict:
-            self.msg(f'   {desc} OK: {result}')
-            if not partial and required_verdict == 'AC' and not self.fully_accepted(result) and self.full_score_finite():
-                # For some heuristic problems, this is expected. Thus, only warn.
-                self.warning(f'{desc} did not attain full score (consider moving it to partially_accepted)')
-        elif result_high.verdict == required_verdict and not (partial and self.fully_accepted(result_high)):
-            self.msg(f'   {desc} OK with extra time: {result_high}')
-        else:
-            self.error(f'{desc} got {result}', result_high.additional_info)
-
-        return results
-
-    def _find_sample_failure(self, results: list[SubmissionResult]) -> SubmissionResult | None:
-        for r in results:
-            if r.verdict != 'AC' and isinstance(r.test_node, TestCase) and r.test_node.is_in_sample_group():
-                return r
-        return None
-
-    def _warn_pac_too_slow(self, judge: SubmissionJudge, results: list[SubmissionResult], timelim: float, desc: str) -> None:
-        """Warn if a PAC submission is slow enough that it would have affected the time limit."""
-        runtime_without_affecting_tl = timelim / self.problem.metadata.limits.time_multipliers.ac_to_time_limit
-        if judge.judge(runtime_without_affecting_tl)[-1].verdict == 'AC':
-            return
-        for t in sorted(r.runtime for r in results if r.runtime > runtime_without_affecting_tl):
-            if judge.judge(t)[-1].verdict == 'AC':
-                self.warning(f'{desc} is slower than all AC submissions. It needs {t:.2f}s to get AC')
-                return
-
-    def _get_table_groups(self) -> list[TestCaseGroup]:
-        """Return the groups to show as columns: expand any root child that has subgroups."""
-        result = []
-        for group in self.problem.testdata.get_subgroups():
-            subgroups = group.get_subgroups()
-            if subgroups:
-                result.extend(subgroups)
-            else:
-                result.append(group)
-        return result
-
-    def _print_results_table(self, all_submission_results: list[tuple[run.Program, list[SubmissionResult]]]) -> None:
-        groups = self._get_table_groups()
-        is_scoring = self.problem.is_scoring()
-
-        def cell_for_group(results: list[SubmissionResult], group: TestCaseGroup) -> str:
-            for r in results:
-                if r.test_node is group:
-                    if r.verdict == 'AC':
-                        if is_scoring and r.score is not None:
-                            score_str = f'{int(r.score)}' if r.score == int(r.score) else f'{r.score:.2f}'
-                            score_part = f'({score_str})'
-                        else:
-                            score_part = ''
-                        return f'AC{score_part}:{r.runtime:.2f}s'
-                    return r.verdict
-            return '-'
-
-        def cell_for_pts(results: list[SubmissionResult]) -> str:
-            score = results[-1].score
-            return f'{score:.0f}' if score is not None else '-'
-
-        def cell_for_time(results: list[SubmissionResult]) -> str:
-            t = results[-1].runtime
-            return f'{t:.2f}s' if t >= 0 else '-'
-
-        headers = ['Submission'] + [os.path.basename(g._datadir) for g in groups]
-        if is_scoring:
-            headers.append('Pts')
-        headers.append('Time')
-
-        rows = []
-        for sub, results in all_submission_results:
-            row = [sub.name]
-            for g in groups:
-                row.append(cell_for_group(results, g))
-            if is_scoring:
-                row.append(cell_for_pts(results))
-            row.append(cell_for_time(results))
-            rows.append(row)
-
-        widths = [len(h) for h in headers]
-        for row in rows:
-            for i, cell in enumerate(row):
-                widths[i] = max(widths[i], len(cell))
-
-        self.msg('Submission results:')
-        indent = '   '
-        self.msg(indent + '  '.join(h.ljust(widths[i]) for i, h in enumerate(headers)))
-        for row in rows:
-            self.msg(indent + '  '.join(cell.ljust(widths[i]) for i, cell in enumerate(row)))
-
-    def full_score_finite(self) -> bool:
-        min_score, max_score = self.problem.testdata.get_score_range()
-        if self.problem.metadata.legacy_grading.objective == 'min':
-            return min_score != float('-inf')
-        else:
-            return max_score != float('inf')
-
-    def fully_accepted(self, result: SubmissionResult) -> bool:
-        min_score, max_score = self.problem.testdata.get_score_range()
-        best_score = min_score if self.problem.metadata.legacy_grading.objective == 'min' else max_score
-        return result.verdict == 'AC' and (not self.problem.is_scoring() or result.score == best_score)
 
     def start_background_work(self, context: Context) -> None:
         # Send off an early background compile job for each submission and
         # validator, to avoid a bottleneck step at the start of each test run.
         self.problem.output_validators.start_background_work(context)
-        for verdict in Submissions._VERDICTS:
-            acr = verdict[0]
-            for sub in self._submissions[acr]:
-                sub_name = sub.name
-                if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
-                    context.submit_background_work(lambda s: s.compile(), sub)
-
-    def _compute_time_limit(self, fixed_limit: float | None, lower_bound_runtime: float | None) -> tuple[float, float]:
-        if fixed_limit is None and lower_bound_runtime is None:
-            # 5 minutes is our currently hard coded upper bound for what to allow when we don't know the time limit yet
-            return 300.0, 300.0
-
-        limits = self.problem.metadata.limits
-        if fixed_limit is not None:
-            timelim = fixed_limit
-        else:
-            assert lower_bound_runtime is not None, 'Assert to keep mypy happy'
-            exact_timelim = lower_bound_runtime * limits.time_multipliers.ac_to_time_limit
-            timelim = max(1, math.ceil(exact_timelim / limits.time_resolution)) * limits.time_resolution
-
-        return timelim, timelim * limits.time_multipliers.time_limit_to_tle
+        policy = self.submissions.policy
+        for sub in self.submissions.submissions:
+            if policy.matches(sub) and context.submission_filter.search(str(sub.path)):
+                context.submit_background_work(lambda s: s.compile(), sub.program)
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
 
-        limits = self.problem.metadata.limits
-        ac_to_time_limit = limits.time_multipliers.ac_to_time_limit
-
-        fixed_limit: float | None = context.fixed_timelim if context.fixed_timelim is not None else limits.time_limit
-        lower_bound_runtime: float | None = None  # The runtime of the slowest submission used to lower bound the time limit.
-
-        if limits.time_limit is not None and context.fixed_timelim is not None:
-            self.warning('There is a fixed time limit in problem.yaml, and you provided one on command line. Using command line.')
-
-        has_testcases = any(tc.matches_filter(context.data_filter) for tc in self.problem.testdata.get_all_testcases())
-        if not has_testcases:
-            self.warning('Found no test cases to run on. Did you filter them all out?')
-
-        all_submission_results: list[tuple[run.Program, list[SubmissionResult]]] = []
-
-        for verdict in Submissions._VERDICTS:
-            acr = verdict[0]
-            if verdict[2] and not self._submissions[acr]:
-                self.error(f'Require at least one "{verdict[1]}" submission')
-
-            runtimes = []
-
-            for sub in self._submissions[acr]:
-                sub_name = sub.name
-                if context.submission_filter.search(os.path.join(verdict[1], sub_name)):
-                    self.info(f'Check {acr} submission {sub}')
-
-                    if sub.code_size() > 1024 * limits.code:
-                        self.error(
-                            f'{acr} submission {sub} has size {sub.code_size() / 1024.0:.1f} kiB, exceeds code size limit of {limits.code} kiB'
-                        )
-                        continue
-
-                    success, msg = sub.compile()
-                    if not success:
-                        self.error(f'Compile error for {acr} submission {sub}', additional_info=msg)
-                        continue
-
-                    if has_testcases:
-                        timelim, timelim_high = self._compute_time_limit(fixed_limit, lower_bound_runtime)
-                        sub_results = self.check_submission(sub, context, acr, timelim, timelim_high)
-                        runtimes.append(sub_results[-1].runtime)
-                        all_submission_results.append((sub, sub_results))
-
-            if acr == 'AC' and has_testcases:
-                if len(runtimes) > 0:
-                    lower_bound_runtime = max(runtimes)
-
-                # Helper function to format numbers with at most 3 decimals and dealing with None
-                def _f_n(number: float | None) -> str:
-                    return f'{round(number, 3):g}' if number is not None else '-'
-
-                if fixed_limit is not None and lower_bound_runtime is not None:
-                    tl_from_subs, _ = self._compute_time_limit(None, lower_bound_runtime)
-                    if lower_bound_runtime * ac_to_time_limit > fixed_limit:
-                        msg = f'Fixed time limit ({_f_n(fixed_limit)}) is tighter than the auto-computed limit ({_f_n(tl_from_subs)}) — slowest AC: {_f_n(lower_bound_runtime)} x multiplier {_f_n(ac_to_time_limit)}'
-                        if context.fixed_timelim is not None:  # We just warn when the fixed time limit comes from command line
-                            self.warning(msg)
-                        else:
-                            self.error(msg)  # ... but if it came from problem.yaml, it's an error if bounds aren't kept
-
-                    if not math.isclose(fixed_limit, tl_from_subs):
-                        self.msg(
-                            f'   Solutions give timelim of {_f_n(tl_from_subs)} seconds, but will use provided fixed limit of {_f_n(fixed_limit)} seconds instead'
-                        )
-
-                timelim, timelim_margin = self._compute_time_limit(fixed_limit, lower_bound_runtime)
-                self.msg(
-                    f'   Slowest AC runtime: {_f_n(lower_bound_runtime)}, setting timelim to {_f_n(timelim)} secs, safety margin to {_f_n(timelim_margin)} secs'
-                )
-                self.problem._set_timelim(timelim)
-
-        if all_submission_results:
-            self._print_results_table(all_submission_results)
+        errors_before = self.errors
+        checks.check_submissions(
+            self.submissions,
+            self.problem.metadata,
+            self.problem.testdata,
+            self.problem.output_validators.output_validator,
+            self.problem.graders._grader,
+            self.problem.tmpdir,
+            context,
+            self.problem._set_timelim,
+            self._diag,
+        )
+        if self.errors > errors_before:
+            self._check_res = False
 
         return self._check_res
 
