@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..verifyproblem import TestCase, TestCaseGroup
-
-Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
 
 class SubmissionResult:
