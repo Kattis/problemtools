@@ -135,8 +135,7 @@ def _check_has_accepted_submission(submissions: Submissions, diag: Diagnostics) 
 
 def _check_matches_policy(submissions: Submissions, policy: LegacyPolicy, diag: Diagnostics) -> list[Submission]:
     """Emit an error for, and exclude, any submission that doesn't match the policy at all
-    (e.g. a loose file, or one sitting in an unrecognized directory). Such a submission is
-    never compiled or tested."""
+    (i.e. sits in an unrecognized directory). Such a submission is never compiled or tested."""
     matched = []
     for sub in submissions.submissions:
         if policy.matches(sub):

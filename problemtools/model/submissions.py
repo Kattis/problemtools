@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..languages import Languages
-from ..run import Program, find_programs, get_program
+from ..run import Program, find_programs
 from . import Verdict
 from .includes import Includes
 
@@ -19,11 +19,14 @@ class Submission:
     program: Program
     path: Path
 
+    def __post_init__(self) -> None:
+        if len(self.path.parts) != 2:
+            raise ValueError(f'Submission path must be on the form directory/name, got {self.path}')
+
     @property
     def directory(self) -> str:
-        """The submission's top-level directory under submissions/, or '' for a loose file."""
-        parts = self.path.parts
-        return parts[0] if len(parts) > 1 else ''
+        """The submission's top-level directory under submissions/."""
+        return self.path.parts[0]
 
 
 _VERDICT_BY_DIRECTORY: dict[str, Verdict] = {
@@ -80,9 +83,4 @@ def load_submissions(probdir: Path, language_config: Languages, work_dir: str, i
         if entry.is_dir():
             for program in find_programs(str(entry), language_config=language_config, work_dir=work_dir, includes=includes):
                 submissions.append(Submission(program=program, path=Path(entry.name) / program.name))
-        elif entry.name != 'submissions.yaml':
-            # A loose file directly in submissions/, rather than in one of its subdirectories.
-            loose_program = get_program(str(entry), language_config=language_config, work_dir=work_dir, includes=includes)
-            if loose_program is not None:
-                submissions.append(Submission(program=loose_program, path=Path(loose_program.name)))
     return Submissions(submissions=submissions)
