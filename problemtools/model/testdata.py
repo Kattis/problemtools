@@ -11,8 +11,8 @@ import yaml
 from .. import config
 from ..metadata import Metadata
 
-_DEFAULT_CONFIG = config.load_config('testdata.yaml')
-_SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
+DEFAULT_CONFIG = config.load_config('testdata.yaml')
+SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
 
 
 @dataclass(frozen=True)
@@ -120,10 +120,10 @@ def _load_group(probdir: Path, datadir: Path, parent_config: dict[str, Any], met
         merged_config['on_reject'] = 'continue'
 
     if metadata.is_pass_fail():
-        for key in _SCORING_ONLY_KEYS:
+        for key in SCORING_ONLY_KEYS:
             merged_config.setdefault(key, None)
 
-    for key, default in _DEFAULT_CONFIG.items():
+    for key, default in DEFAULT_CONFIG.items():
         merged_config.setdefault(key, default)
 
     items: list[TestCase | TestDataGroup] = []
