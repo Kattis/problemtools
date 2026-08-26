@@ -2,6 +2,7 @@
 import os
 import os.path
 import sys
+from typing import Any
 
 from plasTeX.Base import Command, DimenCommand
 from plasTeX.DOM import Node
@@ -19,7 +20,7 @@ class textwidth(DimenCommand):
 
 # Convert an expression of the form "X\textwidth" to 100*x%
 # (Used in ugly hack to handle illustrations)
-def clean_width(width):
+def clean_width(width: Any) -> Any:
     if not isinstance(width, Node):
         return width
     nodes = width.childNodes
@@ -32,7 +33,7 @@ def clean_width(width):
 class problemheader(Command):
     args = 'title id:str'
 
-    def invoke(self, tex):
+    def invoke(self, tex: Any) -> None:
         super().invoke(tex)
         timelimfile = os.path.join(os.path.dirname(tex.filename), '..', '.timelimit')
         if os.path.isfile(timelimfile):
@@ -44,11 +45,11 @@ class problemheader(Command):
 class sampletable(Command):
     args = 'header1 file1:str header2 file2:str'
 
-    def read_sample_file(self, filename):
+    def read_sample_file(self, filename: str) -> str:
         with open(filename, 'r', encoding='utf-8') as f:
             return f.read()
 
-    def invoke(self, tex):
+    def invoke(self, tex: Any) -> None:
         super().invoke(tex)
         dir = os.path.dirname(tex.filename)
         file1 = os.path.join(dir, self.attributes['file1'])
@@ -67,10 +68,10 @@ class sampletable(Command):
 class sampletableinteractive(Command):
     args = 'header read write file:str'
 
-    def read_sample_interaction(self, filename):
+    def read_sample_interaction(self, filename: str) -> list[dict[str, str]]:
         with open(filename, 'r', encoding='utf-8') as f:
             data = f.read()
-        messages = []
+        messages: list[dict[str, str]] = []
         cur_msg: list[str] = []
         cur_mode = None
         for line in data.split('\n'):
@@ -93,7 +94,7 @@ class sampletableinteractive(Command):
             messages.append({'mode': cur_mode, 'data': '\n'.join(cur_msg)})
         return messages
 
-    def invoke(self, tex):
+    def invoke(self, tex: Any) -> None:
         super().invoke(tex)
         dir = os.path.dirname(tex.filename)
         file = os.path.join(dir, self.attributes['file'])
@@ -109,7 +110,7 @@ class sampletableinteractive(Command):
 # re-implementation of \includegraphics.  (Based on plasTeX's
 # \includegraphics implementation)
 class _graphics_command(Command):
-    def invoke(self, tex):
+    def invoke(self, tex: Any) -> Any:
         res = super().invoke(tex)
 
         # Overcome plasTeX bug by looking for love in the right place
@@ -149,7 +150,7 @@ class _graphics_command(Command):
 class illustration(_graphics_command):
     args = 'width:double file:str description'
 
-    def invoke(self, tex):
+    def invoke(self, tex: Any) -> Any:
         res = _graphics_command.invoke(self, tex)
         self.style['width'] = '%.2f%%' % (100 * self.attributes['width'])
         return res
@@ -170,7 +171,7 @@ class ExecuteOptions(Command):
     pass
 
 
-def init(tex):
+def init(tex: Any) -> None:
     # Dirty hack #25783 to get plasTeX to work properly:
     # any subprocess of the tex instance won't remember things like,
     # say, the name of the .tex file being processed, which is needed

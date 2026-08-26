@@ -2,10 +2,11 @@ import builtins
 import copy
 import datetime
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, TypeVar
 from uuid import UUID
 
 import yaml
@@ -13,6 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import config, statement_util
 from .formatversion import FormatVersion
+
+T = TypeVar('T')
 
 
 class ProblemType(StrEnum):
@@ -304,7 +307,7 @@ class Metadata(BaseModel):
         # Convenience function to deal with the fact that lists of persons/sources are
         # either a string, or a list of strings or dicts (if dicts, pydantic
         # already parsed those for us).
-        def parse_list(callback, lst: str | list) -> list:
+        def parse_list(callback: Callable[[str | T], T], lst: str | list[str | T]) -> list[T]:
             if isinstance(lst, str):
                 return [callback(lst)]
             return list(map(callback, lst))

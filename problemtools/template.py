@@ -2,6 +2,8 @@ import os.path
 import shutil
 import tempfile
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 
 class TemplateError(Exception):
@@ -35,7 +37,7 @@ class Template:
     TEMPLATE_FILENAME = 'template.tex'
     CLS_FILENAME = 'problemset.cls'
 
-    def __init__(self, problem_root: Path, texfile: Path, language: str, ignore_parent_cls=False):
+    def __init__(self, problem_root: Path, texfile: Path, language: str, ignore_parent_cls: bool = False):
         assert texfile.suffix == '.tex', f'Template asked to render {texfile}, which does not end in .tex'
         assert texfile.is_relative_to(problem_root), f'Template called with tex {texfile} outside of problem {problem_root}'
 
@@ -76,7 +78,7 @@ class Template:
         else:
             self.clsfile = templatepath / self.CLS_FILENAME
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self._tempdir = tempfile.TemporaryDirectory(prefix='problemtools-')
         temp_dir_path = Path(self._tempdir.name)
 
@@ -104,7 +106,12 @@ class Template:
                         del data['sample']
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_traceback: TracebackType | None,
+    ) -> None:
         if self._tempdir:
             self._tempdir.cleanup()
 

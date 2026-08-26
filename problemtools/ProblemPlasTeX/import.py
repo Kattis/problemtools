@@ -1,5 +1,6 @@
 # noqa: N999 -- module name matches the plasTeX \import macro it implements, not PEP 8
 import os
+from typing import Any
 
 from plasTeX.Base import Command
 from plasTeX.Logging import getLogger
@@ -15,7 +16,7 @@ class import_sty(Command):
     macroName = 'import'
     args = 'dir:str file:str'
 
-    def invoke(self, tex):
+    def invoke(self, tex: Any) -> Any:
         a = self.parse(tex)
         path = os.path.join(a['dir'], a['file'])
         fullpath = tex.kpsewhich(path)

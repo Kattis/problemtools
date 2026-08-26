@@ -22,6 +22,7 @@ from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from re import Match, Pattern
+from types import TracebackType
 from typing import Any, ClassVar, Final, Literal, NoReturn, Self
 
 import yaml
@@ -78,7 +79,7 @@ class ProblemAspect(ABC):
     def debug(self, msg: str) -> None:
         self._diag.debug(msg)
 
-    def msg(self, msg):
+    def msg(self, msg: str) -> None:
         print(msg)
 
     def warn_directory(self, name: str, prop: str) -> None:
@@ -485,7 +486,7 @@ class ProblemStatement(ProblemPart):
     statements: dict[str, list[Path]]  # Maps language code -> statement(s)
     PART_NAME = 'statement'
 
-    def setup(self):
+    def setup(self) -> None:
         self.debug('  Loading problem statement')
         self.statements = statement_util.find_statements(Path(self.problem.probdir), self.problem.format)
 
@@ -573,7 +574,7 @@ class ProblemStatement(ProblemPart):
 class ProblemConfig(ProblemPart):
     PART_NAME = 'config'
 
-    def setup(self):
+    def setup(self) -> None:
         self.debug('  Loading problem config')
         try:
             self._metadata, self._origdata = metadata.load_metadata(Path(self.problem.probdir))
@@ -690,7 +691,7 @@ class Attachments(ProblemPart):
 
     PART_NAME = 'attachments'
 
-    def setup(self):
+    def setup(self) -> None:
         attachments_dir = Path(self.problem.probdir) / 'attachments'
         self.attachments = [p for p in attachments_dir.iterdir()] if attachments_dir.is_dir() else []
         self.debug(f'Adding attachments {self.attachments!s}')
@@ -706,7 +707,7 @@ class Attachments(ProblemPart):
 
         return self._check_res
 
-    def get_attachment_paths(self):
+    def get_attachment_paths(self) -> list[Path]:
         return self.attachments
 
     def __str__(self) -> str:
@@ -751,9 +752,9 @@ _JUNK_CASES_CRASH = [
 
 def _build_junk_modifier(
     desc: str, pattern: str, repl: str | Callable[[Match[str]], str]
-) -> tuple[str, Callable, Callable[[str], str]]:
+) -> tuple[str, Callable[[str], bool], Callable[[str], str]]:
     p = re.compile(pattern)
-    return (desc, p.search, lambda text: p.sub(repl, text))
+    return (desc, lambda text: p.search(text) is not None, lambda text: p.sub(repl, text))
 
 
 _JUNK_MODIFICATIONS = [
@@ -773,7 +774,7 @@ _JUNK_MODIFICATIONS = [
 class InputValidators(ProblemPart):
     PART_NAME = 'input_validator'
 
-    def setup(self):
+    def setup(self) -> None:
         input_validators_path = os.path.join(self.problem.probdir, 'input_format_validators')
         if os.path.isdir(input_validators_path):
             self._uses_old_path = True
@@ -788,7 +789,6 @@ class InputValidators(ProblemPart):
             allow_validation_script=True,
             work_dir=self.problem.tmpdir,
         )
-        return {}
 
     def __str__(self) -> str:
         return 'input format validators'
@@ -841,7 +841,7 @@ class InputValidators(ProblemPart):
                     else:
                         self.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
 
-            def modified_input_validates(applicable, modifier):
+            def modified_input_validates(applicable: Callable[[str], bool], modifier: Callable[[str], str]) -> bool:
                 for testcase in self.problem.testdata.get_all_testcases():
                     try:
                         with open(testcase.infile) as infile:
@@ -903,7 +903,7 @@ class Graders(ProblemPart):
 
     PART_NAME = 'grader'
 
-    def setup(self):
+    def setup(self) -> None:
         graders: list = run.find_programs(
             os.path.join(self.problem.probdir, 'graders'),
             language_config=self.problem.language_config,
@@ -912,7 +912,6 @@ class Graders(ProblemPart):
         if len(graders) > 1:
             self.fatal('There is more than one custom grader')
         self._grader = graders[0] if graders else None
-        return {}
 
     def __str__(self) -> str:
         return 'graders'
@@ -937,7 +936,7 @@ class OutputValidators(ProblemPart):
 
     PART_NAME = 'output_validator'
 
-    def setup(self):
+    def setup(self) -> None:
         self._validators = run.find_programs(
             os.path.join(self.problem.probdir, self.problem.format.output_validator_directory),
             language_config=self.problem.language_config,
@@ -1045,7 +1044,7 @@ class Includes(ProblemPart):
 
     PART_NAME = 'includes'
 
-    def setup(self):
+    def setup(self) -> None:
         self.includes = model.load_includes(Path(self.problem.probdir), self.problem.language_config)
 
     def check(self, context: Context) -> bool:
@@ -1076,7 +1075,7 @@ class Submissions(ProblemPart):
 
     PART_NAME = 'submission'
 
-    def setup(self):
+    def setup(self) -> None:
         self._submissions = {}
         srcdir = os.path.join(self.problem.probdir, 'submissions')
         for verdict in Submissions._VERDICTS:
@@ -1087,13 +1086,12 @@ class Submissions(ProblemPart):
                 work_dir=self.problem.tmpdir,
                 includes=self.problem.includes.includes,
             )
-        return {}
 
     def __str__(self) -> str:
         return 'submissions'
 
     def check_submission(
-        self, sub, context: Context, expected_verdict: Verdict, timelim: float, timelim_high: float
+        self, sub: run.Program, context: Context, expected_verdict: Verdict, timelim: float, timelim_high: float
     ) -> list[SubmissionResult]:
         desc = f'{expected_verdict} submission {sub}'
         partial = expected_verdict == 'PAC'
@@ -1442,7 +1440,12 @@ class Problem(ProblemAspect):
         self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_traceback: TracebackType | None,
+    ) -> None:
         shutil.rmtree(self.tmpdir)
 
     def __str__(self) -> str:
@@ -1513,13 +1516,13 @@ class Problem(ProblemAspect):
             context.wait_for_background_work()
         return self.errors, self.warnings
 
-    def _check_submission_directory_names(self):
+    def _check_submission_directory_names(self) -> None:
         """Heuristically check if submissions contain any directories that will be ignored because of typos or format mismatches"""
         submission_directories = [p.name for p in (Path(self.probdir) / 'submissions').glob('*') if p.is_dir()]
         if len(submission_directories) == 0:
             return
 
-        def most_similar(present_dir: str, format_version: FormatVersion):
+        def most_similar(present_dir: str, format_version: FormatVersion) -> tuple[str, float]:
             similarities = [
                 (spec_dir, difflib.SequenceMatcher(None, present_dir, spec_dir).ratio())
                 for spec_dir in format_version.submission_directories
@@ -1544,7 +1547,7 @@ class Problem(ProblemAspect):
                         )
                         break
 
-    def _check_symlinks(self):
+    def _check_symlinks(self) -> None:
         """Check that all symlinks point to something existing within the problem package"""
         probdir = os.path.realpath(self.probdir)
         for root, dirs, files in os.walk(probdir):
@@ -1565,7 +1568,7 @@ class Problem(ProblemAspect):
                             f'Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative.'
                         )
 
-    def _check_file_and_directory_names(self):
+    def _check_file_and_directory_names(self) -> None:
         regex = re.compile(r'^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,254}$')
 
         def _special_case_allowed_files(file: str, reldir: str) -> bool:
