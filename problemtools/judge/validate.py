@@ -3,15 +3,12 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
+from ..model import TestCase
 from ..run import Program
 from .result import SubmissionResult
-
-if TYPE_CHECKING:
-    from ..verifyproblem import TestCase
 
 
 def _get_feedback(feedback_dir: Path) -> str | None:
@@ -85,7 +82,7 @@ def _validate_output(
     infile: Path | None = None,
 ) -> SubmissionResult:
     feedback_dir = execution_dir / 'feedback'
-    effective_infile = infile if infile is not None else testcase.infile_path
+    effective_infile = infile if infile is not None else testcase.infile
     flags = testcase.output_validator_flags
     val_timelim = metadata.limits.validation_time
     val_memlim = metadata.limits.validation_memory
@@ -102,7 +99,7 @@ def _validate_output(
     val_stderr = execution_dir / 'val_stderr'
     status, _ = output_validator.run(
         infile=str(submission_output),
-        args=[str(effective_infile), str(testcase.ansfile_path), str(feedback_dir) + os.sep] + flags,
+        args=[str(effective_infile), str(testcase.ansfile), str(feedback_dir) + os.sep] + flags,
         timelim=val_timelim,
         memlim=val_memlim,
         outfile=str(val_stdout),

@@ -5,16 +5,22 @@ Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
 from .includes import DEFAULT_LANGUAGE, IncludeFile, Includes, LanguageIncludes, load_includes
 from .submissions import LegacyPolicy, Submission, Submissions, load_submissions
+from .testdata import DEFAULT_CONFIG, SCORING_ONLY_KEYS, TestCase, TestDataGroup, load_testdata
 
 __all__ = [
+    'DEFAULT_CONFIG',
     'DEFAULT_LANGUAGE',
+    'SCORING_ONLY_KEYS',
     'IncludeFile',
     'Includes',
     'LanguageIncludes',
     'LegacyPolicy',
     'Submission',
     'Submissions',
+    'TestCase',
+    'TestDataGroup',
     'Verdict',
     'load_includes',
     'load_submissions',
+    'load_testdata',
 ]

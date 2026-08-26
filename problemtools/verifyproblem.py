@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import argparse
-import collections
 import difflib
 import glob
-import hashlib
 import logging
 import os
 import random
@@ -18,20 +16,18 @@ import traceback
 import uuid
 from abc import ABC
 from collections.abc import Callable
-from functools import cached_property
 from pathlib import Path
 from re import Match, Pattern
 from types import TracebackType
-from typing import Any, ClassVar, Final, Literal, NoReturn, Self
+from typing import ClassVar, NoReturn, Self
 
-import yaml
 from pydantic import ValidationError
 
-from . import checks, config, languages, metadata, model, problem2html, problem2pdf, run, statement_util
+from . import checks, languages, metadata, model, problem2html, problem2pdf, run, statement_util
 from .context import PROBLEM_PARTS, Context
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
-from .judge import CacheKey, SubmissionResult, validate_output
+from .judge import SubmissionResult, validate_output
 from .version import add_version_arg
 
 random.seed(42)
@@ -113,372 +109,6 @@ class ProblemPart(ProblemAspect):
 
     def check(self, context: Context) -> bool:
         return True
-
-
-class TestCase(ProblemAspect):
-    is_group: Literal[False] = False  # Temporary workaround for a circular import in judge/submission_judge.py
-
-    def __init__(self, problem: Problem, base: str, testcasegroup: TestCaseGroup) -> None:
-        super().__init__(f'test.{testcasegroup.name}.{os.path.basename(base)}', problem)
-        self._base = base
-        self.infile = f'{base}.in'
-        self.ansfile = f'{base}.ans'
-        self._problem = problem
-        self.testcasegroup = testcasegroup
-        self.counter = len(problem.testcase_by_infile)
-        problem.testcase_by_infile[self.infile] = self
-
-    def check_newlines(self, filename: str) -> None:
-        with open(filename, 'rb') as f:
-            rawdata = f.read()
-            try:
-                data = rawdata.decode('utf-8', 'strict')
-            except UnicodeDecodeError:
-                self.warning(f'The file {filename} could not be decoded as utf-8')
-                return
-        if data.find('\r') != -1:
-            self.warning(f'The file {filename} contains non-standard line breaks.')
-        if len(data) > 0 and data[-1] != '\n':
-            self.warning(f"The file {filename} does not end with '\\n'.")
-
-    def check_size_limits(self, filename: str) -> None:
-        filesize = os.path.getsize(filename) / 1024.0 / 1024.0
-        if filesize > 1000:
-            self.error(f'The file {filename} ({filesize:.1f} MiB) is larger than 1000 MiB and can not be installed.')
-        elif filesize > 100:
-            self.warning(
-                f'The file {filename} ({filesize:.1f} MiB) is larger than 100 MiB. This may cause performance issues and is not recommended.'
-            )
-
-    def strip_path_prefix(self, path: str) -> str:
-        return os.path.relpath(path, os.path.join(self._problem.probdir, 'data'))
-
-    # Temporary properties for use while refactoring verifyproblem into judge/
-    @property
-    def infile_path(self) -> Path:
-        return Path(self.infile)
-
-    @property
-    def ansfile_path(self) -> Path:
-        return Path(self.ansfile)
-
-    @property
-    def output_validator_flags(self) -> list[str]:
-        return (
-            self._problem.metadata.legacy_validator_flags.split()
-            + self.testcasegroup.config.get('output_validator_flags', '').split()
-        )
-
-    @cached_property
-    def reuse_key(self) -> CacheKey:
-        return CacheKey(
-            input_hash=hashlib.sha256(self.infile_path.read_bytes()).digest(),
-            ans_hash=hashlib.sha256(self.ansfile_path.read_bytes()).digest(),
-            validator_flags=tuple(self.output_validator_flags),
-        )
-
-    def is_in_sample_group(self) -> bool:
-        return self.strip_path_prefix(self.infile).startswith('sample')
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-        self.check_newlines(self.infile)
-        self.check_newlines(self.ansfile)
-        self.check_size_limits(self.infile)
-        self.check_size_limits(self.ansfile)
-        self._problem.input_validators.validate(self)
-        anssize = os.path.getsize(self.ansfile) / 1024.0 / 1024.0
-        outputlim = self._problem.metadata.limits.output
-        if anssize > outputlim:
-            self.error(
-                f'Answer file ({anssize:.1f} MiB) is larger than output limit ({outputlim} MiB), you need to increase output limit'
-            )
-        elif 2 * anssize > outputlim:
-            self.warning(
-                f'Answer file ({anssize:.1f} MiB) is within 50% of output limit ({outputlim} MiB), you might want to increase output limit'
-            )
-        if not self._problem.is_interactive() and not self._problem.is_multi_pass():
-            val_res = validate_output(
-                testcase=self,
-                submission_output=Path(self.ansfile),
-                output_validator=self._problem.output_validators.output_validator,
-                metadata=self._problem.metadata,
-                base_dir=Path(self._problem.tmpdir),
-                diag=self._diag,
-            )
-            if val_res.verdict != 'AC':
-                if self.is_in_sample_group():
-                    self.error(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
-                else:
-                    self.warning(f'judge answer file got {val_res} on testcase {self.strip_path_prefix(self.ansfile)}')
-        return self._check_res
-
-    def __str__(self) -> str:
-        return f'testcase {self.strip_path_prefix(self._base)}'
-
-    def matches_filter(self, filter_re: Pattern[str]) -> bool:
-        return filter_re.search(self.strip_path_prefix(self._base)) is not None
-
-    def get_all_testcases(self) -> list[TestCase]:
-        return [self]
-
-
-class TestCaseGroup(ProblemAspect):
-    name: str
-    _DEFAULT_CONFIG = config.load_config('testdata.yaml')
-    _SCORING_ONLY_KEYS: Final[list[str]] = ['accept_score', 'reject_score', 'range']
-    is_group: Literal[True] = True  # Temporary workaround for a circular import in judge/submission_judge.py
-
-    def __init__(self, problem: Problem, datadir: str | None = None, parent: TestCaseGroup | None = None):
-        self._parent = parent
-        self._problem = problem
-        datadir = datadir or os.path.join(problem.probdir, 'data')
-        self._datadir = datadir
-        self.name = os.path.relpath(os.path.abspath(self._datadir), os.path.abspath(self._problem.probdir)).replace('/', '.')
-
-        super().__init__(f'test.{self.name}', problem)
-
-        self._seen_oob_scores = False
-        self.debug(f'Loading test data group {datadir}')
-        configfile = os.path.join(self._datadir, 'testdata.yaml')
-        self.config: dict[str, Any] = {}
-        if os.path.isfile(configfile):
-            try:
-                with open(configfile) as f:
-                    self.config = yaml.safe_load(f)
-            except Exception as e:
-                self.error(str(e))
-            if self.config is None:
-                self.config = {}
-
-        # For non-root groups, missing properties are inherited from the parent group
-        if parent:
-            for field, parent_value in parent.config.items():
-                if field not in self.config:
-                    self.config[field] = parent_value
-
-        # TODO: Decide if these should stay
-        # Some deprecated properties are inherited from problem config during a transition period
-        legacy_grading = problem.metadata.legacy_grading
-        for key in ['accept_score', 'reject_score', 'range']:
-            if getattr(legacy_grading, key) is not None:
-                self.config[key] = getattr(legacy_grading, key)
-
-        problem_on_reject = legacy_grading.on_reject
-        if problem_on_reject == 'first_error':
-            self.config['on_reject'] = 'break'
-        if problem_on_reject == 'grade':
-            self.config['on_reject'] = 'continue'
-
-        if self._problem.is_pass_fail():
-            for key in TestCaseGroup._SCORING_ONLY_KEYS:
-                if key not in self.config:
-                    self.config[key] = None
-
-        for field, default in TestCaseGroup._DEFAULT_CONFIG.items():
-            if field not in self.config:
-                self.config[field] = default
-
-        self._items: list[TestCaseGroup | TestCase] = []
-        if os.path.isdir(datadir):
-            for filename in sorted(os.listdir(datadir)):
-                filename = os.path.join(datadir, filename)
-                if os.path.isdir(filename):
-                    self._items.append(TestCaseGroup(problem, filename, self))
-                else:
-                    base, ext = os.path.splitext(filename)
-                    if ext == '.ans' and os.path.isfile(f'{base}.in'):
-                        self._items.append(TestCase(problem, base, self))
-
-    def start_background_work(self, context: Context) -> None:
-        pass
-
-    def __str__(self) -> str:
-        return f'testcase group {self.name}'
-
-    def matches_filter(self, filter_re: Pattern[str]) -> bool:
-        return True
-
-    def get_all_testcases(self) -> list[TestCase]:
-        res: list = []
-        for child in self._items:
-            res += child.get_all_testcases()
-        return res
-
-    def get_testcases(self) -> list[TestCase]:
-        return [child for child in self._items if isinstance(child, TestCase)]
-
-    def get_subgroups(self) -> list[TestCaseGroup]:
-        return [child for child in self._items if isinstance(child, TestCaseGroup)]
-
-    def has_custom_groups(self) -> bool:
-        return any(group.get_subgroups() for group in self.get_subgroups())
-
-    def get_score_range(self) -> tuple[float, float]:
-        try:
-            score_range = self.config['range']
-            min_score, max_score = list(map(float, score_range.split()))
-            return (min_score, max_score)
-        except Exception:
-            return (float('-inf'), float('inf'))
-
-    def check_score_in_bounds(self, sub: run.Program, score: float) -> None:
-        # Don't warn twice on the same subgroup, since every submission is likely
-        # to have the same error.
-        min_score, max_score = self.get_score_range()
-        if not (min_score <= score <= max_score) and not self._seen_oob_scores:
-            self._seen_oob_scores = True
-            groupname = os.path.relpath(self._datadir, self._problem.probdir)
-            self.error(
-                f'submission {sub} got score {score} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]'
-            )
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        if self.config['grading'] not in ['default', 'custom']:
-            self.error('Invalid grading policy in testdata.yaml')
-
-        if self.config['grading'] == 'custom' and self._problem.graders._grader is None:
-            self._problem.graders.fatal(f'{self} has custom grading but no custom graders provided')
-        if self.config['grading'] == 'default' and Graders._default_grader is None:
-            self._problem.graders.fatal(f'{self} has default grading but I could not find default grader')
-
-        if self.config['grading'] == 'default' and 'ignore_sample' in self.config['grader_flags'].split():
-            if self._parent is not None:
-                self.error("'grader_flags: ignore_sample' is specified, but that flag is only allowed at top level")
-            elif self.config['on_reject'] == 'break':
-                self.error(
-                    "'grader_flags: ignore_sample' is specified, but 'on_reject: break' may cause secret data not to be judged"
-                )
-
-        for field in self.config:
-            if field not in TestCaseGroup._DEFAULT_CONFIG:
-                self.warning(f"Unknown key '{field}' in '{os.path.join(self._datadir, 'testdata.yaml')}'")
-
-        if not self._problem.is_scoring():
-            for key in TestCaseGroup._SCORING_ONLY_KEYS:
-                if self.config.get(key) is not None:
-                    self.error(f"Key '{key}' is only applicable for scoring problems, this is a pass-fail problem")
-
-        if self.config['on_reject'] not in ['break', 'continue']:
-            self.error(f"Invalid value '{self.config['on_reject']}' for on_reject policy")
-
-        if self._problem.is_scoring():
-            # Check grading
-            try:
-                score_range = self.config['range']
-                min_score, max_score = list(map(float, score_range.split()))
-                if min_score > max_score:
-                    self.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
-            except VerifyError:
-                raise
-            except Exception:
-                self.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
-
-        if self._parent is None:
-            seen_secret = False
-            seen_sample = False
-            for item in self._items:
-                if not isinstance(item, TestCaseGroup):
-                    self.error("Can't have individual test data files at top level")
-                else:
-                    name = os.path.basename(item._datadir)
-                    if name == 'secret':
-                        seen_secret = True
-                    elif name == 'sample':
-                        seen_sample = True
-                    else:
-                        self.error('Test data at top level can only have the groups sample and secret')
-                        self.debug(str(self._items))
-            if not seen_secret:
-                self.error('No secret data provided')
-            if not seen_sample:
-                self.warning('No sample data provided')
-
-            hashes = collections.defaultdict(list)
-            for root, dirs, files in os.walk(self._datadir):
-                for filename in files:
-                    filepath = os.path.join(root, filename)
-                    if filepath.endswith('.in') and not os.path.islink(filepath):
-                        md5 = hashlib.md5(usedforsecurity=False)
-                        with open(filepath, 'rb') as f:
-                            for buf in iter(lambda: f.read(1024), b''):
-                                md5.update(buf)
-                        filehash = md5.digest()
-                        hashes[filehash].append(os.path.relpath(filepath, self._problem.probdir))
-            for files in hashes.values():
-                if len(files) > 1:
-                    self.warning(f"Identical input files: '{files!s}'")
-
-        infiles = glob.glob(os.path.join(self._datadir, '*.in'))
-        ansfiles = glob.glob(os.path.join(self._datadir, '*.ans'))
-
-        for infile in infiles:
-            if os.path.isdir(infile):
-                continue
-            if f'{infile[:-3]}.ans' not in ansfiles:
-                self.error(f"No matching answer file for input '{infile}'")
-        for ansfile in ansfiles:
-            if os.path.isdir(ansfile):
-                continue
-            if f'{ansfile[:-4]}.in' not in infiles:
-                self.error(f"No matching input file for answer '{ansfile}'")
-
-        if not self.get_subgroups() and not self.get_testcases():
-            if os.path.basename(self._datadir) != 'sample':
-                self.error(f'Testcase group {self._datadir} exists, but does not contain any testcases')
-            else:
-                if not (
-                    (self._problem.is_interactive() or self._problem.is_multi_pass())
-                    and glob.glob(os.path.join(self._datadir, '*.interaction'))
-                ):
-                    self.warning(f'Sample testcase group {self._datadir} exists, but does not contain any testcases')
-
-        # Check whether a <= b according to a natural sorting where numeric components
-        # are compactified, so that e.g. "a" < "a1" < "a2" < "a10" = "a010" < "a10a".
-        def natural_sort_le(a: str, b: str) -> bool:
-            a += '\0'
-            b += '\0'
-            i = j = 0
-
-            def parse_num(s: str, i: int) -> tuple[int, int]:
-                ret = 0
-                while ord('0') <= ord(s[i]) <= ord('9'):
-                    ret = ret * 10 + ord(s[i]) - ord('0')
-                    i += 1
-                return ret, i
-
-            while i < len(a) and j < len(b):
-                if ord('0') <= ord(a[i]) <= ord('9') and ord('0') <= ord(b[j]) <= ord('9'):
-                    anum, i = parse_num(a, i)
-                    bnum, j = parse_num(b, j)
-                    if anum == bnum:
-                        continue
-                    return anum < bnum
-                if a[i] == b[j]:
-                    i += 1
-                    j += 1
-                    continue
-                return a[i] < b[j]
-            return True
-
-        last_testgroup_name = ''
-        for group in self.get_subgroups():
-            name = os.path.relpath(group._datadir, self._problem.probdir)
-            if natural_sort_le(name, last_testgroup_name):
-                self.warning(f"Test data group '{last_testgroup_name}' will be ordered before '{name}'; consider zero-padding")
-            last_testgroup_name = name
-
-        for child in self._items:
-            if child.matches_filter(context.data_filter):
-                child.check(context)
-
-        return self._check_res
 
 
 class ProblemStatement(ProblemPart):
@@ -634,7 +264,7 @@ class ProblemConfig(ProblemPart):
             self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
         if (
             not self.problem.is_pass_fail()
-            and self.problem.testdata.has_custom_groups()
+            and self.problem.testdata.testdata.has_custom_groups()
             and 'show_test_data_groups' not in self._origdata.get('grading', {})
             and self.problem.format is FormatVersion.LEGACY
         ):
@@ -818,13 +448,13 @@ class InputValidators(ProblemPart):
         if self._check_res:
             all_flags: set[str] = set()
 
-            def collect_flags(group: TestCaseGroup, flags: set[str]) -> None:
+            def collect_flags(group: model.TestDataGroup, flags: set[str]) -> None:
                 if len(group.get_testcases()) > 0:
                     flags.add(group.config['input_validator_flags'])
                 for subgroup in group.get_subgroups():
                     collect_flags(subgroup, flags)
 
-            collect_flags(self.problem.testdata, all_flags)
+            collect_flags(self.problem.testdata.testdata, all_flags)
 
             fd, file_name = tempfile.mkstemp()
             os.close(fd)
@@ -841,7 +471,7 @@ class InputValidators(ProblemPart):
                         self.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
 
             def modified_input_validates(applicable: Callable[[str], bool], modifier: Callable[[str], str]) -> bool:
-                for testcase in self.problem.testdata.get_all_testcases():
+                for testcase in self.problem.testdata.testdata.get_all_testcases():
                     try:
                         with open(testcase.infile) as infile:
                             infile_data = infile.read()
@@ -876,15 +506,15 @@ class InputValidators(ProblemPart):
 
         return self._check_res
 
-    def validate(self, testcase: TestCase) -> None:
-        flags = testcase.testcasegroup.config['input_validator_flags'].split()
+    def validate(self, testcase: model.TestCase, diag: Diagnostics) -> None:
+        flags = testcase.input_validator_flags
 
         # Remove input validators that don't compile, even without -p validators
         self.check(None)
 
         for val in self._validators:
             with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
-                status, _ = val.run(testcase.infile, outfile.name, errfile.name, args=flags, work_dir=self.problem.tmpdir)
+                status, _ = val.run(str(testcase.infile), outfile.name, errfile.name, args=flags, work_dir=self.problem.tmpdir)
                 if not os.WIFEXITED(status):
                     emsg = f'Input format validator {val} crashed on input {testcase.infile}'
                 elif os.WEXITSTATUS(status) != 42:
@@ -894,7 +524,7 @@ class InputValidators(ProblemPart):
                 validator_stdout = outfile.read().decode('utf-8', 'replace')
                 validator_stderr = errfile.read().decode('utf-8', 'replace')
                 validator_output = '\n'.join(out for out in [validator_stdout, validator_stderr] if out)
-                testcase.error(emsg, validator_output)
+                diag.error(emsg, validator_output)
 
 
 class Graders(ProblemPart):
@@ -1000,7 +630,7 @@ class OutputValidators(ProblemPart):
         # Only sanity check output validators if they all actually compiled
         if self._check_res:
             # Sanity check cases that should be rejected by the output validator
-            def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[TestCase]) -> list[SubmissionResult]:
+            def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[model.TestCase]) -> list[SubmissionResult]:
                 results = []
                 with tempfile.NamedTemporaryFile(mode='wb') as f:
                     f.write(junk_content)
@@ -1022,7 +652,7 @@ class OutputValidators(ProblemPart):
 
             # Junk cases that the output validator should reject
             for desc, junk_case_content in _JUNK_CASES:
-                results = run_junk_case(desc, junk_case_content, self.problem.testdata.get_all_testcases())
+                results = run_junk_case(desc, junk_case_content, self.problem.testdata.testdata.get_all_testcases())
                 rejected = any(result.verdict != 'AC' for result in results)
                 if not rejected:
                     self.warning(f'{desc} gets AC')
@@ -1031,7 +661,7 @@ class OutputValidators(ProblemPart):
             # Note that these might be valid output, so we only check if it crashes.
             # These bugs are rarely dependent on the actual test case, so we just
             # run on a few to keep things speedy.
-            test_cases = self.problem.testdata.get_all_testcases()[:3]
+            test_cases = self.problem.testdata.testdata.get_all_testcases()[:3]
             for desc, junk_case_content in _JUNK_CASES_CRASH:
                 run_junk_case(desc, junk_case_content, test_cases)
 
@@ -1093,12 +723,58 @@ class Submissions(ProblemPart):
         checks.check_submissions(
             self.submissions,
             self.problem.metadata,
-            self.problem.testdata,
+            self.problem.testdata.testdata,
             self.problem.output_validators.output_validator,
             self.problem.graders._grader,
             self.problem.tmpdir,
+            Path(self.problem.probdir),
             context,
             self.problem._set_timelim,
+            self._diag,
+        )
+        if self.errors > errors_before:
+            self._check_res = False
+
+        return self._check_res
+
+
+class TestData(ProblemPart):
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
+
+    PART_NAME = 'data'
+
+    def setup(self) -> None:
+        self.testdata = model.load_testdata(Path(self.problem.probdir), self.problem.metadata)
+
+    def __str__(self) -> str:
+        return 'test data'
+
+    def check(self, context: Context) -> bool:
+        if self._check_res is not None:
+            return self._check_res
+        self._check_res = True
+
+        errors_before = self.errors
+
+        def validate_answer(testcase: model.TestCase, diag: Diagnostics) -> SubmissionResult:
+            return validate_output(
+                testcase=testcase,
+                submission_output=testcase.ansfile,
+                output_validator=self.problem.output_validators.output_validator,
+                metadata=self.problem.metadata,
+                base_dir=Path(self.problem.tmpdir),
+                diag=diag,
+            )
+
+        checks.check_testdata(
+            self.testdata,
+            context,
+            self.problem.metadata,
+            Path(self.problem.probdir),
+            self.problem.graders._grader is not None,
+            Graders._default_grader is not None,
+            self.problem.input_validators.validate,
+            validate_answer,
             self._diag,
         )
         if self.errors > errors_before:
@@ -1116,7 +792,6 @@ class Problem(ProblemAspect):
         self._diag = diagnostics
         super().__init__(self.shortname, self)
         self.language_config = languages.load_language_config(Path(self.probdir).parent)
-        self.testcase_by_infile: dict[str, TestCase] = {}
         self.loaded = False
         self._metadata: metadata.Metadata | None = None
         self._timelim: float | None = None
@@ -1184,7 +859,7 @@ class Problem(ProblemAspect):
         self.input_validators = InputValidators(self)
         self.output_validators = OutputValidators(self)
         self.graders = Graders(self)
-        self.testdata = TestCaseGroup(self, os.path.join(self.probdir, 'data'))
+        self.testdata = TestData(self)
         self.includes = Includes(self)
         # Submissions.setup() reads self.includes.includes, so includes must be loaded first.
         self.submissions = Submissions(self)

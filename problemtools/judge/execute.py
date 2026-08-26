@@ -23,14 +23,11 @@ import re
 import signal
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
+from ..model import TestCase
 from ..run import Program, get_tool
-
-if TYPE_CHECKING:
-    from ..verifyproblem import TestCase
 from .result import SubmissionResult
 from .validate import _parse_validator_result, _validate_output
 
@@ -122,7 +119,7 @@ def _run_interactive(
         args=(
             ['1', str(math.ceil(2 * timelim))]
             + output_validator.get_runcmd(memlim=metadata.limits.validation_memory)
-            + [str(infile), str(testcase.ansfile_path), str(feedback_dir) + os.sep]
+            + [str(infile), str(testcase.ansfile), str(feedback_dir) + os.sep]
             + testcase.output_validator_flags
             + [';']
             + sub.get_runcmd(memlim=metadata.limits.memory)
@@ -192,7 +189,7 @@ def _run_multipass(
     execution_dir: Path,
     diag: Diagnostics,
 ) -> SubmissionResult:
-    infile = testcase.infile_path
+    infile = testcase.infile
     slowest = 0.0
     feedback_dir = execution_dir / 'feedback'
     for _ in range(metadata.limits.validation_passes):
@@ -227,7 +224,7 @@ def execute_testcase(
         if metadata.is_multi_pass():
             result = _run_multipass(testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
         else:
-            result = _run_pass(testcase.infile_path, testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
+            result = _run_pass(testcase.infile, testcase, sub, output_validator, metadata, timelim, execution_dir, diag)
     result.test_node = testcase
     result.runtime_testcase = testcase
     return result
