@@ -13,7 +13,6 @@ from ..judge import SubmissionJudge, SubmissionResult
 from ..metadata import Metadata
 from ..model import LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
 from ..run import Program
-from .testdata import check_score_in_bounds
 
 # Temporary consts to keep code structure as similar as possible to old code from
 # verifyproblem when extracting this to a separate module.
@@ -200,7 +199,7 @@ def _check_submission(
     if metadata.is_scoring():
         for r in results:
             if r.score is not None and isinstance(r.test_node, TestDataGroup):
-                check_score_in_bounds(r.test_node, sub.program, r.score, probdir, seen_oob_score_groups, diag)
+                _check_score_in_bounds(r.test_node, sub.program, r.score, probdir, seen_oob_score_groups, diag)
 
     # Warn if AC (but not PAC) submissions fail on samples. It's not uncommon for sample cases to be
     # ignored, so failing on them could be silent otherwise. Skip warning if the result isn't AC -
@@ -237,6 +236,26 @@ def _check_submission(
         diag.error(f'{desc} got {result}', result_high.additional_info)
 
     return results
+
+
+def _check_score_in_bounds(
+    group: TestDataGroup, sub: Program, score: float, probdir: Path, seen_oob_score_groups: set[int], diag: Diagnostics
+) -> None:
+    """Warn if score is outside of group's expected score range.
+
+    Don't warn twice for the same group, since every submission is likely to hit the same error;
+    seen_oob_score_groups (keyed by id(group)) is owned by the caller, e.g. one set per problem check run.
+    """
+    if id(group) in seen_oob_score_groups:
+        return
+    min_score, max_score = group.get_score_range()
+    if min_score <= score <= max_score:
+        return
+    seen_oob_score_groups.add(id(group))
+    groupname = os.path.relpath(group.datadir, probdir)
+    diag.error(
+        f'submission {sub} got score {score} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]'
+    )
 
 
 def _find_sample_failure(results: list[SubmissionResult]) -> SubmissionResult | None:

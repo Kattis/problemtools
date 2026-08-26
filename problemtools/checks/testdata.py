@@ -14,7 +14,6 @@ from ..diagnostics import Diagnostics, VerifyError
 from ..judge import SubmissionResult
 from ..metadata import Metadata
 from ..model import DEFAULT_CONFIG, SCORING_ONLY_KEYS, TestCase, TestDataGroup
-from ..run import Program
 
 
 def check_testdata(
@@ -31,26 +30,6 @@ def check_testdata(
     """Run all checks on a problem's test data."""
     _check_group(
         testdata, context, metadata, probdir, has_custom_grader, has_default_grader, validate_input, validate_answer, diag
-    )
-
-
-def check_score_in_bounds(
-    group: TestDataGroup, sub: Program, score: float, probdir: Path, seen_oob_score_groups: set[int], diag: Diagnostics
-) -> None:
-    """Warn if score is outside of group's expected score range.
-
-    Don't warn twice for the same group, since every submission is likely to hit the same error;
-    seen_oob_score_groups (keyed by id(group)) is owned by the caller, e.g. one set per problem check run.
-    """
-    if id(group) in seen_oob_score_groups:
-        return
-    min_score, max_score = group.get_score_range()
-    if min_score <= score <= max_score:
-        return
-    seen_oob_score_groups.add(id(group))
-    groupname = os.path.relpath(group.datadir, probdir)
-    diag.error(
-        f'submission {sub} got score {score} on group {groupname}, which is outside of expected score range [{min_score}, {max_score}]'
     )
 
 
