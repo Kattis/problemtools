@@ -5,19 +5,16 @@ import sys
 from concurrent.futures import Future
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING
 
 from ..context import Context
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
+from ..model import TestCase, TestDataGroup
 from ..run import Program, get_tool
 from .cache import ResultStore
 from .execute import execute_testcase
 from .grade import grade_group
 from .result import SubmissionResult
-
-if TYPE_CHECKING:
-    from ..verifyproblem import TestCase, TestCaseGroup
 
 
 class _Cancelled:
@@ -29,11 +26,11 @@ class _Cancelled:
 
     def __contains__(self, testcase: TestCase) -> bool:
         with self._lock:
-            return testcase.infile_path in self._ids
+            return testcase.infile in self._ids
 
     def add(self, testcase: TestCase) -> None:
         with self._lock:
-            self._ids.add(testcase.infile_path)
+            self._ids.add(testcase.infile)
 
 
 class SubmissionJudge:
@@ -63,7 +60,7 @@ class SubmissionJudge:
         sub: Program,
         output_validator: Program,
         metadata: Metadata,
-        root: TestCaseGroup,
+        root: TestDataGroup,
         base_dir: Path,
         context: Context,
         diag: Diagnostics,
@@ -97,7 +94,7 @@ class SubmissionJudge:
     def judge(self, timelim: float) -> list[SubmissionResult]:
         """Walk the test tree in DFS order and return results as a flat list.
 
-        Each SubmissionResult has test_node set to the TestCase or TestCaseGroup it
+        Each SubmissionResult has test_node set to the TestCase or TestDataGroup it
         covers.  Group results immediately follow all their descendants; the root
         group's result is the last element.  Returns an empty list if all testcases
         were filtered out.
@@ -147,22 +144,22 @@ class SubmissionJudge:
             self._store.complete(testcase, result, timelim)
         return result
 
-    def _cancel_subtree(self, group: TestCaseGroup) -> None:
+    def _cancel_subtree(self, group: TestDataGroup) -> None:
         for testcase in group.get_all_testcases():
             self._cancelled.add(testcase)
 
-    def _grader_for(self, group: TestCaseGroup) -> Program | None:
+    def _grader_for(self, group: TestDataGroup) -> Program | None:
         if group.config.get('grading') == 'custom':
             return self._custom_grader
         return self._default_grader
 
-    def _judge_group(self, group: TestCaseGroup, timelim: float) -> list[SubmissionResult]:
+    def _judge_group(self, group: TestDataGroup, timelim: float) -> list[SubmissionResult]:
         all_results: list[SubmissionResult] = []  # Results of all children, groups and test cases, in DFS order. Our return value
         child_results: list[SubmissionResult] = []  # Results of our direct children, what we'll pass to the grader
 
-        filtered_items = (item for item in group._items if item.matches_filter(self._context.data_filter))
+        filtered_items = (item for item in group.items if item.matches_filter(self._context.data_filter))
         for item in filtered_items:
-            if item.is_group:
+            if isinstance(item, TestDataGroup):
                 sub = self._judge_group(item, timelim)
                 if not sub:  # If everything in a group is filtered, it returns an empty list.
                     continue
@@ -198,7 +195,7 @@ class SubmissionJudge:
         all_results.append(group_verdict)
         return all_results
 
-    def _aggregate_group_result(self, child_results: list[SubmissionResult], group: TestCaseGroup) -> SubmissionResult:
+    def _aggregate_group_result(self, child_results: list[SubmissionResult], group: TestDataGroup) -> SubmissionResult:
         judge_error = next((r for r in child_results if r.verdict == 'JE'), None)
         if judge_error:
             result = copy.copy(judge_error)

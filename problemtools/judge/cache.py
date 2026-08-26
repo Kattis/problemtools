@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from concurrent.futures import Future
 from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING
 
+from ..model import TestCase
 from .result import SubmissionResult
-
-if TYPE_CHECKING:
-    from ..verifyproblem import TestCase
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,22 @@ class CacheKey:
     input_hash: bytes
     ans_hash: bytes
     validator_flags: tuple[str, ...]
+
+
+@cache
+def _compute_reuse_key(infile: Path, ansfile: Path, output_validator_flags: tuple[str, ...]) -> CacheKey:
+    return CacheKey(
+        input_hash=hashlib.sha256(infile.read_bytes()).digest(),
+        ans_hash=hashlib.sha256(ansfile.read_bytes()).digest(),
+        validator_flags=output_validator_flags,
+    )
+
+
+def compute_reuse_key(testcase: TestCase) -> CacheKey:
+    """A key identifying testcase for result-reuse purposes: same input/answer file contents
+    and same output validator flags means a result can be reused. Memoized, since this hashes
+    file contents on first computation for a given testcase."""
+    return _compute_reuse_key(testcase.infile, testcase.ansfile, tuple(testcase.output_validator_flags))
 
 
 @dataclass
@@ -74,7 +90,7 @@ class ResultStore:
         Returns True if the key was unclaimed; the caller must eventually call
         complete().  Returns False if the key is already in-flight or completed.
         """
-        key = testcase.reuse_key
+        key = compute_reuse_key(testcase)
         with self._lock:
             if key in self._store:
                 return False
@@ -83,7 +99,7 @@ class ResultStore:
 
     def complete(self, testcase: TestCase, result: SubmissionResult, run_timelim: float) -> None:
         """Store the completed result and wake any consumer waiting on the future."""
-        key = testcase.reuse_key
+        key = compute_reuse_key(testcase)
         with self._lock:
             future = self._store[key]
             self._store[key] = _CacheEntry(result=result, run_timelim=run_timelim)
@@ -99,7 +115,7 @@ class ResultStore:
             None              — not present, or was run at a lower limit than timelim and
                                 cannot be reused; caller must run the testcase synchronously.
         """
-        key = testcase.reuse_key
+        key = compute_reuse_key(testcase)
         with self._lock:
             val = self._store.get(key)
         if val is None:

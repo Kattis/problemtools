@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ..verifyproblem import TestCase, TestCaseGroup
+from ..model import TestCase, TestDataGroup
 
 
 class SubmissionResult:
@@ -18,7 +15,7 @@ class SubmissionResult:
         self.score = score
         self.reason = reason
         self.additional_info = additional_info
-        self.test_node: TestCase | TestCaseGroup | None = None
+        self.test_node: TestCase | TestDataGroup | None = None
         self.runtime_testcase: TestCase | None = None
         self.runtime = -1.0
         self.validator_first = False  # Needed to work around interactive giving unreliable runtime on WA
@@ -30,7 +27,7 @@ class SubmissionResult:
             verdict += f' ({self.score:.0f})'
         if self.reason is not None:
             details.append(self.reason)
-        if self.test_node is not None and not self.test_node.is_group:
+        if isinstance(self.test_node, TestCase):
             details.append(f'testcase: {self.test_node}')
         if self.runtime != -1:
             details.append(f'CPU: {self.runtime:.2f}s @ {self.runtime_testcase}')

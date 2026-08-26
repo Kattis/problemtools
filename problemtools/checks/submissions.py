@@ -6,17 +6,14 @@ import math
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from ..context import Context
 from ..diagnostics import Diagnostics
 from ..judge import SubmissionJudge, SubmissionResult
 from ..metadata import Metadata
-from ..model import LegacyPolicy, Submission, Submissions
+from ..model import LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
 from ..run import Program
-
-if TYPE_CHECKING:
-    from ..verifyproblem import TestCaseGroup
+from .testdata import check_score_in_bounds
 
 # Temporary consts to keep code structure as similar as possible to old code from
 # verifyproblem when extracting this to a separate module.
@@ -33,10 +30,11 @@ _DISPLAY_LABEL_BY_DIRECTORY: dict[str, str] = {
 def check_submissions(
     submissions: Submissions,
     metadata: Metadata,
-    testdata: TestCaseGroup,
+    testdata: TestDataGroup,
     output_validator: Program,
     custom_grader: Program | None,
     tmpdir: str,
+    probdir: Path,
     context: Context,
     set_timelim: Callable[[float], None],
     diag: Diagnostics,
@@ -46,6 +44,7 @@ def check_submissions(
 
     policy = submissions.policy
     known_submissions = _check_matches_policy(submissions, policy, diag)
+    seen_oob_score_groups: set[int] = set()
 
     limits = metadata.limits
     ac_to_time_limit = limits.time_multipliers.ac_to_time_limit
@@ -89,7 +88,19 @@ def check_submissions(
             if has_testcases:
                 timelim, timelim_high = _compute_time_limit(metadata, fixed_limit, lower_bound_runtime)
                 sub_results = _check_submission(
-                    sub, policy, context, metadata, testdata, output_validator, custom_grader, tmpdir, timelim, timelim_high, diag
+                    sub,
+                    policy,
+                    context,
+                    metadata,
+                    testdata,
+                    output_validator,
+                    custom_grader,
+                    tmpdir,
+                    probdir,
+                    seen_oob_score_groups,
+                    timelim,
+                    timelim_high,
+                    diag,
                 )
                 runtimes.append(sub_results[-1].runtime)
                 all_submission_results.append((sub, sub_results))
@@ -150,10 +161,12 @@ def _check_submission(
     policy: LegacyPolicy,
     context: Context,
     metadata: Metadata,
-    testdata: TestCaseGroup,
+    testdata: TestDataGroup,
     output_validator: Program,
     custom_grader: Program | None,
     tmpdir: str,
+    probdir: Path,
+    seen_oob_score_groups: set[int],
     timelim: float,
     timelim_high: float,
     diag: Diagnostics,
@@ -186,8 +199,8 @@ def _check_submission(
     # Check if scores were outside of the range for any groups
     if metadata.is_scoring():
         for r in results:
-            if r.score is not None and r.test_node is not None and r.test_node.is_group:
-                r.test_node.check_score_in_bounds(sub.program, r.score)
+            if r.score is not None and isinstance(r.test_node, TestDataGroup):
+                check_score_in_bounds(r.test_node, sub.program, r.score, probdir, seen_oob_score_groups, diag)
 
     # Warn if AC (but not PAC) submissions fail on samples. It's not uncommon for sample cases to be
     # ignored, so failing on them could be silent otherwise. Skip warning if the result isn't AC -
@@ -228,7 +241,7 @@ def _check_submission(
 
 def _find_sample_failure(results: list[SubmissionResult]) -> SubmissionResult | None:
     for r in results:
-        if r.verdict != 'AC' and r.test_node is not None and not r.test_node.is_group and r.test_node.is_in_sample_group():
+        if r.verdict != 'AC' and isinstance(r.test_node, TestCase) and r.test_node.is_in_sample_group():
             return r
     return None
 
@@ -246,7 +259,7 @@ def _warn_pac_too_slow(
             return
 
 
-def _get_table_groups(testdata: TestCaseGroup) -> list[TestCaseGroup]:
+def _get_table_groups(testdata: TestDataGroup) -> list[TestDataGroup]:
     """Return the groups to show as columns: expand any root child that has subgroups."""
     result = []
     for group in testdata.get_subgroups():
@@ -259,11 +272,11 @@ def _get_table_groups(testdata: TestCaseGroup) -> list[TestCaseGroup]:
 
 
 def _print_results_table(
-    all_submission_results: list[tuple[Submission, list[SubmissionResult]]], testdata: TestCaseGroup, is_scoring: bool
+    all_submission_results: list[tuple[Submission, list[SubmissionResult]]], testdata: TestDataGroup, is_scoring: bool
 ) -> None:
     groups = _get_table_groups(testdata)
 
-    def cell_for_group(results: list[SubmissionResult], group: TestCaseGroup) -> str:
+    def cell_for_group(results: list[SubmissionResult], group: TestDataGroup) -> str:
         for r in results:
             if r.test_node is group:
                 if r.verdict == 'AC':
@@ -284,7 +297,7 @@ def _print_results_table(
         t = results[-1].runtime
         return f'{t:.2f}s' if t >= 0 else '-'
 
-    headers = ['Submission'] + [os.path.basename(g._datadir) for g in groups]
+    headers = ['Submission'] + [os.path.basename(g.datadir) for g in groups]
     if is_scoring:
         headers.append('Pts')
     headers.append('Time')
@@ -327,7 +340,7 @@ def _compute_time_limit(metadata: Metadata, fixed_limit: float | None, lower_bou
     return timelim, timelim * limits.time_multipliers.time_limit_to_tle
 
 
-def _full_score_finite(testdata: TestCaseGroup, metadata: Metadata) -> bool:
+def _full_score_finite(testdata: TestDataGroup, metadata: Metadata) -> bool:
     min_score, max_score = testdata.get_score_range()
     if metadata.legacy_grading.objective == 'min':
         return min_score != float('-inf')
@@ -335,7 +348,7 @@ def _full_score_finite(testdata: TestCaseGroup, metadata: Metadata) -> bool:
         return max_score != float('inf')
 
 
-def _fully_accepted(result: SubmissionResult, testdata: TestCaseGroup, metadata: Metadata) -> bool:
+def _fully_accepted(result: SubmissionResult, testdata: TestDataGroup, metadata: Metadata) -> bool:
     min_score, max_score = testdata.get_score_range()
     best_score = min_score if metadata.legacy_grading.objective == 'min' else max_score
     return result.verdict == 'AC' and (not metadata.is_scoring() or result.score == best_score)
