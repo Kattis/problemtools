@@ -3,9 +3,9 @@ Problemtools.
 """
 
 import os
+from typing import TYPE_CHECKING
 
 from ..languages import Languages
-from ..model import Includes
 from . import rutil
 from .buildrun import BuildRun
 from .checktestdata import Checktestdata
@@ -16,12 +16,15 @@ from .tools import get_tool as get_tool
 from .tools import get_tool_path as get_tool_path
 from .viva import Viva
 
+if TYPE_CHECKING:
+    from ..model import Includes
+
 
 def find_programs(
     path: str,
     language_config: Languages,
     work_dir: str,
-    includes: Includes = Includes(),  # noqa: B008 -- Includes is a frozen dataclass, so this is safe
+    includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
 ) -> list[Program]:
     """Find all programs in a directory.
@@ -67,7 +70,7 @@ def get_program(
     path: str,
     language_config: Languages,
     work_dir: str,
-    includes: Includes = Includes(),  # noqa: B008 -- Includes is a frozen dataclass, so this is safe
+    includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
 ) -> Program | None:
     """Get a Program object for a program
@@ -85,7 +88,7 @@ def get_program(
 
         includes: include files to add to the program, resolved per
             the program's detected language (see
-            Includes.get_includes_for_language).
+            Includes.get_includes_for_language). Defaults to no includes.
 
         allow_validation_script: if true, also looks for
             validation scripts in the Checktestdata and VIVA formats.
@@ -94,6 +97,12 @@ def get_program(
         a Program instance, or None if no program was found at
         the given path.
     """
+    if includes is None:
+        # Imported lazily (rather than at module scope) since `model` depends on `run`
+        # (e.g. for `run.find_programs`), so importing it here avoids a circular import.
+        from ..model import Includes
+
+        includes = Includes()
 
     if os.path.isfile(path):
         if allow_validation_script:

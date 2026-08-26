@@ -1,9 +1,7 @@
+from ..model import Verdict
 from .cache import CacheKey
 from .execute import execute_testcase
-from .result import (
-    SubmissionResult,
-    Verdict,
-)
+from .result import SubmissionResult
 from .submission_judge import SubmissionJudge
 from .validate import validate_output
 

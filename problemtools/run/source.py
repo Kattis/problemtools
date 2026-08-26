@@ -6,12 +6,15 @@ import logging
 import os
 import subprocess
 import tempfile
+from typing import TYPE_CHECKING
 
 from ..languages import CommandSubstitution, Language
-from ..model import LanguageIncludes
 from . import rutil
 from .errors import ProgramError
 from .program import Program
+
+if TYPE_CHECKING:
+    from ..model import LanguageIncludes
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +22,7 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path: str, language: Language, work_dir: str, includes: LanguageIncludes) -> None:
+    def __init__(self, path: str, language: Language, work_dir: str, includes: 'LanguageIncludes') -> None:
         """Instantiate SourceCode object
 
         Args:
