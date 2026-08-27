@@ -1,9 +1,13 @@
 from .includes import check_includes
 from .submissions import check_submissions
 from .testdata import check_testdata
+from .validators import check_input_validators, check_output_validators, check_testcase_input
 
 __all__ = [
     'check_includes',
+    'check_input_validators',
+    'check_output_validators',
     'check_submissions',
+    'check_testcase_input',
     'check_testdata',
 ]
