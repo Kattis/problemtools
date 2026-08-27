@@ -75,7 +75,7 @@ def _run_normal(
     """Run a submission once (non-interactive)"""
     outfile = execution_dir / 'submission_stdout'
     errfile = execution_dir / 'submission_stderr'
-    sub_path = sub.compile(str(base_dir)).path
+    sub_path = sub.compile(base_dir).path
     status, runtime = sub.run(
         infile=str(infile),
         outfile=str(outfile),
@@ -111,10 +111,10 @@ def _run_interactive(
         diag.error('Could not locate interactive runner')
         return SubmissionResult('JE', reason='Could not locate interactive runner')
 
-    if not output_validator.compile(str(base_dir)).success:
+    if not output_validator.compile(base_dir).success:
         return SubmissionResult('JE', reason=f'output validator {output_validator} failed to compile')
 
-    sub_path = sub.compile(str(base_dir)).path
+    sub_path = sub.compile(base_dir).path
 
     feedback_dir = execution_dir / 'feedback'
     interactive_out = execution_dir / 'interactive_output'

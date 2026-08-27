@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
 from ..model import Graders
@@ -19,6 +21,6 @@ def check_graders(graders: Graders, metadata: Metadata, work_dir: str, diag: Dia
     if metadata.is_pass_fail():
         diag.fatal('There is a grader but the problem is pass-fail')
 
-    result = grader.compile(work_dir)
+    result = grader.compile(Path(work_dir))
     if not result.success:
         diag.fatal(f'Compile error for {grader}', result.errmsg)

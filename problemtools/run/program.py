@@ -7,6 +7,7 @@ import resource
 import signal
 import threading
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from . import limit
 from .errors import ProgramError
@@ -25,13 +26,13 @@ class CompileResult:
 
     success: bool
     errmsg: str | None
-    path: str
+    path: Path
 
 
 class Program(ABC):
     """Abstract base class for programs."""
 
-    def __init__(self, name: str, path: str | None = None) -> None:
+    def __init__(self, name: str, path: Path | None = None) -> None:
         """Instantiate program object.
 
         Args:
@@ -48,7 +49,7 @@ class Program(ABC):
         self._compile_result: CompileResult | None = None
 
     @property
-    def path(self) -> str:
+    def path(self) -> Path:
         if self._path is None:
             raise ProgramError(f'{self} has not been compiled yet')
         return self._path
@@ -68,7 +69,7 @@ class Program(ABC):
         args: list[str] | None = None,
         timelim: int = 1000,
         memlim: int = 1024,
-        work_dir: str | None = None,
+        work_dir: Path | None = None,
     ) -> tuple[int, float]:
         """Run the program.
 
@@ -95,7 +96,7 @@ class Program(ABC):
 
         return status, runtime
 
-    def compile(self, work_dir: str) -> CompileResult:
+    def compile(self, work_dir: Path) -> CompileResult:
         """Compile the program, if needed, and return the result.
 
         Only the first call actually compiles; later calls (even with a different
@@ -107,7 +108,7 @@ class Program(ABC):
                 self._compile_result = self.do_compile(work_dir)
             return self._compile_result
 
-    def do_compile(self, work_dir: str) -> CompileResult:
+    def do_compile(self, work_dir: Path) -> CompileResult:
         """Actually compile the program, if needed. Subclasses should override this method.
         Do not call this manually -- use compile() instead."""
         return CompileResult(True, None, self.path)
@@ -140,7 +141,7 @@ class Program(ABC):
         errfile: str,
         timelim: int,
         memlim: int,
-        work_dir: str | None,
+        work_dir: Path | None,
     ) -> tuple[int, float]:
         log.debug('run "%s < %s > %s 2> %s"', ' '.join(argv), infile, outfile, errfile)
         pid = os.fork()

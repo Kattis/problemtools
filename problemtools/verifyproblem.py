@@ -198,7 +198,7 @@ class InputValidators(ProblemPart):
 
     def start_background_work(self, context: Context) -> None:
         for val in self.input_validators.validators:
-            context.submit_background_work(val.compile, self.problem.tmpdir)
+            context.submit_background_work(val.compile, Path(self.problem.tmpdir))
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
@@ -260,7 +260,7 @@ class OutputValidators(ProblemPart):
 
     def start_background_work(self, context: Context) -> None:
         if not self._has_precompiled:
-            context.submit_background_work(self.output_validator.compile, self.problem.tmpdir)
+            context.submit_background_work(self.output_validator.compile, Path(self.problem.tmpdir))
             self._has_precompiled = True
 
     def check(self, context: Context) -> bool:
@@ -328,7 +328,7 @@ class Submissions(ProblemPart):
         policy = self.submissions.policy
         for sub in self.submissions.submissions:
             if policy.matches(sub) and context.submission_filter.search(str(sub.path)):
-                context.submit_background_work(sub.program.compile, self.problem.tmpdir)
+                context.submit_background_work(sub.program.compile, Path(self.problem.tmpdir))
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:

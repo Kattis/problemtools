@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..languages import CommandSubstitution, Language
@@ -52,15 +53,15 @@ class SourceCode(Program):
     def code_size(self) -> int:
         return self._code_size
 
-    def do_compile(self, work_dir: str) -> CompileResult:
+    def do_compile(self, work_dir: Path) -> CompileResult:
         """Set up the compile work-space (copying source and includes into work_dir) and
         compile the source code."""
         name = self.name
 
         # Set up work-space
-        run_path = os.path.join(work_dir, name)
+        run_path = work_dir / name
         if os.path.exists(run_path):
-            run_path = tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir)
+            run_path = Path(tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir))
         else:
             os.makedirs(run_path)
         self._path = run_path
@@ -132,7 +133,7 @@ class SourceCode(Program):
 
     def __get_substitution(self, memlim: int = 1024) -> CommandSubstitution:
         return CommandSubstitution(
-            path=self.path,
+            path=str(self.path),
             files=' '.join(self.src),
             memlim=memlim,
             mainfile=self.mainfile,

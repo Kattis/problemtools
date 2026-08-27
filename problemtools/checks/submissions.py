@@ -79,7 +79,7 @@ def check_submissions(
                 )
                 continue
 
-            result = sub.program.compile(tmpdir)
+            result = sub.program.compile(Path(tmpdir))
             if not result.success:
                 diag.error(f'Compile error for {label} submission {sub.program}', additional_info=result.errmsg)
                 continue

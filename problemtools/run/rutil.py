@@ -3,11 +3,12 @@
 import errno
 import os
 import shutil
+from pathlib import Path
 
 from .errors import ProgramError
 
 
-def add_files(src: str, dstdir: str) -> None:
+def add_files(src: str | Path, dstdir: str | Path) -> None:
     """Copy src to dstdir.
 
     Args:
@@ -38,7 +39,7 @@ def add_files(src: str, dstdir: str) -> None:
         raise
 
 
-def list_files_recursive(root: str) -> list[str]:
+def list_files_recursive(root: str | Path) -> list[str]:
     """List files in a directory with subdirectories.
 
     Returns:

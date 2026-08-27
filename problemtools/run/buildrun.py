@@ -5,6 +5,7 @@ Implementation of programs provided by a directory with build/run scripts.
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 
 from . import rutil
 from .errors import ProgramError
@@ -29,13 +30,13 @@ class BuildRun(Program):
         super().__init__(name=name)
         self._source_path = path
 
-    def do_compile(self, work_dir: str) -> CompileResult:
+    def do_compile(self, work_dir: Path) -> CompileResult:
         """Set up the compile work-space (copying the build script and friends into
         work_dir) and run the build script."""
         name = self.name
-        run_path = os.path.join(work_dir, name)
+        run_path = work_dir / name
         if os.path.exists(run_path):
-            run_path = tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir)
+            run_path = Path(tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir))
         else:
             os.makedirs(run_path)
         self._path = run_path

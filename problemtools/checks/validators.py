@@ -104,7 +104,7 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
 
     for val in validators.validators:
         try:
-            result = val.compile(work_dir)
+            result = val.compile(Path(work_dir))
             if not result.success:
                 diag.error(f'Compile error for {val}', result.errmsg)
         except ProgramError as e:
@@ -132,7 +132,7 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
         for flags_str in all_flags:
             flags = flags_str.split()
             for val in validators.validators:
-                status, _ = val.run(file_name, args=flags, work_dir=work_dir)
+                status, _ = val.run(file_name, args=flags, work_dir=Path(work_dir))
                 if os.WEXITSTATUS(status) != 42:
                     break
             else:
@@ -154,7 +154,7 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
             for flags_str in all_flags:
                 flags = flags_str.split()
                 for val in validators.validators:
-                    status, _ = val.run(file_name, args=flags, work_dir=work_dir)
+                    status, _ = val.run(file_name, args=flags, work_dir=Path(work_dir))
                     if os.WEXITSTATUS(status) != 42:
                         # expected behavior; validator rejects modified input
                         return False
@@ -179,11 +179,11 @@ def check_testcase_input(validators: InputValidators, testcase: TestCase, work_d
 
     for val in validators.validators:
         # A validator that failed to compile was already reported by check_input_validators; skip it.
-        if not val.compile(work_dir).success:
+        if not val.compile(Path(work_dir)).success:
             continue
 
         with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
-            status, _ = val.run(str(testcase.infile), outfile.name, errfile.name, args=flags, work_dir=work_dir)
+            status, _ = val.run(str(testcase.infile), outfile.name, errfile.name, args=flags, work_dir=Path(work_dir))
             if not os.WIFEXITED(status):
                 emsg = f'Input format validator {val} crashed on input {testcase.infile}'
             elif os.WEXITSTATUS(status) != 42:
@@ -233,7 +233,7 @@ def check_output_validators(
         diag.fatal('problem.yaml specifies custom validator but no validator programs found')
 
     try:
-        result = selected.compile(work_dir)
+        result = selected.compile(Path(work_dir))
         if not result.success:
             diag.fatal(f'Compile error for output validator {selected}', result.errmsg)
     except ProgramError as e:
