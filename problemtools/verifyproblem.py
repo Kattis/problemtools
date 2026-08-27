@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import difflib
-import glob
 import logging
 import os
 import random
@@ -11,7 +10,6 @@ import re
 import shutil
 import sys
 import tempfile
-import traceback
 import uuid
 from abc import ABC
 from pathlib import Path
@@ -21,7 +19,7 @@ from typing import ClassVar, NoReturn, Self
 
 from pydantic import ValidationError
 
-from . import checks, languages, metadata, model, problem2html, problem2pdf, run, statement_util
+from . import checks, languages, metadata, model, run
 from .context import PROBLEM_PARTS, Context
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
@@ -74,15 +72,6 @@ class ProblemAspect(ABC):
     def msg(self, msg: str) -> None:
         print(msg)
 
-    def warn_directory(self, name: str, prop: str) -> None:
-        """Warns if a directory meant for a different problem format version exists"""
-        good_dir = getattr(self.problem.format, prop)
-        bad_dirs = {getattr(version, prop) for version in FormatVersion} - {good_dir}
-        problem_root = Path(self.problem.probdir)
-        for directory in bad_dirs:
-            if (problem_root / directory).exists():
-                self.warning(f'Found directory "{directory}". Version {self.problem.format} looks for {name} in "{good_dir}"')
-
 
 class ProblemPart(ProblemAspect):
     """Baseclass for all parts that can be included in a problem-format."""
@@ -109,87 +98,30 @@ class ProblemPart(ProblemAspect):
 
 
 class ProblemStatement(ProblemPart):
-    statements: dict[str, list[Path]]  # Maps language code -> statement(s)
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
+
     PART_NAME = 'statement'
 
     def setup(self) -> None:
         self.debug('  Loading problem statement')
-        self.statements = statement_util.find_statements(Path(self.problem.probdir), self.problem.format)
+        self.statements = model.load_statements(Path(self.problem.probdir), self.problem.format)
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
 
-        self.warn_directory('problem statements', 'statement_directory')
-
-        for ifilename in glob.glob(os.path.join(self.problem.probdir, 'data/sample/*.interaction')):
-            if not self.problem.is_interactive() and not self.problem.is_multi_pass():
-                self.error(f'Problem is not interactive, but there is an interaction sample {ifilename}')
-            with open(ifilename, 'r') as interaction:
-                for i, line in enumerate(interaction):
-                    valid_new_pass = self.problem.is_multi_pass() and line.strip() == '---'
-                    if len(line) == 0 or (line[0] != '<' and line[0] != '>' and not valid_new_pass):
-                        self.error(
-                            f'Interaction {ifilename}: line {i + 1} does not start with < or > {"or ---" if self.problem.is_multi_pass() else ""}'
-                        )
-                        break
-
-        if not self.statements:
-            if self.problem.format is FormatVersion.LEGACY:
-                allowed_statements = ', '.join(
-                    f'problem.{ext}, problem.<language>.{ext}' for ext in self.problem.format.statement_extensions
-                )
-            else:
-                allowed_statements = ', '.join(f'problem.<language>.{ext}' for ext in self.problem.format.statement_extensions)
-
-            self.error(
-                f'No problem statements found (expected file of one of following forms in directory {self.problem.format.statement_directory}/: {allowed_statements})'
-            )
-
-        def _latex_heuristic(name: str) -> bool:
-            return '\\' in name or '$' in name
-
-        for lang, files in self.statements.items():
-            if len(files) > 1:
-                self.error(f'Found multiple statements in the same language {lang}: {", ".join(file.name for file in files)}')
-
-            if lang not in self.problem.metadata.name:
-                self.error(f'No problem name given in language {lang}')
-            elif not self.problem.metadata.name[lang]:
-                self.error(f'Problem name in language {lang} is empty')
-            elif not self.problem.metadata.name[lang].strip():
-                self.error(f'Problem name in language {lang} contains only whitespace')
-            elif self.problem.format is FormatVersion.LEGACY and _latex_heuristic(self.problem.metadata.name[lang]):
-                self.warning(f'Problem name in language {lang} looks like LaTeX. Consider using plainproblemname.')
-
-            for file in files:
-                try:
-                    options = problem2pdf.get_parser().parse_args([''])
-                    options.problem = self.problem.probdir
-                    options.language = lang
-                    options.nopdf = True
-                    options.quiet = True
-                    if not problem2pdf.convert(options, file):
-                        self.error(
-                            f'Could not compile problem statement for language "{lang}".  Run problem2pdf --language {lang} on the problem to diagnose.'
-                        )
-                except Exception as e:
-                    self.error(
-                        f'Error raised when checking problem statement for language {lang}:\n{e}\n{traceback.format_exc()}'
-                    )
-
-                try:
-                    options = problem2html.get_parser().parse_args([''])
-                    options.problem = self.problem.probdir
-                    options.destdir = os.path.join(self.problem.tmpdir, 'html')
-                    options.language = lang
-                    options.quiet = True
-                    problem2html.convert(options, file)
-                except Exception as e:
-                    self.error(
-                        f'Could not convert problem statement to html for language "{lang}".  Run problem2html --language {lang} on the problem to diagnose.\n{e}\n{traceback.format_exc()}'
-                    )
+        errors_before = self.errors
+        checks.check_statements(
+            self.statements,
+            self.problem.metadata,
+            self.problem.format,
+            Path(self.problem.probdir),
+            self.problem.tmpdir,
+            self._diag,
+        )
+        if self.errors > errors_before:
+            self._check_res = False
 
         return self._check_res
 
@@ -253,7 +185,9 @@ class ProblemConfig(ProblemPart):
         if self._metadata.uuid is None:
             self.error_in_2023_07(f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
 
-        names_with_no_statement = [lang for lang in self._metadata.name if lang not in self.problem.statement.statements]
+        names_with_no_statement = [
+            lang for lang in self._metadata.name if lang not in self.problem.statement.statements.by_language
+        ]
         if names_with_no_statement:
             self.error(f'Names exist for languages without problem statements: {", ".join(names_with_no_statement)}')
 
