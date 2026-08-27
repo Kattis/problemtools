@@ -9,15 +9,13 @@ import os
 import random
 import re
 import shutil
-import string
 import sys
 import tempfile
 import traceback
 import uuid
 from abc import ABC
-from collections.abc import Callable
 from pathlib import Path
-from re import Match, Pattern
+from re import Pattern
 from types import TracebackType
 from typing import ClassVar, NoReturn, Self
 
@@ -343,188 +341,34 @@ class Attachments(ProblemPart):
         return 'attachments'
 
 
-# Junk data. The validator should reject these cases
-_JUNK_CASES: list[tuple[str, bytes]] = [
-    ('an empty file', b''),
-    ('a binary file with random bytes', random.Random(42).randbytes(1024)),
-    ('a text file with the ASCII characters 32 up to 127', bytes(range(32, 127))),
-    (
-        'a random text file with printable ASCII characters',
-        bytes(random.Random(42).choices(string.printable.encode('utf8'), k=200)),
-    ),
-]
-
-# Try to crash the output validator, causing a judge error
-_JUNK_CASES_CRASH = [
-    ('a file with the number -1', b'-1'),
-    ('a file with the number 2147483647', b'2147483647'),
-    ('a file with the number 2147483648', b'2147483648'),
-    ('a file with the number 9223372036854775808', b'9223372036854775808'),
-    ('a file with the number 0', b'0'),
-    ('a file with the number 1', b'1'),
-    ('a file with the number 1.0', b'1.0'),
-    ('a file with the string "a"', b'a'),
-    ('a file with the contents "2\\n-1 1"', b'2\n-1 1'),
-    ('a file with the contents "2\\n1"', b'2\n1'),
-    ('a file with the contents "1\\n-1 1"', b'1\n-1 1'),
-    ('a file with the contents "1\\na"', b'1\na'),
-    ('a file with the contents "(()"', b'(()'),
-    ('a file with the contents "1-"', b'1-'),
-    ('a file with the contents "1/0"', b'1/0'),
-    ('a file with the contents "2\\n<"', b'2\n<'),
-    ('a file with the contents "NaN"', b'NaN'),
-    ('a file with the contents "inf"', b'inf'),
-    ('a file with the contents "\\x00"', b'\x00'),
-    ('a file with the contents "\\x80"', b'\x80'),
-]
-
-
-def _build_junk_modifier(
-    desc: str, pattern: str, repl: str | Callable[[Match[str]], str]
-) -> tuple[str, Callable[[str], bool], Callable[[str], str]]:
-    p = re.compile(pattern)
-    return (desc, lambda text: p.search(text) is not None, lambda text: p.sub(repl, text))
-
-
-_JUNK_MODIFICATIONS = [
-    _build_junk_modifier('spaces added where there already is whitespace', r'\s', lambda m: m.group(0) + ' '),
-    _build_junk_modifier('spaces added to the end of a line', r'\n', lambda m: m.group(0) + ' '),
-    _build_junk_modifier('newlines added where there already are newlines', '\n', lambda m: '\n\n'),
-    _build_junk_modifier('leading zeros added to integers', r'(^|[^.]\b)([0-9]+)\b', r'\g<1>0000000000\g<2>'),
-    _build_junk_modifier('trailing zeros added to real number decimal portion', r'\.[0-9]+\b', r'\g<0>0000000000'),
-    (
-        'random junk added to the end of the file',
-        lambda f: True,
-        lambda f: f + ''.join(random.choice(string.printable) for _ in range(200)),
-    ),
-]
-
-
 class InputValidators(ProblemPart):
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
+
     PART_NAME = 'input_validator'
 
     def setup(self) -> None:
-        input_validators_path = os.path.join(self.problem.probdir, 'input_format_validators')
-        if os.path.isdir(input_validators_path):
-            self._uses_old_path = True
-        else:
-            self._uses_old_path = False
-            new_input_validators_path = os.path.join(self.problem.probdir, 'input_validators')
-            if os.path.isdir(new_input_validators_path):
-                input_validators_path = new_input_validators_path
-        self._validators = run.find_programs(
-            input_validators_path,
-            language_config=self.problem.language_config,
-            allow_validation_script=True,
-            work_dir=self.problem.tmpdir,
+        self.input_validators = model.load_input_validators(
+            Path(self.problem.probdir), self.problem.language_config, self.problem.tmpdir
         )
 
     def __str__(self) -> str:
         return 'input format validators'
 
     def start_background_work(self, context: Context) -> None:
-        for val in self._validators:
+        for val in self.input_validators.validators:
             context.submit_background_work(lambda v: v.compile(), val)
 
-    def check(self, context: Context | None) -> bool:
+    def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
-        if self._uses_old_path:
-            self.warning('input_format_validators is a deprecated name; please use input_validators instead')
         self._check_res = True
-        if len(self._validators) == 0:
-            self.error('No input format validators found')
 
-        for val in self._validators[:]:
-            try:
-                success, msg = val.compile()
-                if not success:
-                    self.error(f'Compile error for {val}', msg)
-                    self._validators.remove(val)
-            except run.ProgramError as e:
-                self.error(str(e))
-
-        # Only sanity check input validators if they all actually compiled
-        if self._check_res:
-            all_flags: set[str] = set()
-
-            def collect_flags(group: model.TestDataGroup, flags: set[str]) -> None:
-                if len(group.get_testcases()) > 0:
-                    flags.add(group.config['input_validator_flags'])
-                for subgroup in group.get_subgroups():
-                    collect_flags(subgroup, flags)
-
-            collect_flags(self.problem.testdata.testdata, all_flags)
-
-            fd, file_name = tempfile.mkstemp()
-            os.close(fd)
-            for desc, case in _JUNK_CASES:
-                with open(file_name, 'wb') as f:
-                    f.write(case)
-                for flags_str in all_flags:
-                    flags = flags_str.split()
-                    for val in self._validators:
-                        status, _ = val.run(file_name, args=flags, work_dir=self.problem.tmpdir)
-                        if os.WEXITSTATUS(status) != 42:
-                            break
-                    else:
-                        self.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
-
-            def modified_input_validates(applicable: Callable[[str], bool], modifier: Callable[[str], str]) -> bool:
-                for testcase in self.problem.testdata.testdata.get_all_testcases():
-                    try:
-                        with open(testcase.infile) as infile:
-                            infile_data = infile.read()
-                        if not applicable(infile_data):
-                            continue
-                    except UnicodeDecodeError:
-                        continue
-
-                    with open(file_name, 'wb') as f:
-                        f.write(modifier(infile_data).encode('utf8'))
-
-                    for flags_str in all_flags:
-                        flags = flags_str.split()
-                        for val in self._validators:
-                            status, _ = val.run(file_name, args=flags, work_dir=self.problem.tmpdir)
-                            if os.WEXITSTATUS(status) != 42:
-                                # expected behavior; validator rejects modified input
-                                return False
-
-                    # we found a file we could modify, and all validators
-                    # accepted the modifications
-                    return True
-
-                # no files were modifiable
-                return False
-
-            for desc, applicable, modifier in _JUNK_MODIFICATIONS:
-                if modified_input_validates(applicable, modifier):
-                    self.warning(f'No validator rejects {desc}')
-
-            os.unlink(file_name)
+        errors_before = self.errors
+        checks.check_input_validators(self.input_validators, self.problem.testdata.testdata, self.problem.tmpdir, self._diag)
+        if self.errors > errors_before:
+            self._check_res = False
 
         return self._check_res
-
-    def validate(self, testcase: model.TestCase, diag: Diagnostics) -> None:
-        flags = testcase.input_validator_flags
-
-        # Remove input validators that don't compile, even without -p validators
-        self.check(None)
-
-        for val in self._validators:
-            with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
-                status, _ = val.run(str(testcase.infile), outfile.name, errfile.name, args=flags, work_dir=self.problem.tmpdir)
-                if not os.WIFEXITED(status):
-                    emsg = f'Input format validator {val} crashed on input {testcase.infile}'
-                elif os.WEXITSTATUS(status) != 42:
-                    emsg = f'Input format validator {val} did not accept input {testcase.infile}, exit code: {os.WEXITSTATUS(status)}'
-                else:
-                    continue
-                validator_stdout = outfile.read().decode('utf-8', 'replace')
-                validator_stderr = errfile.read().decode('utf-8', 'replace')
-                validator_output = '\n'.join(out for out in [validator_stdout, validator_stderr] if out)
-                diag.error(emsg, validator_output)
 
 
 class Graders(ProblemPart):
@@ -561,30 +405,22 @@ class Graders(ProblemPart):
 
 
 class OutputValidators(ProblemPart):
-    _default_validator = run.get_tool('default_validator')
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
 
     PART_NAME = 'output_validator'
 
     def setup(self) -> None:
-        self._validators = run.find_programs(
-            os.path.join(self.problem.probdir, self.problem.format.output_validator_directory),
-            language_config=self.problem.language_config,
-            work_dir=self.problem.tmpdir,
+        self.output_validators = model.load_output_validators(
+            Path(self.problem.probdir), self.problem.format, self.problem.language_config, self.problem.tmpdir
         )
         self._has_precompiled = False
 
-    def uses_default_validator(self) -> bool:
-        if self.problem.format is FormatVersion.LEGACY:
-            return self.problem.metadata.legacy_validation == 'default'
-        return not self._validators
-
     @property
     def output_validator(self) -> run.Program:
-        if self.uses_default_validator() or not self._validators:
-            if self._default_validator is None:
-                self.fatal('Unable to locate default validator')
-            return self._default_validator
-        return self._validators[0]
+        validator = self.output_validators.select(self.problem.format, self.problem.metadata)
+        if validator is None:
+            self.fatal('Unable to locate default validator')
+        return validator
 
     def __str__(self) -> str:
         return 'output validators'
@@ -599,71 +435,18 @@ class OutputValidators(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        self.warn_directory('output validators', 'output_validator_directory')
-
-        if len(self._validators) > 1:
-            self.error_in_2023_07(
-                f'Support for multiple output validators has been dropped. will only use {self.output_validator}'
-            )
-
-        safe_output_validator_languages = {'c', 'cpp', 'python3'}
-        if (
-            isinstance(self.output_validator, run.SourceCode)
-            and self.output_validator.language.lang_id not in safe_output_validator_languages
-        ):
-            self.error_in_2023_07(
-                f'Output validator in {self.output_validator.language.name}. Only {safe_output_validator_languages} are standardized. Check carefully if your CCS supports more (Kattis does not).'
-            )
-
-        if self.uses_default_validator() and self._validators:
-            self.error('There are validator programs but problem.yaml has validation = "default"')
-        elif not self.uses_default_validator() and not self._validators:
-            self.fatal('problem.yaml specifies custom validator but no validator programs found')
-
-        try:
-            success, msg = self.output_validator.compile()
-            if not success:
-                self.fatal(f'Compile error for output validator {self.output_validator}', msg)
-        except run.ProgramError as e:
-            self.fatal(f'Compile error for output validator {self.output_validator}', str(e))
-
-        # Only sanity check output validators if they all actually compiled
-        if self._check_res:
-            # Sanity check cases that should be rejected by the output validator
-            def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[model.TestCase]) -> list[SubmissionResult]:
-                results = []
-                with tempfile.NamedTemporaryFile(mode='wb') as f:
-                    f.write(junk_content)
-                    f.flush()
-                    for testcase in testcases:
-                        result = validate_output(
-                            testcase=testcase,
-                            submission_output=Path(f.name),
-                            output_validator=self.output_validator,
-                            metadata=self.problem.metadata,
-                            base_dir=Path(self.problem.tmpdir),
-                            diag=self._diag,
-                        )
-                        results.append(result)
-                        if result.verdict == 'JE':
-                            self.error(f'{case_desc} as output on test case {testcase} gave {result}')
-                            break
-                return results
-
-            # Junk cases that the output validator should reject
-            for desc, junk_case_content in _JUNK_CASES:
-                results = run_junk_case(desc, junk_case_content, self.problem.testdata.testdata.get_all_testcases())
-                rejected = any(result.verdict != 'AC' for result in results)
-                if not rejected:
-                    self.warning(f'{desc} gets AC')
-
-            # Malformed cases that a poorly-written output validator might crash on
-            # Note that these might be valid output, so we only check if it crashes.
-            # These bugs are rarely dependent on the actual test case, so we just
-            # run on a few to keep things speedy.
-            test_cases = self.problem.testdata.testdata.get_all_testcases()[:3]
-            for desc, junk_case_content in _JUNK_CASES_CRASH:
-                run_junk_case(desc, junk_case_content, test_cases)
+        errors_before = self.errors
+        checks.check_output_validators(
+            self.output_validators,
+            self.problem.format,
+            self.problem.metadata,
+            self.problem.testdata.testdata,
+            Path(self.problem.probdir),
+            self.problem.tmpdir,
+            self._diag,
+        )
+        if self.errors > errors_before:
+            self._check_res = False
 
         return self._check_res
 
@@ -756,6 +539,9 @@ class TestData(ProblemPart):
 
         errors_before = self.errors
 
+        def validate_input(testcase: model.TestCase, diag: Diagnostics) -> None:
+            checks.check_testcase_input(self.problem.input_validators.input_validators, testcase, self.problem.tmpdir, diag)
+
         def validate_answer(testcase: model.TestCase, diag: Diagnostics) -> SubmissionResult:
             return validate_output(
                 testcase=testcase,
@@ -773,7 +559,7 @@ class TestData(ProblemPart):
             Path(self.problem.probdir),
             self.problem.graders._grader is not None,
             Graders._default_grader is not None,
-            self.problem.input_validators.validate,
+            validate_input,
             validate_answer,
             self._diag,
         )
