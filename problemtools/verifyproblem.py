@@ -371,19 +371,12 @@ class InputValidators(ProblemPart):
 
 
 class Graders(ProblemPart):
-    _default_grader = run.get_tool('default_grader')
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
 
     PART_NAME = 'grader'
 
     def setup(self) -> None:
-        graders: list = run.find_programs(
-            os.path.join(self.problem.probdir, 'graders'),
-            language_config=self.problem.language_config,
-            work_dir=self.problem.tmpdir,
-        )
-        if len(graders) > 1:
-            self.fatal('There is more than one custom grader')
-        self._grader = graders[0] if graders else None
+        self.graders = model.load_graders(Path(self.problem.probdir), self.problem.language_config, self.problem.tmpdir)
 
     def __str__(self) -> str:
         return 'graders'
@@ -393,13 +386,11 @@ class Graders(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        if self._grader:
-            if self.problem.is_pass_fail() and self._grader:
-                self.fatal('There is a grader but the problem is pass-fail')
+        errors_before = self.errors
+        checks.check_graders(self.graders, self.problem.metadata, self._diag)
+        if self.errors > errors_before:
+            self._check_res = False
 
-            success, msg = self._grader.compile()
-            if not success:
-                self.fatal(f'Compile error for {self._grader}', msg)
         return self._check_res
 
 
@@ -507,7 +498,7 @@ class Submissions(ProblemPart):
             self.problem.metadata,
             self.problem.testdata.testdata,
             self.problem.output_validators.output_validator,
-            self.problem.graders._grader,
+            self.problem.graders.graders,
             self.problem.tmpdir,
             Path(self.problem.probdir),
             context,
@@ -543,8 +534,7 @@ class TestData(ProblemPart):
             context,
             self.problem.metadata,
             Path(self.problem.probdir),
-            self.problem.graders._grader is not None,
-            Graders._default_grader is not None,
+            self.problem.graders.graders,
             self.problem.input_validators.input_validators,
             self.problem.output_validators.output_validators,
             self.problem.format,
