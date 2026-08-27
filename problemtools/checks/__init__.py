@@ -1,3 +1,4 @@
+from .attachments import check_attachments
 from .graders import check_graders
 from .includes import check_includes
 from .statements import check_statements
@@ -6,6 +7,7 @@ from .testdata import check_testdata
 from .validators import check_input_validators, check_output_validators
 
 __all__ = [
+    'check_attachments',
     'check_graders',
     'check_includes',
     'check_input_validators',

@@ -241,34 +241,28 @@ class ProblemConfig(ProblemPart):
 
 
 class Attachments(ProblemPart):
-    """Represents the attachments of a problem.
-
-    Attributes:
-        attachments: The absolute paths to the attachment files for this problem.
-    """
-
-    attachments: list[Path]
+    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
 
     PART_NAME = 'attachments'
 
     def setup(self) -> None:
-        attachments_dir = Path(self.problem.probdir) / 'attachments'
-        self.attachments = [p for p in attachments_dir.iterdir()] if attachments_dir.is_dir() else []
-        self.debug(f'Adding attachments {self.attachments!s}')
+        self.attachments = model.load_attachments(Path(self.problem.probdir))
+        self.debug(f'Adding attachments {self.attachments.paths!s}')
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
             return self._check_res
         self._check_res = True
 
-        for attachment_path in self.attachments:
-            if os.path.isdir(attachment_path):
-                self.error(f'Directories are not allowed as attachments ({attachment_path} is a directory)')
+        errors_before = self.errors
+        checks.check_attachments(self.attachments, self._diag)
+        if self.errors > errors_before:
+            self._check_res = False
 
         return self._check_res
 
     def get_attachment_paths(self) -> list[Path]:
-        return self.attachments
+        return self.attachments.paths
 
     def __str__(self) -> str:
         return 'attachments'
