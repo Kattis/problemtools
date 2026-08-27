@@ -73,7 +73,7 @@ class Submissions:
     policy: LegacyPolicy = field(default_factory=LegacyPolicy)
 
 
-def load_submissions(probdir: Path, language_config: Languages, work_dir: str, includes: Includes) -> Submissions:
+def load_submissions(probdir: Path, language_config: Languages, includes: Includes) -> Submissions:
     subs_root = probdir / 'submissions'
     if not subs_root.is_dir():
         return Submissions()
@@ -81,6 +81,6 @@ def load_submissions(probdir: Path, language_config: Languages, work_dir: str, i
     submissions = []
     for entry in sorted(subs_root.iterdir()):
         if entry.is_dir():
-            for program in find_programs(str(entry), language_config=language_config, work_dir=work_dir, includes=includes):
+            for program in find_programs(str(entry), language_config=language_config, includes=includes):
                 submissions.append(Submission(program=program, path=Path(entry.name) / program.name))
     return Submissions(submissions=submissions)

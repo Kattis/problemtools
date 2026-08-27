@@ -191,16 +191,14 @@ class InputValidators(ProblemPart):
     PART_NAME = 'input_validator'
 
     def setup(self) -> None:
-        self.input_validators = model.load_input_validators(
-            Path(self.problem.probdir), self.problem.language_config, self.problem.tmpdir
-        )
+        self.input_validators = model.load_input_validators(Path(self.problem.probdir), self.problem.language_config)
 
     def __str__(self) -> str:
         return 'input format validators'
 
     def start_background_work(self, context: Context) -> None:
         for val in self.input_validators.validators:
-            context.submit_background_work(lambda v: v.compile(), val)
+            context.submit_background_work(val.compile, self.problem.tmpdir)
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:
@@ -221,7 +219,7 @@ class Graders(ProblemPart):
     PART_NAME = 'grader'
 
     def setup(self) -> None:
-        self.graders = model.load_graders(Path(self.problem.probdir), self.problem.language_config, self.problem.tmpdir)
+        self.graders = model.load_graders(Path(self.problem.probdir), self.problem.language_config)
 
     def __str__(self) -> str:
         return 'graders'
@@ -232,7 +230,7 @@ class Graders(ProblemPart):
         self._check_res = True
 
         errors_before = self.errors
-        checks.check_graders(self.graders, self.problem.metadata, self._diag)
+        checks.check_graders(self.graders, self.problem.metadata, self.problem.tmpdir, self._diag)
         if self.errors > errors_before:
             self._check_res = False
 
@@ -246,7 +244,7 @@ class OutputValidators(ProblemPart):
 
     def setup(self) -> None:
         self.output_validators = model.load_output_validators(
-            Path(self.problem.probdir), self.problem.format, self.problem.language_config, self.problem.tmpdir
+            Path(self.problem.probdir), self.problem.format, self.problem.language_config
         )
         self._has_precompiled = False
 
@@ -262,7 +260,7 @@ class OutputValidators(ProblemPart):
 
     def start_background_work(self, context: Context) -> None:
         if not self._has_precompiled:
-            context.submit_background_work(lambda v: v.compile(), self.output_validator)
+            context.submit_background_work(self.output_validator.compile, self.problem.tmpdir)
             self._has_precompiled = True
 
     def check(self, context: Context) -> bool:
@@ -317,7 +315,7 @@ class Submissions(ProblemPart):
 
     def setup(self) -> None:
         self.submissions = model.load_submissions(
-            Path(self.problem.probdir), self.problem.language_config, self.problem.tmpdir, self.problem.includes.includes
+            Path(self.problem.probdir), self.problem.language_config, self.problem.includes.includes
         )
 
     def __str__(self) -> str:
@@ -330,7 +328,7 @@ class Submissions(ProblemPart):
         policy = self.submissions.policy
         for sub in self.submissions.submissions:
             if policy.matches(sub) and context.submission_filter.search(str(sub.path)):
-                context.submit_background_work(lambda s: s.compile(), sub.program)
+                context.submit_background_work(sub.program.compile, self.problem.tmpdir)
 
     def check(self, context: Context) -> bool:
         if self._check_res is not None:

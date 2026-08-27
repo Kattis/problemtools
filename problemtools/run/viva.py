@@ -6,6 +6,7 @@ import os
 
 from .errors import ProgramError
 from .executable import Executable
+from .program import CompileResult
 from .tools import get_tool_path
 
 
@@ -24,14 +25,11 @@ class Viva(Executable):
             raise ProgramError(f'Could not locate the VIVA program to run {path}')
         super().__init__(Viva._VIVA_PATH, args=[path], name=os.path.basename(path))
 
-    def do_compile(self) -> tuple[bool, str | None]:
-        """Syntax-check the VIVA script
-
-        Returns:
-            (False, None) if the VIVA script has syntax errors and (True, None) otherwise
-        """
+    def do_compile(self, work_dir: str) -> CompileResult:
+        """Syntax-check the VIVA script"""
         (status, _) = super().run()
-        return ((os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0), None)
+        success = os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+        return CompileResult(success, None, self.path)
 
     def run(
         self,

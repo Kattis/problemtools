@@ -6,6 +6,7 @@ import os
 import sys
 
 from .executable import Executable
+from .program import CompileResult
 
 
 class Checktestdata(Executable):
@@ -19,15 +20,11 @@ class Checktestdata(Executable):
         """
         super().__init__(sys.executable, args=['-m', 'checktestdata', path], name=os.path.basename(path))
 
-    def do_compile(self) -> tuple[bool, str | None]:
-        """Syntax-check the Checktestdata script
-
-        Returns:
-            (False, None) if the Checktestdata script has syntax errors and
-            (True, None) otherwise
-        """
+    def do_compile(self, work_dir: str) -> CompileResult:
+        """Syntax-check the Checktestdata script"""
         (status, _) = super().run()
-        return ((os.WIFEXITED(status) and os.WEXITSTATUS(status) in [0, 1]), None)
+        success = os.WIFEXITED(status) and os.WEXITSTATUS(status) in [0, 1]
+        return CompileResult(success, None, self.path)
 
     def run(
         self,

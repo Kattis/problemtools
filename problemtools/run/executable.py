@@ -23,7 +23,7 @@ class Executable(Program):
         """
         if not os.path.isfile(path) or not os.access(path, os.X_OK):
             raise ProgramError(f'{path} is not an executable program')
-        super().__init__(path=path, name=name if name is not None else os.path.basename(path))
+        super().__init__(name=name if name is not None else os.path.basename(path), path=path)
         self.args = args if args is not None else []
 
     def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:

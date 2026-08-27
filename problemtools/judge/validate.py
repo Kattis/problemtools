@@ -78,6 +78,7 @@ def _validate_output(
     output_validator: Program,
     metadata: Metadata,
     execution_dir: Path,
+    base_dir: Path,
     diag: Diagnostics,
     infile: Path | None = None,
 ) -> SubmissionResult:
@@ -93,7 +94,7 @@ def _validate_output(
             'OLE', reason=f'output ({output_size:.1f} MiB) exceeds output limit ({metadata.limits.output} MiB)'
         )
 
-    if not output_validator.compile()[0]:
+    if not output_validator.compile(str(base_dir)).success:
         return SubmissionResult('JE', reason=f'output validator {output_validator} failed to compile')
     val_stdout = execution_dir / 'val_stdout'
     val_stderr = execution_dir / 'val_stderr'
@@ -125,4 +126,4 @@ def validate_output(
     with tempfile.TemporaryDirectory(dir=base_dir) as exec_dir:
         execution_dir = Path(exec_dir)
         (execution_dir / 'feedback').mkdir()
-        return _validate_output(testcase, submission_output, output_validator, metadata, execution_dir, diag)
+        return _validate_output(testcase, submission_output, output_validator, metadata, execution_dir, base_dir, diag)

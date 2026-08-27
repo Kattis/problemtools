@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from ..languages import CommandSubstitution, Language
 from . import rutil
 from .errors import ProgramError
-from .program import Program
+from .program import CompileResult, Program
 
 if TYPE_CHECKING:
     from ..model import LanguageIncludes
@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path: str, language: Language, work_dir: str, includes: 'LanguageIncludes') -> None:
+    def __init__(self, path: str, language: Language, includes: 'LanguageIncludes') -> None:
         """Instantiate SourceCode object
 
         Args:
@@ -34,8 +34,6 @@ class SourceCode(Program):
             language: language definition for the programming
                 language of the code.
 
-            work_dir: temp directory in which to compile programs etc
-
             includes: include files to add alongside the source
                 file(s), already resolved for this program's language
                 (see Includes.get_includes_for_language). If it specifies
@@ -45,6 +43,19 @@ class SourceCode(Program):
         if path[-1] == '/':
             path = path[:-1]
         name = os.path.basename(path)
+        super().__init__(name=name)
+        self.language = language
+        self._source_path = path
+        self._includes = includes
+        self._code_size = sum(os.path.getsize(f) for f in rutil.list_files_recursive(path))
+
+    def code_size(self) -> int:
+        return self._code_size
+
+    def do_compile(self, work_dir: str) -> CompileResult:
+        """Set up the compile work-space (copying source and includes into work_dir) and
+        compile the source code."""
+        name = self.name
 
         # Set up work-space
         run_path = os.path.join(work_dir, name)
@@ -52,13 +63,11 @@ class SourceCode(Program):
             run_path = tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir)
         else:
             os.makedirs(run_path)
-        super().__init__(path=run_path, name=name)
-        self.language = language
+        self._path = run_path
 
         # Copy all files
-        rutil.add_files(path, self.path)
-        self._code_size = sum(os.path.getsize(f) for f in rutil.list_files_recursive(self.path))
-        for include_file in includes.files:
+        rutil.add_files(self._source_path, self.path)
+        for include_file in self._includes.files:
             dest = os.path.join(self.path, include_file.path)
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             with open(dest, 'wb') as f:
@@ -68,8 +77,8 @@ class SourceCode(Program):
         if len(self.src) == 0:
             raise ProgramError(f'No source files found for language {self.language.lang_id} in {self.name}')
 
-        if includes.mainfile is not None:
-            self.mainfile = os.path.join(self.path, includes.mainfile)
+        if self._includes.mainfile is not None:
+            self.mainfile = os.path.join(self.path, self._includes.mainfile)
         else:
             candidates = self.language.mainfile_candidates(self.src)
             self.mainfile = str(candidates[0]) if candidates else self.src[0]
@@ -79,34 +88,26 @@ class SourceCode(Program):
 
         self.binary = os.path.join(self.path, 'run')
 
-    def code_size(self) -> int:
-        return self._code_size
-
-    def do_compile(self) -> tuple[bool, str | None]:
-        """Compile the source code.
-
-        Returns tuple:
-            (True, None) if compilation succeeded
-            (False, errmsg) otherwise
-        """
         not_installed = self.language.check_installed()
         if not_installed is not None:
-            return (False, not_installed)
+            return CompileResult(False, not_installed, self.path)
 
         command = self.language.get_compile_command(self.__get_substitution())
         if command is None:
-            return (True, None)
+            return CompileResult(True, None, self.path)
 
         log.debug('compile command: %s', command)
 
         try:
             subprocess.check_output(command, stderr=subprocess.STDOUT)
-            return (True, None)
+            return CompileResult(True, None, self.path)
         except subprocess.CalledProcessError as err:
-            return (False, err.output.decode('utf8', 'replace'))
+            return CompileResult(False, err.output.decode('utf8', 'replace'), self.path)
 
     def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
         """Run command for the program.
+
+        Must not be called until compile() has been called.
 
         Args:
             cwd: if not None, the run command is provided
@@ -114,7 +115,6 @@ class SourceCode(Program):
             memlim: memory limit in MiB (only relevant for
                 languages where memory limit is passed on command line)
         """
-        self.compile()
         subs = self.__get_substitution(memlim)
         if cwd is not None:
             subs.path = os.path.relpath(subs.path, cwd)

@@ -20,13 +20,11 @@ class InputValidators:
     uses_old_path: bool = False
 
 
-def load_input_validators(probdir: Path, language_config: Languages, work_dir: str) -> InputValidators:
+def load_input_validators(probdir: Path, language_config: Languages) -> InputValidators:
     old_path = probdir / 'input_format_validators'
     uses_old_path = old_path.is_dir()
     validators_path = old_path if uses_old_path else probdir / 'input_validators'
-    validators = find_programs(
-        str(validators_path), language_config=language_config, allow_validation_script=True, work_dir=work_dir
-    )
+    validators = find_programs(str(validators_path), language_config=language_config, allow_validation_script=True)
     return InputValidators(validators=validators, uses_old_path=uses_old_path)
 
 
@@ -50,8 +48,6 @@ class OutputValidators:
         return self.validators[0]
 
 
-def load_output_validators(probdir: Path, format: FormatVersion, language_config: Languages, work_dir: str) -> OutputValidators:
-    validators = find_programs(
-        str(probdir / format.output_validator_directory), language_config=language_config, work_dir=work_dir
-    )
+def load_output_validators(probdir: Path, format: FormatVersion, language_config: Languages) -> OutputValidators:
+    validators = find_programs(str(probdir / format.output_validator_directory), language_config=language_config)
     return OutputValidators(validators=validators)

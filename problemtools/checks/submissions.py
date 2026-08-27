@@ -79,9 +79,9 @@ def check_submissions(
                 )
                 continue
 
-            success, msg = sub.program.compile()
-            if not success:
-                diag.error(f'Compile error for {label} submission {sub.program}', additional_info=msg)
+            result = sub.program.compile(tmpdir)
+            if not result.success:
+                diag.error(f'Compile error for {label} submission {sub.program}', additional_info=result.errmsg)
                 continue
 
             if has_testcases:
