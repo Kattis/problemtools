@@ -10,7 +10,6 @@ import re
 import shutil
 import sys
 import tempfile
-import uuid
 from abc import ABC
 from pathlib import Path
 from re import Pattern
@@ -56,12 +55,6 @@ class ProblemAspect(ABC):
 
     def warning(self, msg: str, additional_info: str | None = None) -> None:
         self._diag.warning(msg, additional_info)
-
-    def error_in_2023_07(self, msg: str, additional_info: str | None = None) -> None:
-        if self.problem.format is FormatVersion.LEGACY:
-            self.warning(msg, additional_info)
-        else:
-            self.error(msg, additional_info)
 
     def info(self, msg: str) -> None:
         self._diag.info(msg)
@@ -151,91 +144,16 @@ class ProblemConfig(ProblemPart):
             return self._check_res
         self._check_res = True
 
-        INCOMPATIBLE_TYPES = [
-            (metadata.ProblemType.PASS_FAIL, metadata.ProblemType.SCORING),
-            (metadata.ProblemType.SUBMIT_ANSWER, metadata.ProblemType.MULTI_PASS),
-            (metadata.ProblemType.SUBMIT_ANSWER, metadata.ProblemType.INTERACTIVE),
-        ]
-        for t1, t2 in INCOMPATIBLE_TYPES:
-            if t1 in self._metadata.type and t2 in self._metadata.type:
-                self.error(f'Problem has incompatible types: {t1}, {t2}')
-
-        if self.problem.is_submit_answer():
-            self.warning('The type submit-answer is not yet supported.')
-
-        # Check rights_owner
-        if self._metadata.license == metadata.License.PUBLIC_DOMAIN:
-            if self._metadata.rights_owner:
-                self.error('Can not have a rights_owner for a problem in public domain')
-        elif self._metadata.license != metadata.License.UNKNOWN:
-            if not self._metadata.rights_owner and not self._metadata.source and not self._metadata.credits.authors:
-                self.error('No author, source or rights_owner provided')
-
-        # Sanity check that the author name is parsed reasonably
-        disallowed_in_name = [',', '&']
-        for author in self._metadata.credits.authors:
-            for disallowed_character in disallowed_in_name:
-                if disallowed_character in author.name:
-                    self.warning(f'Author name parsed to "{author.name}", which contains character "{disallowed_character}".')
-
-        # Check license
-        if self._metadata.license == metadata.License.UNKNOWN:
-            self.warning("License is 'unknown'")
-
-        if self._metadata.uuid is None:
-            self.error_in_2023_07(f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
-
-        names_with_no_statement = [
-            lang for lang in self._metadata.name if lang not in self.problem.statement.statements.by_language
-        ]
-        if names_with_no_statement:
-            self.error(f'Names exist for languages without problem statements: {", ".join(names_with_no_statement)}')
-
-        if self._metadata.legacy_grading.show_test_data_groups and self.problem.is_pass_fail():
-            self.error('Showing test data groups is only supported for scoring problems, this is a pass-fail problem')
-        if (
-            not self.problem.is_pass_fail()
-            and self.problem.testdata.testdata.has_custom_groups()
-            and not self._metadata.show_test_data_groups_explicitly_set
-            and self.problem.format is FormatVersion.LEGACY
-        ):
-            self.warning(
-                'Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false'
-            )
-
-        if self._metadata.legacy_grading.on_reject is not None:
-            if self.problem.is_pass_fail() and self._metadata.legacy_grading.on_reject == 'grade':
-                self.error("Invalid on_reject policy 'grade' for problem type 'pass-fail'")
-
-        for deprecated_grading_key in ['accept_score', 'reject_score', 'range', 'on_reject']:
-            if getattr(self._metadata.legacy_grading, deprecated_grading_key) is not None:
-                self.warning(
-                    f"Grading key '{deprecated_grading_key}' is deprecated in problem.yaml, use '{deprecated_grading_key}' in testdata.yaml instead"
-                )
-
-        if self._metadata.legacy_validation:
-            val = self._metadata.legacy_validation.split()
-            validation_type = val[0]
-            validation_params = val[1:]
-            if validation_type not in ['default', 'custom']:
-                self.error(f"Invalid value '{validation_type}' for validation, first word must be 'default' or 'custom'")
-
-            if validation_type == 'default' and len(validation_params) > 0:
-                self.error(f"Invalid value '{self._metadata.legacy_validation}' for validation")
-
-            if validation_type == 'custom':
-                for param in validation_params:
-                    if param not in ['score', 'interactive']:
-                        self.error(f"Invalid parameter '{param}' for custom validation")
-
-        if self._metadata.limits.time_limit is not None and not self._metadata.limits.time_limit.is_integer():
-            self.warning(
-                'Time limit configured to non-integer value. This can be fragile, and may not be supported by your CCS (Kattis does not).'
-            )
-        if not self._metadata.limits.time_resolution.is_integer():
-            self.warning(
-                'Time resolution is not an integer. This can be fragile, and may not be supported by your CCS (Kattis does not).'
-            )
+        errors_before = self.errors
+        checks.check_config(
+            self._metadata,
+            self.problem.format,
+            self.problem.statement.statements,
+            self.problem.testdata.testdata,
+            self._diag,
+        )
+        if self.errors > errors_before:
+            self._check_res = False
 
         return self._check_res
 
