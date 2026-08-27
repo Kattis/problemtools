@@ -6,14 +6,16 @@ import collections
 import glob
 import hashlib
 import os
-from collections.abc import Callable
 from pathlib import Path
 
 from ..context import Context
 from ..diagnostics import Diagnostics, VerifyError
-from ..judge import SubmissionResult
+from ..formatversion import FormatVersion
+from ..judge import validate_output
 from ..metadata import Metadata
-from ..model import DEFAULT_CONFIG, SCORING_ONLY_KEYS, TestCase, TestDataGroup
+from ..model import DEFAULT_CONFIG, SCORING_ONLY_KEYS, InputValidators, OutputValidators, TestCase, TestDataGroup
+from ..run import Program
+from .validators import check_testcase_input
 
 
 def check_testdata(
@@ -23,13 +25,28 @@ def check_testdata(
     probdir: Path,
     has_custom_grader: bool,
     has_default_grader: bool,
-    validate_input: Callable[[TestCase, Diagnostics], None],
-    validate_answer: Callable[[TestCase, Diagnostics], SubmissionResult],
+    input_validators: InputValidators,
+    output_validators: OutputValidators,
+    format: FormatVersion,
+    work_dir: str,
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's test data."""
+    output_validator = output_validators.select(format, metadata)
+    if output_validator is None:
+        diag.fatal('Unable to locate default validator')
+
     _check_group(
-        testdata, context, metadata, probdir, has_custom_grader, has_default_grader, validate_input, validate_answer, diag
+        testdata,
+        context,
+        metadata,
+        probdir,
+        has_custom_grader,
+        has_default_grader,
+        input_validators,
+        output_validator,
+        work_dir,
+        diag,
     )
 
 
@@ -40,8 +57,9 @@ def _check_group(
     probdir: Path,
     has_custom_grader: bool,
     has_default_grader: bool,
-    validate_input: Callable[[TestCase, Diagnostics], None],
-    validate_answer: Callable[[TestCase, Diagnostics], SubmissionResult],
+    input_validators: InputValidators,
+    output_validator: Program,
+    work_dir: str,
     diag: Diagnostics,
 ) -> None:
     if group.config['grading'] not in ['default', 'custom']:
@@ -155,10 +173,19 @@ def _check_group(
             continue
         if isinstance(child, TestDataGroup):
             _check_group(
-                child, context, metadata, probdir, has_custom_grader, has_default_grader, validate_input, validate_answer, diag
+                child,
+                context,
+                metadata,
+                probdir,
+                has_custom_grader,
+                has_default_grader,
+                input_validators,
+                output_validator,
+                work_dir,
+                diag,
             )
         else:
-            _check_testcase(child, metadata, validate_input, validate_answer, diag)
+            _check_testcase(child, metadata, input_validators, output_validator, work_dir, diag)
 
 
 def _natural_sort_le(a: str, b: str) -> bool:
@@ -193,15 +220,16 @@ def _natural_sort_le(a: str, b: str) -> bool:
 def _check_testcase(
     testcase: TestCase,
     metadata: Metadata,
-    validate_input: Callable[[TestCase, Diagnostics], None],
-    validate_answer: Callable[[TestCase, Diagnostics], SubmissionResult],
+    input_validators: InputValidators,
+    output_validator: Program,
+    work_dir: str,
     diag: Diagnostics,
 ) -> None:
     _check_newlines(testcase.infile, diag)
     _check_newlines(testcase.ansfile, diag)
     _check_size_limits(testcase.infile, diag)
     _check_size_limits(testcase.ansfile, diag)
-    validate_input(testcase, diag)
+    check_testcase_input(input_validators, testcase, work_dir, diag)
     anssize = testcase.ansfile.stat().st_size / 1024.0 / 1024.0
     outputlim = metadata.limits.output
     if anssize > outputlim:
@@ -213,7 +241,14 @@ def _check_testcase(
             f'Answer file ({anssize:.1f} MiB) is within 50% of output limit ({outputlim} MiB), you might want to increase output limit'
         )
     if not metadata.is_interactive() and not metadata.is_multi_pass():
-        val_res = validate_answer(testcase, diag)
+        val_res = validate_output(
+            testcase=testcase,
+            submission_output=testcase.ansfile,
+            output_validator=output_validator,
+            metadata=metadata,
+            base_dir=Path(work_dir),
+            diag=diag,
+        )
         if val_res.verdict != 'AC':
             if testcase.is_in_sample_group():
                 diag.error(f'judge answer file got {val_res} on testcase {testcase.path}')

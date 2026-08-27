@@ -25,7 +25,6 @@ from . import checks, languages, metadata, model, problem2html, problem2pdf, run
 from .context import PROBLEM_PARTS, Context
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
 from .formatversion import FormatVersion, get_format_version
-from .judge import SubmissionResult, validate_output
 from .version import add_version_arg
 
 random.seed(42)
@@ -539,19 +538,6 @@ class TestData(ProblemPart):
 
         errors_before = self.errors
 
-        def validate_input(testcase: model.TestCase, diag: Diagnostics) -> None:
-            checks.check_testcase_input(self.problem.input_validators.input_validators, testcase, self.problem.tmpdir, diag)
-
-        def validate_answer(testcase: model.TestCase, diag: Diagnostics) -> SubmissionResult:
-            return validate_output(
-                testcase=testcase,
-                submission_output=testcase.ansfile,
-                output_validator=self.problem.output_validators.output_validator,
-                metadata=self.problem.metadata,
-                base_dir=Path(self.problem.tmpdir),
-                diag=diag,
-            )
-
         checks.check_testdata(
             self.testdata,
             context,
@@ -559,8 +545,10 @@ class TestData(ProblemPart):
             Path(self.problem.probdir),
             self.problem.graders._grader is not None,
             Graders._default_grader is not None,
-            validate_input,
-            validate_answer,
+            self.problem.input_validators.input_validators,
+            self.problem.output_validators.output_validators,
+            self.problem.format,
+            self.problem.tmpdir,
             self._diag,
         )
         if self.errors > errors_before:
