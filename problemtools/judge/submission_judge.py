@@ -9,8 +9,8 @@ from threading import Lock
 from ..context import Context
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
-from ..model import TestCase, TestDataGroup
-from ..run import Program, get_tool
+from ..model import DEFAULT_GRADER, Graders, TestCase, TestDataGroup
+from ..run import Program
 from .cache import ResultStore
 from .execute import execute_testcase
 from .grade import grade_group
@@ -53,8 +53,6 @@ class SubmissionJudge:
     jobs complete normally; their results are simply not consumed by judge().
     """
 
-    _default_grader: Program | None = get_tool('default_grader')
-
     def __init__(
         self,
         sub: Program,
@@ -63,8 +61,8 @@ class SubmissionJudge:
         root: TestDataGroup,
         base_dir: Path,
         context: Context,
+        graders: Graders,
         diag: Diagnostics,
-        custom_grader: Program | None = None,
     ) -> None:
         self._sub = sub
         self._output_validator = output_validator
@@ -72,7 +70,7 @@ class SubmissionJudge:
         self._base_dir = base_dir
         self._context = context
         self._diag = diag
-        self._custom_grader = custom_grader
+        self._graders = graders
         self._store = ResultStore()
         self._root = root
         self._cancelled = _Cancelled()
@@ -150,8 +148,8 @@ class SubmissionJudge:
 
     def _grader_for(self, group: TestDataGroup) -> Program | None:
         if group.config.get('grading') == 'custom':
-            return self._custom_grader
-        return self._default_grader
+            return self._graders.grader
+        return DEFAULT_GRADER
 
     def _judge_group(self, group: TestDataGroup, timelim: float) -> list[SubmissionResult]:
         all_results: list[SubmissionResult] = []  # Results of all children, groups and test cases, in DFS order. Our return value

@@ -13,7 +13,16 @@ from ..diagnostics import Diagnostics, VerifyError
 from ..formatversion import FormatVersion
 from ..judge import validate_output
 from ..metadata import Metadata
-from ..model import DEFAULT_CONFIG, SCORING_ONLY_KEYS, InputValidators, OutputValidators, TestCase, TestDataGroup
+from ..model import (
+    DEFAULT_CONFIG,
+    DEFAULT_GRADER,
+    SCORING_ONLY_KEYS,
+    Graders,
+    InputValidators,
+    OutputValidators,
+    TestCase,
+    TestDataGroup,
+)
 from ..run import Program
 from .validators import check_testcase_input
 
@@ -23,8 +32,7 @@ def check_testdata(
     context: Context,
     metadata: Metadata,
     probdir: Path,
-    has_custom_grader: bool,
-    has_default_grader: bool,
+    graders: Graders,
     input_validators: InputValidators,
     output_validators: OutputValidators,
     format: FormatVersion,
@@ -35,6 +43,9 @@ def check_testdata(
     output_validator = output_validators.select(format, metadata)
     if output_validator is None:
         diag.fatal('Unable to locate default validator')
+
+    has_custom_grader = graders.grader is not None
+    has_default_grader = DEFAULT_GRADER is not None
 
     _check_group(
         testdata,

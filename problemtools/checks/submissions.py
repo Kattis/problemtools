@@ -11,7 +11,7 @@ from ..context import Context
 from ..diagnostics import Diagnostics
 from ..judge import SubmissionJudge, SubmissionResult
 from ..metadata import Metadata
-from ..model import LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
+from ..model import Graders, LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
 from ..run import Program
 
 # Temporary consts to keep code structure as similar as possible to old code from
@@ -31,7 +31,7 @@ def check_submissions(
     metadata: Metadata,
     testdata: TestDataGroup,
     output_validator: Program,
-    custom_grader: Program | None,
+    graders: Graders,
     tmpdir: str,
     probdir: Path,
     context: Context,
@@ -93,7 +93,7 @@ def check_submissions(
                     metadata,
                     testdata,
                     output_validator,
-                    custom_grader,
+                    graders,
                     tmpdir,
                     probdir,
                     seen_oob_score_groups,
@@ -162,7 +162,7 @@ def _check_submission(
     metadata: Metadata,
     testdata: TestDataGroup,
     output_validator: Program,
-    custom_grader: Program | None,
+    graders: Graders,
     tmpdir: str,
     probdir: Path,
     seen_oob_score_groups: set[int],
@@ -182,8 +182,8 @@ def _check_submission(
         root=testdata,
         base_dir=Path(tmpdir),
         context=context,
+        graders=graders,
         diag=diag,
-        custom_grader=custom_grader,
     )
     if context.executor is not None:
         judge.precompute(timelim_high)
