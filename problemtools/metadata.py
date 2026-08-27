@@ -136,8 +136,7 @@ class Metadata2023_07(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
 
-@dataclass
-class LegacyGrading:
+class LegacyGrading(BaseModel):
     objective: Literal['max', 'min'] = 'max'
     show_test_data_groups: bool = False
     # These 3 fields predate the version called "legacy"
@@ -145,6 +144,8 @@ class LegacyGrading:
     reject_score: float | None = None
     range: str | None = None
     on_reject: Literal['first_error', 'worst_error', 'grade'] | None = None
+
+    model_config = ConfigDict(extra='forbid')
 
 
 @dataclass
@@ -213,6 +214,8 @@ class Metadata(BaseModel):
     legacy_validation: str = Field(default='', exclude=True)
     legacy_validator_flags: str = Field(default='', exclude=True)
     legacy_custom_score: bool = Field(default=False, exclude=True)  # True iff legacy_validation is custom and score.
+    # True iff grading.show_test_data_groups was explicitly given in problem.yaml, as opposed to defaulted.
+    show_test_data_groups_explicitly_set: bool = Field(default=False, exclude=True)
 
     model_config = ConfigDict(extra='forbid')
 
@@ -293,6 +296,7 @@ class Metadata(BaseModel):
         for key in 'grading', 'validator_flags', 'validation':
             metadata[f'legacy_{key}'] = metadata[key]
             del metadata[key]
+        metadata['show_test_data_groups_explicitly_set'] = 'show_test_data_groups' in legacy.grading.model_fields_set
         return cls.model_validate(metadata)
 
     @classmethod
@@ -358,11 +362,10 @@ def parse_metadata(
         return Metadata.from_2023_07(model_2023_07)
 
 
-def load_metadata(problem_root: Path) -> tuple[Metadata, dict]:
+def load_metadata(problem_root: Path) -> Metadata:
     """
     Loads metadata from a problem directory.
 
-    Returns Metadata as well as the raw parsed yaml. The latter is likely only of use to verifyproblem.
     Leaks exceptions, which is a bit of a mess. Unclear how to best deal with error handling.
     """
     with (problem_root / 'problem.yaml').open() as f:
@@ -375,4 +378,4 @@ def load_metadata(problem_root: Path) -> tuple[Metadata, dict]:
         names_from_statements = statement_util.load_names_from_statements(problem_root, version)
     else:
         names_from_statements = None
-    return parse_metadata(version, data, names_from_statements), data
+    return parse_metadata(version, data, names_from_statements)

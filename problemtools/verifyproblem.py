@@ -135,7 +135,7 @@ class ProblemConfig(ProblemPart):
     def setup(self) -> None:
         self.debug('  Loading problem config')
         try:
-            self._metadata, self._origdata = metadata.load_metadata(Path(self.problem.probdir))
+            self._metadata = metadata.load_metadata(Path(self.problem.probdir))
             self.problem._set_metadata(self._metadata)
         except ValidationError as e:
             error_str = '\n'.join([f'    {"->".join(str(loc) for loc in err["loc"])}: {err["msg"]}' for err in e.errors()])
@@ -196,7 +196,7 @@ class ProblemConfig(ProblemPart):
         if (
             not self.problem.is_pass_fail()
             and self.problem.testdata.testdata.has_custom_groups()
-            and 'show_test_data_groups' not in self._origdata.get('grading', {})
+            and not self._metadata.show_test_data_groups_explicitly_set
             and self.problem.format is FormatVersion.LEGACY
         ):
             self.warning(
