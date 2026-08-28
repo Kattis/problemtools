@@ -17,15 +17,17 @@ class InputValidators:
     """A problem's input format validators."""
 
     validators: list[Program] = field(default_factory=list)
-    uses_old_path: bool = False
 
 
 def load_input_validators(probdir: Path, language_config: Languages) -> InputValidators:
-    old_path = probdir / 'input_format_validators'
-    uses_old_path = old_path.is_dir()
-    validators_path = old_path if uses_old_path else probdir / 'input_validators'
-    validators = find_programs(str(validators_path), language_config=language_config, allow_validation_script=True)
-    return InputValidators(validators=validators, uses_old_path=uses_old_path)
+    # input_format_validators is a deprecated name for input_validators. We just load
+    # from both and let _check_root_directory_names warn about the deprecated directory
+    validators = [
+        program
+        for directory in ('input_format_validators', 'input_validators')
+        for program in find_programs(str(probdir / directory), language_config=language_config, allow_validation_script=True)
+    ]
+    return InputValidators(validators=validators)
 
 
 @dataclass(frozen=True)

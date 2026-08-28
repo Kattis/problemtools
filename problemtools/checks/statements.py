@@ -13,17 +13,6 @@ from ..formatversion import FormatVersion
 from ..metadata import Metadata
 from ..model import Statements
 
-# Temporary local copy of checks/validators.py's _warn_directory. Only two consumers so far;
-# promote to a shared helper if a third one shows up.
-
-
-def _warn_directory(format_version: FormatVersion, probdir: Path, name: str, prop: str, diag: Diagnostics) -> None:
-    good_dir = getattr(format_version, prop)
-    bad_dirs = {getattr(version, prop) for version in FormatVersion} - {good_dir}
-    for directory in bad_dirs:
-        if (probdir / directory).exists():
-            diag.warning(f'Found directory "{directory}". Version {format_version} looks for {name} in "{good_dir}"')
-
 
 def check_statements(
     statements: Statements,
@@ -34,8 +23,6 @@ def check_statements(
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's statements."""
-    _warn_directory(format_version, probdir, 'problem statements', 'statement_directory', diag)
-
     for ifilename in glob.glob(os.path.join(str(probdir), 'data/sample/*.interaction')):
         if not metadata.is_interactive() and not metadata.is_multi_pass():
             diag.error(f'Problem is not interactive, but there is an interaction sample {ifilename}')

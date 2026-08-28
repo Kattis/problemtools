@@ -190,7 +190,6 @@ class ProblemVerifier:
                     problem.format_version,
                     problem.metadata,
                     problem.testdata,
-                    problem.probdir,
                     work_dir,
                     diag,
                 ),

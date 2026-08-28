@@ -75,17 +75,6 @@ _JUNK_MODIFICATIONS = [
 ]
 
 
-# Temporary helpers to keep code structure as similar as possible to old code from
-# verifyproblem when extracting this to a separate module; ProblemAspect still owns the
-# "real" versions of these, used by parts not yet extracted (e.g. ProblemStatement, ProblemConfig).
-def _warn_directory(format_version: FormatVersion, probdir: Path, name: str, prop: str, diag: Diagnostics) -> None:
-    good_dir = getattr(format_version, prop)
-    bad_dirs = {getattr(version, prop) for version in FormatVersion} - {good_dir}
-    for directory in bad_dirs:
-        if (probdir / directory).exists():
-            diag.warning(f'Found directory "{directory}". Version {format_version} looks for {name} in "{good_dir}"')
-
-
 def _error_in_2023_07(format_version: FormatVersion, diag: Diagnostics, msg: str, additional_info: str | None = None) -> None:
     if format_version is FormatVersion.LEGACY:
         diag.warning(msg, additional_info)
@@ -95,9 +84,6 @@ def _error_in_2023_07(format_version: FormatVersion, diag: Diagnostics, msg: str
 
 def check_input_validators(validators: InputValidators, testdata: TestDataGroup, work_dir: Path, diag: Diagnostics) -> None:
     """Run all checks on a problem's input format validators."""
-    if validators.uses_old_path:
-        diag.warning('input_format_validators is a deprecated name; please use input_validators instead')
-
     errors_before = diag.errors
     if len(validators.validators) == 0:
         diag.error('No input format validators found')
@@ -201,13 +187,10 @@ def check_output_validators(
     format_version: FormatVersion,
     metadata: Metadata,
     testdata: TestDataGroup,
-    probdir: Path,
     work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's output validators."""
-    _warn_directory(format_version, probdir, 'output validators', 'output_validator_directory', diag)
-
     errors_before = diag.errors
 
     selected = validators.select(format_version, metadata)

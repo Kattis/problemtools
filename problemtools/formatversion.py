@@ -43,6 +43,40 @@ class FormatVersion(StrEnum):
                 # 2023-07 and later formats support adding more submission directories
                 return ['accepted', 'rejected', 'wrong_answer', 'time_limit_exceeded', 'run_time_error', 'brute_force']
 
+    @property
+    def root_directories(self) -> frozenset[str]:
+        """Known directories directly under the problem root for this format version."""
+        match self:
+            case FormatVersion.LEGACY:
+                return frozenset(
+                    {
+                        self.statement_directory,
+                        'attachments',
+                        'data',
+                        'include',
+                        'submissions',
+                        'input_validators',
+                        self.output_validator_directory,
+                    }
+                )
+            case FormatVersion.V_2023_07:
+                return frozenset(
+                    {
+                        self.statement_directory,
+                        'attachments',
+                        'solution',
+                        'data',
+                        'generators',
+                        'include',
+                        'submissions',
+                        'input_validators',
+                        'static_validator',
+                        self.output_validator_directory,
+                        'input_visualizer',
+                        'output_visualizer',
+                    }
+                )
+
     # Support 2023-07 and 2023-07-draft strings.
     # This method should be replaced with an alias once we require python 3.13
     @classmethod
