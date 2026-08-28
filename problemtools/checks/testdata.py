@@ -35,12 +35,12 @@ def check_testdata(
     graders: Graders,
     input_validators: InputValidators,
     output_validators: OutputValidators,
-    format: FormatVersion,
+    format_version: FormatVersion,
     work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's test data."""
-    output_validator = output_validators.select(format, metadata)
+    output_validator = output_validators.select(format_version, metadata)
     if output_validator is None:
         diag.fatal('Unable to locate default validator')
 

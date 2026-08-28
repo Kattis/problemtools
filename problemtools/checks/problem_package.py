@@ -11,11 +11,11 @@ from ..diagnostics import Diagnostics
 from ..formatversion import FormatVersion
 
 
-def check_problem_package(probdir: Path, format: FormatVersion, diag: Diagnostics) -> None:
+def check_problem_package(probdir: Path, format_version: FormatVersion, diag: Diagnostics) -> None:
     """Run all checks on the structure of a problem package."""
     _check_symlinks(probdir, diag)
     _check_file_and_directory_names(probdir, diag)
-    _check_submission_directory_names(probdir, format, diag)
+    _check_submission_directory_names(probdir, format_version, diag)
 
 
 def _check_symlinks(probdir: Path, diag: Diagnostics) -> None:
@@ -58,7 +58,7 @@ def _check_file_and_directory_names(probdir: Path, diag: Diagnostics) -> None:
                 diag.error(f"Invalid directory name '{directory}' in {reldir}, should match {regex.pattern}")
 
 
-def _check_submission_directory_names(probdir: Path, format: FormatVersion, diag: Diagnostics) -> None:
+def _check_submission_directory_names(probdir: Path, format_version: FormatVersion, diag: Diagnostics) -> None:
     """Heuristically check if submissions contain any directories that will be ignored because of typos or format mismatches"""
     submission_directories = [p.name for p in (probdir / 'submissions').glob('*') if p.is_dir()]
     if len(submission_directories) == 0:
@@ -72,7 +72,7 @@ def _check_submission_directory_names(probdir: Path, format: FormatVersion, diag
         return max(similarities, key=lambda x: x[1])
 
     for present_dir in submission_directories:
-        most_similar_dir, max_similarity = most_similar(present_dir, format)
+        most_similar_dir, max_similarity = most_similar(present_dir, format_version)
 
         if max_similarity == 1:
             # Exact match, no typo
@@ -81,10 +81,10 @@ def _check_submission_directory_names(probdir: Path, format: FormatVersion, diag
         if 0.75 <= max_similarity:
             diag.warning(f'Potential typo: directory submissions/{present_dir} is similar to {most_similar_dir}')
         else:
-            for other_version in [v for v in FormatVersion if v != format]:
+            for other_version in [v for v in FormatVersion if v != format_version]:
                 _, max_similarity = most_similar(present_dir, other_version)
                 if max_similarity == 1:
                     diag.warning(
-                        f'Directory submissions/{present_dir} is not part of format version {format}, but part of {other_version}'
+                        f'Directory submissions/{present_dir} is not part of format version {format_version}, but part of {other_version}'
                     )
                     break

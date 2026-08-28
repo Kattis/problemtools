@@ -17,24 +17,24 @@ from ..model import Statements
 # promote to a shared helper if a third one shows up.
 
 
-def _warn_directory(format: FormatVersion, probdir: Path, name: str, prop: str, diag: Diagnostics) -> None:
-    good_dir = getattr(format, prop)
+def _warn_directory(format_version: FormatVersion, probdir: Path, name: str, prop: str, diag: Diagnostics) -> None:
+    good_dir = getattr(format_version, prop)
     bad_dirs = {getattr(version, prop) for version in FormatVersion} - {good_dir}
     for directory in bad_dirs:
         if (probdir / directory).exists():
-            diag.warning(f'Found directory "{directory}". Version {format} looks for {name} in "{good_dir}"')
+            diag.warning(f'Found directory "{directory}". Version {format_version} looks for {name} in "{good_dir}"')
 
 
 def check_statements(
     statements: Statements,
     metadata: Metadata,
-    format: FormatVersion,
+    format_version: FormatVersion,
     probdir: Path,
     work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's statements."""
-    _warn_directory(format, probdir, 'problem statements', 'statement_directory', diag)
+    _warn_directory(format_version, probdir, 'problem statements', 'statement_directory', diag)
 
     for ifilename in glob.glob(os.path.join(str(probdir), 'data/sample/*.interaction')):
         if not metadata.is_interactive() and not metadata.is_multi_pass():
@@ -49,13 +49,15 @@ def check_statements(
                     break
 
     if not statements.by_language:
-        if format is FormatVersion.LEGACY:
-            allowed_statements = ', '.join(f'problem.{ext}, problem.<language>.{ext}' for ext in format.statement_extensions)
+        if format_version is FormatVersion.LEGACY:
+            allowed_statements = ', '.join(
+                f'problem.{ext}, problem.<language>.{ext}' for ext in format_version.statement_extensions
+            )
         else:
-            allowed_statements = ', '.join(f'problem.<language>.{ext}' for ext in format.statement_extensions)
+            allowed_statements = ', '.join(f'problem.<language>.{ext}' for ext in format_version.statement_extensions)
 
         diag.error(
-            f'No problem statements found (expected file of one of following forms in directory {format.statement_directory}/: {allowed_statements})'
+            f'No problem statements found (expected file of one of following forms in directory {format_version.statement_directory}/: {allowed_statements})'
         )
 
     def _latex_heuristic(name: str) -> bool:
@@ -71,7 +73,7 @@ def check_statements(
             diag.error(f'Problem name in language {lang} is empty')
         elif not metadata.name[lang].strip():
             diag.error(f'Problem name in language {lang} contains only whitespace')
-        elif format is FormatVersion.LEGACY and _latex_heuristic(metadata.name[lang]):
+        elif format_version is FormatVersion.LEGACY and _latex_heuristic(metadata.name[lang]):
             diag.warning(f'Problem name in language {lang} looks like LaTeX. Consider using plainproblemname.')
 
         for file in files:

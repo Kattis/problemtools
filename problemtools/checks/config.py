@@ -19,8 +19,8 @@ _INCOMPATIBLE_TYPES = [
 # promote to a shared helper if a third one shows up.
 
 
-def _error_in_2023_07(format: FormatVersion, diag: Diagnostics, msg: str, additional_info: str | None = None) -> None:
-    if format is FormatVersion.LEGACY:
+def _error_in_2023_07(format_version: FormatVersion, diag: Diagnostics, msg: str, additional_info: str | None = None) -> None:
+    if format_version is FormatVersion.LEGACY:
         diag.warning(msg, additional_info)
     else:
         diag.error(msg, additional_info)
@@ -28,7 +28,7 @@ def _error_in_2023_07(format: FormatVersion, diag: Diagnostics, msg: str, additi
 
 def check_config(
     metadata: Metadata,
-    format: FormatVersion,
+    format_version: FormatVersion,
     statements: Statements,
     testdata: TestDataGroup,
     diag: Diagnostics,
@@ -61,7 +61,7 @@ def check_config(
         diag.warning("License is 'unknown'")
 
     if metadata.uuid is None:
-        _error_in_2023_07(format, diag, f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
+        _error_in_2023_07(format_version, diag, f'Missing uuid from problem.yaml. Add "uuid: {uuid.uuid4()}" to problem.yaml.')
 
     names_with_no_statement = [lang for lang in metadata.name if lang not in statements.by_language]
     if names_with_no_statement:
@@ -73,7 +73,7 @@ def check_config(
         not metadata.is_pass_fail()
         and testdata.has_custom_groups()
         and not metadata.show_test_data_groups_explicitly_set
-        and format is FormatVersion.LEGACY
+        and format_version is FormatVersion.LEGACY
     ):
         diag.warning(
             'Problem has custom testcase groups, but does not specify a value for grading.show_test_data_groups; defaulting to false'

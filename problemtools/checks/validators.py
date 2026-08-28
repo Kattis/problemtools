@@ -78,16 +78,16 @@ _JUNK_MODIFICATIONS = [
 # Temporary helpers to keep code structure as similar as possible to old code from
 # verifyproblem when extracting this to a separate module; ProblemAspect still owns the
 # "real" versions of these, used by parts not yet extracted (e.g. ProblemStatement, ProblemConfig).
-def _warn_directory(format: FormatVersion, probdir: Path, name: str, prop: str, diag: Diagnostics) -> None:
-    good_dir = getattr(format, prop)
+def _warn_directory(format_version: FormatVersion, probdir: Path, name: str, prop: str, diag: Diagnostics) -> None:
+    good_dir = getattr(format_version, prop)
     bad_dirs = {getattr(version, prop) for version in FormatVersion} - {good_dir}
     for directory in bad_dirs:
         if (probdir / directory).exists():
-            diag.warning(f'Found directory "{directory}". Version {format} looks for {name} in "{good_dir}"')
+            diag.warning(f'Found directory "{directory}". Version {format_version} looks for {name} in "{good_dir}"')
 
 
-def _error_in_2023_07(format: FormatVersion, diag: Diagnostics, msg: str, additional_info: str | None = None) -> None:
-    if format is FormatVersion.LEGACY:
+def _error_in_2023_07(format_version: FormatVersion, diag: Diagnostics, msg: str, additional_info: str | None = None) -> None:
+    if format_version is FormatVersion.LEGACY:
         diag.warning(msg, additional_info)
     else:
         diag.error(msg, additional_info)
@@ -198,7 +198,7 @@ def check_testcase_input(validators: InputValidators, testcase: TestCase, work_d
 
 def check_output_validators(
     validators: OutputValidators,
-    format: FormatVersion,
+    format_version: FormatVersion,
     metadata: Metadata,
     testdata: TestDataGroup,
     probdir: Path,
@@ -206,14 +206,16 @@ def check_output_validators(
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's output validators."""
-    _warn_directory(format, probdir, 'output validators', 'output_validator_directory', diag)
+    _warn_directory(format_version, probdir, 'output validators', 'output_validator_directory', diag)
 
     errors_before = diag.errors
 
-    selected = validators.select(format, metadata)
+    selected = validators.select(format_version, metadata)
 
     if len(validators.validators) > 1:
-        _error_in_2023_07(format, diag, f'Support for multiple output validators has been dropped. will only use {selected}')
+        _error_in_2023_07(
+            format_version, diag, f'Support for multiple output validators has been dropped. will only use {selected}'
+        )
 
     if selected is None:
         diag.fatal('Unable to locate default validator')
@@ -221,15 +223,15 @@ def check_output_validators(
     safe_output_validator_languages = {'c', 'cpp', 'python3'}
     if isinstance(selected, SourceCode) and selected.language.lang_id not in safe_output_validator_languages:
         _error_in_2023_07(
-            format,
+            format_version,
             diag,
             f'Output validator in {selected.language.name}. Only {safe_output_validator_languages} are standardized. '
             'Check carefully if your CCS supports more (Kattis does not).',
         )
 
-    if validators.uses_default(format, metadata) and validators.validators:
+    if validators.uses_default(format_version, metadata) and validators.validators:
         diag.error('There are validator programs but problem.yaml has validation = "default"')
-    elif not validators.uses_default(format, metadata) and not validators.validators:
+    elif not validators.uses_default(format_version, metadata) and not validators.validators:
         diag.fatal('problem.yaml specifies custom validator but no validator programs found')
 
     try:

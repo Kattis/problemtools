@@ -34,20 +34,20 @@ class OutputValidators:
 
     validators: list[Program] = field(default_factory=list)
 
-    def uses_default(self, format: FormatVersion, metadata: Metadata) -> bool:
+    def uses_default(self, format_version: FormatVersion, metadata: Metadata) -> bool:
         """Whether the default validator is used, rather than a custom one."""
-        if format is FormatVersion.LEGACY:
+        if format_version is FormatVersion.LEGACY:
             return metadata.legacy_validation == 'default'
         return not self.validators
 
-    def select(self, format: FormatVersion, metadata: Metadata) -> Program | None:
+    def select(self, format_version: FormatVersion, metadata: Metadata) -> Program | None:
         """The output validator that will actually be used, or None if the default validator
         is required but not available on this problemtools install."""
-        if self.uses_default(format, metadata) or not self.validators:
+        if self.uses_default(format_version, metadata) or not self.validators:
             return DEFAULT_VALIDATOR
         return self.validators[0]
 
 
-def load_output_validators(probdir: Path, format: FormatVersion, language_config: Languages) -> OutputValidators:
-    validators = find_programs(str(probdir / format.output_validator_directory), language_config=language_config)
+def load_output_validators(probdir: Path, format_version: FormatVersion, language_config: Languages) -> OutputValidators:
+    validators = find_programs(str(probdir / format_version.output_validator_directory), language_config=language_config)
     return OutputValidators(validators=validators)
