@@ -2,478 +2,67 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import logging
-import os
 import random
 import re
 import shutil
 import sys
 import tempfile
-from abc import ABC
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from re import Pattern
 from types import TracebackType
-from typing import ClassVar, NoReturn, Self
+from typing import Self
 
-from pydantic import ValidationError
-
-from . import checks, languages, metadata, model, run
+from . import checks, model, run
 from .context import PROBLEM_PARTS, Context
 from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
-from .formatversion import FormatVersion, get_format_version
+from .formatversion import FormatVersion
 from .version import add_version_arg
 
 random.seed(42)
 
 
-class ProblemAspect(ABC):
-    _check_res: bool | None = None
-    problem: Problem
-    _diag: Diagnostics
+@dataclass(frozen=True)
+class _CheckStep:
+    """One named check to run as part of verifying a problem.
 
-    def __init__(self, name: str, problem: Problem) -> None:
-        if self is not problem:
-            self._diag = problem._diag.child(name)
+    `part` is one of PROBLEM_PARTS -- it groups steps for the -p/--parts CLI
+    filter and for the "Checking X" progress messages. `name` scopes the
+    diagnostics `run` reports to (via Diagnostics.child)."""
+
+    part: str
+    name: str
+    run: Callable[[Diagnostics], None]
+    start_background_work: Callable[[Context], None] | None = None
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    """Result of ProblemVerifier.check()."""
+
+    errors: int
+    warnings: int
+    #: Time limit computed from accepted submissions' runtimes, if the 'submissions'
+    #: part was checked and had at least one accepted submission to measure.
+    timelim: float | None
+
+
+class ProblemVerifier:
+    """Runs checks against a loaded problem.
+
+    Owns the temporary work directory used to compile and run programs while
+    checking -- use as a context manager."""
+
+    def __init__(self, problem: model.Problem, diag: Diagnostics) -> None:
         self.problem = problem
-
-    @property
-    def errors(self) -> int:
-        return self._diag.errors
-
-    @property
-    def warnings(self) -> int:
-        return self._diag.warnings
-
-    def fatal(self, msg: str, additional_info: str | None = None) -> NoReturn:
-        self._check_res = False
-        self._diag.fatal(msg, additional_info)
-
-    def error(self, msg: str, additional_info: str | None = None) -> None:
-        self._check_res = False
-        self._diag.error(msg, additional_info)
-
-    def warning(self, msg: str, additional_info: str | None = None) -> None:
-        self._diag.warning(msg, additional_info)
-
-    def info(self, msg: str) -> None:
-        self._diag.info(msg)
-
-    def debug(self, msg: str) -> None:
-        self._diag.debug(msg)
-
-    def msg(self, msg: str) -> None:
-        print(msg)
-
-
-class ProblemPart(ProblemAspect):
-    """Baseclass for all parts that can be included in a problem-format."""
-
-    """Should always be overridden by the subclass. Specifies the name that will be used to refer
-    to the part e.g for logs.
-    """
-    PART_NAME: ClassVar[str]
-
-    def __init__(self, problem: Problem) -> None:
-        if self.PART_NAME is None:
-            raise NotImplementedError('Every problem-part must override PART_NAME')
-        super().__init__(self.PART_NAME, problem)
-        self.setup()
-
-    def setup(self) -> None:
-        pass
-
-    def start_background_work(self, context: Context) -> None:
-        pass
-
-    def check(self, context: Context) -> bool:
-        return True
-
-
-class ProblemStatement(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'statement'
-
-    def setup(self) -> None:
-        self.debug('  Loading problem statement')
-        self.statements = model.load_statements(Path(self.problem.probdir), self.problem.format)
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_statements(
-            self.statements,
-            self.problem.metadata,
-            self.problem.format,
-            Path(self.problem.probdir),
-            self.problem.tmpdir,
-            self._diag,
-        )
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-    def __str__(self) -> str:
-        return 'problem statement'
-
-
-class ProblemConfig(ProblemPart):
-    PART_NAME = 'config'
-
-    def setup(self) -> None:
-        self.debug('  Loading problem config')
-        try:
-            self._metadata = metadata.load_metadata(Path(self.problem.probdir))
-            self.problem._set_metadata(self._metadata)
-        except ValidationError as e:
-            error_str = '\n'.join([f'    {"->".join(str(loc) for loc in err["loc"])}: {err["msg"]}' for err in e.errors()])
-            self.fatal(f'Failed parsing problem.yaml. Found {len(e.errors())} errors:\n{error_str}')
-        except Exception as e:
-            self.fatal(f'Failed loading problem configuration: {e}')
-
-    def __str__(self) -> str:
-        return 'problem configuration'
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_config(
-            self._metadata,
-            self.problem.format,
-            self.problem.statement.statements,
-            self.problem.testdata.testdata,
-            self._diag,
-        )
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-
-class Attachments(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'attachments'
-
-    def setup(self) -> None:
-        self.attachments = model.load_attachments(Path(self.problem.probdir))
-        self.debug(f'Adding attachments {self.attachments.paths!s}')
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_attachments(self.attachments, self._diag)
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-    def get_attachment_paths(self) -> list[Path]:
-        return self.attachments.paths
-
-    def __str__(self) -> str:
-        return 'attachments'
-
-
-class InputValidators(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'input_validator'
-
-    def setup(self) -> None:
-        self.input_validators = model.load_input_validators(Path(self.problem.probdir), self.problem.language_config)
-
-    def __str__(self) -> str:
-        return 'input format validators'
-
-    def start_background_work(self, context: Context) -> None:
-        for val in self.input_validators.validators:
-            context.submit_background_work(val.compile, Path(self.problem.tmpdir))
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_input_validators(self.input_validators, self.problem.testdata.testdata, self.problem.tmpdir, self._diag)
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-
-class Graders(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'grader'
-
-    def setup(self) -> None:
-        self.graders = model.load_graders(Path(self.problem.probdir), self.problem.language_config)
-
-    def __str__(self) -> str:
-        return 'graders'
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_graders(self.graders, self.problem.metadata, self.problem.tmpdir, self._diag)
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-
-class OutputValidators(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'output_validator'
-
-    def setup(self) -> None:
-        self.output_validators = model.load_output_validators(
-            Path(self.problem.probdir), self.problem.format, self.problem.language_config
-        )
-        self._has_precompiled = False
-
-    @property
-    def output_validator(self) -> run.Program:
-        validator = self.output_validators.select(self.problem.format, self.problem.metadata)
-        if validator is None:
-            self.fatal('Unable to locate default validator')
-        return validator
-
-    def __str__(self) -> str:
-        return 'output validators'
-
-    def start_background_work(self, context: Context) -> None:
-        if not self._has_precompiled:
-            context.submit_background_work(self.output_validator.compile, Path(self.problem.tmpdir))
-            self._has_precompiled = True
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_output_validators(
-            self.output_validators,
-            self.problem.format,
-            self.problem.metadata,
-            self.problem.testdata.testdata,
-            Path(self.problem.probdir),
-            self.problem.tmpdir,
-            self._diag,
-        )
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-
-class Includes(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'includes'
-
-    def setup(self) -> None:
-        self.includes = model.load_includes(Path(self.problem.probdir), self.problem.language_config)
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_includes(self.includes, self.problem.language_config, self.problem.format, self._diag)
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-    def __str__(self) -> str:
-        return 'includes'
-
-
-class Submissions(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'submission'
-
-    def setup(self) -> None:
-        self.submissions = model.load_submissions(
-            Path(self.problem.probdir), self.problem.language_config, self.problem.includes.includes
-        )
-
-    def __str__(self) -> str:
-        return 'submissions'
-
-    def start_background_work(self, context: Context) -> None:
-        # Send off an early background compile job for each submission and
-        # validator, to avoid a bottleneck step at the start of each test run.
-        self.problem.output_validators.start_background_work(context)
-        policy = self.submissions.policy
-        for sub in self.submissions.submissions:
-            if policy.matches(sub) and context.submission_filter.search(str(sub.path)):
-                context.submit_background_work(sub.program.compile, Path(self.problem.tmpdir))
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-        checks.check_submissions(
-            self.submissions,
-            self.problem.metadata,
-            self.problem.testdata.testdata,
-            self.problem.output_validators.output_validator,
-            self.problem.graders.graders,
-            self.problem.tmpdir,
-            Path(self.problem.probdir),
-            context,
-            self.problem._set_timelim,
-            self._diag,
-        )
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-
-class TestData(ProblemPart):
-    """Seam to integrate a model + checks setup into verifyproblem in a somewhat clean way"""
-
-    PART_NAME = 'data'
-
-    def setup(self) -> None:
-        self.testdata = model.load_testdata(Path(self.problem.probdir), self.problem.metadata)
-
-    def __str__(self) -> str:
-        return 'test data'
-
-    def check(self, context: Context) -> bool:
-        if self._check_res is not None:
-            return self._check_res
-        self._check_res = True
-
-        errors_before = self.errors
-
-        checks.check_testdata(
-            self.testdata,
-            context,
-            self.problem.metadata,
-            Path(self.problem.probdir),
-            self.problem.graders.graders,
-            self.problem.input_validators.input_validators,
-            self.problem.output_validators.output_validators,
-            self.problem.format,
-            self.problem.tmpdir,
-            self._diag,
-        )
-        if self.errors > errors_before:
-            self._check_res = False
-
-        return self._check_res
-
-
-class Problem(ProblemAspect):
-    """Represents a checkable problem"""
-
-    def __init__(self, probdir: str, diagnostics: Diagnostics):
-        self.probdir = os.path.realpath(probdir)
-        self.shortname: str = os.path.basename(self.probdir)
-        self._diag = diagnostics
-        super().__init__(self.shortname, self)
-        self.language_config = languages.load_language_config(Path(self.probdir).parent)
-        self.loaded = False
-        self._metadata: metadata.Metadata | None = None
-        self._timelim: float | None = None
-
-    # Unfortunately must be before metadata, otherwise mypy gets confused about the type metadata.Metadata (feels like a bug)
-    def _set_metadata(self, metadata: metadata.Metadata) -> None:  # Should only be called by ProblemConfig
-        assert self._metadata is None, 'Attempted to set metadata twice'
-        self._metadata = metadata
-
-    @property
-    def metadata(self) -> metadata.Metadata:
-        assert self._metadata is not None, 'Attempted to access config before it was set. load() or check() first.'
-        return self._metadata
-
-    @property
-    def timelim(self) -> float:
-        assert self._timelim is not None, 'Attempted to access timelim before it was set. check() first.'
-        return self._timelim
-
-    def _set_timelim(self, timelim: float) -> None:  # Should only be called by Submissions
-        assert self._timelim is None, 'Attempted to set timelim twice'
-        self._timelim = timelim
-
-    def is_pass_fail(self) -> bool:
-        return self.metadata.is_pass_fail()
-
-    def is_scoring(self) -> bool:
-        return self.metadata.is_scoring()
-
-    def is_interactive(self) -> bool:
-        return self.metadata.is_interactive()
-
-    def is_multi_pass(self) -> bool:
-        return self.metadata.is_multi_pass()
-
-    def is_submit_answer(self) -> bool:
-        return self.metadata.is_submit_answer()
-
-    def load(self) -> None:
-        """Parses the problem package statically, loading up information with very little verification.
-
-        Call this if you want to get a usable Problem object without expensive
-        steps (such as compiling validators, and testing submissions).
-
-        N.B., This api is EXPERIMENTAL. We eventually want to create a stable
-        API from problemtools, this is a first move in that direction.
-
-        Raises:
-            VerifyError: if problem package is too broken to parse safely
-        """
-
-        if self.loaded:
-            return
-
-        if not os.path.isdir(self.probdir):
-            self.fatal(f"Problem directory '{self.probdir}' not found")
-
-        try:
-            self.format = get_format_version(Path(self.probdir))
-        except Exception as e:
-            self.fatal(f'Failed loading problem version: {e}')
-        self.config = ProblemConfig(self)  # Populates self.metadata as a side effect. Needs to run first.
-        self.statement = ProblemStatement(self)
-        self.attachments = Attachments(self)
-        self.input_validators = InputValidators(self)
-        self.output_validators = OutputValidators(self)
-        self.graders = Graders(self)
-        self.testdata = TestData(self)
-        self.includes = Includes(self)
-        # Submissions.setup() reads self.includes.includes, so includes must be loaded first.
-        self.submissions = Submissions(self)
-        self.loaded = True
+        self._diag = diag
+        self.work_dir: Path | None = None
 
     def __enter__(self) -> Self:
-        self.tmpdir = tempfile.mkdtemp(prefix=f'verify-{self.shortname}-')
+        self.work_dir = Path(tempfile.mkdtemp(prefix=f'verify-{self.problem.shortname}-'))
         return self
 
     def __exit__(
@@ -482,61 +71,54 @@ class Problem(ProblemAspect):
         exc_value: BaseException | None,
         exc_traceback: TracebackType | None,
     ) -> None:
-        shutil.rmtree(self.tmpdir)
+        assert self.work_dir is not None
+        shutil.rmtree(self.work_dir)
+        self.work_dir = None
 
-    def __str__(self) -> str:
-        return str(self.shortname)
+    def check(self, context: Context) -> CheckResult:
+        """Runs checks on the problem. ProblemVerifier must be entered (as a context manager) first."""
+        assert self.work_dir is not None, 'ProblemVerifier.check() called before __enter__'
+        problem = self.problem
+        diag = self._diag
+        timelim: float | None = None
 
-    def check(self, context: Context) -> tuple[int, int]:
-        """Loads and checks the problem package
+        def set_timelim(value: float) -> None:
+            nonlocal timelim
+            timelim = value
 
-        Loads the problem package and runs checks. After this has completed,
-        the Problem object is fully populated. You do not need to manually
-        run load() first.
+        @functools.cache
+        def get_output_validator() -> run.Program:
+            validator = problem.output_validators.select(problem.format_version, problem.metadata)
+            if validator is None:
+                diag.fatal('Unable to locate default validator')
+            return validator
 
-        Returns:
-            Tuple with the number of errors, warnings found.
-
-        Raises:
-            VerifyError: if problem package is too broken to parse safely
-        """
         try:
-            self.load()
-        except VerifyError:
-            return self.errors, self.warnings
+            if not re.match('^[a-z0-9]+$', problem.shortname):
+                diag.error(f"Invalid shortname '{problem.shortname}' (must be [a-z0-9]+)")
+            if problem.format_version is FormatVersion.V_2023_07:
+                diag.warning(
+                    f'Support for version {problem.format_version} is very incomplete. Verification may not work as expected.'
+                )
 
-        try:
-            part_mapping: dict[str, list] = {
-                'config': [self.config],
-                'statement': [self.statement, self.attachments],
-                'validators': [self.input_validators, self.output_validators],
-                'graders': [self.graders],
-                'data': [self.testdata],
-                'submissions': [self.includes, self.submissions],
-            }
-            assert sorted(part_mapping.keys()) == sorted(PROBLEM_PARTS), 'part_mapping and PROBLEM_PARTS must be kept in sync'
+            checks.check_problem_package(problem.probdir, problem.format_version, diag)
+            run.limit.check_limit_capabilities(diag)
 
-            if not re.match('^[a-z0-9]+$', self.shortname):
-                self.error(f"Invalid shortname '{self.shortname}' (must be [a-z0-9]+)")
-            if self.format is FormatVersion.V_2023_07:
-                self.warning(f'Support for version {self.format} is very incomplete. Verification may not work as expected.')
+            steps = self._build_steps(context, get_output_validator, set_timelim)
+            assert {step.part for step in steps} == set(PROBLEM_PARTS), 'CheckStep parts and PROBLEM_PARTS must be kept in sync'
 
-            checks.check_problem_package(Path(self.probdir), self.format, self._diag)
+            active_parts = [part for part in PROBLEM_PARTS if part in context.parts]
 
-            run.limit.check_limit_capabilities(self._diag)
-
-            parts = [
-                part for part in part_mapping if part in context.parts
-            ]  # Parts from context in the order they appear in part_mapping
             if context.executor:
-                for part in parts:
-                    for item in part_mapping[part]:
-                        item.start_background_work(context)
+                for step in steps:
+                    if step.part in active_parts and step.start_background_work:
+                        step.start_background_work(context)
 
-            for part in parts:
-                self.msg(f'Checking {part}')
-                for item in part_mapping[part]:
-                    item.check(context)
+            for part in active_parts:
+                print(f'Checking {part}')
+                for step in steps:
+                    if step.part == part:
+                        step.run(diag.child(step.name))
         except VerifyError:
             pass
         except KeyboardInterrupt:
@@ -548,7 +130,116 @@ class Problem(ProblemAspect):
             # Wait for background work to finish before performing an rmtree on
             # the directory tree it uses.
             context.wait_for_background_work()
-        return self.errors, self.warnings
+
+        return CheckResult(errors=diag.errors, warnings=diag.warnings, timelim=timelim)
+
+    def _build_steps(
+        self,
+        context: Context,
+        get_output_validator: Callable[[], run.Program],
+        set_timelim: Callable[[float], None],
+    ) -> list[_CheckStep]:
+        problem = self.problem
+        assert self.work_dir is not None
+        work_dir = self.work_dir
+
+        def start_input_validators(context: Context) -> None:
+            for validator in problem.input_validators.validators:
+                context.submit_background_work(validator.compile, work_dir)
+
+        def start_output_validator(context: Context) -> None:
+            context.submit_background_work(get_output_validator().compile, work_dir)
+
+        def start_submissions(context: Context) -> None:
+            # Precompile the output validator here too: submissions need it, and this step
+            # runs even if the 'validators' part wasn't requested. Program.compile() caches
+            # its result, so this is harmless if 'validators' already queued the same compile.
+            context.submit_background_work(get_output_validator().compile, work_dir)
+            policy = problem.submissions.policy
+            for sub in problem.submissions.submissions:
+                if policy.matches(sub) and context.submission_filter.search(str(sub.path)):
+                    context.submit_background_work(sub.program.compile, work_dir)
+
+        return [
+            _CheckStep(
+                'config',
+                'config',
+                lambda diag: checks.check_config(
+                    problem.metadata, problem.format_version, problem.statements, problem.testdata, diag
+                ),
+            ),
+            _CheckStep(
+                'statement',
+                'statement',
+                lambda diag: checks.check_statements(
+                    problem.statements, problem.metadata, problem.format_version, problem.probdir, str(work_dir), diag
+                ),
+            ),
+            _CheckStep('statement', 'attachments', lambda diag: checks.check_attachments(problem.attachments, diag)),
+            _CheckStep(
+                'validators',
+                'input_validator',
+                lambda diag: checks.check_input_validators(problem.input_validators, problem.testdata, str(work_dir), diag),
+                start_input_validators,
+            ),
+            _CheckStep(
+                'validators',
+                'output_validator',
+                lambda diag: checks.check_output_validators(
+                    problem.output_validators,
+                    problem.format_version,
+                    problem.metadata,
+                    problem.testdata,
+                    problem.probdir,
+                    str(work_dir),
+                    diag,
+                ),
+                start_output_validator,
+            ),
+            _CheckStep(
+                'graders',
+                'grader',
+                lambda diag: checks.check_graders(problem.graders, problem.metadata, str(work_dir), diag),
+            ),
+            _CheckStep(
+                'data',
+                'data',
+                lambda diag: checks.check_testdata(
+                    problem.testdata,
+                    context,
+                    problem.metadata,
+                    problem.probdir,
+                    problem.graders,
+                    problem.input_validators,
+                    problem.output_validators,
+                    problem.format_version,
+                    str(work_dir),
+                    diag,
+                ),
+            ),
+            _CheckStep(
+                'submissions',
+                'includes',
+                lambda diag: checks.check_includes(problem.includes, problem.language_config, problem.format_version, diag),
+            ),
+            _CheckStep(
+                'submissions',
+                'submission',
+                lambda diag: checks.check_submissions(
+                    problem.submissions,
+                    problem.metadata,
+                    problem.testdata,
+                    get_output_validator(),
+                    problem.graders,
+                    str(work_dir),
+                    problem.probdir,
+                    context,
+                    set_timelim,
+                    diag,
+                ),
+                start_submissions,
+            ),
+        ]
 
 
 def re_argument(s: str) -> Pattern[str]:
@@ -609,7 +300,7 @@ def argparser() -> argparse.ArgumentParser:
         type=part_argument,
         nargs='+',
         default=PROBLEM_PARTS,
-        help=f'only test the indicated parts of the problem.  Each PROBLEM_PART can be one of {PROBLEM_PARTS}.',
+        help=f'only test the indicated parts of the problem.  Each PROBLEM_PART can be one of {sorted(PROBLEM_PARTS)}.',
     )
     parser.add_argument(
         '-j',
@@ -639,7 +330,8 @@ def main() -> None:
             threads=args.threads,
         )
         for problemdir in args.problemdir:
-            shortname = os.path.basename(os.path.realpath(problemdir))
+            probdir = Path(problemdir).resolve()
+            shortname = probdir.name
             print(f'Loading problem {shortname}')
             diag = LoggingDiagnostics.create(
                 shortname,
@@ -648,14 +340,19 @@ def main() -> None:
                 warnings_as_errors=args.werror,
                 max_additional_info=args.max_additional_info,
             )
-            with Problem(problemdir, diag) as prob:
-                errors, warnings = prob.check(context)
+            try:
+                problem = model.load_problem(probdir, diag)
+            except VerifyError:
+                result = CheckResult(errors=diag.errors, warnings=diag.warnings, timelim=None)
+            else:
+                with ProblemVerifier(problem, diag) as verifier:
+                    result = verifier.check(context)
 
-                def p(x: int) -> str:
-                    return '' if x == 1 else 's'
+            def p(x: int) -> str:
+                return '' if x == 1 else 's'
 
-                print(f'{prob.shortname} tested: {errors} error{p(errors)}, {warnings} warning{p(warnings)}')
-                total_errors += errors
+            print(f'{shortname} tested: {result.errors} error{p(result.errors)}, {result.warnings} warning{p(result.warnings)}')
+            total_errors += result.errors
 
     except KeyboardInterrupt:
         print('\naborting...')
