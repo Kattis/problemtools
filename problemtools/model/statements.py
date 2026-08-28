@@ -17,5 +17,5 @@ class Statements:
     by_language: dict[str, list[Path]] = field(default_factory=dict)
 
 
-def load_statements(probdir: Path, format: FormatVersion) -> Statements:
-    return Statements(by_language=statement_util.find_statements(probdir, format))
+def load_statements(probdir: Path, format_version: FormatVersion) -> Statements:
+    return Statements(by_language=statement_util.find_statements(probdir, format_version))

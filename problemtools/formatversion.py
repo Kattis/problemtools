@@ -34,14 +34,38 @@ class FormatVersion(StrEnum):
                 return 'output_validator'
 
     @property
-    def submission_directories(self) -> list[str]:
+    def root_directories(self) -> frozenset[str]:
+        """Known directories directly under the problem root for this format version."""
         match self:
             case FormatVersion.LEGACY:
-                return ['accepted', 'partially_accepted', 'wrong_answer', 'time_limit_exceeded', 'run_time_error']
+                return frozenset(
+                    {
+                        self.statement_directory,
+                        'attachments',
+                        'data',
+                        'include',
+                        'submissions',
+                        'input_validators',
+                        self.output_validator_directory,
+                    }
+                )
             case FormatVersion.V_2023_07:
-                # TODO: parse submissions.yaml if applicable, since
-                # 2023-07 and later formats support adding more submission directories
-                return ['accepted', 'rejected', 'wrong_answer', 'time_limit_exceeded', 'run_time_error', 'brute_force']
+                return frozenset(
+                    {
+                        self.statement_directory,
+                        'attachments',
+                        'solution',
+                        'data',
+                        'generators',
+                        'include',
+                        'submissions',
+                        'input_validators',
+                        'static_validator',
+                        self.output_validator_directory,
+                        'input_visualizer',
+                        'output_visualizer',
+                    }
+                )
 
     # Support 2023-07 and 2023-07-draft strings.
     # This method should be replaced with an alias once we require python 3.13
