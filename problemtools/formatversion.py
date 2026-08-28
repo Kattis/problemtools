@@ -34,16 +34,6 @@ class FormatVersion(StrEnum):
                 return 'output_validator'
 
     @property
-    def submission_directories(self) -> list[str]:
-        match self:
-            case FormatVersion.LEGACY:
-                return ['accepted', 'partially_accepted', 'wrong_answer', 'time_limit_exceeded', 'run_time_error']
-            case FormatVersion.V_2023_07:
-                # TODO: parse submissions.yaml if applicable, since
-                # 2023-07 and later formats support adding more submission directories
-                return ['accepted', 'rejected', 'wrong_answer', 'time_limit_exceeded', 'run_time_error', 'brute_force']
-
-    @property
     def root_directories(self) -> frozenset[str]:
         """Known directories directly under the problem root for this format version."""
         match self:

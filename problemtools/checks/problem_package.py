@@ -18,7 +18,6 @@ def check_problem_package(probdir: Path, format_version: FormatVersion, diag: Di
     _check_symlinks(probdir, diag)
     _check_file_and_directory_names(probdir, diag)
     _check_root_directory_names(probdir, format_version, diag)
-    _check_submission_directory_names(probdir, format_version, diag)
 
 
 def _check_symlinks(probdir: Path, diag: Diagnostics) -> None:
@@ -101,35 +100,3 @@ def _check_root_directory_names(probdir: Path, format_version: FormatVersion, di
                 diag.warning(f'Potential typo: directory "{name}" is similar to "{closest}"')
             else:
                 diag.warning(f'Unrecognized directory "{name}" at problem root')
-
-
-def _check_submission_directory_names(probdir: Path, format_version: FormatVersion, diag: Diagnostics) -> None:
-    """Heuristically check if submissions contain any directories that will be ignored because of typos or format mismatches"""
-    submission_directories = [p.name for p in (probdir / 'submissions').glob('*') if p.is_dir()]
-    if len(submission_directories) == 0:
-        return
-
-    def most_similar(present_dir: str, format_version: FormatVersion) -> tuple[str, float]:
-        similarities = [
-            (spec_dir, difflib.SequenceMatcher(None, present_dir, spec_dir).ratio())
-            for spec_dir in format_version.submission_directories
-        ]
-        return max(similarities, key=lambda x: x[1])
-
-    for present_dir in submission_directories:
-        most_similar_dir, max_similarity = most_similar(present_dir, format_version)
-
-        if max_similarity == 1:
-            # Exact match, no typo
-            continue
-
-        if 0.75 <= max_similarity:
-            diag.warning(f'Potential typo: directory submissions/{present_dir} is similar to {most_similar_dir}')
-        else:
-            for other_version in [v for v in FormatVersion if v != format_version]:
-                _, max_similarity = most_similar(present_dir, other_version)
-                if max_similarity == 1:
-                    diag.warning(
-                        f'Directory submissions/{present_dir} is not part of format version {format_version}, but part of {other_version}'
-                    )
-                    break
