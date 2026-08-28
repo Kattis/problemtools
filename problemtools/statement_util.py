@@ -76,7 +76,7 @@ def find_statement(problem_root: Path, language: str) -> Path:
 def get_yaml_problem_name(problem_root: Path, language: str) -> str:
     """Finds the problem name from the problem.yaml file"""
 
-    problem_metadata, _ = metadata.load_metadata(problem_root)
+    problem_metadata = metadata.load_metadata(problem_root)
     names = problem_metadata.name
     # If there is only one language, per the spec that is the one we want
     if len(names) == 1:
@@ -189,7 +189,7 @@ def format_samples(problem_root: Path) -> list[str]:
         return []
     samples = []
     casenum = 1
-    problem_metadata, _ = metadata.load_metadata(problem_root)
+    problem_metadata = metadata.load_metadata(problem_root)
     is_multi_pass = problem_metadata.is_multi_pass()
     is_interactive = problem_metadata.is_interactive()
     all_cases = os.listdir(sample_path)

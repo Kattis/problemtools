@@ -101,7 +101,7 @@ def test_parse_complex_type(minimal_2023_conf):
 
 
 def test_load_hello():
-    m, _ = metadata.load_metadata(Path(__file__).parent / 'hello')
+    m = metadata.load_metadata(Path(__file__).parent / 'hello')
     assert m.name['en'] == 'Hello World!'
     assert m.name['sv'] == 'Hej Världen!'
     assert len(m.source) == 1
