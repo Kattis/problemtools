@@ -24,6 +24,6 @@ class Graders:
         return self.graders[0] if len(self.graders) == 1 else None
 
 
-def load_graders(probdir: Path, language_config: Languages, work_dir: str) -> Graders:
-    graders = find_programs(str(probdir / 'graders'), language_config=language_config, work_dir=work_dir)
+def load_graders(probdir: Path, language_config: Languages) -> Graders:
+    graders = find_programs(str(probdir / 'graders'), language_config=language_config)
     return Graders(graders=graders)

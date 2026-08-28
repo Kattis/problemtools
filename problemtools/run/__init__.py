@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 def find_programs(
     path: str,
     language_config: Languages,
-    work_dir: str,
     includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
 ) -> list[Program]:
@@ -35,8 +34,6 @@ def find_programs(
         language_config: language config, used for auto-detecting
             programming language of source code and providing info
             on how to compile and run the source code.
-
-        work_dir: temp directory in which to compile programs etc
 
         includes: include files to add to programs found, resolved
             per-program based on its detected language (see
@@ -57,7 +54,6 @@ def find_programs(
         run = get_program(
             fullpath,
             language_config=language_config,
-            work_dir=work_dir,
             includes=includes,
             allow_validation_script=allow_validation_script,
         )
@@ -69,7 +65,6 @@ def find_programs(
 def get_program(
     path: str,
     language_config: Languages,
-    work_dir: str,
     includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
 ) -> Program | None:
@@ -83,8 +78,6 @@ def get_program(
         language_config: language config, used for auto-detecting
             programming language of source code and providing info
             on how to compile and run the source code.
-
-        work_dir: temp directory in which to compile programs etc
 
         includes: include files to add to the program, resolved per
             the program's detected language (see
@@ -115,10 +108,10 @@ def get_program(
     else:
         build = os.path.join(path, 'build')
         if os.path.isfile(build) and os.access(build, os.X_OK):
-            return BuildRun(path, work_dir)
+            return BuildRun(path)
         files = rutil.list_files_recursive(path)
 
     lang = language_config.detect_language(files)
     if lang is not None:
-        return SourceCode(path, lang, work_dir=work_dir, includes=includes.get_includes_for_language(lang.lang_id))
+        return SourceCode(path, lang, includes=includes.get_includes_for_language(lang.lang_id))
     return None

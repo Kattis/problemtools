@@ -29,7 +29,7 @@ def grade_group(
     if not sub_results:
         return ('AC', 0.0)
 
-    if not grader.compile()[0]:
+    if not grader.compile(base_dir).success:
         diag.error(f'Failed to compile grader {grader}')
         return ('JE', None)
 

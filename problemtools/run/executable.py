@@ -3,6 +3,7 @@ Implementation of programs provided by an executable file.
 """
 
 import os
+from pathlib import Path
 
 from .errors import ProgramError
 from .program import Program
@@ -23,12 +24,12 @@ class Executable(Program):
         """
         if not os.path.isfile(path) or not os.access(path, os.X_OK):
             raise ProgramError(f'{path} is not an executable program')
-        super().__init__(path=path, name=name if name is not None else os.path.basename(path))
+        super().__init__(name=name if name is not None else os.path.basename(path), path=Path(path))
         self.args = args if args is not None else []
 
     def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
         """Command to run the program."""
-        return [self.path] + self.args
+        return [str(self.path)] + self.args
 
     def should_skip_memory_rlimit(self) -> bool:
         """Ugly hack (see program.py for details)."""
