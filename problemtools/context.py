@@ -10,7 +10,8 @@ from typing import ParamSpec, TypeVar
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
 
-PROBLEM_PARTS = ['config', 'data', 'graders', 'statement', 'submissions', 'validators']
+#: Listed in the order they're checked in.
+PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
 
 
 class Context:
