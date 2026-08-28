@@ -48,7 +48,10 @@ class SourceCode(Program):
         self.language = language
         self._source_path = path
         self._includes = includes
-        self._code_size = sum(os.path.getsize(f) for f in rutil.list_files_recursive(path))
+        if os.path.isfile(path):
+            self._code_size = os.path.getsize(path)
+        else:
+            self._code_size = sum(os.path.getsize(f) for f in rutil.list_files_recursive(path))
 
     def code_size(self) -> int:
         return self._code_size
