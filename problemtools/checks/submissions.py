@@ -32,7 +32,7 @@ def check_submissions(
     testdata: TestDataGroup,
     output_validator: Program,
     graders: Graders,
-    tmpdir: str,
+    work_dir: Path,
     probdir: Path,
     context: Context,
     set_timelim: Callable[[float], None],
@@ -79,7 +79,7 @@ def check_submissions(
                 )
                 continue
 
-            result = sub.program.compile(Path(tmpdir))
+            result = sub.program.compile(work_dir)
             if not result.success:
                 diag.error(f'Compile error for {label} submission {sub.program}', additional_info=result.errmsg)
                 continue
@@ -94,7 +94,7 @@ def check_submissions(
                     testdata,
                     output_validator,
                     graders,
-                    tmpdir,
+                    work_dir,
                     probdir,
                     seen_oob_score_groups,
                     timelim,
@@ -163,7 +163,7 @@ def _check_submission(
     testdata: TestDataGroup,
     output_validator: Program,
     graders: Graders,
-    tmpdir: str,
+    work_dir: Path,
     probdir: Path,
     seen_oob_score_groups: set[int],
     timelim: float,
@@ -180,7 +180,7 @@ def _check_submission(
         output_validator=output_validator,
         metadata=metadata,
         root=testdata,
-        base_dir=Path(tmpdir),
+        base_dir=work_dir,
         context=context,
         graders=graders,
         diag=diag,

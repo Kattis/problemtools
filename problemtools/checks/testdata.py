@@ -36,7 +36,7 @@ def check_testdata(
     input_validators: InputValidators,
     output_validators: OutputValidators,
     format: FormatVersion,
-    work_dir: str,
+    work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's test data."""
@@ -70,7 +70,7 @@ def _check_group(
     has_default_grader: bool,
     input_validators: InputValidators,
     output_validator: Program,
-    work_dir: str,
+    work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     if group.config['grading'] not in ['default', 'custom']:
@@ -233,7 +233,7 @@ def _check_testcase(
     metadata: Metadata,
     input_validators: InputValidators,
     output_validator: Program,
-    work_dir: str,
+    work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     _check_newlines(testcase.infile, diag)
@@ -257,7 +257,7 @@ def _check_testcase(
             submission_output=testcase.ansfile,
             output_validator=output_validator,
             metadata=metadata,
-            base_dir=Path(work_dir),
+            base_dir=work_dir,
             diag=diag,
         )
         if val_res.verdict != 'AC':

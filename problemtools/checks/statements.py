@@ -30,7 +30,7 @@ def check_statements(
     metadata: Metadata,
     format: FormatVersion,
     probdir: Path,
-    work_dir: str,
+    work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's statements."""

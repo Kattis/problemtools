@@ -172,14 +172,14 @@ class ProblemVerifier:
                 'statement',
                 'statement',
                 lambda diag: checks.check_statements(
-                    problem.statements, problem.metadata, problem.format_version, problem.probdir, str(work_dir), diag
+                    problem.statements, problem.metadata, problem.format_version, problem.probdir, work_dir, diag
                 ),
             ),
             _CheckStep('statement', 'attachments', lambda diag: checks.check_attachments(problem.attachments, diag)),
             _CheckStep(
                 'validators',
                 'input_validator',
-                lambda diag: checks.check_input_validators(problem.input_validators, problem.testdata, str(work_dir), diag),
+                lambda diag: checks.check_input_validators(problem.input_validators, problem.testdata, work_dir, diag),
                 start_input_validators,
             ),
             _CheckStep(
@@ -191,7 +191,7 @@ class ProblemVerifier:
                     problem.metadata,
                     problem.testdata,
                     problem.probdir,
-                    str(work_dir),
+                    work_dir,
                     diag,
                 ),
                 start_output_validator,
@@ -199,7 +199,7 @@ class ProblemVerifier:
             _CheckStep(
                 'graders',
                 'grader',
-                lambda diag: checks.check_graders(problem.graders, problem.metadata, str(work_dir), diag),
+                lambda diag: checks.check_graders(problem.graders, problem.metadata, work_dir, diag),
             ),
             _CheckStep(
                 'data',
@@ -213,7 +213,7 @@ class ProblemVerifier:
                     problem.input_validators,
                     problem.output_validators,
                     problem.format_version,
-                    str(work_dir),
+                    work_dir,
                     diag,
                 ),
             ),
@@ -231,7 +231,7 @@ class ProblemVerifier:
                     problem.testdata,
                     get_output_validator(),
                     problem.graders,
-                    str(work_dir),
+                    work_dir,
                     problem.probdir,
                     context,
                     set_timelim,
