@@ -76,11 +76,10 @@ def _check_root_directory_names(probdir: Path, format_version: FormatVersion, di
     format versions, and likely typos."""
     known = format_version.root_directories
     other_known = {directory for version in FormatVersion for directory in version.root_directories} - known
+    existing_dirs = {entry.name for entry in probdir.iterdir() if entry.is_dir()}
+    typo_candidates = known - existing_dirs
 
-    for entry in probdir.iterdir():
-        name = entry.name
-        if not entry.is_dir() or name in known or name == '.git':
-            continue
+    for name in sorted(existing_dirs - known):
         if not _NAME_REGEX.match(name):
             # Already flagged as an invalid name by _check_file_and_directory_names.
             continue
@@ -91,12 +90,10 @@ def _check_root_directory_names(probdir: Path, format_version: FormatVersion, di
             pass
         elif name in other_known:
             diag.warning(f'Directory "{name}" is not part of format version {format_version}')
-        else:
+        elif typo_candidates:
             closest, similarity = max(
-                ((d, difflib.SequenceMatcher(None, name, d).ratio()) for d in known),
+                ((d, difflib.SequenceMatcher(None, name, d).ratio()) for d in typo_candidates),
                 key=lambda x: x[1],
             )
             if similarity >= 0.75:
                 diag.warning(f'Potential typo: directory "{name}" is similar to "{closest}"')
-            else:
-                diag.warning(f'Unrecognized directory "{name}" at problem root')
