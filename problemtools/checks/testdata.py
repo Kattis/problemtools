@@ -24,7 +24,7 @@ from ..model import (
     TestDataGroup,
 )
 from ..run import Program
-from .validators import check_testcase_input
+from .validators import InputValidationCache
 
 
 def check_testdata(
@@ -47,6 +47,9 @@ def check_testdata(
     has_custom_grader = graders.grader is not None
     has_default_grader = DEFAULT_GRADER is not None
 
+    input_validation = InputValidationCache(input_validators, work_dir)
+    input_validation.precompute(testdata, context)
+
     _check_group(
         testdata,
         context,
@@ -54,7 +57,7 @@ def check_testdata(
         probdir,
         has_custom_grader,
         has_default_grader,
-        input_validators,
+        input_validation,
         output_validator,
         work_dir,
         diag,
@@ -68,7 +71,7 @@ def _check_group(
     probdir: Path,
     has_custom_grader: bool,
     has_default_grader: bool,
-    input_validators: InputValidators,
+    input_validation: InputValidationCache,
     output_validator: Program,
     work_dir: Path,
     diag: Diagnostics,
@@ -190,13 +193,13 @@ def _check_group(
                 probdir,
                 has_custom_grader,
                 has_default_grader,
-                input_validators,
+                input_validation,
                 output_validator,
                 work_dir,
                 diag,
             )
         else:
-            _check_testcase(child, metadata, input_validators, output_validator, work_dir, diag)
+            _check_testcase(child, metadata, input_validation, output_validator, work_dir, diag)
 
 
 def _natural_sort_le(a: str, b: str) -> bool:
@@ -231,7 +234,7 @@ def _natural_sort_le(a: str, b: str) -> bool:
 def _check_testcase(
     testcase: TestCase,
     metadata: Metadata,
-    input_validators: InputValidators,
+    input_validation: InputValidationCache,
     output_validator: Program,
     work_dir: Path,
     diag: Diagnostics,
@@ -240,7 +243,7 @@ def _check_testcase(
     _check_newlines(testcase.ansfile, diag)
     _check_size_limits(testcase.infile, diag)
     _check_size_limits(testcase.ansfile, diag)
-    check_testcase_input(input_validators, testcase, work_dir, diag)
+    input_validation.check(testcase, diag)
     anssize = testcase.ansfile.stat().st_size / 1024.0 / 1024.0
     outputlim = metadata.limits.output
     if anssize > outputlim:

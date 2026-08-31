@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from re import Pattern
-from typing import ParamSpec, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
@@ -29,11 +29,13 @@ class Context:
         self.fixed_timelim = fixed_timelim
         self.parts: list[str] = parts if parts is not None else list(PROBLEM_PARTS)
         self.executor: ThreadPoolExecutor | None = ThreadPoolExecutor(threads) if threads > 1 else None
-        self._background_work: list[concurrent.futures.Future[object]] = []
+        self._background_work: list[concurrent.futures.Future[Any]] = []
 
-    def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> None:
+    def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> concurrent.futures.Future[_T]:
         assert self.executor
-        self._background_work.append(self.executor.submit(job, *args, **kwargs))
+        future = self.executor.submit(job, *args, **kwargs)
+        self._background_work.append(future)
+        return future
 
     def cancel_background_work(self) -> None:
         for future in self._background_work:

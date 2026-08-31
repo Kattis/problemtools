@@ -7,10 +7,13 @@ import random
 import re
 import string
 import tempfile
+import traceback
 from collections.abc import Callable
+from concurrent.futures import Future
 from pathlib import Path
 from re import Match
 
+from ..context import Context
 from ..diagnostics import Diagnostics
 from ..formatversion import FormatVersion
 from ..judge import SubmissionResult, validate_output
@@ -159,8 +162,24 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
     os.unlink(file_name)
 
 
-def check_testcase_input(validators: InputValidators, testcase: TestCase, work_dir: Path, diag: Diagnostics) -> None:
-    """Run the (already checked) input validators against a single test case's input file."""
+def _compute_testcase_input_errors(
+    validators: InputValidators, testcase: TestCase, work_dir: Path
+) -> list[tuple[str, str | None]]:
+    """Run all input validators against a single test case's input file.
+
+    Returns the (message, additional_info) pairs to report as errors -- one per validator
+    that rejected (or crashed on) the input; empty if all validators accepted it.
+
+    Catches unexpected exceptions rather than letting them propagate, returning them as an
+    error (a bit ugly, but good enough for now, I think)."""
+    try:
+        return _run_input_validators(validators, testcase, work_dir)
+    except Exception as e:
+        return [(f'Internal error while running input validators on {testcase.infile}: {e}', traceback.format_exc())]
+
+
+def _run_input_validators(validators: InputValidators, testcase: TestCase, work_dir: Path) -> list[tuple[str, str | None]]:
+    errors: list[tuple[str, str | None]] = []
     flags = testcase.input_validator_flags
 
     for val in validators.validators:
@@ -179,7 +198,55 @@ def check_testcase_input(validators: InputValidators, testcase: TestCase, work_d
             validator_stdout = outfile.read().decode('utf-8', 'replace')
             validator_stderr = errfile.read().decode('utf-8', 'replace')
             validator_output = '\n'.join(out for out in [validator_stdout, validator_stderr] if out)
-            diag.error(emsg, validator_output)
+            errors.append((emsg, validator_output))
+    return errors
+
+
+# This is a bit overlapping with the ResultStore in judge/. I think they are sufficiently
+# different that it's best to have them as two separate implementations for now
+class InputValidationCache:
+    """Runs a problem's input validators against every testcase's input file.
+
+    Usage: call precompute() once, as early as convenient. Then call check() for each
+    testcase -- in the same order check_testdata's tree walk visits them -- to report
+    whatever errors were (or, on demand, are now) found.
+
+    precompute() is a no-op at --threads=1 (context.executor is None); check() then just
+    runs each testcase synchronously.
+    """
+
+    def __init__(self, validators: InputValidators, work_dir: Path) -> None:
+        self._validators = validators
+        self._work_dir = work_dir
+        # Keyed by infile rather than by the TestCase itself: TestCase is a frozen dataclass
+        # with a list field, so it isn't hashable.
+        self._futures: dict[Path, Future[list[tuple[str, str | None]]]] = {}
+
+    def precompute(self, testdata: TestDataGroup, context: Context) -> None:
+        """Submit one background job per testcase matching context.data_filter.
+
+        May be called at most once. A no-op if context.executor is None."""
+        assert not self._futures, 'precompute() called more than once'
+        if context.executor is None:
+            return
+        for testcase in testdata.get_all_testcases():
+            if testcase.matches_filter(context.data_filter):
+                self._futures[testcase.infile] = context.submit_background_work(
+                    _compute_testcase_input_errors, self._validators, testcase, self._work_dir
+                )
+
+    def check(self, testcase: TestCase, diag: Diagnostics) -> None:
+        """Report the errors (if any) input validation found for testcase.
+
+        Blocks on the background job for testcase if precompute() started one and it's
+        still running; otherwise (no precompute(), or testcase was filtered out of it)
+        computes the result synchronously."""
+        future = self._futures.get(testcase.infile)
+        errors = (
+            future.result() if future is not None else _compute_testcase_input_errors(self._validators, testcase, self._work_dir)
+        )
+        for msg, additional_info in errors:
+            diag.error(msg, additional_info)
 
 
 def check_output_validators(
