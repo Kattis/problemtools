@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self, TypeVar
+from typing import Annotated, Any, Literal, Self, TypeVar
 from uuid import UUID
 
 import yaml
@@ -59,24 +59,24 @@ class Source:
 
 @dataclass
 class TimeMultipliers:
-    ac_to_time_limit: float = 2.0
-    time_limit_to_tle: float = 1.5
+    ac_to_time_limit: Annotated[float, Field(ge=1)] = 2.0
+    time_limit_to_tle: Annotated[float, Field(ge=1)] = 1.5
 
 
 @dataclass
 class Limits:
-    memory: int
-    output: int
-    code: int
-    compilation_time: int
-    compilation_memory: int
-    validation_time: int
-    validation_memory: int
-    validation_output: int
+    memory: Annotated[int, Field(gt=0)]
+    output: Annotated[int, Field(gt=0)]
+    code: Annotated[int, Field(gt=0)]
+    compilation_time: Annotated[int, Field(gt=0)]
+    compilation_memory: Annotated[int, Field(gt=0)]
+    validation_time: Annotated[int, Field(gt=0)]
+    validation_memory: Annotated[int, Field(gt=0)]
+    validation_output: Annotated[int, Field(gt=0)]
     time_multipliers: TimeMultipliers = field(default_factory=TimeMultipliers)
-    time_limit: float | None = None
-    time_resolution: float = 1.0
-    validation_passes: int = 2
+    time_limit: Annotated[float, Field(gt=0)] | None = None
+    time_resolution: Annotated[float, Field(gt=0)] = 1.0
+    validation_passes: Annotated[int, Field(ge=2)] = 2
 
 
 @dataclass
@@ -150,16 +150,16 @@ class LegacyGrading(BaseModel):
 
 @dataclass
 class LegacyLimits:
-    memory: int
-    output: int
-    code: int
-    compilation_time: int
-    compilation_memory: int
-    validation_time: int
-    validation_memory: int
-    validation_output: int
-    time_multiplier: float = 5.0
-    time_safety_margin: float = 2.0
+    memory: Annotated[int, Field(gt=0)]
+    output: Annotated[int, Field(gt=0)]
+    code: Annotated[int, Field(gt=0)]
+    compilation_time: Annotated[int, Field(gt=0)]
+    compilation_memory: Annotated[int, Field(gt=0)]
+    validation_time: Annotated[int, Field(gt=0)]
+    validation_memory: Annotated[int, Field(gt=0)]
+    validation_output: Annotated[int, Field(gt=0)]
+    time_multiplier: Annotated[float, Field(ge=1)] = 5.0
+    time_safety_margin: Annotated[float, Field(ge=1)] = 2.0
 
 
 class MetadataLegacy(BaseModel):
