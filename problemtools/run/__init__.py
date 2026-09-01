@@ -115,3 +115,17 @@ def get_program(
     if lang is not None:
         return SourceCode(path, lang, includes=includes.get_includes_for_language(lang.lang_id))
     return None
+
+
+def as_source_or_buildrun(programs: list[Program]) -> list[SourceCode | BuildRun]:
+    """Narrow a list of Programs to SourceCode | BuildRun.
+
+    Use on the result of find_programs(allow_validation_script=False) (the default) if
+    you need to narrow the type."""
+    result: list[SourceCode | BuildRun] = []
+    for program in programs:
+        assert isinstance(program, SourceCode | BuildRun), (
+            f'{program} is a {type(program).__name__}, expected SourceCode or BuildRun'
+        )
+        result.append(program)
+    return result

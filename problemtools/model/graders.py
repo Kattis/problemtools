@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..languages import Languages
-from ..run import Program, find_programs, get_tool
+from ..run import BuildRun, SourceCode, as_source_or_buildrun, find_programs, get_tool
 
 DEFAULT_GRADER = get_tool('default_grader')
 
@@ -13,10 +13,10 @@ DEFAULT_GRADER = get_tool('default_grader')
 class Graders:
     """A problem's graders: custom grader programs found on disk, if any."""
 
-    graders: list[Program] = field(default_factory=list)
+    graders: list[SourceCode | BuildRun] = field(default_factory=list)
 
     @property
-    def grader(self) -> Program | None:
+    def grader(self) -> SourceCode | BuildRun | None:
         """The custom grader, if there's exactly one; None if there are zero (default grading is used).
 
         Does not validate that there's at most one grader; callers that care about the invalid
@@ -25,5 +25,5 @@ class Graders:
 
 
 def load_graders(probdir: Path, language_config: Languages) -> Graders:
-    graders = find_programs(str(probdir / 'graders'), language_config=language_config)
+    graders = as_source_or_buildrun(find_programs(str(probdir / 'graders'), language_config=language_config))
     return Graders(graders=graders)

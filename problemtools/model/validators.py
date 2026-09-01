@@ -6,7 +6,7 @@ from pathlib import Path
 from ..formatversion import FormatVersion
 from ..languages import Languages
 from ..metadata import Metadata
-from ..run import Program, find_programs, get_tool
+from ..run import BuildRun, Program, SourceCode, as_source_or_buildrun, find_programs, get_tool
 
 #: The problemtools-provided validator used when a problem doesn't ship a custom output validator.
 DEFAULT_VALIDATOR = get_tool('default_validator')
@@ -34,7 +34,7 @@ def load_input_validators(probdir: Path, language_config: Languages) -> InputVal
 class OutputValidators:
     """A problem's output validators: custom validator programs found on disk, if any."""
 
-    validators: list[Program] = field(default_factory=list)
+    validators: list[SourceCode | BuildRun] = field(default_factory=list)
 
     def uses_default(self, format_version: FormatVersion, metadata: Metadata) -> bool:
         """Whether the default validator is used, rather than a custom one."""
@@ -51,5 +51,7 @@ class OutputValidators:
 
 
 def load_output_validators(probdir: Path, format_version: FormatVersion, language_config: Languages) -> OutputValidators:
-    validators = find_programs(str(probdir / format_version.output_validator_directory), language_config=language_config)
+    validators = as_source_or_buildrun(
+        find_programs(str(probdir / format_version.output_validator_directory), language_config=language_config)
+    )
     return OutputValidators(validators=validators)
