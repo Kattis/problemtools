@@ -6,6 +6,7 @@ import collections
 import glob
 import hashlib
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from ..context import Context
@@ -47,6 +48,14 @@ def check_testdata(
     has_custom_grader = graders.grader is not None
     has_default_grader = DEFAULT_GRADER is not None
 
+    if metadata.is_scoring():
+        # Whether the selected output validator might emit an arbitrary score via score.txt,
+        # making a test case's score unbounded as far as _check_score_range is concerned.
+        custom_scoring_possible = (
+            not output_validators.uses_default(format_version, metadata) and metadata.is_custom_score_allowed()
+        )
+        _check_score_range(testdata, custom_scoring_possible, diag)
+
     input_validation = InputValidationCache(input_validators, work_dir)
     input_validation.precompute(testdata, context)
 
@@ -62,6 +71,92 @@ def check_testdata(
         work_dir,
         diag,
     )
+
+
+#: Score aggregators for `grading: default`, matching support/default_grader's `score_aggregators`.
+#: All are monotonic non-decreasing in each argument, which is what makes _check_score_range below
+#: correct: the range of an aggregate is the aggregator applied to the children's lower bounds, and
+#: separately to their upper bounds.
+_SCORE_AGGREGATORS: dict[str, Callable[[list[float]], float]] = {
+    'sum': sum,
+    'avg': lambda scores: sum(scores) / len(scores),
+    'min': min,
+    'max': max,
+}
+
+
+def _check_score_range(group: TestDataGroup, custom_scoring_possible: bool, diag: Diagnostics) -> tuple[float, float]:
+    """Recursively check `group`'s declared score `range` against what can be inferred from its
+    grading configuration and test data. Returns group's effective range."""
+    children = group.items
+    if group.is_root and 'ignore_sample' in group.config['grader_flags'].split():
+        children = [child for child in children if not (isinstance(child, TestDataGroup) and child.datadir.name == 'sample')]
+
+    if not children:
+        aggregate = (0.0, 0.0)
+    elif group.config['grading'] == 'custom':
+        # A custom grader can't be reasoned about.
+        aggregate = (float('-inf'), float('inf'))
+    else:
+        child_ranges = []
+        for child in children:
+            if isinstance(child, TestDataGroup):
+                child_ranges.append(_check_score_range(child, custom_scoring_possible, diag))
+            elif custom_scoring_possible:
+                child_ranges.append((float('-inf'), float('inf')))
+            else:
+                accept_score, reject_score = group.config['accept_score'], group.config['reject_score']
+                child_ranges.append((min(accept_score, reject_score), max(accept_score, reject_score)))
+
+        aggregator_name = 'sum'
+        for flag in group.config['grader_flags'].split():
+            if flag in _SCORE_AGGREGATORS:
+                aggregator_name = flag  # last one wins, matching default_grader
+        aggregator = _SCORE_AGGREGATORS[aggregator_name]
+
+        aggregate = (aggregator([lo for lo, _hi in child_ranges]), aggregator([hi for _lo, hi in child_ranges]))
+
+    try:
+        score_range = group.config['range']
+        min_score, max_score = list(map(float, score_range.split()))
+        if min_score > max_score:
+            diag.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
+            return aggregate
+    except VerifyError:
+        raise
+    except Exception:
+        diag.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
+        return aggregate
+
+    agg_min, agg_max = aggregate
+    is_default_range = score_range == DEFAULT_CONFIG['range']
+    if max_score < agg_min or min_score > agg_max:
+        diag.warning(
+            f"Declared score range '{score_range}' for {group} doesn't overlap with the computed range "
+            f'[{agg_min:g}, {agg_max:g}] at all'
+        )
+        # We're in a bad state here, unclear what to return. Specified range probably ends up less spammy.
+        return (min_score, max_score)
+    elif min_score < agg_min or max_score > agg_max:
+        if is_default_range:
+            diag.warning(
+                f'No score range declared for {group}, but a range of [{agg_min:g}, {agg_max:g}] can be '
+                f"computed from its grading configuration and test data; consider adding 'range: {agg_min:g} {agg_max:g}'"
+            )
+        else:
+            diag.warning(
+                f"Declared score range '{score_range}' for {group} is looser than the computed range "
+                f'[{agg_min:g}, {agg_max:g}]; consider tightening it'
+            )
+    elif group.is_root and is_default_range:
+        # The default range -inf, inf basically never makes sense. Encourage tighter even when we can't compute a recommendation
+        diag.warning(
+            f'No score range declared for {group}, and none could be computed automatically; as '
+            'the top-level group, its range is the overall score range for the problem -- consider '
+            'declaring one explicitly'
+        )
+
+    return (max(agg_min, min_score), min(agg_max, max_score))
 
 
 def _check_group(
@@ -104,17 +199,8 @@ def _check_group(
     if group.config['on_reject'] not in ['break', 'continue']:
         diag.error(f"Invalid value '{group.config['on_reject']}' for on_reject policy")
 
-    if metadata.is_scoring():
-        # Check grading
-        try:
-            score_range = group.config['range']
-            min_score, max_score = list(map(float, score_range.split()))
-            if min_score > max_score:
-                diag.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
-        except VerifyError:
-            raise
-        except Exception:
-            diag.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
+    # Score range validity and tightness are checked by _check_score_range, called once for the
+    # whole tree from check_testdata.
 
     if group.is_root:
         seen_secret = False
