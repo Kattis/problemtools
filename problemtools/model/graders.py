@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..languages import Languages
 from ..run import BuildRun, SourceCode, as_source_or_buildrun, find_programs, get_tool
+from .paths import resolve
 
 DEFAULT_GRADER = get_tool('default_grader')
 
@@ -25,5 +26,6 @@ class Graders:
 
 
 def load_graders(probdir: Path, language_config: Languages) -> Graders:
+    probdir = resolve(probdir)
     graders = as_source_or_buildrun(find_programs(str(probdir / 'graders'), language_config=language_config))
     return Graders(graders=graders)

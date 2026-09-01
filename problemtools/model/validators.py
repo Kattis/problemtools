@@ -7,6 +7,7 @@ from ..formatversion import FormatVersion
 from ..languages import Languages
 from ..metadata import Metadata
 from ..run import BuildRun, Program, SourceCode, as_source_or_buildrun, find_programs, get_tool
+from .paths import resolve
 
 #: The problemtools-provided validator used when a problem doesn't ship a custom output validator.
 DEFAULT_VALIDATOR = get_tool('default_validator')
@@ -20,6 +21,7 @@ class InputValidators:
 
 
 def load_input_validators(probdir: Path, language_config: Languages) -> InputValidators:
+    probdir = resolve(probdir)
     # input_format_validators is a deprecated name for input_validators. We just load
     # from both and let _check_root_directory_names warn about the deprecated directory
     validators = [
@@ -51,6 +53,7 @@ class OutputValidators:
 
 
 def load_output_validators(probdir: Path, format_version: FormatVersion, language_config: Languages) -> OutputValidators:
+    probdir = resolve(probdir)
     validators = as_source_or_buildrun(
         find_programs(str(probdir / format_version.output_validator_directory), language_config=language_config)
     )

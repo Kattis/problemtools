@@ -10,6 +10,7 @@ import yaml
 
 from .. import config
 from ..metadata import Metadata
+from .paths import AbsolutePath, RelativePath, abspath, relpath, resolve
 
 DEFAULT_CONFIG = config.load_config('testdata.yaml')
 SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
@@ -22,9 +23,9 @@ class TestCase:
     `path` is relative to the data directory and has no extension, e.g. for
     data/secret/hello.in, path is secret/hello."""
 
-    infile: Path
-    ansfile: Path
-    path: Path
+    infile: AbsolutePath
+    ansfile: AbsolutePath
+    path: RelativePath
     input_validator_flags: list[str]
     output_validator_flags: list[str]
 
@@ -50,7 +51,7 @@ class TestDataGroup:
     package defaults."""
 
     name: str
-    datadir: Path
+    datadir: AbsolutePath
     config: dict[str, Any]
     is_root: bool
     items: list[TestCase | TestDataGroup] = field(default_factory=list)
@@ -87,10 +88,11 @@ class TestDataGroup:
 
 def load_testdata(probdir: Path, metadata: Metadata) -> TestDataGroup:
     """Load the full testdata tree rooted at <probdir>/data."""
-    return _load_group(probdir, probdir / 'data', {}, metadata, is_root=True)
+    root = resolve(probdir)
+    return _load_group(root, abspath(root / 'data'), {}, metadata, is_root=True)
 
 
-def _load_group_config(datadir: Path) -> dict[str, Any]:
+def _load_group_config(datadir: AbsolutePath) -> dict[str, Any]:
     configfile = datadir / 'testdata.yaml'
     if not configfile.is_file():
         return {}
@@ -98,7 +100,9 @@ def _load_group_config(datadir: Path) -> dict[str, Any]:
     return loaded if loaded is not None else {}
 
 
-def _load_group(probdir: Path, datadir: Path, parent_config: dict[str, Any], metadata: Metadata, is_root: bool) -> TestDataGroup:
+def _load_group(
+    probdir: AbsolutePath, datadir: AbsolutePath, parent_config: dict[str, Any], metadata: Metadata, is_root: bool
+) -> TestDataGroup:
     name = os.path.relpath(datadir, probdir).replace(os.sep, '.')
 
     merged_config = _load_group_config(datadir)
@@ -130,18 +134,18 @@ def _load_group(probdir: Path, datadir: Path, parent_config: dict[str, Any], met
     if datadir.is_dir():
         for entry in sorted(datadir.iterdir()):
             if entry.is_dir():
-                items.append(_load_group(probdir, entry, merged_config, metadata, is_root=False))
+                items.append(_load_group(probdir, abspath(entry), merged_config, metadata, is_root=False))
             elif entry.suffix == '.ans' and entry.with_suffix('.in').is_file():
-                items.append(_load_testcase(entry, probdir / 'data', merged_config, metadata))
+                items.append(_load_testcase(abspath(entry), abspath(probdir / 'data'), merged_config, metadata))
     return TestDataGroup(name=name, datadir=datadir, config=merged_config, is_root=is_root, items=items)
 
 
-def _load_testcase(ansfile: Path, data_root: Path, group_config: dict[str, Any], metadata: Metadata) -> TestCase:
-    infile = ansfile.with_suffix('.in')
+def _load_testcase(ansfile: AbsolutePath, data_root: AbsolutePath, group_config: dict[str, Any], metadata: Metadata) -> TestCase:
+    infile = abspath(ansfile.with_suffix('.in'))
     return TestCase(
         infile=infile,
         ansfile=ansfile,
-        path=infile.with_suffix('').relative_to(data_root),
+        path=relpath(infile.with_suffix('').relative_to(data_root)),
         input_validator_flags=group_config['input_validator_flags'].split(),
         output_validator_flags=(metadata.legacy_validator_flags.split() + group_config.get('output_validator_flags', '').split()),
     )

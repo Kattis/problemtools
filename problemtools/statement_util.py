@@ -21,7 +21,7 @@ FOOTNOTES_STRINGS = ['<section class="footnotes">', '<aside class="footnotes">']
 
 
 def find_statements(problem_root: Path, version: FormatVersion) -> dict[str, list[Path]]:
-    """Returns a dict mapping language code to a list of paths to statements (relative to problem_root)
+    """Returns a dict mapping language code to a list of paths to statements, under problem_root.
 
     Note that in well-formed problem packages, there should only be a single
     statement for each language, but this function returns all found

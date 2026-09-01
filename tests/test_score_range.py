@@ -1,21 +1,22 @@
 from pathlib import Path
 
 from problemtools.checks.testdata import _check_score_range
+from problemtools.model.paths import abspath, relpath
 from problemtools.model.testdata import TestCase, TestDataGroup
 
 # Not test classes -- just named that way by the model. Tell pytest not to collect them.
-TestCase.__test__ = False
-TestDataGroup.__test__ = False
+TestCase.__test__ = False  # type: ignore[attr-defined]
+TestDataGroup.__test__ = False  # type: ignore[attr-defined]
 
 INF = float('inf')
 
 
 def make_testcase(name: str) -> TestCase:
-    path = Path(name)
+    path = Path('/' + name)
     return TestCase(
-        infile=path.with_suffix('.in'),
-        ansfile=path.with_suffix('.ans'),
-        path=path,
+        infile=abspath(path.with_suffix('.in')),
+        ansfile=abspath(path.with_suffix('.ans')),
+        path=relpath(Path(name)),
         input_validator_flags=[],
         output_validator_flags=[],
     )
@@ -34,7 +35,7 @@ def make_group(
 ) -> TestDataGroup:
     return TestDataGroup(
         name=name,
-        datadir=Path(name),
+        datadir=abspath(Path('/' + name)),
         config={
             'grading': grading,
             'grader_flags': grader_flags,

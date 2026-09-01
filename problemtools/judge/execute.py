@@ -196,7 +196,7 @@ def _run_multipass(
     base_dir: Path,
     diag: Diagnostics,
 ) -> SubmissionResult:
-    infile = testcase.infile
+    infile: Path = testcase.infile
     slowest = 0.0
     feedback_dir = execution_dir / 'feedback'
     for _ in range(metadata.limits.validation_passes):
