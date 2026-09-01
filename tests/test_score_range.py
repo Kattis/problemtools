@@ -223,6 +223,36 @@ def test_non_root_with_unbounded_aggregate_and_no_declared_range_is_silent(diag)
     assert diag.messages == []
 
 
+def test_root_with_negative_minimum_and_no_other_issue_warns(diag):
+    group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=-5, range_='-5 10', is_root=True)
+    assert _check_score_range(group, False, diag) == (-5, 10)
+    assert diag.messages == [
+        (
+            'warning',
+            (
+                "Declared score range '-5 10' for testcase group g has a negative minimum; submissions with "
+                'non-AC final verdict always have score 0, so a negative minimum is usually a mistake'
+            ),
+        )
+    ]
+
+
+def test_negative_minimum_below_root_is_not_flagged(diag):
+    # negative scores for non-root test groups is a bit weird, but IMHO not weird enough to warn about
+    group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=-5, range_='-5 10', is_root=False)
+    assert _check_score_range(group, False, diag) == (-5, 10)
+    assert diag.messages == []
+
+
+def test_negative_minimum_at_root_is_suppressed_by_other_warnings(diag):
+    # Warning about a negative range is low priority. If we can instead suggest to narrow the range,
+    # that's typically a better warning.
+    group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=0, range_='-10 200', is_root=True)
+    assert _check_score_range(group, False, diag) == (0, 10)
+    assert len(diag.messages) == 1
+    assert 'looser than the computed range' in diag.messages[0][1]
+
+
 def test_invalid_range_format_errors_and_falls_back_to_aggregate(diag):
     group = make_group('g', [make_testcase('a')], range_='not a range', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)

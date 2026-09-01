@@ -6,7 +6,7 @@ import collections
 import glob
 import hashlib
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from ..context import Context
@@ -49,6 +49,8 @@ def check_testdata(
     has_default_grader = DEFAULT_GRADER is not None
 
     if metadata.is_scoring():
+        _warn_reject_score(testdata, diag)
+
         # Whether the selected output validator might emit an arbitrary score via score.txt,
         # making a test case's score unbounded as far as _check_score_range is concerned.
         custom_scoring_possible = (
@@ -71,6 +73,27 @@ def check_testdata(
         work_dir,
         diag,
     )
+
+
+def _all_groups(group: TestDataGroup) -> Iterator[TestDataGroup]:
+    """`group` and all its descendant groups."""
+    yield group
+    for subgroup in group.get_subgroups():
+        yield from _all_groups(subgroup)
+
+
+def _warn_reject_score(testdata: TestDataGroup, diag: Diagnostics) -> None:
+    """Warn about reject_score usage."""
+    groups = list(_all_groups(testdata))
+
+    nonzero_reject = [(g, g.config['reject_score']) for g in groups if g.config['reject_score'] != 0]
+    if nonzero_reject:
+        example_group, example_score = nonzero_reject[0]
+        diag.warning(
+            f'{len(nonzero_reject)} testcase group(s) configure a non-zero reject_score (e.g. {example_group} '
+            f'has reject_score {example_score:g}); submissions with non-AC final verdict always have score 0, '
+            'so this is usually a mistake'
+        )
 
 
 #: Score aggregators for `grading: default`, matching support/default_grader's `score_aggregators`.
@@ -154,6 +177,11 @@ def _check_score_range(group: TestDataGroup, custom_scoring_possible: bool, diag
             f'No score range declared for {group}, and none could be computed automatically; as '
             'the top-level group, its range is the overall score range for the problem -- consider '
             'declaring one explicitly'
+        )
+    elif group.is_root and min_score < 0:
+        diag.warning(
+            f"Declared score range '{score_range}' for {group} has a negative minimum; submissions with "
+            'non-AC final verdict always have score 0, so a negative minimum is usually a mistake'
         )
 
     return (max(agg_min, min_score), min(agg_max, max_score))
