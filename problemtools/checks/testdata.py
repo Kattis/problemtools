@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from ..context import Context
-from ..diagnostics import Diagnostics, VerifyError
+from ..diagnostics import Diagnostics
 from ..formatversion import FormatVersion
 from ..judge import validate_output
 from ..metadata import Metadata
@@ -139,19 +139,28 @@ def _check_score_range(group: TestDataGroup, custom_scoring_possible: bool, diag
 
         aggregate = (aggregator([lo for lo, _hi in child_ranges]), aggregator([hi for _lo, hi in child_ranges]))
 
+    score_range = group.config['range']
     try:
-        score_range = group.config['range']
         min_score, max_score = list(map(float, score_range.split()))
-        if min_score > max_score:
-            diag.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
-            return aggregate
-    except VerifyError:
-        raise
     except Exception:
         diag.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
         return aggregate
 
+    if min_score > max_score:
+        diag.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
+        return aggregate
+
+    return _warn_score_range(group, (min_score, max_score), aggregate, diag)
+
+
+def _warn_score_range(
+    group: TestDataGroup, declared: tuple[float, float], aggregate: tuple[float, float], diag: Diagnostics
+) -> tuple[float, float]:
+    """Compare `group`'s declared score range to what its `aggregate` says can actually be achieved,
+    warn about any mismatch, and return the effective (declared-trusting) range."""
+    min_score, max_score = declared
     agg_min, agg_max = aggregate
+    score_range = group.config['range']
     is_default_range = score_range == DEFAULT_CONFIG['range']
     if max_score < agg_min or min_score > agg_max:
         diag.warning(
