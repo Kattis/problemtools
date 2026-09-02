@@ -6,12 +6,10 @@ from typing import Any, Final
 
 from plasTeX.Filenames import Filenames
 from plasTeX.Imagers import Image
-from plasTeX.Logging import getLogger
 from plasTeX.Renderers.PageTemplate import Renderer
 
+from problemtools.diagnostics import Diagnostics
 from problemtools.template import TemplateError
-
-log = getLogger()
 
 
 # Adapted from plasTeX.Imagers.Imager class
@@ -25,9 +23,10 @@ class ImageConverter:
         '.pdf': ('.png', ['gs', '-dUseCropBox', '-sDEVICE=pngalpha', '-r300', '-o'])
     }
 
-    def __init__(self, document: Any) -> None:
+    def __init__(self, document: Any, diag: Diagnostics) -> None:
         self.config = document.config
         self.ownerDocument = document
+        self.diag = diag
 
         # Cache of already seen images
         self.staticimages: dict[str, Image] = {}
@@ -47,7 +46,7 @@ class ImageConverter:
     def getImage(self, node: Any) -> Image | None:
         name = getattr(node, 'imageoverride', None)
         if name is None:
-            log.error(f'Image handler called for non-image node "{node.source}"')
+            self.diag.error(f'Image handler called for non-image node "{node.source}"')
             return None
 
         if name in self.staticimages:
@@ -66,9 +65,11 @@ class ImageConverter:
                 path = os.path.splitext(path)[0] + newext
                 cmd = self.imageConversion[oldext][1] + [path, name]
                 result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=False)
-                if result.returncode:
-                    log.error(
-                        'Failed to convert %s image "%s" to %s.\n%s', oldext, name, newext, result.stderr.decode(errors='replace')
+                # We need to check if output exists. gs can fail with exit code 0, e.g., if the pdf is empty (0 bytes).
+                if result.returncode or not os.path.isfile(path):
+                    self.diag.error(
+                        f'Failed to convert {oldext} image "{os.path.basename(name)}" to {newext}.',
+                        f'Command: {" ".join(cmd)}\nStderr: {result.stderr.decode(errors="replace")}',
                     )
             else:
                 # Just copy it
@@ -79,7 +80,7 @@ class ImageConverter:
             return img
 
         except Exception as msg:
-            log.warning(f'{msg} in image "{name}".')
+            self.diag.error(f'{msg} in image "{name}".')
         return None
 
 
@@ -92,6 +93,10 @@ class ProblemRenderer(Renderer):
     # with ClassVar or Final as a Liskov violation, so we can't annotate these as constant.
     imageTypes: list[str] = ['.png', '.jpg', '.jpeg', '.gif']  # noqa: RUF012
     vectorImageTypes: list[str] = ['.svg']  # noqa: RUF012
+
+    def __init__(self, diag: Diagnostics) -> None:
+        super().__init__()
+        self.diag = diag
 
     def render(self, document: Any, postProcess: Any = None) -> None:
         templatepaths = [
@@ -117,7 +122,7 @@ class ProblemRenderer(Renderer):
         f.invalid.clear()
 
         # Setup our own mini-imager which just does copying and converts pdfs to png
-        self.imager = ImageConverter(document)
+        self.imager = ImageConverter(document, self.diag)
 
         Renderer.render(self, document)
 
