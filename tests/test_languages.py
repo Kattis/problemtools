@@ -6,6 +6,7 @@ from unittest import TestCase
 import pytest
 
 from problemtools import languages
+from tests.conftest import datadir
 
 
 class Language_test(TestCase):
@@ -295,7 +296,7 @@ class Language_test(TestCase):
         assert command == [shutil.which('echo'), subs.path, 'main.foo', 'helper1.bar', 'helper2.bar', subs.binary]
 
 
-__EXAMPLES_PATH = os.path.join(os.path.dirname(__file__), 'languages_examples')
+__EXAMPLES_PATH = datadir() / 'languages_examples'
 
 
 def examples_path(test_file):

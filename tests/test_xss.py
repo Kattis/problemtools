@@ -1,8 +1,8 @@
 import os
 import tempfile
-from pathlib import Path
 
 from problemtools import problem2html, problem2pdf
+from tests.conftest import datadir
 
 
 def render(problem_path, diag):
@@ -24,18 +24,18 @@ def renderpdf(problem_path):
 
 
 def test_no_xss_statement(diag):
-    problem_path = Path(__file__).parent / 'problems' / 'statementxss'
+    problem_path = datadir() / 'problems' / 'statementxss'
     html = render(problem_path, diag)
     assert 'alert' not in html
 
 
 def test_no_xss_problemname(diag):
-    problem_path = Path(__file__).parent / 'problems' / 'problemnamexss'
+    problem_path = datadir() / 'problems' / 'problemnamexss'
     html = render(problem_path, diag)
     assert '<script>' not in html
 
 
 def test_no_xss_sample(diag):
-    problem_path = Path(__file__).parent / 'problems' / 'samplexss'
+    problem_path = datadir() / 'problems' / 'samplexss'
     html = render(problem_path, diag)
     assert '<script>' not in html

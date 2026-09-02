@@ -1,12 +1,11 @@
 import pytest
 
 from problemtools import config
+from tests.conftest import datadir
 
 
 def config_paths_mock():
-    from pathlib import Path
-
-    return [Path(__file__).parent / 'config1', Path(__file__).parent / 'config2']
+    return [datadir() / 'config1', datadir() / 'config2']
 
 
 def test_load_basic_config(monkeypatch):
