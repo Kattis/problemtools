@@ -1,10 +1,9 @@
-from pathlib import Path
-
 import pytest
 from pydantic import ValidationError
 
 from problemtools import metadata
 from problemtools.formatversion import FormatVersion
+from tests.conftest import example_directory
 
 # A few quick tests of config parsing. pytest structure isn't great here, so code gets repetitive, but I wanted *something* basic in place at least.
 
@@ -101,7 +100,7 @@ def test_parse_complex_type(minimal_2023_conf):
 
 
 def test_load_hello():
-    m = metadata.load_metadata(Path(__file__).parent / 'hello')
+    m = metadata.load_metadata(example_directory('hello'))
     assert m.name['en'] == 'Hello World!'
     assert m.name['sv'] == 'Hej Världen!'
     assert len(m.source) == 1

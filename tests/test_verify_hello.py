@@ -1,11 +1,10 @@
-from pathlib import Path
-
 from problemtools import checks, model
 from problemtools.diagnostics import Diagnostics
+from tests.conftest import example_directory
 
 
 def test_load_hello(diag: Diagnostics) -> None:
-    probdir = (Path(__file__).parent / 'hello').resolve()
+    probdir = example_directory('hello')
 
     problem = model.load_problem(probdir, diag)
     assert problem.shortname == 'hello'
@@ -27,7 +26,7 @@ def test_load_hello(diag: Diagnostics) -> None:
 
 
 def test_load_twice(diag: Diagnostics):
-    probdir = (Path(__file__).parent / 'hello').resolve()
+    probdir = example_directory('hello')
 
     model.load_problem(probdir, diag)
     model.load_problem(probdir, diag)
