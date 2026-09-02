@@ -43,6 +43,9 @@ jobs:
     - name: Run mypy
       run: |
         venv/bin/mypy --non-interactive --config-file mypy.ini -p problemtools
+    - name: Run mypy on tests
+      run: |
+        venv/bin/mypy --non-interactive --config-file mypy.ini --exclude '^tests/data/' tests/
 
   packages: # Use a separate job to test debian packaging to speed things up (no need to test this for every python version above)
     runs-on: ubuntu-latest

@@ -10,3 +10,4 @@ venv/bin/ruff check .
 venv/bin/ruff format --check .
 venv/bin/pytest
 venv/bin/mypy --non-interactive --config-file mypy.ini -p problemtools
+venv/bin/mypy --non-interactive --config-file mypy.ini --exclude '^tests/data/' tests/
