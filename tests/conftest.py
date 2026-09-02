@@ -9,9 +9,7 @@ from problemtools.diagnostics import Diagnostics
 
 def datadir() -> Path:
     """Root directory holding static test fixture data."""
-    # TODO: move config1, config2, languages_examples, and problems under a
-    # tests/data directory, and change this to Path(__file__).parent / 'data'.
-    return Path(__file__).parent.resolve()
+    return (Path(__file__).parent / 'data').resolve()
 
 
 def example_directory(problem_name: str) -> Path:
