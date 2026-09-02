@@ -3,6 +3,7 @@ from pathlib import Path
 from problemtools.checks.testdata import _check_score_range
 from problemtools.model.paths import abspath, relpath
 from problemtools.model.testdata import TestCase, TestDataGroup
+from tests.conftest import RecordingDiagnostics
 
 # Not test classes -- just named that way by the model. Tell pytest not to collect them.
 TestCase.__test__ = False  # type: ignore[attr-defined]
@@ -49,7 +50,7 @@ def make_group(
     )
 
 
-def test_group_sum_is_default_aggregator(diag):
+def test_group_sum_is_default_aggregator(diag: RecordingDiagnostics) -> None:
     group = make_group(
         'g', [make_testcase('a'), make_testcase('b'), make_testcase('c')], range_='0 30', accept_score=10, reject_score=0
     )
@@ -57,12 +58,12 @@ def test_group_sum_is_default_aggregator(diag):
     assert diag.messages == []
 
 
-def test_group_avg_aggregator(diag):
+def test_group_avg_aggregator(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], grader_flags='avg', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)
 
 
-def test_avg_aggregator_with_on_reject_break_widens_range(diag):
+def test_avg_aggregator_with_on_reject_break_widens_range(diag: RecordingDiagnostics) -> None:
     # subA (graded first) has a much wider range than subB. With on_reject: break, a non-AC subA
     # stops grading before subB is ever run, so the group's score is just subA's -- as high as
     # 100 -- even though grading both would pull the maximum average down to 55.
@@ -73,7 +74,7 @@ def test_avg_aggregator_with_on_reject_break_widens_range(diag):
     assert diag.messages == []
 
 
-def test_avg_aggregator_with_on_reject_continue_is_tighter(diag):
+def test_avg_aggregator_with_on_reject_continue_is_tighter(diag: RecordingDiagnostics) -> None:
     # Same as above, but without break: subB is always graded too, so avg is always over both.
     subA = make_group('g.subA', [make_testcase('a')], range_='0 100', accept_score=100, reject_score=0)
     subB = make_group('g.subB', [make_testcase('b')], range_='0 10', accept_score=10, reject_score=0)
@@ -82,18 +83,18 @@ def test_avg_aggregator_with_on_reject_continue_is_tighter(diag):
     assert diag.messages == []
 
 
-def test_reject_above_accept(diag):
+def test_reject_above_accept(diag: RecordingDiagnostics) -> None:
     # Corner case: check we don't end up with a broken range if reject_score is above accept_score
     group = make_group('g', [make_testcase('a')], accept_score=0, reject_score=5)
     assert _check_score_range(group, False, diag) == (0, 5)
 
 
-def test_custom_scoring_possible_is_unbounded(diag):
+def test_custom_scoring_possible_is_unbounded(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=0)
     assert _check_score_range(group, True, diag) == (-INF, INF)
 
 
-def test_group_min_aggregator(diag):
+def test_group_min_aggregator(diag: RecordingDiagnostics) -> None:
     group = make_group(
         'g',
         [make_testcase('a'), make_testcase('b')],
@@ -103,27 +104,27 @@ def test_group_min_aggregator(diag):
     assert _check_score_range(group, False, diag) == (0, 1)
 
 
-def test_group_max_aggregator(diag):
+def test_group_max_aggregator(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a'), make_testcase('b')], grader_flags='max')
     assert _check_score_range(group, False, diag) == (0, 1)
 
 
-def test_last_aggregator_flag_wins(diag):
+def test_last_aggregator_flag_wins(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], grader_flags='max min avg', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)
 
 
-def test_custom_grading_is_unbounded(diag):
+def test_custom_grading_is_unbounded(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], grading='custom')
     assert _check_score_range(group, False, diag) == (-INF, INF)
 
 
-def test_empty_group_scores_zero(diag):
+def test_empty_group_scores_zero(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [])
     assert _check_score_range(group, False, diag) == (0, 0)
 
 
-def test_nested_groups_compose(diag):
+def test_nested_groups_compose(diag: RecordingDiagnostics) -> None:
     subtask1 = make_group(
         'g.subtask1',
         [make_testcase('a'), make_testcase('b')],
@@ -138,14 +139,14 @@ def test_nested_groups_compose(diag):
     assert diag.messages == []
 
 
-def test_ignore_sample_at_root_skips_sample_group(diag):
+def test_ignore_sample_at_root_skips_sample_group(diag: RecordingDiagnostics) -> None:
     sample = make_group('sample', [make_testcase('s')], accept_score=1000, reject_score=0)
     secret = make_group('secret', [make_testcase('a')], accept_score=100, reject_score=0)
     root = make_group('data', [sample, secret], grader_flags='ignore_sample', is_root=True)
     assert _check_score_range(root, False, diag) == (0, 100)
 
 
-def test_ignore_sample_is_a_no_op_below_root(diag):
+def test_ignore_sample_is_a_no_op_below_root(diag: RecordingDiagnostics) -> None:
     sample = make_group('sample', [make_testcase('s')], accept_score=1000, reject_score=0)
     secret = make_group('secret', [make_testcase('a')], accept_score=100, reject_score=0)
     # Misconfigured (checks._check_group flags this separately). We just aggregate all children
@@ -156,13 +157,13 @@ def test_ignore_sample_is_a_no_op_below_root(diag):
 # --- Declared range vs. what can be inferred ---
 
 
-def test_no_warning_when_declared_matches_computed(diag):
+def test_no_warning_when_declared_matches_computed(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], range_='0 10', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)
     assert diag.messages == []
 
 
-def test_looser_declared_range_warns_and_suggests_tightening(diag):
+def test_looser_declared_range_warns_and_suggests_tightening(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], range_='0 100', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)
     assert diag.messages == [
@@ -173,7 +174,7 @@ def test_looser_declared_range_warns_and_suggests_tightening(diag):
     ]
 
 
-def test_no_declared_range_warns_and_suggests_one(diag):
+def test_no_declared_range_warns_and_suggests_one(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=0)  # range left at the default
     assert _check_score_range(group, False, diag) == (0, 10)
     assert diag.messages == [
@@ -187,7 +188,7 @@ def test_no_declared_range_warns_and_suggests_one(diag):
     ]
 
 
-def test_narrower_declared_range_is_trusted_without_warning(diag):
+def test_narrower_declared_range_is_trusted_without_warning(diag: RecordingDiagnostics) -> None:
     # A "bad guarantee": the group's own children can clearly reach 100, but the author declared a
     # narrower range. We don't warn -- that's a promise checked elsewhere (checks.submissions) --
     # but we do trust it for the returned (propagated) value.
@@ -196,7 +197,7 @@ def test_narrower_declared_range_is_trusted_without_warning(diag):
     assert diag.messages == []
 
 
-def test_narrower_declared_range_propagates_to_parent(diag):
+def test_narrower_declared_range_propagates_to_parent(diag: RecordingDiagnostics) -> None:
     # The parent's aggregate must reflect the child's effective (trusted) range, not its raw
     # aggregate -- so a narrow declaration deep in the tree is reflected in ancestors' results too.
     bad_child = make_group('g.secret', [make_testcase('a')], range_='0 10', accept_score=100, reject_score=0)
@@ -214,7 +215,7 @@ def test_narrower_declared_range_propagates_to_parent(diag):
     ]
 
 
-def test_disjoint_declared_range_warns_distinctly(diag):
+def test_disjoint_declared_range_warns_distinctly(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], range_='0 10', accept_score=100, reject_score=50)
     assert _check_score_range(group, False, diag) == (0, 10)
     assert diag.messages == [
@@ -225,7 +226,7 @@ def test_disjoint_declared_range_warns_distinctly(diag):
     ]
 
 
-def test_root_with_unbounded_aggregate_and_no_declared_range_still_warns(diag):
+def test_root_with_unbounded_aggregate_and_no_declared_range_still_warns(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], grading='custom', is_root=True)
     assert _check_score_range(group, False, diag) == (-INF, INF)
     assert diag.messages == [
@@ -240,13 +241,13 @@ def test_root_with_unbounded_aggregate_and_no_declared_range_still_warns(diag):
     ]
 
 
-def test_non_root_with_unbounded_aggregate_and_no_declared_range_is_silent(diag):
+def test_non_root_with_unbounded_aggregate_and_no_declared_range_is_silent(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], grading='custom', is_root=False)
     assert _check_score_range(group, False, diag) == (-INF, INF)
     assert diag.messages == []
 
 
-def test_root_with_negative_minimum_and_no_other_issue_warns(diag):
+def test_root_with_negative_minimum_and_no_other_issue_warns(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=-5, range_='-5 10', is_root=True)
     assert _check_score_range(group, False, diag) == (-5, 10)
     assert diag.messages == [
@@ -260,14 +261,14 @@ def test_root_with_negative_minimum_and_no_other_issue_warns(diag):
     ]
 
 
-def test_negative_minimum_below_root_is_not_flagged(diag):
+def test_negative_minimum_below_root_is_not_flagged(diag: RecordingDiagnostics) -> None:
     # negative scores for non-root test groups is a bit weird, but IMHO not weird enough to warn about
     group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=-5, range_='-5 10', is_root=False)
     assert _check_score_range(group, False, diag) == (-5, 10)
     assert diag.messages == []
 
 
-def test_negative_minimum_at_root_is_suppressed_by_other_warnings(diag):
+def test_negative_minimum_at_root_is_suppressed_by_other_warnings(diag: RecordingDiagnostics) -> None:
     # Warning about a negative range is low priority. If we can instead suggest to narrow the range,
     # that's typically a better warning.
     group = make_group('g', [make_testcase('a')], accept_score=10, reject_score=0, range_='-10 200', is_root=True)
@@ -276,14 +277,14 @@ def test_negative_minimum_at_root_is_suppressed_by_other_warnings(diag):
     assert 'looser than the computed range' in diag.messages[0][1]
 
 
-def test_invalid_range_format_errors_and_falls_back_to_aggregate(diag):
+def test_invalid_range_format_errors_and_falls_back_to_aggregate(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], range_='not a range', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)
     assert diag.errors == 1
     assert "Invalid format 'not a range'" in diag.messages[0][1]
 
 
-def test_min_greater_than_max_errors_and_falls_back_to_aggregate(diag):
+def test_min_greater_than_max_errors_and_falls_back_to_aggregate(diag: RecordingDiagnostics) -> None:
     group = make_group('g', [make_testcase('a')], range_='10 0', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)
     assert diag.errors == 1

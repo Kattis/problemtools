@@ -5,7 +5,7 @@ from problemtools.run import limit
 
 
 class Limit_test(TestCase):
-    def test_less(self):
+    def test_less(self) -> None:
         less = limit.__dict__['__limit_less']
         assert less(42, 42)
         assert not less(42, 41)

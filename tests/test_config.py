@@ -1,42 +1,44 @@
+from pathlib import Path
+
 import pytest
 
 from problemtools import config
 from tests.conftest import datadir
 
 
-def config_paths_mock():
+def config_paths_mock() -> list[Path]:
     return [datadir() / 'config1', datadir() / 'config2']
 
 
-def test_load_basic_config(monkeypatch):
+def test_load_basic_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, '__config_file_paths', config_paths_mock)
 
     conf = config.load_config('test.yaml')
     assert conf == {'prop1': 'hello', 'prop2': 5}
 
 
-def test_load_updated_config(monkeypatch):
+def test_load_updated_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, '__config_file_paths', config_paths_mock)
 
     conf = config.load_config('test2.yaml')
     assert conf == {'prop1': 'abc', 'prop2': 23, 'prop3': ['hello', 'world']}
 
 
-def test_load_missing_config(monkeypatch):
+def test_load_missing_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, '__config_file_paths', config_paths_mock)
 
     with pytest.raises(config.ConfigError):
         config.load_config('non_existent_file')
 
 
-def test_load_broken_config(monkeypatch):
+def test_load_broken_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(config, '__config_file_paths', config_paths_mock)
 
     with pytest.raises(config.ConfigError):
         config.load_config('broken.yaml')
 
 
-def test_update_dict():
+def test_update_dict() -> None:
     update_dict = config.__dict__['__update_dict']
 
     dict1 = {'a': 1, 'b': {'sub1': 1, 'sub2': False}, 'c': 3}

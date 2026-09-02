@@ -25,7 +25,7 @@ def test_load_hello(diag: Diagnostics) -> None:
     assert problem.output_validators.uses_default(problem.format_version, problem.metadata), 'Hello uses the default validator'
 
 
-def test_load_twice(diag: Diagnostics):
+def test_load_twice(diag: Diagnostics) -> None:
     probdir = example_directory('hello')
 
     model.load_problem(probdir, diag)

@@ -35,7 +35,7 @@ def validator() -> Path:
     return VALIDATOR_PATH
 
 
-def discover_test_cases():
+def discover_test_cases() -> list[Path]:
     """
     Finds and returns a list of all test case directories.
     A test case directory is expected to start with 'test_'.
@@ -46,7 +46,7 @@ def discover_test_cases():
 
 
 @pytest.mark.parametrize('test_dir', discover_test_cases(), ids=lambda d: d.name)
-def test_default_validator(validator: Path, test_dir: Path):
+def test_default_validator(validator: Path, test_dir: Path) -> None:
     """
     Runs a single validator test case.
     The test is parametrized to run for each directory discovered by `discover_test_cases`.
@@ -90,4 +90,4 @@ def test_default_validator(validator: Path, test_dir: Path):
                 # If no message is expected, assert that no message was generated.
                 if judgemessage_path.is_file():
                     actual_message = judgemessage_path.read_bytes()
-                    assert not actual_message, f'A validation message was generated but none was expected: {actual_message}'
+                    assert not actual_message, f'A validation message was generated but none was expected: {actual_message!r}'
