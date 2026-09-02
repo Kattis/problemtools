@@ -6,10 +6,11 @@ import collections
 import glob
 import hashlib
 import os
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from ..context import Context
-from ..diagnostics import Diagnostics, VerifyError
+from ..diagnostics import Diagnostics
 from ..formatversion import FormatVersion
 from ..judge import validate_output
 from ..metadata import Metadata
@@ -47,6 +48,16 @@ def check_testdata(
     has_custom_grader = graders.grader is not None
     has_default_grader = DEFAULT_GRADER is not None
 
+    if metadata.is_scoring():
+        _warn_reject_score(testdata, diag)
+
+        # Whether the selected output validator might emit an arbitrary score via score.txt,
+        # making a test case's score unbounded as far as _check_score_range is concerned.
+        custom_scoring_possible = (
+            not output_validators.uses_default(format_version, metadata) and metadata.is_custom_score_allowed()
+        )
+        _check_score_range(testdata, custom_scoring_possible, diag)
+
     input_validation = InputValidationCache(input_validators, work_dir)
     input_validation.precompute(testdata, context)
 
@@ -62,6 +73,141 @@ def check_testdata(
         work_dir,
         diag,
     )
+
+
+def _all_groups(group: TestDataGroup) -> Iterator[TestDataGroup]:
+    """`group` and all its descendant groups."""
+    yield group
+    for subgroup in group.get_subgroups():
+        yield from _all_groups(subgroup)
+
+
+def _warn_reject_score(testdata: TestDataGroup, diag: Diagnostics) -> None:
+    """Warn about reject_score usage."""
+    groups = list(_all_groups(testdata))
+
+    nonzero_reject = [(g, g.config['reject_score']) for g in groups if g.config['reject_score'] != 0]
+    if nonzero_reject:
+        example_group, example_score = nonzero_reject[0]
+        diag.warning(
+            f'{len(nonzero_reject)} testcase group(s) configure a non-zero reject_score (e.g. {example_group} '
+            f'has reject_score {example_score:g}); submissions with non-AC final verdict always have score 0, '
+            'so this is usually a mistake'
+        )
+
+
+#: Score aggregators for `grading: default`, matching support/default_grader's `score_aggregators`.
+#: All are monotonic non-decreasing in each argument, which is what makes _check_score_range below
+#: correct: the range of an aggregate over a fixed set of children is the aggregator applied to
+#: their lower bounds, and separately to their upper bounds (or, with `on_reject: break`, applied
+#: to each prefix of children, since the set the aggregator sees can then vary).
+_SCORE_AGGREGATORS: dict[str, Callable[[list[float]], float]] = {
+    'sum': sum,
+    'avg': lambda scores: sum(scores) / len(scores),
+    'min': min,
+    'max': max,
+}
+
+
+def _check_score_range(group: TestDataGroup, custom_scoring_possible: bool, diag: Diagnostics) -> tuple[float, float]:
+    """Recursively check `group`'s declared score `range` against what can be inferred from its
+    grading configuration and test data. Returns group's effective range."""
+    children = group.items
+    if group.is_root and 'ignore_sample' in group.config['grader_flags'].split():
+        children = [child for child in children if not (isinstance(child, TestDataGroup) and child.datadir.name == 'sample')]
+
+    if not children:
+        aggregate = (0.0, 0.0)
+    elif group.config['grading'] == 'custom':
+        # A custom grader can't be reasoned about.
+        aggregate = (float('-inf'), float('inf'))
+    else:
+        child_ranges = []
+        for child in children:
+            if isinstance(child, TestDataGroup):
+                child_ranges.append(_check_score_range(child, custom_scoring_possible, diag))
+            elif custom_scoring_possible:
+                child_ranges.append((float('-inf'), float('inf')))
+            else:
+                accept_score, reject_score = group.config['accept_score'], group.config['reject_score']
+                child_ranges.append((min(accept_score, reject_score), max(accept_score, reject_score)))
+
+        aggregator_name = 'sum'
+        for flag in group.config['grader_flags'].split():
+            if flag in _SCORE_AGGREGATORS:
+                aggregator_name = flag  # last one wins, matching default_grader
+        aggregator = _SCORE_AGGREGATORS[aggregator_name]
+
+        lows = [lo for lo, _hi in child_ranges]
+        highs = [hi for _lo, hi in child_ranges]
+        if group.config['on_reject'] == 'break':
+            # A non-AC child makes submission_judge stop grading the rest of this group (see
+            # SubmissionJudge._judge_group), so the aggregator may see any prefix of the children,
+            # not just all of them -- e.g. an 'avg' over a shorter prefix has a smaller denominator.
+            # This bound may not be realistic (e.g., the max value here is for the case where we
+            # have a non-AC child which gets max score)
+            aggregate = (
+                min(aggregator(lows[:i]) for i in range(1, len(lows) + 1)),
+                max(aggregator(highs[:i]) for i in range(1, len(highs) + 1)),
+            )
+        else:
+            aggregate = (aggregator(lows), aggregator(highs))
+
+    score_range = group.config['range']
+    try:
+        min_score, max_score = list(map(float, score_range.split()))
+    except Exception:
+        diag.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
+        return aggregate
+
+    if min_score > max_score:
+        diag.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
+        return aggregate
+
+    return _warn_score_range(group, (min_score, max_score), aggregate, diag)
+
+
+def _warn_score_range(
+    group: TestDataGroup, declared: tuple[float, float], aggregate: tuple[float, float], diag: Diagnostics
+) -> tuple[float, float]:
+    """Compare `group`'s declared score range to what its `aggregate` says can actually be achieved,
+    warn about any mismatch, and return the effective (declared-trusting) range."""
+    min_score, max_score = declared
+    agg_min, agg_max = aggregate
+    score_range = group.config['range']
+    is_default_range = score_range == DEFAULT_CONFIG['range']
+    if max_score < agg_min or min_score > agg_max:
+        diag.warning(
+            f"Declared score range '{score_range}' for {group} doesn't overlap with the computed range "
+            f'[{agg_min:g}, {agg_max:g}] at all'
+        )
+        # We're in a bad state here, unclear what to return. Specified range probably ends up less spammy.
+        return (min_score, max_score)
+    elif min_score < agg_min or max_score > agg_max:
+        if is_default_range:
+            diag.warning(
+                f'No score range declared for {group}, but a range of [{agg_min:g}, {agg_max:g}] can be '
+                f"computed from its grading configuration and test data; consider adding 'range: {agg_min:g} {agg_max:g}'"
+            )
+        else:
+            diag.warning(
+                f"Declared score range '{score_range}' for {group} is looser than the computed range "
+                f'[{agg_min:g}, {agg_max:g}]; consider tightening it'
+            )
+    elif group.is_root and is_default_range:
+        # The default range -inf, inf basically never makes sense. Encourage tighter even when we can't compute a recommendation
+        diag.warning(
+            f'No score range declared for {group}, and none could be computed automatically; as '
+            'the top-level group, its range is the overall score range for the problem -- consider '
+            'declaring one explicitly'
+        )
+    elif group.is_root and min_score < 0:
+        diag.warning(
+            f"Declared score range '{score_range}' for {group} has a negative minimum; submissions with "
+            'non-AC final verdict always have score 0, so a negative minimum is usually a mistake'
+        )
+
+    return (max(agg_min, min_score), min(agg_max, max_score))
 
 
 def _check_group(
@@ -104,17 +250,8 @@ def _check_group(
     if group.config['on_reject'] not in ['break', 'continue']:
         diag.error(f"Invalid value '{group.config['on_reject']}' for on_reject policy")
 
-    if metadata.is_scoring():
-        # Check grading
-        try:
-            score_range = group.config['range']
-            min_score, max_score = list(map(float, score_range.split()))
-            if min_score > max_score:
-                diag.error(f"Invalid score range '{score_range}': minimum score cannot be greater than maximum score")
-        except VerifyError:
-            raise
-        except Exception:
-            diag.error(f"Invalid format '{score_range}' for range: must be exactly two floats")
+    # Score range validity and tightness are checked by _check_score_range, called once for the
+    # whole tree from check_testdata.
 
     if group.is_root:
         seen_secret = False
