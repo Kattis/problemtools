@@ -11,7 +11,7 @@ from pathlib import Path
 from ..context import Context
 from ..diagnostics import Diagnostics, VerifyError
 from ..formatversion import FormatVersion
-from ..judge import validate_output
+from ..judge import SubmissionResult, validate_output
 from ..metadata import Metadata
 from ..model import (
     DEFAULT_CONFIG,
@@ -58,10 +58,10 @@ def check_testdata(
         has_custom_grader,
         has_default_grader,
         input_validation,
-        output_validator,
-        work_dir,
         diag,
     )
+
+    _check_answers(testdata, context, metadata, output_validator, work_dir, diag)
 
 
 def _check_group(
@@ -72,8 +72,6 @@ def _check_group(
     has_custom_grader: bool,
     has_default_grader: bool,
     input_validation: InputValidationCache,
-    output_validator: Program,
-    work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     if group.config['grading'] not in ['default', 'custom']:
@@ -194,12 +192,10 @@ def _check_group(
                 has_custom_grader,
                 has_default_grader,
                 input_validation,
-                output_validator,
-                work_dir,
                 diag,
             )
         else:
-            _check_testcase(child, metadata, input_validation, output_validator, work_dir, diag)
+            _check_testcase(child, metadata, input_validation, diag)
 
 
 def _natural_sort_le(a: str, b: str) -> bool:
@@ -235,8 +231,6 @@ def _check_testcase(
     testcase: TestCase,
     metadata: Metadata,
     input_validation: InputValidationCache,
-    output_validator: Program,
-    work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     _check_newlines(testcase.infile, diag)
@@ -254,8 +248,26 @@ def _check_testcase(
         diag.warning(
             f'Answer file ({anssize:.1f} MiB) is within 50% of output limit ({outputlim} MiB), you might want to increase output limit'
         )
-    if not metadata.is_interactive() and not metadata.is_multi_pass():
-        val_res = validate_output(
+
+
+def _check_answers(
+    testdata: TestDataGroup,
+    context: Context,
+    metadata: Metadata,
+    output_validator: Program,
+    work_dir: Path,
+    diag: Diagnostics,
+) -> None:
+    """Run the output validator on every judge answer file, checking that it is accepted."""
+    if metadata.is_interactive() or metadata.is_multi_pass():
+        return
+
+    testcases = [tc for tc in testdata.get_all_testcases() if tc.matches_filter(context.data_filter)]
+    sample = [tc for tc in testcases if tc.is_in_sample_group()]
+    secret = [tc for tc in testcases if not tc.is_in_sample_group()]
+
+    def validate(testcase: TestCase) -> SubmissionResult:
+        return validate_output(
             testcase=testcase,
             submission_output=testcase.ansfile,
             output_validator=output_validator,
@@ -263,11 +275,30 @@ def _check_testcase(
             base_dir=work_dir,
             diag=diag,
         )
+
+    for testcase in sample:
+        val_res = validate(testcase)
         if val_res.verdict != 'AC':
-            if testcase.is_in_sample_group():
-                diag.error(f'judge answer file got {val_res} on testcase {testcase.path}')
-            else:
-                diag.warning(f'judge answer file got {val_res} on testcase {testcase.path}')
+            diag.error(f'judge answer file got {val_res} on testcase {testcase.path}')
+
+    results = [(testcase, validate(testcase)) for testcase in secret]
+    for testcase, val_res in results:
+        if val_res.verdict == 'JE':
+            diag.error(f'judge answer file got {val_res} on testcase {testcase.path}')
+
+    if rejected := [testcase for testcase, val_res in results if val_res.verdict != 'AC']:
+        if any(val_res.verdict == 'AC' for _, val_res in results):
+            diag.warning(
+                f'judge answer file was not accepted by the output validator on {len(rejected)}/{len(secret)} secret '
+                f'testcases (e.g. testcase {rejected[0].path}); this is fine if the answer files intentionally use a '
+                'different format than what is expected from submissions, but is suspicious when only some of them do'
+            )
+        else:
+            diag.info(
+                f'judge answer file was not accepted by the output validator on any of the {len(secret)} secret '
+                'testcases; this is fine if the answer files intentionally use a different format than what is '
+                'expected from submissions'
+            )
 
 
 def _check_newlines(filename: Path, diag: Diagnostics) -> None:
