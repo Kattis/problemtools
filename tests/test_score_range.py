@@ -29,6 +29,7 @@ def make_group(
     range_: str = '-inf +inf',
     accept_score: float = 1.0,
     reject_score: float = 0.0,
+    on_reject: str = 'continue',
     is_root: bool = False,
 ) -> TestDataGroup:
     return TestDataGroup(
@@ -40,6 +41,7 @@ def make_group(
             'range': range_,
             'accept_score': accept_score,
             'reject_score': reject_score,
+            'on_reject': on_reject,
         },
         is_root=is_root,
         items=items,
@@ -57,6 +59,26 @@ def test_group_sum_is_default_aggregator(diag):
 def test_group_avg_aggregator(diag):
     group = make_group('g', [make_testcase('a')], grader_flags='avg', accept_score=10, reject_score=0)
     assert _check_score_range(group, False, diag) == (0, 10)
+
+
+def test_avg_aggregator_with_on_reject_break_widens_range(diag):
+    # subA (graded first) has a much wider range than subB. With on_reject: break, a non-AC subA
+    # stops grading before subB is ever run, so the group's score is just subA's -- as high as
+    # 100 -- even though grading both would pull the maximum average down to 55.
+    subA = make_group('g.subA', [make_testcase('a')], range_='0 100', accept_score=100, reject_score=0)
+    subB = make_group('g.subB', [make_testcase('b')], range_='0 10', accept_score=10, reject_score=0)
+    group = make_group('g', [subA, subB], grader_flags='avg', on_reject='break', range_='0 100')
+    assert _check_score_range(group, False, diag) == (0, 100)
+    assert diag.messages == []
+
+
+def test_avg_aggregator_with_on_reject_continue_is_tighter(diag):
+    # Same as above, but without break: subB is always graded too, so avg is always over both.
+    subA = make_group('g.subA', [make_testcase('a')], range_='0 100', accept_score=100, reject_score=0)
+    subB = make_group('g.subB', [make_testcase('b')], range_='0 10', accept_score=10, reject_score=0)
+    group = make_group('g', [subA, subB], grader_flags='avg', on_reject='continue', range_='0 55')
+    assert _check_score_range(group, False, diag) == (0, 55)
+    assert diag.messages == []
 
 
 def test_reject_above_accept(diag):

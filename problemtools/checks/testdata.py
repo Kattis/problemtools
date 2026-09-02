@@ -98,8 +98,9 @@ def _warn_reject_score(testdata: TestDataGroup, diag: Diagnostics) -> None:
 
 #: Score aggregators for `grading: default`, matching support/default_grader's `score_aggregators`.
 #: All are monotonic non-decreasing in each argument, which is what makes _check_score_range below
-#: correct: the range of an aggregate is the aggregator applied to the children's lower bounds, and
-#: separately to their upper bounds.
+#: correct: the range of an aggregate over a fixed set of children is the aggregator applied to
+#: their lower bounds, and separately to their upper bounds (or, with `on_reject: break`, applied
+#: to each prefix of children, since the set the aggregator sees can then vary).
 _SCORE_AGGREGATORS: dict[str, Callable[[list[float]], float]] = {
     'sum': sum,
     'avg': lambda scores: sum(scores) / len(scores),
@@ -137,7 +138,20 @@ def _check_score_range(group: TestDataGroup, custom_scoring_possible: bool, diag
                 aggregator_name = flag  # last one wins, matching default_grader
         aggregator = _SCORE_AGGREGATORS[aggregator_name]
 
-        aggregate = (aggregator([lo for lo, _hi in child_ranges]), aggregator([hi for _lo, hi in child_ranges]))
+        lows = [lo for lo, _hi in child_ranges]
+        highs = [hi for _lo, hi in child_ranges]
+        if group.config['on_reject'] == 'break':
+            # A non-AC child makes submission_judge stop grading the rest of this group (see
+            # SubmissionJudge._judge_group), so the aggregator may see any prefix of the children,
+            # not just all of them -- e.g. an 'avg' over a shorter prefix has a smaller denominator.
+            # This bound may not be realistic (e.g., the max value here is for the case where we
+            # have a non-AC child which gets max score)
+            aggregate = (
+                min(aggregator(lows[:i]) for i in range(1, len(lows) + 1)),
+                max(aggregator(highs[:i]) for i in range(1, len(highs) + 1)),
+            )
+        else:
+            aggregate = (aggregator(lows), aggregator(highs))
 
     score_range = group.config['range']
     try:
