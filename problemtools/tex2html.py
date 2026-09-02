@@ -5,9 +5,10 @@ import string
 from pathlib import Path
 
 from . import template
+from .diagnostics import Diagnostics
 
 
-def convert(problem_root: Path, options: argparse.Namespace, statement_file: Path) -> None:
+def convert(problem_root: Path, options: argparse.Namespace, statement_file: Path, diag: Diagnostics) -> None:
     # PlasTeX.Logging statically overwrites logging and formatting, so delay loading
     import plasTeX.Logging
     import plasTeX.TeX
@@ -44,7 +45,7 @@ def convert(problem_root: Path, options: argparse.Namespace, statement_file: Pat
         # tell plasTeX where to search for problemtools' built-in packages
         tex.ownerDocument.config['general']['packages-dirs'] = [os.path.join(os.path.dirname(__file__), 'ProblemPlasTeX')]
 
-        renderer = ProblemRenderer()
+        renderer = ProblemRenderer(diag)
 
         if not options.quiet:
             print('Parsing TeX source...')

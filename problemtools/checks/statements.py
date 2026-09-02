@@ -83,7 +83,7 @@ def check_statements(
                 options.destdir = os.path.join(work_dir, 'html')
                 options.language = lang
                 options.quiet = True
-                problem2html.convert(options, file)
+                problem2html.convert(options, diag, file)
             except Exception as e:
                 diag.error(
                     f'Could not convert problem statement to html for language "{lang}".  Run problem2html --language {lang} on the problem to diagnose.\n{e}\n{traceback.format_exc()}'

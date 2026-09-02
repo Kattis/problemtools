@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 import argparse
+import logging
 import os.path
 import re
 import string
@@ -8,10 +9,11 @@ import sys
 from pathlib import Path
 
 from . import md2html, statement_util, tex2html
+from .diagnostics import Diagnostics, LoggingDiagnostics
 from .version import add_version_arg
 
 
-def convert(options: argparse.Namespace, force_statement_file: Path | None = None) -> None:
+def convert(options: argparse.Namespace, diag: Diagnostics, force_statement_file: Path | None = None) -> None:
     problem_root = Path(options.problem).resolve(strict=True)
 
     if force_statement_file:  # Used by verifyproblem to test rendering even if there are multiple statements in a language
@@ -36,7 +38,7 @@ def convert(options: argparse.Namespace, force_statement_file: Path | None = Non
             case '.md':
                 md2html.convert(problem_root, options, statement_file)
             case '.tex':
-                tex2html.convert(problem_root, options, statement_file)
+                tex2html.convert(problem_root, options, statement_file, diag)
             case _:
                 raise NotImplementedError('Unsupported file type, expected md or tex: {statement_file.name}')
 
@@ -45,18 +47,16 @@ def convert(options: argparse.Namespace, force_statement_file: Path | None = Non
                 try:
                     subprocess.call(['tidy', '-utf8', '-i', '-q', '-m', destfile], stderr=devnull)
                 except OSError:
-                    if not options.quiet:
-                        print("Warning: Command 'tidy' not found. Install tidy or run with --messy")
+                    diag.warning("Command 'tidy' not found. Install tidy or run with --messy")
 
         # identify any large generated files (especially images)
-        if not options.quiet:
-            for path, _dirs, files in os.walk('.'):
-                for f in files:
-                    file_size_kib = os.stat(os.path.join(path, f)).st_size // 1024
-                    if file_size_kib > 1024:
-                        print(f'WARNING: FILE {f} HAS SIZE {file_size_kib} KiB; CONSIDER REDUCING IT')
-                    elif file_size_kib > 300:
-                        print(f'Warning: file {f} has size {file_size_kib} KiB; consider reducing it')
+        for path, _dirs, files in os.walk('.'):
+            for f in files:
+                file_size_kib = os.stat(os.path.join(path, f)).st_size // 1024
+                if file_size_kib > 1024:
+                    diag.warning(f'FILE {f} HAS SIZE {file_size_kib} KiB; CONSIDER REDUCING IT')
+                elif file_size_kib > 300:
+                    diag.warning(f'File {f} has size {file_size_kib} KiB; consider reducing it')
 
         if options.bodyonly:
             content = Path(destfile).read_text(encoding='utf-8')
@@ -94,6 +94,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning'
     )
+    # Quiet is basically a no-op now, supersceded by --log-level. Should probably be dropped at some point
     parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help='quiet', default=False)
     parser.add_argument('-i', '--imgbasedir', dest='imgbasedir', default='')
     parser.add_argument('problem', help='the problem to convert')
@@ -105,10 +106,15 @@ def get_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = get_parser()
     options = parser.parse_args()
+    diag = LoggingDiagnostics.create('problem2html', log_level=getattr(logging, options.loglevel.upper()))
     try:
-        convert(options)
+        convert(options, diag)
     except Exception as e:
         print(e)
+        sys.exit(1)
+
+    if diag.errors:
+        print(f'{diag.errors} errors and {diag.warnings} warnings')
         sys.exit(1)
 
 

@@ -29,13 +29,13 @@ def test_pdf_render_problem2pdf():
             assert temp_file.read(5) == b'%PDF-', 'Output header does not look like a PDF.'
 
 
-def test_html_render_different():
+def test_html_render_different(diag):
     # Same options as typical problem2html usage
     with tempfile.TemporaryDirectory() as temp_dir:
         problem_path = Path(__file__).parent / '..' / 'examples' / 'different'
         temp_dir = Path(temp_dir) / 'different_html'
         options = problem2html.get_parser().parse_args(['-d', str(temp_dir), '-l', 'en', '-q', str(problem_path.resolve())])
-        problem2html.convert(options)
+        problem2html.convert(options, diag)
         with open(temp_dir / 'index.html', 'r') as temp_file:
             full_html = temp_file.read()
             assert re.search('<html>', full_html)
@@ -45,13 +45,13 @@ def test_html_render_different():
             assert re.search('71293781758123 72784', full_html)  # part of sample
 
 
-def test_html_render_guess():
+def test_html_render_guess(diag):
     # Same options as typical problem2html usage
     with tempfile.TemporaryDirectory() as temp_dir:
         problem_path = Path(__file__).parent / '..' / 'examples' / 'guess'
         temp_dir = Path(temp_dir) / 'guess_html'
         options = problem2html.get_parser().parse_args(['-d', str(temp_dir), '-l', 'en', '-q', str(problem_path.resolve())])
-        problem2html.convert(options)
+        problem2html.convert(options, diag)
         with open(temp_dir / 'index.html', 'r') as temp_file:
             full_html = temp_file.read()
             assert re.search('<html>', full_html)
