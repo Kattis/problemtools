@@ -30,6 +30,11 @@ class Diagnostics(ABC):
     def debug(self, msg: str) -> None: ...
 
     @abstractmethod
+    def msg(self, msg: str) -> None:
+        """Unconditionally print a user-facing message, regardless of log level."""
+        ...
+
+    @abstractmethod
     def child(self, name: str) -> Diagnostics:
         """Return a Diagnostics scoped to a named sub-component."""
         ...
@@ -181,6 +186,10 @@ class LoggingDiagnostics(Diagnostics):
     def debug(self, msg: str) -> None:
         self._clear_tty_before_log(logging.DEBUG)
         self._log.debug(msg)
+
+    def msg(self, msg: str) -> None:
+        self.ttymsg('')  # Unconditional: msg() always prints, so always clear first.
+        print(msg)
 
     def _clear_tty_before_log(self, level: int) -> None:
         if self._log.isEnabledFor(level):

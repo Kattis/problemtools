@@ -122,20 +122,20 @@ def check_submissions(
                         diag.error(msg)  # ... but if it came from problem.yaml, it's an error if bounds aren't kept
 
                 if not math.isclose(fixed_limit, tl_from_subs):
-                    print(
+                    diag.msg(
                         f'   Solutions give timelim of {_fmt_number(tl_from_subs)} seconds, but will use provided '
                         f'fixed limit of {_fmt_number(fixed_limit)} seconds instead'
                     )
 
             timelim, timelim_margin = _compute_time_limit(metadata, fixed_limit, lower_bound_runtime)
-            print(
+            diag.msg(
                 f'   Slowest AC runtime: {_fmt_number(lower_bound_runtime)}, setting timelim to {_fmt_number(timelim)} secs, '
                 f'safety margin to {_fmt_number(timelim_margin)} secs'
             )
             set_timelim(timelim)
 
     if all_submission_results:
-        _print_results_table(all_submission_results, testdata, metadata.is_scoring())
+        _print_results_table(all_submission_results, testdata, metadata.is_scoring(), diag)
 
 
 def _check_has_accepted_submission(submissions: Submissions, diag: Diagnostics) -> None:
@@ -221,7 +221,7 @@ def _check_submission(
     if partial and _fully_accepted(result, testdata, metadata):
         diag.warning(f'{desc} was fully accepted: {result}')
     elif result.verdict == expected_verdict:
-        print(f'   {desc} OK: {result}')
+        diag.msg(f'   {desc} OK: {result}')
         if (
             not partial
             and expected_verdict == 'AC'
@@ -231,7 +231,7 @@ def _check_submission(
             # For some heuristic problems, this is expected. Thus, only warn.
             diag.warning(f'{desc} did not attain full score (consider moving it to partially_accepted)')
     elif result_high.verdict == expected_verdict and not (partial and _fully_accepted(result_high, testdata, metadata)):
-        print(f'   {desc} OK with extra time: {result_high}')
+        diag.msg(f'   {desc} OK with extra time: {result_high}')
     else:
         diag.error(f'{desc} got {result}', result_high.additional_info)
 
@@ -291,7 +291,10 @@ def _get_table_groups(testdata: TestDataGroup) -> list[TestDataGroup]:
 
 
 def _print_results_table(
-    all_submission_results: list[tuple[Submission, list[SubmissionResult]]], testdata: TestDataGroup, is_scoring: bool
+    all_submission_results: list[tuple[Submission, list[SubmissionResult]]],
+    testdata: TestDataGroup,
+    is_scoring: bool,
+    diag: Diagnostics,
 ) -> None:
     groups = _get_table_groups(testdata)
 
@@ -336,11 +339,11 @@ def _print_results_table(
         for i, cell in enumerate(row):
             widths[i] = max(widths[i], len(cell))
 
-    print('Submission results:')
+    diag.msg('Submission results:')
     indent = '   '
-    print(indent + '  '.join(h.ljust(widths[i]) for i, h in enumerate(headers)))
+    diag.msg(indent + '  '.join(h.ljust(widths[i]) for i, h in enumerate(headers)))
     for row in rows:
-        print(indent + '  '.join(cell.ljust(widths[i]) for i, cell in enumerate(row)))
+        diag.msg(indent + '  '.join(cell.ljust(widths[i]) for i, cell in enumerate(row)))
 
 
 def _compute_time_limit(metadata: Metadata, fixed_limit: float | None, lower_bound_runtime: float | None) -> tuple[float, float]:

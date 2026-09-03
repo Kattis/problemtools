@@ -115,7 +115,7 @@ class ProblemVerifier:
                         step.start_background_work(context)
 
             for part in active_parts:
-                print(f'Checking {part}')
+                diag.msg(f'Checking {part}')
                 for step in steps:
                     if step.part == part:
                         step.run(diag.child(step.name))
