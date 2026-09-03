@@ -70,6 +70,7 @@ def check_statements(
                 options.language = lang
                 options.nopdf = True
                 options.quiet = True
+                diag.ttymsg(f'Compiling statement for language "{lang}" to pdf...')
                 if not problem2pdf.convert(options, file):
                     diag.error(
                         f'Could not compile problem statement for language "{lang}".  Run problem2pdf --language {lang} on the problem to diagnose.'
@@ -83,8 +84,11 @@ def check_statements(
                 options.destdir = os.path.join(work_dir, 'html')
                 options.language = lang
                 options.quiet = True
+                diag.ttymsg(f'Compiling statement for language "{lang}" to html...')
                 problem2html.convert(options, diag, file)
             except Exception as e:
                 diag.error(
                     f'Could not convert problem statement to html for language "{lang}".  Run problem2html --language {lang} on the problem to diagnose.\n{e}\n{traceback.format_exc()}'
                 )
+
+            diag.ttymsg('')
