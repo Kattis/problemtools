@@ -241,10 +241,12 @@ class InputValidationCache:
         Blocks on the background job for testcase if precompute() started one and it's
         still running; otherwise (no precompute(), or testcase was filtered out of it)
         computes the result synchronously."""
+        diag.ttymsg(f'Running input validators on {testcase}...')
         future = self._futures.get(testcase.infile)
         errors = (
             future.result() if future is not None else _compute_testcase_input_errors(self._validators, testcase, self._work_dir)
         )
+        diag.ttymsg('')
         for msg, additional_info in errors:
             diag.error(msg, additional_info)
 
