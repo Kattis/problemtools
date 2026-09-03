@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import sys
+import threading
 from abc import ABC, abstractmethod
 from typing import NoReturn
 
@@ -46,11 +47,32 @@ class Diagnostics(ABC):
         self.error(msg, additional_info)
         raise VerifyError(msg)
 
+    @abstractmethod
+    def ttymsg(self, msg: str) -> None:
+        """Flash a transient progress message to a terminal, replacing any previous one.
+
+        No-op unless stdout is a tty. Call with an empty string to clear the current
+        message without showing a new one.
+        """
+        ...
+
 
 @dataclasses.dataclass
 class _Counts:
     errors: int = 0
     warnings: int = 0
+
+
+@dataclasses.dataclass
+class _TtyState:
+    """Shared state tracking the tty message currently on screen (if any).
+
+    Shared across a Diagnostics instance and all of its children (see child()), since
+    it tracks a single physical resource: the cursor position on the terminal line.
+    """
+
+    lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
+    length: int = 0
 
 
 class LoggingDiagnostics(Diagnostics):
@@ -63,12 +85,14 @@ class LoggingDiagnostics(Diagnostics):
         bail_on_error: bool,
         warnings_as_errors: bool,
         max_additional_info: int,
+        tty_state: _TtyState,
     ) -> None:
         self._log = logger
         self._counts = counts
         self._bail_on_error = bail_on_error
         self._warnings_as_errors = warnings_as_errors
         self._max_additional_info = max_additional_info
+        self._tty_state = tty_state
 
     @classmethod
     def create(
@@ -101,6 +125,7 @@ class LoggingDiagnostics(Diagnostics):
             bail_on_error=bail_on_error,
             warnings_as_errors=warnings_as_errors,
             max_additional_info=max_additional_info,
+            tty_state=_TtyState(),
         )
 
     def child(self, name: str) -> LoggingDiagnostics:
@@ -110,6 +135,7 @@ class LoggingDiagnostics(Diagnostics):
             bail_on_error=self._bail_on_error,
             warnings_as_errors=self._warnings_as_errors,
             max_additional_info=self._max_additional_info,
+            tty_state=self._tty_state,
         )
 
     @property
@@ -134,6 +160,7 @@ class LoggingDiagnostics(Diagnostics):
         return f'{msg}:\n' + '\n'.join(' ' * 8 + line for line in lines)
 
     def error(self, msg: str, additional_info: str | None = None) -> None:
+        self._clear_tty_before_log(logging.ERROR)
         self._counts.errors += 1
         self._log.error(self._format(msg, additional_info))
         if self._bail_on_error:
@@ -143,11 +170,30 @@ class LoggingDiagnostics(Diagnostics):
         if self._warnings_as_errors:
             self.error(msg, additional_info)
             return
+        self._clear_tty_before_log(logging.WARNING)
         self._counts.warnings += 1
         self._log.warning(self._format(msg, additional_info))
 
     def info(self, msg: str) -> None:
+        self._clear_tty_before_log(logging.INFO)
         self._log.info(msg)
 
     def debug(self, msg: str) -> None:
+        self._clear_tty_before_log(logging.DEBUG)
         self._log.debug(msg)
+
+    def _clear_tty_before_log(self, level: int) -> None:
+        if self._log.isEnabledFor(level):
+            self.ttymsg('')
+
+    def ttymsg(self, msg: str) -> None:
+        if not sys.stdout.isatty():
+            return
+        with self._tty_state.lock:
+            if self._tty_state.length:
+                sys.stdout.write('\b \b' * self._tty_state.length)
+                self._tty_state.length = 0
+            if msg:
+                sys.stdout.write(msg)
+                self._tty_state.length = len(msg)
+            sys.stdout.flush()

@@ -23,6 +23,9 @@ class RecordingDiagnostics(Diagnostics):
     def debug(self, msg: str) -> None:
         pass
 
+    def ttymsg(self, msg: str) -> None:
+        pass
+
     def child(self, name: str) -> Diagnostics:
         return self
 
