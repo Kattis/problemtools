@@ -12,6 +12,7 @@ from ..metadata import Metadata, load_metadata
 from .attachments import Attachments, load_attachments
 from .graders import Graders, load_graders
 from .includes import Includes, load_includes
+from .paths import AbsolutePath, resolve
 from .statements import Statements, load_statements
 from .submissions import Submissions, load_submissions
 from .testdata import TestDataGroup, load_testdata
@@ -27,7 +28,7 @@ class Problem:
     checks that should be run on top of a loaded Problem.
     """
 
-    probdir: Path
+    probdir: AbsolutePath
     language_config: Languages
     metadata: Metadata
     statements: Statements
@@ -54,6 +55,7 @@ def load_problem(probdir: Path, diag: Diagnostics) -> Problem:
     On failure, reports errors via `diag` and raises VerifyError.
     """
     try:
+        probdir = resolve(probdir)
         language_config = load_language_config(probdir.parent)
         problem_metadata = load_metadata(probdir)
         format_version = problem_metadata.problem_format_version
