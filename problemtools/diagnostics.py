@@ -14,6 +14,11 @@ class VerifyError(Exception):
     pass
 
 
+def pluralize(n: int, word: str) -> str:
+    """Format a count together with a regular English noun, e.g. pluralize(3, 'submission') -> '3 submissions'."""
+    return f'{n} {word}' if n == 1 else f'{n} {word}s'
+
+
 class Diagnostics(ABC):
     """Interface for emitting and recording verification diagnostics."""
 

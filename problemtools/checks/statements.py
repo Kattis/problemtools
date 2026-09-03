@@ -8,7 +8,7 @@ import traceback
 from pathlib import Path
 
 from .. import problem2html, problem2pdf
-from ..diagnostics import Diagnostics
+from ..diagnostics import Diagnostics, pluralize
 from ..formatversion import FormatVersion
 from ..metadata import Metadata
 from ..model import Statements
@@ -23,6 +23,8 @@ def check_statements(
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's statements."""
+    diag.msg(f'Checking problem statements in {pluralize(len(statements.by_language), "language")}')
+
     for ifilename in glob.glob(os.path.join(str(probdir), 'data/sample/*.interaction')):
         if not metadata.is_interactive() and not metadata.is_multi_pass():
             diag.error(f'Problem is not interactive, but there is an interaction sample {ifilename}')

@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from ..context import Context
-from ..diagnostics import Diagnostics
+from ..diagnostics import Diagnostics, pluralize
 from ..formatversion import FormatVersion
 from ..judge import SubmissionResult, validate_output
 from ..metadata import Metadata
@@ -44,6 +44,15 @@ def check_testdata(
     output_validator = output_validators.select(format_version, metadata)
     if output_validator is None:
         diag.fatal('Unable to locate default validator')
+
+    all_testcases = testdata.get_all_testcases()
+    included_testcases = [tc for tc in all_testcases if tc.matches_filter(context.data_filter)]
+    ignored_testcases = len(all_testcases) - len(included_testcases)
+    group_count = sum(1 for g in _all_groups(testdata) if not g.is_root)
+    msg = f'Checking {pluralize(len(included_testcases), "test case")} in {pluralize(group_count, "test data group")}'
+    if ignored_testcases:
+        msg += f' (ignoring {pluralize(ignored_testcases, "case")} due to filters)'
+    diag.msg(msg)
 
     has_custom_grader = graders.grader is not None
     has_default_grader = DEFAULT_GRADER is not None

@@ -18,7 +18,7 @@ from typing import Self
 
 from . import checks, model, run
 from .context import PROBLEM_PARTS, Context
-from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError
+from .diagnostics import Diagnostics, LoggingDiagnostics, VerifyError, pluralize
 from .formatversion import FormatVersion
 from .version import add_version_arg
 
@@ -115,7 +115,6 @@ class ProblemVerifier:
                         step.start_background_work(context)
 
             for part in active_parts:
-                diag.msg(f'Checking {part}')
                 for step in steps:
                     if step.part == part:
                         step.run(diag.child(step.name))
@@ -347,10 +346,7 @@ def main() -> None:
                 with ProblemVerifier(problem, diag) as verifier:
                     result = verifier.check(context)
 
-            def p(x: int) -> str:
-                return '' if x == 1 else 's'
-
-            print(f'{shortname} tested: {result.errors} error{p(result.errors)}, {result.warnings} warning{p(result.warnings)}')
+            print(f'{shortname} tested: {pluralize(result.errors, "error")}, {pluralize(result.warnings, "warning")}')
             total_errors += result.errors
 
     except KeyboardInterrupt:

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from ..diagnostics import Diagnostics
+from ..diagnostics import Diagnostics, pluralize
 from ..formatversion import FormatVersion
 from ..languages import Languages
 from ..model import DEFAULT_LANGUAGE, Includes
@@ -10,6 +10,17 @@ from ..model import DEFAULT_LANGUAGE, Includes
 
 def check_includes(includes: Includes, language_config: Languages, format_version: FormatVersion, diag: Diagnostics) -> None:
     """Run all checks on a problem's include files."""
+    real_langs = [lang for lang in includes.languages if lang != DEFAULT_LANGUAGE]
+    has_default = DEFAULT_LANGUAGE in includes.languages
+    if real_langs or has_default:
+        overriding = sum(1 for lang in real_langs if includes.languages[lang].mainfile is not None)
+        msg = f'Checking include files for {pluralize(len(real_langs), "language")}'
+        if has_default:
+            msg += ' and a default set'
+        if overriding:
+            msg += f' ({pluralize(overriding, "overriding entrypoint")})'
+        diag.msg(msg)
+
     _check_default_and_unknown_languages(includes, language_config, format_version, diag)
     _check_ambiguous_mainfile(includes, language_config, diag)
     _check_default_sets_mainfile(includes, language_config, diag)

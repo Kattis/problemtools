@@ -8,7 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ..context import Context
-from ..diagnostics import Diagnostics
+from ..diagnostics import Diagnostics, pluralize
 from ..judge import SubmissionJudge, SubmissionResult
 from ..metadata import Metadata
 from ..model import Graders, LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
@@ -43,6 +43,13 @@ def check_submissions(
 
     policy = submissions.policy
     known_submissions = _check_matches_policy(submissions, policy, diag)
+    included_submissions = [s for s in known_submissions if context.submission_filter.search(str(s.path))]
+    ignored_submissions = len(known_submissions) - len(included_submissions)
+    msg = f'Checking {pluralize(len(included_submissions), "submission")}'
+    if ignored_submissions:
+        msg += f' (ignoring {pluralize(ignored_submissions, "submission")} due to filters)'
+    diag.msg(msg)
+
     seen_oob_score_groups: set[int] = set()
 
     limits = metadata.limits
