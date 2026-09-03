@@ -14,7 +14,7 @@ from pathlib import Path
 from re import Match
 
 from ..context import Context
-from ..diagnostics import Diagnostics
+from ..diagnostics import Diagnostics, pluralize
 from ..formatversion import FormatVersion
 from ..judge import SubmissionResult, validate_output
 from ..metadata import Metadata
@@ -88,6 +88,7 @@ def _error_in_2023_07(format_version: FormatVersion, diag: Diagnostics, msg: str
 def check_input_validators(validators: InputValidators, testdata: TestDataGroup, work_dir: Path, diag: Diagnostics) -> None:
     """Run all checks on a problem's input format validators."""
     errors_before = diag.errors
+    diag.msg(f'Checking {pluralize(len(validators.validators), "input validator")}')
     if len(validators.validators) == 0:
         diag.error('No input format validators found')
 
@@ -241,10 +242,12 @@ class InputValidationCache:
         Blocks on the background job for testcase if precompute() started one and it's
         still running; otherwise (no precompute(), or testcase was filtered out of it)
         computes the result synchronously."""
+        diag.ttymsg(f'Running input validators on {testcase}...')
         future = self._futures.get(testcase.infile)
         errors = (
             future.result() if future is not None else _compute_testcase_input_errors(self._validators, testcase, self._work_dir)
         )
+        diag.ttymsg('')
         for msg, additional_info in errors:
             diag.error(msg, additional_info)
 
@@ -269,6 +272,7 @@ def check_output_validators(
 
     if selected is None:
         diag.fatal('Unable to locate default validator')
+    diag.msg('Checking output validator')
 
     safe_output_validator_languages = {'c', 'cpp', 'python3'}
     if isinstance(selected, SourceCode) and selected.language.lang_id not in safe_output_validator_languages:

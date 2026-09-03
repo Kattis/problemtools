@@ -34,6 +34,8 @@ def check_config(
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's config (problem.yaml)."""
+    diag.msg('Checking config')
+
     for t1, t2 in _INCOMPATIBLE_TYPES:
         if t1 in metadata.type and t2 in metadata.type:
             diag.error(f'Problem has incompatible types: {t1}, {t2}')

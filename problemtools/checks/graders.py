@@ -17,6 +17,7 @@ def check_graders(graders: Graders, metadata: Metadata, work_dir: Path, diag: Di
     grader = graders.grader
     if grader is None:
         return
+    diag.msg('Checking custom grader')
 
     if metadata.is_pass_fail():
         diag.fatal('There is a grader but the problem is pass-fail')
