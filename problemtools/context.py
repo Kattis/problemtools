@@ -5,7 +5,12 @@ import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from re import Pattern
-from typing import Any, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
+
+if TYPE_CHECKING:
+    # Imported lazily at runtime (see __init__ below) to avoid a circular import:
+    # judge.submission_judge imports Context.
+    from .judge.submission_judge import SubmissionsJudgeFactory
 
 _T = TypeVar('_T')
 _P = ParamSpec('_P')
@@ -23,6 +28,8 @@ class Context:
         fixed_timelim: float | None = None,
         parts: list[str] | None = None,
         threads: int = 1,
+        # API hook if you want to change judging in problemtools
+        submissions_judge_factory: SubmissionsJudgeFactory | None = None,
     ) -> None:
         self.data_filter = data_filter
         self.submission_filter = submission_filter
@@ -30,6 +37,11 @@ class Context:
         self.parts: list[str] = parts if parts is not None else list(PROBLEM_PARTS)
         self.executor: ThreadPoolExecutor | None = ThreadPoolExecutor(threads) if threads > 1 else None
         self._background_work: list[concurrent.futures.Future[Any]] = []
+        if submissions_judge_factory is None:
+            from .judge.submission_judge import SubmissionsJudge as _SubmissionsJudge
+
+            submissions_judge_factory = _SubmissionsJudge
+        self.submissions_judge_factory: SubmissionsJudgeFactory = submissions_judge_factory
 
     def submit_background_work(self, job: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> concurrent.futures.Future[_T]:
         assert self.executor
