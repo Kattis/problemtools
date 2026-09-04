@@ -29,6 +29,9 @@ class Submission:
         """The submission's top-level directory under submissions/."""
         return self.path.parts[0]
 
+    def __str__(self) -> str:
+        return f'{self.directory}/{self.program}'
+
 
 _VERDICT_BY_DIRECTORY: dict[str, Verdict] = {
     'accepted': 'AC',
