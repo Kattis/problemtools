@@ -6,7 +6,7 @@ import tempfile
 from problemtools.judge.validate import _get_feedback
 
 
-def test_output_validator_feedback():
+def test_output_validator_feedback() -> None:
     r = random.Random(0)
     with tempfile.TemporaryDirectory() as directory:
         feedback = pathlib.Path(directory) / 'feedback.txt'
@@ -16,7 +16,7 @@ def test_output_validator_feedback():
         assert data is not None and text in data
 
 
-def test_output_validator_feedback_non_unicode():
+def test_output_validator_feedback_non_unicode() -> None:
     r = random.Random(0)
     with tempfile.TemporaryDirectory() as directory:
         feedback = pathlib.Path(directory) / 'feedback.txt'

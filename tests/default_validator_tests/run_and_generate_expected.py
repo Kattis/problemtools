@@ -21,7 +21,7 @@ import tempfile
 from pathlib import Path
 
 
-def main():
+def main() -> None:
     """Main function"""
     parser = argparse.ArgumentParser(description='Run default_validator and generate expected output files.')
     parser.add_argument('test_dir', type=Path, help='Path to the test directory.')

@@ -1,18 +1,11 @@
-import logging
-import pathlib
-
 from problemtools import checks, model
-from problemtools.diagnostics import LoggingDiagnostics
+from problemtools.diagnostics import Diagnostics
+from tests.conftest import example_directory
 
 
-def _make_diag(shortname: str) -> LoggingDiagnostics:
-    return LoggingDiagnostics.create(shortname, log_level=logging.WARNING)
+def test_load_hello(diag: Diagnostics) -> None:
+    probdir = example_directory('hello')
 
-
-def test_load_hello():
-    probdir = (pathlib.Path(__file__).parent / 'hello').resolve()
-
-    diag = _make_diag('hello')
     problem = model.load_problem(probdir, diag)
     assert problem.shortname == 'hello'
 
@@ -27,9 +20,13 @@ def test_load_hello():
     assert not problem.metadata.is_multi_pass()
     assert not problem.metadata.is_submit_answer()
 
+    assert len(problem.testdata.get_all_testcases()) == 1, 'Hello should have exactly 1 test case'
+    assert problem.graders.grader is None, 'Hello uses the default grader'
+    assert problem.output_validators.uses_default(problem.format_version, problem.metadata), 'Hello uses the default validator'
 
-def test_load_twice():
-    probdir = (pathlib.Path(__file__).parent / 'hello').resolve()
 
-    model.load_problem(probdir, _make_diag('hello'))
-    model.load_problem(probdir, _make_diag('hello'))
+def test_load_twice(diag: Diagnostics) -> None:
+    probdir = example_directory('hello')
+
+    model.load_problem(probdir, diag)
+    model.load_problem(probdir, diag)

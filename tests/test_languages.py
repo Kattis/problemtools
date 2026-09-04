@@ -6,11 +6,12 @@ from unittest import TestCase
 import pytest
 
 from problemtools import languages
+from tests.conftest import datadir
 
 
 class Language_test(TestCase):
     @staticmethod
-    def __language_dict():
+    def __language_dict() -> dict:
         return {
             'name': 'A Language',
             'priority': 100,
@@ -21,10 +22,10 @@ class Language_test(TestCase):
             'run': '{binary} {memlim}',
         }
 
-    def test_create(self):
+    def test_create(self) -> None:
         languages.Language('langid', self.__language_dict())
 
-    def test_update(self):
+    def test_update(self) -> None:
         lang = languages.Language('langid', self.__language_dict())
 
         lang.update({'priority': -1})
@@ -51,7 +52,7 @@ class Language_test(TestCase):
         lang.update({'run': 'newrun {mainclass}'})
         assert lang.run == 'newrun {mainclass}'
 
-    def test_invalid_id(self):
+    def test_invalid_id(self) -> None:
         vals = self.__language_dict()
         with pytest.raises(TypeError):
             languages.Language(None, vals)  # type: ignore
@@ -64,25 +65,25 @@ class Language_test(TestCase):
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('Capital', vals)
 
-    def test_missing_name(self):
+    def test_missing_name(self) -> None:
         vals = self.__language_dict()
         del vals['name']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_invalid_name(self):
+    def test_invalid_name(self) -> None:
         vals = self.__language_dict()
         vals['name'] = ['A List']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_missing_priority(self):
+    def test_missing_priority(self) -> None:
         vals = self.__language_dict()
         del vals['priority']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_invalid_priority(self):
+    def test_invalid_priority(self) -> None:
         vals = self.__language_dict()
         vals['priority'] = 2.3
         with pytest.raises(languages.LanguageConfigError):
@@ -91,49 +92,49 @@ class Language_test(TestCase):
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_missing_files(self):
+    def test_missing_files(self) -> None:
         vals = self.__language_dict()
         del vals['files']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_invalid_files(self):
+    def test_invalid_files(self) -> None:
         vals = self.__language_dict()
         vals['files'] = ['*.cc', '*.cpp']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_without_shebang(self):
+    def test_without_shebang(self) -> None:
         vals = self.__language_dict()
         del vals['shebang']
         del vals['shebang_files']
         languages.Language('id', vals)
 
-    def test_invalid_shebang(self):
+    def test_invalid_shebang(self) -> None:
         vals = self.__language_dict()
         vals['shebang'] = '(Not an RE'
         with pytest.raises(re.error):
             languages.Language('id', vals)
 
-    def test_shebang_requires_shebang_files(self):
+    def test_shebang_requires_shebang_files(self) -> None:
         vals = self.__language_dict()
         del vals['shebang_files']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_shebang_files_requires_shebang(self):
+    def test_shebang_files_requires_shebang(self) -> None:
         vals = self.__language_dict()
         del vals['shebang']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_invalid_shebang_files(self):
+    def test_invalid_shebang_files(self) -> None:
         vals = self.__language_dict()
         vals['shebang_files'] = ['*.foo', '*.bar']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_get_source_files_does_not_require_readable_files(self):
+    def test_get_source_files_does_not_require_readable_files(self) -> None:
         """get_source_files only inspects file names -- unlike
         get_source_files_for_detection, it must work even for files that
         don't exist, since it's used on a program whose language is
@@ -145,12 +146,12 @@ class Language_test(TestCase):
         with pytest.raises(OSError):
             lang.get_source_files_for_detection([missing])
 
-    def test_without_compile(self):
+    def test_without_compile(self) -> None:
         vals = self.__language_dict()
         del vals['compile']
         languages.Language('id', vals)
 
-    def test_invalid_compile(self):
+    def test_invalid_compile(self) -> None:
         vals = self.__language_dict()
         vals['compile'] = ['gcc', '{files}']
         with pytest.raises(languages.LanguageConfigError):
@@ -159,13 +160,13 @@ class Language_test(TestCase):
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_missing_run(self):
+    def test_missing_run(self) -> None:
         vals = self.__language_dict()
         del vals['run']
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_invalid_run(self):
+    def test_invalid_run(self) -> None:
         vals = self.__language_dict()
         vals['run'] = ['python3', '{mainfile}']
         with pytest.raises(languages.LanguageConfigError):
@@ -174,7 +175,7 @@ class Language_test(TestCase):
         with pytest.raises(languages.LanguageConfigError):
             languages.Language('id', vals)
 
-    def test_good_entrypoints(self):
+    def test_good_entrypoints(self) -> None:
         vals = self.__language_dict()
 
         vals['compile'] = 'echo {binary}'
@@ -189,7 +190,7 @@ class Language_test(TestCase):
         vals['run'] = 'echo {mainclass}'
         languages.Language('id', vals)
 
-    def test_bad_entrypoints(self):
+    def test_bad_entrypoints(self) -> None:
         vals = self.__language_dict()
 
         # Two different entry points
@@ -204,8 +205,8 @@ class Language_test(TestCase):
             languages.Language('id', vals)
 
     @staticmethod
-    def __subs(**overrides):
-        values = {
+    def __subs(**overrides: str | int) -> languages.CommandSubstitution:
+        values: dict[str, str | int] = {
             'path': '/tmp/prog',
             'files': 'main.foo',
             'binary': '/tmp/prog/run',
@@ -215,16 +216,16 @@ class Language_test(TestCase):
             'memlim': 256,
         }
         values.update(overrides)
-        return languages.CommandSubstitution(**values)
+        return languages.CommandSubstitution(**values)  # type: ignore[arg-type]
 
-    def test_check_installed_ok(self):
+    def test_check_installed_ok(self) -> None:
         # compile is 'echo ...' (found on PATH); run is '{binary} {memlim}',
         # i.e. the program we just produced, so there's nothing external to
         # check there.
         lang = languages.Language('id', self.__language_dict())
         assert lang.check_installed() is None
 
-    def test_check_installed_does_not_check_produced_entry_point(self):
+    def test_check_installed_does_not_check_produced_entry_point(self) -> None:
         # No compile step, and run is just the (self-contained) source file
         # -- no external program is needed at all.
         vals = self.__language_dict()
@@ -233,7 +234,7 @@ class Language_test(TestCase):
         lang = languages.Language('id', vals)
         assert lang.check_installed() is None
 
-    def test_check_installed_missing_compiler(self):
+    def test_check_installed_missing_compiler(self) -> None:
         vals = self.__language_dict()
         vals['compile'] = 'definitely_not_a_real_compiler_xyz {files} {binary}'
         lang = languages.Language('id', vals)
@@ -242,13 +243,13 @@ class Language_test(TestCase):
         assert 'compiler' in msg
         assert 'definitely_not_a_real_compiler_xyz' in msg
 
-    def test_check_installed_missing_absolute_path(self):
+    def test_check_installed_missing_absolute_path(self) -> None:
         vals = self.__language_dict()
         vals['compile'] = '/nonexistent/path/to/compiler {files} {binary}'
         lang = languages.Language('id', vals)
         assert lang.check_installed() is not None
 
-    def test_check_installed_missing_runtime(self):
+    def test_check_installed_missing_runtime(self) -> None:
         # No compile step -- the runtime must still be checked.
         vals = self.__language_dict()
         del vals['compile']
@@ -259,19 +260,19 @@ class Language_test(TestCase):
         assert 'runtime' in msg
         assert 'definitely_not_a_real_runtime_xyz' in msg
 
-    def test_get_compile_command_none_without_compile_step(self):
+    def test_get_compile_command_none_without_compile_step(self) -> None:
         vals = self.__language_dict()
         del vals['compile']
         lang = languages.Language('id', vals)
         assert lang.get_compile_command(self.__subs()) is None
 
-    def test_get_compile_command_resolves_executable(self):
+    def test_get_compile_command_resolves_executable(self) -> None:
         lang = languages.Language('id', self.__language_dict())
         subs = self.__subs()
         command = lang.get_compile_command(subs)
         assert command == [shutil.which('echo'), subs.path, subs.files, subs.binary]
 
-    def test_get_run_command_resolves_executable(self):
+    def test_get_run_command_resolves_executable(self) -> None:
         vals = self.__language_dict()
         vals['compile'] = 'echo {mainfile}'
         vals['run'] = 'echo {mainfile}'
@@ -279,14 +280,14 @@ class Language_test(TestCase):
         subs = self.__subs()
         assert lang.get_run_command(subs) == [shutil.which('echo'), subs.mainfile]
 
-    def test_get_run_command_leaves_produced_binary_untouched(self):
+    def test_get_run_command_leaves_produced_binary_untouched(self) -> None:
         # run is '{binary} {memlim}' in the base dict -- the first token is
         # the program we just compiled, not something to resolve via PATH.
         lang = languages.Language('id', self.__language_dict())
         subs = self.__subs()
         assert lang.get_run_command(subs) == [subs.binary, str(subs.memlim)]
 
-    def test_get_compile_command_splits_multiple_files(self):
+    def test_get_compile_command_splits_multiple_files(self) -> None:
         # {files} is a single space-separated string, but each file must
         # end up as its own argument rather than one combined string.
         lang = languages.Language('id', self.__language_dict())
@@ -295,20 +296,20 @@ class Language_test(TestCase):
         assert command == [shutil.which('echo'), subs.path, 'main.foo', 'helper1.bar', 'helper2.bar', subs.binary]
 
 
-__EXAMPLES_PATH = os.path.join(os.path.dirname(__file__), 'languages_examples')
+__EXAMPLES_PATH = datadir() / 'languages_examples'
 
 
-def examples_path(test_file):
+def examples_path(test_file: str) -> str:
     return os.path.join(__EXAMPLES_PATH, test_file)
 
 
 class Languages_test(TestCase):
-    def test_empty_languages(self):
+    def test_empty_languages(self) -> None:
         lang = languages.Languages()
         assert lang.languages == {}
         assert lang.detect_language(['foo.cpp', 'foo.c', 'foo.py', 'foo.java']) is None
 
-    def test_duplicate_prio(self):
+    def test_duplicate_prio(self) -> None:
         lang = languages.Languages()
         config = {
             'c': {
@@ -330,7 +331,7 @@ class Languages_test(TestCase):
         with pytest.raises(languages.LanguageConfigError):
             lang.update(config)
 
-    def test_invalid_format(self):
+    def test_invalid_format(self) -> None:
         lang = languages.Languages()
         # Dict of strings instead of dict of dict
         conf1 = {'c': 'C'}
@@ -355,16 +356,16 @@ class Languages_test(TestCase):
         with pytest.raises(languages.LanguageConfigError):
             lang.update(conf1)
         with pytest.raises(languages.LanguageConfigError):
-            lang.update(conf2)
+            lang.update(conf2)  # type: ignore[arg-type]
         with pytest.raises(languages.LanguageConfigError):
-            lang.update(conf3)
+            lang.update(conf3)  # type: ignore[arg-type]
 
-    def test_empty(self):
+    def test_empty(self) -> None:
         lang = languages.Languages()
         lang.update({})
         assert lang.languages == {}
 
-    def test_zoo(self):
+    def test_zoo(self) -> None:
         langs = languages.Languages()
 
         zoo = {
@@ -383,15 +384,15 @@ class Languages_test(TestCase):
         langs.update(zoo)
 
         lang = langs.detect_language([examples_path(x) for x in ['src1.zoo']])
-        assert lang.lang_id == 'zoo'
+        assert lang is not None and lang.lang_id == 'zoo'
 
         lang = langs.detect_language([examples_path(x) for x in ['src2.zoo']])
-        assert lang.lang_id == 'zoork'
+        assert lang is not None and lang.lang_id == 'zoork'
 
         lang = langs.detect_language([examples_path(x) for x in ['src2.zoo', 'src3.zpp']])
-        assert lang.lang_id == 'zoopp'
+        assert lang is not None and lang.lang_id == 'zoopp'
 
-    def test_shebang_gate_only_affects_detection_not_actual_source_files(self):
+    def test_shebang_gate_only_affects_detection_not_actual_source_files(self) -> None:
         """Regression test: once a language has won detection, a helper
         file matching its "files" glob must not be dropped just because it
         individually lacks the shebang that broke the tie against another
@@ -422,7 +423,7 @@ class Languages_test(TestCase):
         # (unconditional, not gated) = 2.  py3 evidence: py2main.py +
         # py2nosheb.py (both unconditional) = 2.  Tie -> priority decides.
         lang = langs.detect_language(files)
-        assert lang.lang_id == 'py2'
+        assert lang is not None and lang.lang_id == 'py2'
 
         # All three files -- including the shebang-less helper -- belong
         # to the now-settled py2 program.
