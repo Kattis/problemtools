@@ -9,14 +9,11 @@ from pathlib import Path
 
 from ..context import Context
 from ..diagnostics import Diagnostics, pluralize
-from ..judge import SubmissionJudge, SubmissionResult
+from ..judge import SubmissionJudge, SubmissionResult, SubmissionsJudge
 from ..metadata import Metadata
 from ..model import Graders, LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
 from ..run import Program
 
-# Temporary consts to keep code structure as similar as possible to old code from
-# verifyproblem when extracting this to a separate module.
-_DIRECTORIES: list[str] = ['accepted', 'partially_accepted', 'wrong_answer', 'run_time_error', 'time_limit_exceeded']
 _DISPLAY_LABEL_BY_DIRECTORY: dict[str, str] = {
     'accepted': 'AC',
     'partially_accepted': 'PAC',
@@ -39,8 +36,6 @@ def check_submissions(
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's submissions."""
-    _check_has_accepted_submission(submissions, diag)
-
     policy = submissions.policy
     known_submissions = _check_matches_policy(submissions, policy, diag)
     included_submissions = [s for s in known_submissions if context.submission_filter.search(str(s.path))]
@@ -50,96 +45,74 @@ def check_submissions(
         msg += f' (ignoring {pluralize(ignored_submissions, "submission")} due to filters)'
     diag.msg(msg)
 
+    _check_has_accepted_submission(submissions, diag)
+
     seen_oob_score_groups: set[int] = set()
-
-    limits = metadata.limits
-    ac_to_time_limit = limits.time_multipliers.ac_to_time_limit
-
-    fixed_limit: float | None = context.fixed_timelim if context.fixed_timelim is not None else limits.time_limit
-    lower_bound_runtime: float | None = None  # The runtime of the slowest submission used to lower bound the time limit.
-
-    if limits.time_limit is not None and context.fixed_timelim is not None:
-        diag.warning('There is a fixed time limit in problem.yaml, and you provided one on command line. Using command line.')
 
     has_testcases = any(tc.matches_filter(context.data_filter) for tc in testdata.get_all_testcases())
     if not has_testcases:
         diag.warning('Found no test cases to run on. Did you filter them all out?')
 
-    all_submission_results: list[tuple[Submission, list[SubmissionResult]]] = []
+    submissions_judge = context.submissions_judge_factory(
+        root=testdata,
+        output_validator=output_validator,
+        metadata=metadata,
+        base_dir=work_dir,
+        context=context,
+        graders=graders,
+        diag=diag,
+    )
 
-    for directory in _DIRECTORIES:
-        label = _DISPLAY_LABEL_BY_DIRECTORY[directory]
-        runtimes = []
+    timelim, timelim_high, fixed_limit = _initial_time_limit(metadata, context, diag)
+    lower_bound_submissions = [sub for sub in included_submissions if policy.lower_bounds_time_limit(sub)]
+    all_submission_results = _check_submission_group(
+        lower_bound_submissions,
+        policy,
+        metadata,
+        testdata,
+        submissions_judge,
+        probdir,
+        seen_oob_score_groups,
+        timelim,
+        timelim_high,
+        has_testcases,
+        diag,
+    )
 
-        for sub in known_submissions:
-            if sub.directory != directory:
-                continue
-            if not context.submission_filter.search(str(sub.path)):
-                continue
+    if all_submission_results:
+        timelim, timelim_high = _compute_time_limit(metadata, fixed_limit, all_submission_results, context, diag)
+        set_timelim(timelim)
+    elif fixed_limit is not None:
+        # Corner case. The user may have filtered for only one (non-AC) sub, and set a fixed time limit.
+        # It's a bit unclear if we want to set_timelim() here (exposing it in the result of check), but
+        # I think it's preferable to do so.
+        set_timelim(timelim)
+    else:
+        diag.error(
+            'Could not determine a time limit automatically: no submission produced timing data to lower-bound it, '
+            f'and no fixed time limit is set. Falling back to a {_fmt_number(timelim)}s cap.'
+        )
 
-            diag.info(f'Check {label} submission {sub.program}')
-
-            if sub.program.code_size() > 1024 * limits.code:
-                diag.error(
-                    f'{label} submission {sub.program} has size {sub.program.code_size() / 1024.0:.1f} kiB, '
-                    f'exceeds code size limit of {limits.code} kiB'
-                )
-                continue
-
-            result = sub.program.compile(work_dir)
-            if not result.success:
-                diag.error(f'Compile error for {label} submission {sub.program}', additional_info=result.errmsg)
-                continue
-
-            if has_testcases:
-                timelim, timelim_high = _compute_time_limit(metadata, fixed_limit, lower_bound_runtime)
-                sub_results = _check_submission(
-                    sub,
-                    policy,
-                    context,
-                    metadata,
-                    testdata,
-                    output_validator,
-                    graders,
-                    work_dir,
-                    probdir,
-                    seen_oob_score_groups,
-                    timelim,
-                    timelim_high,
-                    diag,
-                )
-                runtimes.append(sub_results[-1].runtime)
-                all_submission_results.append((sub, sub_results))
-
-        if directory == 'accepted' and has_testcases:
-            if len(runtimes) > 0:
-                lower_bound_runtime = max(runtimes)
-
-            if fixed_limit is not None and lower_bound_runtime is not None:
-                tl_from_subs, _ = _compute_time_limit(metadata, None, lower_bound_runtime)
-                if lower_bound_runtime * ac_to_time_limit > fixed_limit:
-                    msg = (
-                        f'Fixed time limit ({_fmt_number(fixed_limit)}) is tighter than the auto-computed limit '
-                        f'({_fmt_number(tl_from_subs)}) — slowest AC: {_fmt_number(lower_bound_runtime)} x '
-                        f'multiplier {_fmt_number(ac_to_time_limit)}'
-                    )
-                    if context.fixed_timelim is not None:  # We just warn when the fixed time limit comes from command line
-                        diag.warning(msg)
-                    else:
-                        diag.error(msg)  # ... but if it came from problem.yaml, it's an error if bounds aren't kept
-
-                if not math.isclose(fixed_limit, tl_from_subs):
-                    diag.msg(
-                        f'   Solutions give timelim of {_fmt_number(tl_from_subs)} seconds, but will use provided '
-                        f'fixed limit of {_fmt_number(fixed_limit)} seconds instead'
-                    )
-
-            timelim, timelim_margin = _compute_time_limit(metadata, fixed_limit, lower_bound_runtime)
-            diag.msg(
-                f'   Slowest AC runtime: {_fmt_number(lower_bound_runtime)}, setting timelim to {_fmt_number(timelim)} secs, '
-                f'safety margin to {_fmt_number(timelim_margin)} secs'
-            )
-            set_timelim(timelim)
+    # Run TLE submissions last (as they're presumably the slowest)
+    rest = sorted(
+        (sub for sub in included_submissions if sub not in lower_bound_submissions),
+        key=lambda sub: (policy.expected_verdict(sub) == 'TLE', str(sub.path)),
+    )
+    all_submission_results.extend(
+        _check_submission_group(
+            rest,
+            policy,
+            metadata,
+            testdata,
+            submissions_judge,
+            probdir,
+            seen_oob_score_groups,
+            timelim,
+            timelim_high,
+            has_testcases,
+            diag,
+        )
+    )
 
     if all_submission_results:
         _print_results_table(all_submission_results, testdata, metadata.is_scoring(), diag)
@@ -162,15 +135,59 @@ def _check_matches_policy(submissions: Submissions, policy: LegacyPolicy, diag: 
     return matched
 
 
-def _check_submission(
-    sub: Submission,
+def _check_submission_group(
+    subs: list[Submission],
     policy: LegacyPolicy,
-    context: Context,
     metadata: Metadata,
     testdata: TestDataGroup,
-    output_validator: Program,
-    graders: Graders,
-    work_dir: Path,
+    submissions_judge: SubmissionsJudge,
+    probdir: Path,
+    seen_oob_score_groups: set[int],
+    timelim: float,
+    timelim_high: float,
+    has_testcases: bool,
+    diag: Diagnostics,
+) -> list[tuple[Submission, list[SubmissionResult]]]:
+    """Compile and (if has_testcases) judge every submission in subs.
+
+    Note that the returned list can be shorter than subs. Submissions failing to compile
+    return nothing (but give an error), and we return an empty list if not has_testcases.
+    """
+    outcomes = submissions_judge.precompute(subs, timelim_high)
+
+    submission_results = []
+    for sub in subs:
+        label = _DISPLAY_LABEL_BY_DIRECTORY[sub.directory]
+
+        if sub.program.code_size() > 1024 * metadata.limits.code:
+            diag.error(
+                f'{label} submission {sub.program} has size {sub.program.code_size() / 1024.0:.1f} kiB, '
+                f'exceeds code size limit of {metadata.limits.code} kiB'
+            )
+
+        result = outcomes[sub]
+        if not result.success:
+            diag.error(f'Compile error for {label} submission {sub.program}', additional_info=result.errmsg)
+            continue
+
+        if not has_testcases:
+            continue
+
+        judge = submissions_judge.judges()[sub]
+        sub_results = _check_submission(
+            sub, judge, policy, metadata, testdata, probdir, seen_oob_score_groups, timelim, timelim_high, diag
+        )
+        submission_results.append((sub, sub_results))
+
+    return submission_results
+
+
+def _check_submission(
+    sub: Submission,
+    judge: SubmissionJudge,
+    policy: LegacyPolicy,
+    metadata: Metadata,
+    testdata: TestDataGroup,
     probdir: Path,
     seen_oob_score_groups: set[int],
     timelim: float,
@@ -182,18 +199,6 @@ def _check_submission(
     partial = sub.directory == 'partially_accepted'
     desc = f'{_DISPLAY_LABEL_BY_DIRECTORY[sub.directory]} submission {sub.program}'
 
-    judge = SubmissionJudge(
-        sub=sub.program,
-        output_validator=output_validator,
-        metadata=metadata,
-        root=testdata,
-        base_dir=work_dir,
-        context=context,
-        graders=graders,
-        diag=diag,
-    )
-    if context.executor is not None:
-        judge.precompute(timelim_high)
     results_high = judge.judge(timelim_high)
     if not results_high:
         diag.fatal('_check_submission called, but found no test cases to run on.')
@@ -353,20 +358,56 @@ def _print_results_table(
         diag.msg(indent + '  '.join(cell.ljust(widths[i]) for i, cell in enumerate(row)))
 
 
-def _compute_time_limit(metadata: Metadata, fixed_limit: float | None, lower_bound_runtime: float | None) -> tuple[float, float]:
-    if fixed_limit is None and lower_bound_runtime is None:
-        # 5 minutes is our currently hard coded upper bound for what to allow when we don't know the time limit yet
-        return 300.0, 300.0
-
+def _initial_time_limit(metadata: Metadata, context: Context, diag: Diagnostics) -> tuple[float, float, float | None]:
     limits = metadata.limits
+    if limits.time_limit is not None and context.fixed_timelim is not None:
+        diag.warning('There is a fixed time limit in problem.yaml, and you provided one on command line. Using command line.')
+    fixed_limit = context.fixed_timelim if context.fixed_timelim is not None else limits.time_limit
+    if fixed_limit is None:
+        # 5 minutes is our currently hard coded upper bound for what to allow when we don't know the time limit yet
+        return 300.0, 300.0, None
+    return fixed_limit, fixed_limit * limits.time_multipliers.time_limit_to_tle, fixed_limit
+
+
+def _compute_time_limit(
+    metadata: Metadata,
+    fixed_limit: float | None,
+    all_submission_results: list[tuple[Submission, list[SubmissionResult]]],
+    context: Context,
+    diag: Diagnostics,
+) -> tuple[float, float]:
+    limits = metadata.limits
+    lower_bound_runtime = max(results[-1].runtime for _, results in all_submission_results)
+    exact_timelim = lower_bound_runtime * limits.time_multipliers.ac_to_time_limit
+    tl_from_runtime = max(1, math.ceil(exact_timelim / limits.time_resolution)) * limits.time_resolution
+
     if fixed_limit is not None:
         timelim = fixed_limit
-    else:
-        assert lower_bound_runtime is not None, 'Assert to keep mypy happy'
-        exact_timelim = lower_bound_runtime * limits.time_multipliers.ac_to_time_limit
-        timelim = max(1, math.ceil(exact_timelim / limits.time_resolution)) * limits.time_resolution
+        if lower_bound_runtime * limits.time_multipliers.ac_to_time_limit > fixed_limit:
+            msg = (
+                f'Fixed time limit ({_fmt_number(fixed_limit)}) is tighter than the auto-computed limit '
+                f'({_fmt_number(tl_from_runtime)}) — slowest AC: {_fmt_number(lower_bound_runtime)} x '
+                f'multiplier {_fmt_number(limits.time_multipliers.ac_to_time_limit)}'
+            )
+            if context.fixed_timelim is not None:  # We just warn when the fixed time limit comes from command line
+                diag.warning(msg)
+            else:
+                diag.error(msg)  # ... but if it came from problem.yaml, it's an error if bounds aren't kept
 
-    return timelim, timelim * limits.time_multipliers.time_limit_to_tle
+        if not math.isclose(fixed_limit, tl_from_runtime):
+            diag.msg(
+                f'   Solutions give timelim of {_fmt_number(tl_from_runtime)} seconds, but will use provided '
+                f'fixed limit of {_fmt_number(fixed_limit)} seconds instead'
+            )
+    else:
+        timelim = tl_from_runtime
+
+    timelim_high = timelim * limits.time_multipliers.time_limit_to_tle
+    diag.msg(
+        f'   Slowest AC runtime: {_fmt_number(lower_bound_runtime)}, setting timelim to {_fmt_number(timelim)} secs, '
+        f'safety margin to {_fmt_number(timelim_high)} secs'
+    )
+    return timelim, timelim_high
 
 
 def _full_score_finite(testdata: TestDataGroup, metadata: Metadata) -> bool:
