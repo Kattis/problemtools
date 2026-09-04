@@ -14,14 +14,6 @@ from ..metadata import Metadata
 from ..model import Graders, LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
 from ..run import Program
 
-_DISPLAY_LABEL_BY_DIRECTORY: dict[str, str] = {
-    'accepted': 'AC',
-    'partially_accepted': 'PAC',
-    'wrong_answer': 'WA',
-    'run_time_error': 'RTE',
-    'time_limit_exceeded': 'TLE',
-}
-
 
 def check_submissions(
     submissions: Submissions,
@@ -157,17 +149,14 @@ def _check_submission_group(
 
     submission_results = []
     for sub in subs:
-        label = _DISPLAY_LABEL_BY_DIRECTORY[sub.directory]
-
         if sub.program.code_size() > 1024 * metadata.limits.code:
             diag.error(
-                f'{label} submission {sub.program} has size {sub.program.code_size() / 1024.0:.1f} kiB, '
-                f'exceeds code size limit of {metadata.limits.code} kiB'
+                f'{sub} has size {sub.program.code_size() / 1024.0:.1f} kiB, exceeds code size limit of {metadata.limits.code} kiB'
             )
 
         result = outcomes[sub]
         if not result.success:
-            diag.error(f'Compile error for {label} submission {sub.program}', additional_info=result.errmsg)
+            diag.error(f'Compile error for {sub}', additional_info=result.errmsg)
             continue
 
         if not has_testcases:
@@ -197,7 +186,7 @@ def _check_submission(
     expected_verdict = policy.expected_verdict(sub)
     assert expected_verdict is not None, '_check_submission called on a submission not matching the policy'
     partial = sub.directory == 'partially_accepted'
-    desc = f'{_DISPLAY_LABEL_BY_DIRECTORY[sub.directory]} submission {sub.program}'
+    desc = str(sub)
 
     results_high = judge.judge(timelim_high)
     if not results_high:
