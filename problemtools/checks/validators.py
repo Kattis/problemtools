@@ -54,6 +54,12 @@ _JUNK_CASES_CRASH = [
     ('a file with the contents "inf"', b'inf'),
     ('a file with the contents "\\x00"', b'\x00'),
     ('a file with the contents "\\x80"', b'\x80'),
+    ('a file with the contents "1e1000000000"', b'1e1000000000'),
+    ('a file with the contents "1\n1e1000000000"', b'1\n1e1000000000'),
+    ('a file with the contents 10^400 ("1" followed by 400 zeros)', b'1' + b'0' * 400),
+    ('a file with the contents 10^5000 ("1" followed by 5000 zeros)', b'1' + b'0' * 5000),
+    ('a file with the contents "1e309"', b'1e309'),
+    ('a file with the contents "1e-400"', b'1e-400'),
 ]
 
 
