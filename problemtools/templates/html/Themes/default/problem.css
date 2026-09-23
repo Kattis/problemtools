@@ -1,3 +1,10 @@
+body {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 0 27px;
+    box-sizing: border-box;
+}
+
 .problemheader {
     text-align: center;
 }
