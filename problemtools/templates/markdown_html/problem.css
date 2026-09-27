@@ -105,6 +105,10 @@ div.figure {
   text-align: justify;
 }
 
+.problembody td p, .problembody th p {
+  text-align: inherit;
+}
+
 div.sampleinteractionread {
     border: 1px solid black;
     width: 60%;
