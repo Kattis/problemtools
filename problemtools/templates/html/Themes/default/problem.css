@@ -1,19 +1,30 @@
+html {
+    background-color: #f3f4f8;
+}
+
 body {
     max-width: 700px;
-    margin: 0 auto;
-    padding: 0 27px;
+    margin: 2em auto;
+    padding: 27px;
     box-sizing: border-box;
+    background-color: #ffffff;
+    border-radius: 5px;
+    box-shadow: 0 1px 20px 0 rgba(0, 0, 0, 0.08);
+    display: flow-root;
 }
 
 .problemheader {
     text-align: center;
 }
 
+.problemheader h1 {
+    margin-top: 10px;
+}
+
 .problembody {
     font-family: 'Times New Roman', Georgia, serif;
     font-size: 1.1em;
     text-align: justify;
-    padding-top: 1.5em;
 }
 
 .problembody h2, .problembody h3, .problembody table.sample th {
