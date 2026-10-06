@@ -70,6 +70,7 @@ table, table td {
 
 table.tabular p {
     margin: 0;
+    text-align: inherit;
 }
 
 table.sample {

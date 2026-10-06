@@ -99,6 +99,8 @@ def sanitize_html(statement_dir: Path, statement_html: str, imgbasedir: str) -> 
             return value
         if tag in ('li', 'a') and attribute == 'id' and is_fn_id(value):
             return value
+        if tag in ('td', 'th') and attribute == 'style' and re.fullmatch(r'text-align: (left|center|right);', value):
+            return value
         if tag == 'img' and attribute == 'src':
             try:
                 statement_util.assert_image_is_valid(statement_dir, value)
@@ -122,6 +124,8 @@ def sanitize_html(statement_dir: Path, statement_html: str, imgbasedir: str) -> 
             'img': {'src'},
             'a': {'href', 'id'},
             'li': {'id'},
+            'td': {'style'},
+            'th': {'style'},
         },
     )
 
