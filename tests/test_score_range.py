@@ -37,6 +37,7 @@ def make_group(
     return TestDataGroup(
         name=name,
         datadir=abspath(Path('/' + name)),
+        path=relpath(Path(name.replace('.', '/'))),
         config={
             'grading': grading,
             'grader_flags': grader_flags,
