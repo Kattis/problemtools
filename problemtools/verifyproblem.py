@@ -156,7 +156,9 @@ class ProblemVerifier:
             context.submit_background_work(get_output_validator().compile, work_dir)
             policy = problem.submissions.policy
             for sub in problem.submissions.submissions:
-                if policy.matches(sub) and context.submission_filter.search(str(sub.path)):
+                if policy.rules_for(sub, problem.testdata, problem.metadata) is not None and context.submission_filter.search(
+                    str(sub.path)
+                ):
                     context.submit_background_work(sub.program.compile, work_dir)
 
         return [
