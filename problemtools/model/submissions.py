@@ -85,6 +85,6 @@ def load_submissions(probdir: Path, language_config: Languages, includes: Includ
     submissions = []
     for entry in sorted(subs_root.iterdir()):
         if entry.is_dir():
-            for program in find_programs(str(entry), language_config=language_config, includes=includes):
+            for program in find_programs(entry, language_config=language_config, includes=includes):
                 submissions.append(Submission(program=program, path=relpath(Path(entry.name) / program.name)))
     return Submissions(submissions=submissions)

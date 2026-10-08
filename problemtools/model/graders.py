@@ -27,5 +27,5 @@ class Graders:
 
 def load_graders(probdir: Path, language_config: Languages) -> Graders:
     probdir = resolve(probdir)
-    graders = as_source_or_buildrun(find_programs(str(probdir / 'graders'), language_config=language_config))
+    graders = as_source_or_buildrun(find_programs(probdir / 'graders', language_config=language_config))
     return Graders(graders=graders)

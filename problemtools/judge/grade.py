@@ -43,7 +43,7 @@ def grade_group(
         errfile = Path(tmpdir) / 'grader_err'
         infile.write_text(grader_input)
 
-        status, _runtime = grader.run(str(infile), str(outfile), str(errfile), args=grader_flags)
+        status, _runtime = grader.run(infile, outfile, errfile, args=grader_flags)
 
         grader_output = outfile.read_text(errors='replace') if outfile.exists() else ''
         stderr_content = errfile.read_text(errors='replace') if errfile.exists() else ''

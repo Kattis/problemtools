@@ -99,12 +99,12 @@ def _validate_output(
     val_stdout = execution_dir / 'val_stdout'
     val_stderr = execution_dir / 'val_stderr'
     status, _ = output_validator.run(
-        infile=str(submission_output),
+        infile=submission_output,
         args=[str(effective_infile), str(testcase.ansfile), str(feedback_dir) + os.sep] + flags,
         timelim=val_timelim,
         memlim=val_memlim,
-        outfile=str(val_stdout),
-        errfile=str(val_stderr),
+        outfile=val_stdout,
+        errfile=val_stderr,
     )
     for label, path in [('stdout', val_stdout), ('stderr', val_stderr)]:
         try:

@@ -3,6 +3,7 @@ Problemtools.
 """
 
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..languages import Languages
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 
 
 def find_programs(
-    path: str,
+    path: Path,
     language_config: Languages,
     includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
@@ -47,11 +48,10 @@ def find_programs(
         list of Program instances, all programs found in path.
 
     """
-    if not os.path.isdir(path):
+    if not path.is_dir():
         return []
     ret = []
-    for name in sorted(os.listdir(path)):
-        fullpath = os.path.join(path, name)
+    for fullpath in sorted(path.iterdir()):
         run = get_program(
             fullpath,
             language_config=language_config,
@@ -64,7 +64,7 @@ def find_programs(
 
 
 def get_program(
-    path: str,
+    path: Path,
     language_config: Languages,
     includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
@@ -98,17 +98,16 @@ def get_program(
 
         includes = Includes()
 
-    if os.path.isfile(path):
+    if path.is_file():
         if allow_validation_script:
-            ext = os.path.splitext(path)[1]
-            if ext == '.viva':
+            if path.suffix == '.viva':
                 return Viva(path)
-            if ext == '.ctd':
+            if path.suffix == '.ctd':
                 return Checktestdata(path)
         files = [path]
     else:
-        build = os.path.join(path, 'build')
-        if os.path.isfile(build) and os.access(build, os.X_OK):
+        build = path / 'build'
+        if build.is_file() and os.access(build, os.X_OK):
             return BuildRun(path)
         files = rutil.list_files_recursive(path)
 

@@ -77,9 +77,9 @@ def _run_normal(
     errfile = execution_dir / 'submission_stderr'
     sub_path = sub.compile(base_dir).path
     status, runtime = sub.run(
-        infile=str(infile),
-        outfile=str(outfile),
-        errfile=str(errfile),
+        infile=infile,
+        outfile=outfile,
+        errfile=errfile,
         timelim=math.ceil(timelim) + 1,
         memlim=metadata.limits.memory,
         work_dir=sub_path,
@@ -120,7 +120,7 @@ def _run_interactive(
     interactive_out = execution_dir / 'interactive_output'
 
     i_status, _ = interactive.run(
-        outfile=str(interactive_out),
+        outfile=interactive_out,
         args=(
             ['1', str(math.ceil(2 * timelim))]
             + output_validator.get_runcmd(memlim=metadata.limits.validation_memory)

@@ -14,6 +14,8 @@ from .errors import ProgramError
 
 log = logging.getLogger(__name__)
 
+DEV_NULL = Path(os.devnull)
+
 
 @dataclasses.dataclass(frozen=True)
 class CompileResult:
@@ -58,14 +60,14 @@ class Program(ABC):
         return self.name
 
     @abstractmethod
-    def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
+    def get_runcmd(self, cwd: Path | None = None, memlim: int = 1024) -> list[str]:
         pass
 
     def run(
         self,
-        infile: str = '/dev/null',
-        outfile: str = '/dev/null',
-        errfile: str = '/dev/null',
+        infile: Path = DEV_NULL,
+        outfile: Path = DEV_NULL,
+        errfile: Path = DEV_NULL,
         args: list[str] | None = None,
         timelim: int = 1000,
         memlim: int = 1024,
@@ -74,9 +76,9 @@ class Program(ABC):
         """Run the program.
 
         Args:
-            infile: name of file to pass on stdin
-            outfile: name of file to send stdout to
-            errfile: name of file to send stderr to
+            infile: file to pass on stdin
+            outfile: file to send stdout to
+            errfile: file to send stderr to
             args: additional command-line arguments to pass to the program
             timelim: CPU time limit in seconds
             memlim: memory limit in MiB
@@ -136,9 +138,9 @@ class Program(ABC):
     def __run_wait(
         self,
         argv: list[str],
-        infile: str,
-        outfile: str,
-        errfile: str,
+        infile: Path,
+        outfile: Path,
+        errfile: Path,
         timelim: int,
         memlim: int,
         work_dir: Path | None,
@@ -185,7 +187,7 @@ class Program(ABC):
         return status, rusage.ru_utime + rusage.ru_stime
 
     @staticmethod
-    def __setfd(fd: int, filename: str, flag: int) -> None:
+    def __setfd(fd: int, filename: Path, flag: int) -> None:
         tmpfd = os.open(filename, flag)
         os.dup2(tmpfd, fd)
         os.close(tmpfd)
