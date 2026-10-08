@@ -48,10 +48,14 @@ class TestDataGroup:
 
     `config` is the fully merged configuration for this group: own testdata.yaml, overlaid on
     the parent group's config, overlaid with legacy per-problem grading overrides, overlaid with
-    package defaults."""
+    package defaults.
 
-    name: str
+    `path` is relative to the data directory, e.g. for data/secret/group1, path is secret/group1.
+    For the root group (data/ itself), path is the empty path, Path('.')."""
+
+    name: str  # Deprecated: superseded by path. Only used by __str__.
     datadir: AbsolutePath
+    path: RelativePath
     config: dict[str, Any]
     is_root: bool
     items: list[TestCase | TestDataGroup] = field(default_factory=list)
@@ -137,7 +141,8 @@ def _load_group(
                 items.append(_load_group(probdir, abspath(entry), merged_config, metadata, is_root=False))
             elif entry.suffix == '.ans' and entry.with_suffix('.in').is_file():
                 items.append(_load_testcase(abspath(entry), abspath(probdir / 'data'), merged_config, metadata))
-    return TestDataGroup(name=name, datadir=datadir, config=merged_config, is_root=is_root, items=items)
+    path = relpath(datadir.relative_to(probdir / 'data'))
+    return TestDataGroup(name=name, datadir=datadir, path=path, config=merged_config, is_root=is_root, items=items)
 
 
 def _load_testcase(ansfile: AbsolutePath, data_root: AbsolutePath, group_config: dict[str, Any], metadata: Metadata) -> TestCase:
