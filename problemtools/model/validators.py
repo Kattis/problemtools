@@ -27,7 +27,7 @@ def load_input_validators(probdir: Path, language_config: Languages) -> InputVal
     validators = [
         program
         for directory in ('input_format_validators', 'input_validators')
-        for program in find_programs(str(probdir / directory), language_config=language_config, allow_validation_script=True)
+        for program in find_programs(probdir / directory, language_config=language_config, allow_validation_script=True)
     ]
     return InputValidators(validators=validators)
 
@@ -55,6 +55,6 @@ class OutputValidators:
 def load_output_validators(probdir: Path, format_version: FormatVersion, language_config: Languages) -> OutputValidators:
     probdir = resolve(probdir)
     validators = as_source_or_buildrun(
-        find_programs(str(probdir / format_version.output_validator_directory), language_config=language_config)
+        find_programs(probdir / format_version.output_validator_directory, language_config=language_config)
     )
     return OutputValidators(validators=validators)

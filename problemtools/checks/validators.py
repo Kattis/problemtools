@@ -114,8 +114,9 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
 
     collect_flags(testdata, all_flags)
 
-    fd, file_name = tempfile.mkstemp()
+    fd, tmp_name = tempfile.mkstemp()
     os.close(fd)
+    file_name = Path(tmp_name)
     for desc, case in _JUNK_CASES:
         with open(file_name, 'wb') as f:
             f.write(case)
@@ -189,7 +190,7 @@ def _run_input_validators(validators: InputValidators, testcase: TestCase, work_
             continue
 
         with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
-            status, _ = val.run(str(testcase.infile), outfile.name, errfile.name, args=flags, work_dir=work_dir)
+            status, _ = val.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
             if not os.WIFEXITED(status):
                 emsg = f'Input format validator {val} crashed on input {testcase.infile}'
             elif os.WEXITSTATUS(status) != 42:

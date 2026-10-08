@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path: str, language: Language, includes: 'LanguageIncludes') -> None:
+    def __init__(self, path: Path, language: Language, includes: 'LanguageIncludes') -> None:
         """Instantiate SourceCode object
 
         Args:
@@ -41,17 +41,14 @@ class SourceCode(Program):
                 a mainfile, that takes precedence over the one we would
                 otherwise have detected.
         """
-        if path[-1] == '/':
-            path = path[:-1]
-        name = os.path.basename(path)
-        super().__init__(name=name)
+        super().__init__(name=path.name)
         self.language = language
         self._source_path = path
         self._includes = includes
-        if os.path.isfile(path):
-            self._code_size = os.path.getsize(path)
+        if path.is_file():
+            self._code_size = path.stat().st_size
         else:
-            self._code_size = sum(os.path.getsize(f) for f in rutil.list_files_recursive(path))
+            self._code_size = sum(f.stat().st_size for f in rutil.list_files_recursive(path))
 
     def code_size(self) -> int:
         return self._code_size
@@ -63,34 +60,33 @@ class SourceCode(Program):
 
         # Set up work-space
         run_path = work_dir / name
-        if os.path.exists(run_path):
+        if run_path.exists():
             run_path = Path(tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir))
         else:
-            os.makedirs(run_path)
+            run_path.mkdir(parents=True)
         self._path = run_path
 
         # Copy all files
         rutil.add_files(self._source_path, self.path)
         for include_file in self._includes.files:
-            dest = os.path.join(self.path, include_file.path)
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            with open(dest, 'wb') as f:
-                f.write(include_file.data)
+            dest = self.path / include_file.path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(include_file.data)
 
         self.src = sorted(self.language.get_source_files(rutil.list_files_recursive(self.path)))
         if len(self.src) == 0:
             raise ProgramError(f'No source files found for language {self.language.lang_id} in {self.name}')
 
         if self._includes.mainfile is not None:
-            self.mainfile = os.path.join(self.path, self._includes.mainfile)
+            self.mainfile = self.path / self._includes.mainfile
         else:
             candidates = self.language.mainfile_candidates(self.src)
-            self.mainfile = str(candidates[0]) if candidates else self.src[0]
+            self.mainfile = candidates[0] if candidates else self.src[0]
 
-        self.mainclass = os.path.splitext(os.path.basename(self.mainfile))[0]
+        self.mainclass = self.mainfile.stem
         self.Mainclass = self.mainclass[0].upper() + self.mainclass[1:]
 
-        self.binary = os.path.join(self.path, 'run')
+        self.binary = self.path / 'run'
 
         not_installed = self.language.check_installed()
         if not_installed is not None:
@@ -108,7 +104,7 @@ class SourceCode(Program):
         except subprocess.CalledProcessError as err:
             return CompileResult(False, err.output.decode('utf8', 'replace'), self.path)
 
-    def get_runcmd(self, cwd: str | None = None, memlim: int = 1024) -> list[str]:
+    def get_runcmd(self, cwd: Path | None = None, memlim: int = 1024) -> list[str]:
         """Run command for the program.
 
         Must not be called until compile() has been called.
@@ -137,10 +133,10 @@ class SourceCode(Program):
     def __get_substitution(self, memlim: int = 1024) -> CommandSubstitution:
         return CommandSubstitution(
             path=str(self.path),
-            files=' '.join(self.src),
+            files=' '.join(str(f) for f in self.src),
             memlim=memlim,
-            mainfile=self.mainfile,
+            mainfile=str(self.mainfile),
             mainclass=self.mainclass,
             Mainclass=self.Mainclass,
-            binary=self.binary,
+            binary=str(self.binary),
         )

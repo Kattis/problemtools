@@ -8,7 +8,7 @@ from pathlib import Path
 from .errors import ProgramError
 
 
-def add_files(src: str | Path, dstdir: str | Path) -> None:
+def add_files(src: Path, dstdir: Path) -> None:
     """Copy src to dstdir.
 
     Args:
@@ -22,13 +22,12 @@ def add_files(src: str | Path, dstdir: str | Path) -> None:
             existing directory.
     """
     try:
-        if os.path.isfile(src):
+        if src.is_file():
             shutil.copy(src, dstdir)
         else:
-            for name in os.listdir(src):
-                srcfile = os.path.join(src, name)
-                destfile = os.path.join(dstdir, name)
-                if os.path.isdir(srcfile):
+            for srcfile in src.iterdir():
+                destfile = dstdir / srcfile.name
+                if srcfile.is_dir():
                     shutil.copytree(srcfile, destfile, dirs_exist_ok=True)
                 else:
                     shutil.copy(srcfile, destfile)
@@ -39,14 +38,14 @@ def add_files(src: str | Path, dstdir: str | Path) -> None:
         raise
 
 
-def list_files_recursive(root: str | Path) -> list[str]:
+def list_files_recursive(root: Path) -> list[Path]:
     """List files in a directory with subdirectories.
 
     Returns:
-        all file names for all files contained in a directory and its
+        paths of all files contained in a directory and its
         subdirectories.
     """
-    ret = []
+    ret: list[Path] = []
     for path, _, files in os.walk(root):
-        ret.extend([os.path.join(root, path, filename) for filename in files])
+        ret.extend(Path(path) / filename for filename in files)
     return ret

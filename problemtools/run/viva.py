@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .errors import ProgramError
 from .executable import Executable
-from .program import CompileResult
+from .program import DEV_NULL, CompileResult
 from .tools import get_tool_path
 
 
@@ -16,7 +16,7 @@ class Viva(Executable):
 
     _VIVA_PATH = get_tool_path('viva.sh')
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: Path) -> None:
         """Create a VIVA wrapper.
 
         Args:
@@ -24,7 +24,7 @@ class Viva(Executable):
         """
         if Viva._VIVA_PATH is None:
             raise ProgramError(f'Could not locate the VIVA program to run {path}')
-        super().__init__(Viva._VIVA_PATH, args=[path], name=os.path.basename(path))
+        super().__init__(Viva._VIVA_PATH, args=[str(path)], name=path.name)
 
     def do_compile(self, work_dir: Path) -> CompileResult:
         """Syntax-check the VIVA script"""
@@ -34,9 +34,9 @@ class Viva(Executable):
 
     def run(
         self,
-        infile: str = '/dev/null',
-        outfile: str = '/dev/null',
-        errfile: str = '/dev/null',
+        infile: Path = DEV_NULL,
+        outfile: Path = DEV_NULL,
+        errfile: Path = DEV_NULL,
         args: list[str] | None = None,
         timelim: int = 1000,
         memlim: int = 1024,
@@ -45,9 +45,9 @@ class Viva(Executable):
         """Run the VIVA script to validate an input file.
 
         Args:
-            infile: name of input file to validate
-            outfile: file name to save stdout of VIVA in
-            errfile: file name to save stderr of VIVA in
+            infile: input file to validate
+            outfile: file to save stdout of VIVA in
+            errfile: file to save stderr of VIVA in
             args: additional command-line arguments to pass to VIVA
             timelim: time limit for the VIVA process in seconds
 
@@ -61,8 +61,8 @@ class Viva(Executable):
         if args is None:
             args = []
         # VIVA takes input as argument and not on stdin
-        if infile != '/dev/null':
-            args = args + [infile]
+        if infile != DEV_NULL:
+            args = args + [str(infile)]
 
         (status, runtime) = super().run(
             outfile=outfile, errfile=errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir
