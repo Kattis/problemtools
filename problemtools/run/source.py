@@ -10,12 +10,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..languages import CommandSubstitution, Language
-from . import rutil
 from .errors import ProgramError
 from .program import CompileResult, Program
 
 if TYPE_CHECKING:
-    from ..model import LanguageIncludes
+    from ..model import LanguageIncludes, ProgramFiles
 
 log = logging.getLogger(__name__)
 
@@ -23,14 +22,15 @@ log = logging.getLogger(__name__)
 class SourceCode(Program):
     """Class representing a program provided by source code."""
 
-    def __init__(self, path: Path, language: Language, includes: 'LanguageIncludes') -> None:
+    files: 'ProgramFiles'  # The program's own source files, not including any include files
+
+    def __init__(self, name: str, files: 'ProgramFiles', language: Language, includes: 'LanguageIncludes') -> None:
         """Instantiate SourceCode object
 
         Args:
-            path: path of source code.  Can be either a single
-                file or a directory (in which case the program is
-                considered to consist of all files and subdirectories
-                in the path).
+            name: name of the program.
+
+            files: the source code files (see load_program_files).
 
             language: language definition for the programming
                 language of the code.
@@ -41,20 +41,16 @@ class SourceCode(Program):
                 a mainfile, that takes precedence over the one we would
                 otherwise have detected.
         """
-        super().__init__(name=path.name)
+        super().__init__(name=name)
         self.language = language
-        self._source_path = path
+        self.files = files
         self._includes = includes
-        if path.is_file():
-            self._code_size = path.stat().st_size
-        else:
-            self._code_size = sum(f.stat().st_size for f in rutil.list_files_recursive(path))
 
     def code_size(self) -> int:
-        return self._code_size
+        return self.files.size()
 
     def do_compile(self, work_dir: Path) -> CompileResult:
-        """Set up the compile work-space (copying source and includes into work_dir) and
+        """Set up the compile work-space (writing source and includes into work_dir) and
         compile the source code."""
         name = self.name
 
@@ -66,11 +62,13 @@ class SourceCode(Program):
             run_path.mkdir(parents=True)
         self._path = run_path
 
-        # Copy all files
-        rutil.add_files(self._source_path, self.path)
-        self._includes.files.materialize(self.path)
+        all_files = self.files.merged(self._includes.files)
+        try:
+            all_files.materialize(self.path)
+        except OSError as e:
+            return CompileResult(False, f'Failed to write program files: {e}', self.path)
 
-        self.src = sorted(self.language.get_source_files(rutil.list_files_recursive(self.path)))
+        self.src = [self.path / f for f in self.language.get_source_files([f.path for f in all_files.files])]
         if len(self.src) == 0:
             raise ProgramError(f'No source files found for language {self.language.lang_id} in {self.name}')
 

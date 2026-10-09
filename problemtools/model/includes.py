@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..languages import Language, Languages
-from .paths import resolve
+from .paths import RelativePath, relpath, resolve
 from .program_files import ProgramFiles, load_program_files
 
 #: Pseudo-language whose include files are added for every language.
@@ -17,7 +17,7 @@ class LanguageIncludes:
     include/cpp/Vector/Vector.h, path is Vector/Vector.h.
     """
 
-    mainfile: str | None = None
+    mainfile: RelativePath | None = None
     files: ProgramFiles = field(default_factory=ProgramFiles)
 
 
@@ -57,11 +57,11 @@ def load_includes(probdir: Path, language_config: Languages) -> Includes:
 def _load_language_includes(lang_dir: Path, language: Language | None) -> LanguageIncludes:
     files = load_program_files(lang_dir)
 
-    mainfile = None
+    mainfile: RelativePath | None = None
     if language is not None:
         source_files = language.get_source_files([f.path for f in files.files])
         candidates = language.mainfile_candidates(source_files)
         if candidates:
-            mainfile = str(candidates[0])
+            mainfile = relpath(candidates[0])
 
     return LanguageIncludes(mainfile=mainfile, files=files)

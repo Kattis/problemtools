@@ -6,29 +6,32 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from . import rutil
 from .errors import ProgramError
 from .program import CompileResult, Program
+
+if TYPE_CHECKING:
+    from ..model import ProgramFiles
 
 
 class BuildRun(Program):
     """Class for build/run-script program."""
 
-    def __init__(self, path: Path) -> None:
+    files: 'ProgramFiles'  # The program's files, including the build script
+
+    def __init__(self, name: str, files: 'ProgramFiles') -> None:
         """Instantiate BuildRun object.
 
         Args:
-            path: directory containing the build script.
+            name: name of the program.
+            files: the program's files, including the build script (see load_program_files).
         """
-        if not path.is_dir():
-            raise ProgramError(f'{path} is not a directory')
-
-        super().__init__(name=path.name)
-        self._source_path = path
+        super().__init__(name=name)
+        self.files = files
 
     def do_compile(self, work_dir: Path) -> CompileResult:
-        """Set up the compile work-space (copying the build script and friends into
+        """Set up the compile work-space (writing the build script and friends into
         work_dir) and run the build script."""
         name = self.name
         run_path = work_dir / name
@@ -38,13 +41,16 @@ class BuildRun(Program):
             run_path.mkdir(parents=True)
         self._path = run_path
 
-        rutil.add_files(self._source_path, self.path)
+        try:
+            self.files.materialize(self.path)
+        except OSError as e:
+            return CompileResult(False, f'Failed to write program files: {e}', self.path)
 
         build = self.path / 'build'
         if not build.is_file():
-            raise ProgramError(f'{self._source_path} does not have a build script')
+            raise ProgramError(f'{self.name} does not have a build script')
         if not os.access(build, os.X_OK):
-            raise ProgramError(f'{self._source_path}/build is not executable')
+            raise ProgramError(f'{self.name}/build is not executable')
 
         try:
             subprocess.check_output(['./build'], stderr=subprocess.STDOUT, cwd=self.path)
