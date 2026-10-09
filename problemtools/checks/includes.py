@@ -25,6 +25,7 @@ def check_includes(includes: Includes, language_config: Languages, format_versio
     _check_ambiguous_mainfile(includes, language_config, diag)
     _check_default_sets_mainfile(includes, language_config, diag)
     _check_default_path_collision(includes, diag)
+    _check_default_file_directory_collision(includes, diag)
 
 
 def _check_default_and_unknown_languages(
@@ -53,6 +54,29 @@ def _check_default_path_collision(includes: Includes, diag: Diagnostics) -> None
             if colliding:
                 names = ', '.join(colliding)
                 diag.error(f'Include files for language "{lang_id}" collide with "{DEFAULT_LANGUAGE}" include files: {names}')
+
+
+def _check_default_file_directory_collision(includes: Includes, diag: Diagnostics) -> None:
+    """Flag paths that are a file in the "default" include files and a directory in another
+    language's include files, or vice versa. Merging those is impossible."""
+
+    def files_and_dirs(paths: list[Path]) -> tuple[set[Path], set[Path]]:
+        return set(paths), {parent for path in paths for parent in path.parents} - {Path('.')}
+
+    default_files, default_dirs = files_and_dirs(_default_include_paths(includes))
+    if not default_files:
+        return
+    for lang_id, lang_includes in includes.languages.items():
+        if lang_id == DEFAULT_LANGUAGE:
+            continue
+        lang_files, lang_dirs = files_and_dirs([f.path for f in lang_includes.files.files])
+        colliding = sorted(str(path) for path in (default_files & lang_dirs) | (lang_files & default_dirs))
+        if colliding:
+            names = ', '.join(colliding)
+            diag.error(
+                f'Include files for language "{lang_id}" and "{DEFAULT_LANGUAGE}" have paths that are a file in one '
+                f'and a directory in the other: {names}'
+            )
 
 
 def _check_ambiguous_mainfile(includes: Includes, language_config: Languages, diag: Diagnostics) -> None:
