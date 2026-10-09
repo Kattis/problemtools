@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from . import rutil
 from .executable import Executable
 from .program import CompileResult, Program
 
@@ -55,6 +56,9 @@ class BuildRun(Program):
             subprocess.check_output(['./build'], stderr=subprocess.STDOUT, cwd=build_dir)
         except subprocess.CalledProcessError as err:
             return CompileResult(errmsg=err.output.decode('utf8', 'replace'))
+
+        if (errmsg := rutil.check_build_dir(build_dir)) is not None:
+            return CompileResult(errmsg=errmsg)
 
         run = build_dir / 'run'
         if not run.is_file() or not os.access(run, os.X_OK):

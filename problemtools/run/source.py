@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..languages import CommandSubstitution, Language
+from . import rutil
 from .executable import Executable
 from .program import CompileResult, Program
 
@@ -102,9 +103,12 @@ class SourceCode(Program):
 
         try:
             subprocess.check_output(command, stderr=subprocess.STDOUT)
-            return CompileResult(executable=executable)
         except subprocess.CalledProcessError as err:
             return CompileResult(errmsg=err.output.decode('utf8', 'replace'))
+
+        if (errmsg := rutil.check_build_dir(build_dir)) is not None:
+            return CompileResult(errmsg=errmsg)
+        return CompileResult(executable=executable)
 
     def __str__(self) -> str:
         """String representation"""
