@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .errors import ProgramError
 from .executable import Executable
 from .program import CompileResult, Program
 
@@ -48,9 +47,9 @@ class BuildRun(Program):
 
         build = build_dir / 'build'
         if not build.is_file():
-            raise ProgramError(f'{self.name} does not have a build script')
+            return CompileResult(errmsg='no build script')
         if not os.access(build, os.X_OK):
-            raise ProgramError(f'{self.name}/build is not executable')
+            return CompileResult(errmsg='build script is not executable')
 
         try:
             subprocess.check_output(['./build'], stderr=subprocess.STDOUT, cwd=build_dir)

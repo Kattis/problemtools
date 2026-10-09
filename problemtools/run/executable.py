@@ -7,7 +7,6 @@ import signal
 from pathlib import Path
 
 from . import limit
-from .errors import ProgramError
 
 log = logging.getLogger(__name__)
 
@@ -104,10 +103,7 @@ class Executable:
                status: exit status of the process
                runtime: user+sys runtime of the process, in seconds
         """
-        runcmd = self.get_runcmd(memlim=memlim)
-        if runcmd == []:
-            raise ProgramError(f'Could not figure out how to run {self}')
-        argv = runcmd + (args if args is not None else [])
+        argv = self.get_runcmd(memlim=memlim) + (args if args is not None else [])
         if self._infile_as_arg:
             if infile != DEV_NULL:
                 argv.append(str(infile))

@@ -10,7 +10,6 @@ from ..languages import Languages
 from . import rutil
 from .buildrun import BuildRun
 from .checktestdata import Checktestdata
-from .errors import ProgramError as ProgramError
 from .executable import Executable as Executable
 from .prebuilt import Prebuilt as Prebuilt
 from .program import CompileResult as CompileResult

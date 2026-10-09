@@ -20,7 +20,7 @@ from ..formatversion import FormatVersion
 from ..judge import SubmissionResult, validate_output
 from ..metadata import Metadata
 from ..model import InputValidators, OutputValidators, TestCase, TestDataGroup
-from ..run import Executable, ProgramError, SourceCode
+from ..run import Executable, SourceCode
 
 # Junk data. The validator should reject these cases
 _JUNK_CASES: list[tuple[str, bytes]] = [
@@ -104,14 +104,11 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
 
     executables: list[Executable] = []
     for val in validators.validators:
-        try:
-            result = val.compile(work_dir)
-            if result.executable is None:
-                diag.error(f'Compile error for {val}', result.errmsg)
-            else:
-                executables.append(result.executable)
-        except ProgramError as e:
-            diag.error(str(e))
+        result = val.compile(work_dir)
+        if result.executable is None:
+            diag.error(f'Compile error for {val}', result.errmsg)
+        else:
+            executables.append(result.executable)
 
     # Only sanity check input validators if they all actually compiled
     if diag.errors != errors_before:
@@ -295,12 +292,9 @@ def check_output_validators(
     elif not validators.uses_default(format_version, metadata) and not validators.validators:
         diag.fatal('problem.yaml specifies custom validator but no validator programs found')
 
-    try:
-        result = selected.compile(work_dir)
-        if not result.success:
-            diag.fatal(f'Compile error for output validator {selected}', result.errmsg)
-    except ProgramError as e:
-        diag.fatal(f'Compile error for output validator {selected}', str(e))
+    result = selected.compile(work_dir)
+    if not result.success:
+        diag.fatal(f'Compile error for output validator {selected}', result.errmsg)
 
     # Only sanity check output validators if they all actually compiled
     if diag.errors != errors_before:
