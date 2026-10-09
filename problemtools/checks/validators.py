@@ -274,8 +274,6 @@ def check_output_validators(
             format_version, diag, f'Support for multiple output validators has been dropped. will only use {selected}'
         )
 
-    if selected is None:
-        diag.fatal('Unable to locate default validator')
     diag.msg('Checking output validator')
 
     safe_output_validator_languages = {'c', 'cpp', 'python3'}
@@ -292,9 +290,10 @@ def check_output_validators(
     elif not validators.uses_default(format_version, metadata) and not validators.validators:
         diag.fatal('problem.yaml specifies custom validator but no validator programs found')
 
-    result = selected.compile(work_dir)
-    if not result.success:
-        diag.fatal(f'Compile error for output validator {selected}', result.errmsg)
+    compile_result = selected.compile(work_dir)
+    executable = compile_result.executable
+    if executable is None:
+        diag.fatal(f'Compile error for output validator {selected}', compile_result.errmsg)
 
     # Only sanity check output validators if they all actually compiled
     if diag.errors != errors_before:
@@ -307,7 +306,7 @@ def check_output_validators(
                 result = validate_output(
                     testcase=testcase,
                     submission_output=junk_file,
-                    output_validator=selected,
+                    output_validator=executable,
                     metadata=metadata,
                     base_dir=work_dir,
                     diag=diag,

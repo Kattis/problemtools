@@ -47,9 +47,14 @@ def check_submissions(
     if not has_testcases:
         diag.warning('Found no test cases to run on. Did you filter them all out?')
 
+    compile_result = output_validator.compile(work_dir)
+    if compile_result.executable is None:
+        diag.error(f'Compile error for output validator {output_validator}', compile_result.errmsg)
+        return
+
     submissions_judge = context.submissions_judge_factory(
         root=testdata,
-        output_validator=output_validator,
+        output_validator=compile_result.executable,
         metadata=metadata,
         base_dir=work_dir,
         context=context,

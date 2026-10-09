@@ -406,6 +406,12 @@ def _check_answers(
     if metadata.is_interactive() or metadata.is_multi_pass():
         return
 
+    compile_result = output_validator.compile(work_dir)
+    executable = compile_result.executable
+    if executable is None:
+        diag.error(f'Compile error for output validator {output_validator}', compile_result.errmsg)
+        return
+
     testcases = [tc for tc in testdata.get_all_testcases() if tc.matches_filter(context.data_filter)]
     sample = [tc for tc in testcases if tc.is_in_sample_group()]
     secret = [tc for tc in testcases if not tc.is_in_sample_group()]
@@ -414,7 +420,7 @@ def _check_answers(
         return validate_output(
             testcase=testcase,
             submission_output=testcase.ansfile,
-            output_validator=output_validator,
+            output_validator=executable,
             metadata=metadata,
             base_dir=work_dir,
             diag=diag,

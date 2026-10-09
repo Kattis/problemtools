@@ -7,7 +7,7 @@ from pathlib import Path
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
 from ..model import TestCase
-from ..run import Program
+from ..run import Executable
 from .result import SubmissionResult
 
 
@@ -27,7 +27,7 @@ def _get_feedback(feedback_dir: Path) -> str | None:
 
 
 def _parse_validator_result(
-    val: Program,
+    val: Executable,
     status: int,
     feedback_dir: Path,
     metadata: Metadata,
@@ -75,10 +75,9 @@ def _parse_validator_result(
 def _validate_output(
     testcase: TestCase,
     submission_output: Path,
-    output_validator: Program,
+    output_validator: Executable,
     metadata: Metadata,
     execution_dir: Path,
-    base_dir: Path,
     diag: Diagnostics,
     infile: Path | None = None,
 ) -> SubmissionResult:
@@ -94,12 +93,9 @@ def _validate_output(
             'OLE', reason=f'output ({output_size:.1f} MiB) exceeds output limit ({metadata.limits.output} MiB)'
         )
 
-    validator_executable = output_validator.compile(base_dir).executable
-    if validator_executable is None:
-        return SubmissionResult('JE', reason=f'output validator {output_validator} failed to compile')
     val_stdout = execution_dir / 'val_stdout'
     val_stderr = execution_dir / 'val_stderr'
-    status, _ = validator_executable.run(
+    status, _ = output_validator.run(
         infile=submission_output,
         args=[str(effective_infile), str(testcase.ansfile), str(feedback_dir) + os.sep] + flags,
         timelim=val_timelim,
@@ -119,7 +115,7 @@ def _validate_output(
 def validate_output(
     testcase: TestCase,
     submission_output: Path,
-    output_validator: Program,
+    output_validator: Executable,
     metadata: Metadata,
     base_dir: Path,
     diag: Diagnostics,
@@ -127,4 +123,4 @@ def validate_output(
     with tempfile.TemporaryDirectory(dir=base_dir) as exec_dir:
         execution_dir = Path(exec_dir)
         (execution_dir / 'feedback').mkdir()
-        return _validate_output(testcase, submission_output, output_validator, metadata, execution_dir, base_dir, diag)
+        return _validate_output(testcase, submission_output, output_validator, metadata, execution_dir, diag)

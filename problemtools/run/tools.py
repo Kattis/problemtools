@@ -10,6 +10,8 @@ _PACKAGE_DIR = Path(__file__).parent.parent
 class Tool(Program):
     """One of problemtools' external tools. Compiling it fails if the tool was not found."""
 
+    executable: Executable | None  # The tool, or None if it was not found. Needs no compiling
+
     def __init__(self, name: str, binary: Path | None) -> None:
         """Instantiate tool object.
 
@@ -18,12 +20,12 @@ class Tool(Program):
             binary: path to the tool, or None if it was not found.
         """
         super().__init__(name=name)
-        self._binary = binary
+        self.executable = Executable(name, binary, skip_memory_rlimit=True) if binary is not None else None
 
     def _do_compile(self, work_dir: Path) -> CompileResult:
-        if self._binary is None:
+        if self.executable is None:
             return CompileResult(errmsg=f'Could not locate {self.name}')
-        return CompileResult(executable=Executable(self.name, self._binary, skip_memory_rlimit=True))
+        return CompileResult(executable=self.executable)
 
 
 def get_tool_path(name: str) -> Path | None:
