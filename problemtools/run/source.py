@@ -2,6 +2,7 @@
 Implementation of programs provided by source code.
 """
 
+import dataclasses
 import logging
 import os
 import subprocess
@@ -10,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..languages import CommandSubstitution, Language
-from .errors import ProgramError
+from .executable import Executable
 from .program import CompileResult, Program
 
 if TYPE_CHECKING:
@@ -23,6 +24,7 @@ class SourceCode(Program):
     """Class representing a program provided by source code."""
 
     files: 'ProgramFiles'  # The program's own source files, not including any include files
+    language: Language  # The programming language of the code
 
     def __init__(self, name: str, files: 'ProgramFiles', language: Language, includes: 'LanguageIncludes') -> None:
         """Instantiate SourceCode object
@@ -49,60 +51,89 @@ class SourceCode(Program):
     def code_size(self) -> int:
         return self.files.size()
 
-    def do_compile(self, work_dir: Path) -> CompileResult:
+    def _do_compile(self, work_dir: Path) -> CompileResult:
         """Set up the compile work-space (writing source and includes into work_dir) and
         compile the source code."""
         name = self.name
 
         # Set up work-space
-        run_path = work_dir / name
-        if run_path.exists():
-            run_path = Path(tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir))
+        build_dir = work_dir / name
+        if build_dir.exists():
+            build_dir = Path(tempfile.mkdtemp(prefix=f'{name}-', dir=work_dir))
         else:
-            run_path.mkdir(parents=True)
-        self._path = run_path
+            build_dir.mkdir(parents=True)
 
         all_files = self.files.merged(self._includes.files)
         try:
-            all_files.materialize(self.path)
+            all_files.materialize(build_dir)
         except OSError as e:
-            return CompileResult(False, f'Failed to write program files: {e}', self.path)
+            return CompileResult(errmsg=f'Failed to write program files: {e}')
 
-        self.src = [self.path / f for f in self.language.get_source_files([f.path for f in all_files.files])]
-        if len(self.src) == 0:
-            raise ProgramError(f'No source files found for language {self.language.lang_id} in {self.name}')
+        src = self.language.get_source_files([f.path for f in all_files.files])
+        if len(src) == 0:
+            return CompileResult(errmsg=f'No source files found for language {self.language.lang_id}')
 
         if self._includes.mainfile is not None:
-            self.mainfile = self.path / self._includes.mainfile
+            mainfile: Path = self._includes.mainfile
         else:
-            candidates = self.language.mainfile_candidates(self.src)
-            self.mainfile = candidates[0] if candidates else self.src[0]
+            candidates = self.language.mainfile_candidates(src)
+            mainfile = candidates[0] if candidates else src[0]
 
-        self.mainclass = self.mainfile.stem
-        self.Mainclass = self.mainclass[0].upper() + self.mainclass[1:]
-
-        self.binary = self.path / 'run'
+        mainclass = mainfile.stem
+        subs = CommandSubstitution(
+            path=str(build_dir),
+            files=' '.join(str(build_dir / f) for f in src),
+            binary=str(build_dir / 'run'),
+            mainfile=str(build_dir / mainfile),
+            mainclass=mainclass,
+            Mainclass=mainclass[0].upper() + mainclass[1:],
+        )
 
         not_installed = self.language.check_installed()
         if not_installed is not None:
-            return CompileResult(False, not_installed, self.path)
+            return CompileResult(errmsg=not_installed)
 
-        command = self.language.get_compile_command(self.__get_substitution())
+        executable = SourceExecutable(str(self), self.language, subs)
+        command = self.language.get_compile_command(subs)
         if command is None:
-            return CompileResult(True, None, self.path)
+            return CompileResult(executable=executable)
 
         log.debug('compile command: %s', command)
 
         try:
             subprocess.check_output(command, stderr=subprocess.STDOUT)
-            return CompileResult(True, None, self.path)
+            return CompileResult(executable=executable)
         except subprocess.CalledProcessError as err:
-            return CompileResult(False, err.output.decode('utf8', 'replace'), self.path)
+            return CompileResult(errmsg=err.output.decode('utf8', 'replace'))
+
+    def __str__(self) -> str:
+        """String representation"""
+        return f'{self.name} ({self.language.name})'
+
+
+class SourceExecutable(Executable):
+    """A compiled SourceCode program, run using its language's run command."""
+
+    def __init__(self, name: str, language: Language, subs: CommandSubstitution) -> None:
+        """Instantiate SourceExecutable object
+
+        Args:
+            name: name of the program.
+            language: language definition for the programming language of the code.
+            subs: values to substitute into the language's run command (memlim
+                is overridden when running).
+        """
+        super().__init__(
+            name,
+            Path(subs.binary),
+            build_dir=Path(subs.path),
+            skip_memory_rlimit=language.name in ['Java', 'Scala', 'Kotlin', 'Common Lisp'],
+        )
+        self._language = language
+        self._subs = subs
 
     def get_runcmd(self, cwd: Path | None = None, memlim: int = 1024) -> list[str]:
         """Run command for the program.
-
-        Must not be called until compile() has been called.
 
         Args:
             cwd: if not None, the run command is provided
@@ -110,28 +141,9 @@ class SourceCode(Program):
             memlim: memory limit in MiB (only relevant for
                 languages where memory limit is passed on command line)
         """
-        subs = self.__get_substitution(memlim)
+        subs = dataclasses.replace(self._subs, memlim=memlim)
         if cwd is not None:
             subs.path = os.path.relpath(subs.path, cwd)
             subs.binary = os.path.relpath(subs.binary, cwd)
             subs.mainfile = os.path.relpath(subs.mainfile, cwd)
-        return self.language.get_run_command(subs)
-
-    def should_skip_memory_rlimit(self) -> bool:
-        """Ugly hack (see program.py for details)."""
-        return self.language.name in ['Java', 'Scala', 'Kotlin', 'Common Lisp']
-
-    def __str__(self) -> str:
-        """String representation"""
-        return f'{self.name} ({self.language.name})'
-
-    def __get_substitution(self, memlim: int = 1024) -> CommandSubstitution:
-        return CommandSubstitution(
-            path=str(self.path),
-            files=' '.join(str(f) for f in self.src),
-            memlim=memlim,
-            mainfile=str(self.mainfile),
-            mainclass=self.mainclass,
-            Mainclass=self.Mainclass,
-            binary=str(self.binary),
-        )
+        return self._language.get_run_command(subs)

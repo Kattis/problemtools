@@ -29,7 +29,8 @@ def grade_group(
     if not sub_results:
         return ('AC', 0.0)
 
-    if not grader.compile(base_dir).success:
+    grader_executable = grader.compile(base_dir).executable
+    if grader_executable is None:
         diag.error(f'Failed to compile grader {grader}')
         return ('JE', None)
 
@@ -43,7 +44,7 @@ def grade_group(
         errfile = Path(tmpdir) / 'grader_err'
         infile.write_text(grader_input)
 
-        status, _runtime = grader.run(infile, outfile, errfile, args=grader_flags)
+        status, _runtime = grader_executable.run(infile, outfile, errfile, args=grader_flags)
 
         grader_output = outfile.read_text(errors='replace') if outfile.exists() else ''
         stderr_content = errfile.read_text(errors='replace') if errfile.exists() else ''

@@ -35,7 +35,7 @@ def get_tool(name: str) -> Executable | None:
         the tool was not found.
     """
     path = get_tool_path(name)
-    return Executable(path) if path is not None else None
+    return Executable(path.name, path, skip_memory_rlimit=True) if path is not None else None
 
 
 def __locate_executable(candidate_paths: list[Path]) -> Path | None:

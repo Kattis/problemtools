@@ -7,11 +7,11 @@ from pathlib import Path
 
 from .errors import ProgramError
 from .executable import Executable
-from .program import DEV_NULL, CompileResult
+from .program import CompileResult, Program
 from .tools import get_tool_path
 
 
-class Viva(Executable):
+class Viva(Program):
     """Wrapper class for running VIVA scripts."""
 
     _VIVA_PATH = get_tool_path('viva.sh')
@@ -24,53 +24,22 @@ class Viva(Executable):
         """
         if Viva._VIVA_PATH is None:
             raise ProgramError(f'Could not locate the VIVA program to run {path}')
-        super().__init__(Viva._VIVA_PATH, args=[str(path)], name=path.name)
-
-    def do_compile(self, work_dir: Path) -> CompileResult:
-        """Syntax-check the VIVA script"""
-        (status, _) = super().run()
-        success = os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
-        return CompileResult(success, None, self.path)
-
-    def run(
-        self,
-        infile: Path = DEV_NULL,
-        outfile: Path = DEV_NULL,
-        errfile: Path = DEV_NULL,
-        args: list[str] | None = None,
-        timelim: int = 1000,
-        memlim: int = 1024,
-        work_dir: Path | None = None,
-    ) -> tuple[int, float]:
-        """Run the VIVA script to validate an input file.
-
-        Args:
-            infile: input file to validate
-            outfile: file to save stdout of VIVA in
-            errfile: file to save stderr of VIVA in
-            args: additional command-line arguments to pass to VIVA
-            timelim: time limit for the VIVA process in seconds
-
-        Returns:
-            tuple (status, runtime):
-                status: exit status of the validator.
-                    WEXITSTATUS(status) will be 42 if and only if VIVA
-                    accepted the input file.
-                runtime: runtime of the VIVA process in seconds
-        """
-        if args is None:
-            args = []
-        # VIVA takes input as argument and not on stdin
-        if infile != DEV_NULL:
-            args = args + [str(infile)]
-
-        (status, runtime) = super().run(
-            outfile=outfile, errfile=errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir
+        super().__init__(name=path.name)
+        # VIVA takes input as argument and not on stdin, and exits with 0 on
+        # accept, so swap that with our accept exit status 42.
+        self._executable = Executable(
+            path.name,
+            Viva._VIVA_PATH,
+            args=[str(path)],
+            skip_memory_rlimit=True,
+            swap_exit_codes=True,
+            infile_as_arg=True,
         )
-        # This is ugly, switches the accept exit status and our accept
-        # exit status 42.
-        if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
-            return (42 << 8, runtime)
+
+    def _do_compile(self, work_dir: Path) -> CompileResult:
+        """Syntax-check the VIVA script"""
+        (status, _) = self._executable.run()
+        # Without an input file, VIVA only checks the script, and accepts (42 after swapping) if the syntax is fine.
         if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 42:
-            return (0, runtime)
-        return (status, runtime)
+            return CompileResult(executable=self._executable)
+        return CompileResult(errmsg='VIVA syntax check failed')

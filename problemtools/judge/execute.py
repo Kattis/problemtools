@@ -75,14 +75,15 @@ def _run_normal(
     """Run a submission once (non-interactive)"""
     outfile = execution_dir / 'submission_stdout'
     errfile = execution_dir / 'submission_stderr'
-    sub_path = sub.compile(base_dir).path
-    status, runtime = sub.run(
+    sub_executable = sub.compile(base_dir).executable
+    assert sub_executable is not None, f'{sub} must be successfully compiled before running'
+    status, runtime = sub_executable.run(
         infile=infile,
         outfile=outfile,
         errfile=errfile,
         timelim=math.ceil(timelim) + 1,
         memlim=metadata.limits.memory,
-        work_dir=sub_path,
+        work_dir=sub_executable.build_dir,
     )
     if _is_TLE(status) or runtime > timelim:
         result = SubmissionResult('TLE')
@@ -111,10 +112,12 @@ def _run_interactive(
         diag.error('Could not locate interactive runner')
         return SubmissionResult('JE', reason='Could not locate interactive runner')
 
-    if not output_validator.compile(base_dir).success:
+    validator_executable = output_validator.compile(base_dir).executable
+    if validator_executable is None:
         return SubmissionResult('JE', reason=f'output validator {output_validator} failed to compile')
 
-    sub_path = sub.compile(base_dir).path
+    sub_executable = sub.compile(base_dir).executable
+    assert sub_executable is not None, f'{sub} must be successfully compiled before running'
 
     feedback_dir = execution_dir / 'feedback'
     interactive_out = execution_dir / 'interactive_output'
@@ -123,13 +126,13 @@ def _run_interactive(
         outfile=interactive_out,
         args=(
             ['1', str(math.ceil(2 * timelim))]
-            + output_validator.get_runcmd(memlim=metadata.limits.validation_memory)
+            + validator_executable.get_runcmd(memlim=metadata.limits.validation_memory)
             + [str(infile), str(testcase.ansfile), str(feedback_dir) + os.sep]
             + testcase.output_validator_flags
             + [';']
-            + sub.get_runcmd(memlim=metadata.limits.memory)
+            + sub_executable.get_runcmd(memlim=metadata.limits.memory)
         ),
-        work_dir=sub_path,
+        work_dir=sub_executable.build_dir,
     )
 
     if _is_RTE(i_status):
@@ -224,7 +227,7 @@ def execute_testcase(
     base_dir: Path,
     diag: Diagnostics,
 ) -> SubmissionResult:
-    """Run sub on a single testcase."""
+    """Run sub on a single testcase. sub must already have been successfully compiled to base_dir."""
     with tempfile.TemporaryDirectory(dir=base_dir) as exec_dir:
         execution_dir = Path(exec_dir)
         (execution_dir / 'feedback').mkdir()

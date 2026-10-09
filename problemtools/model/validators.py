@@ -6,11 +6,12 @@ from pathlib import Path
 from ..formatversion import FormatVersion
 from ..languages import Languages
 from ..metadata import Metadata
-from ..run import BuildRun, Program, SourceCode, as_source_or_buildrun, find_programs, get_tool
+from ..run import BuildRun, Prebuilt, Program, SourceCode, as_source_or_buildrun, find_programs, get_tool
 from .paths import resolve
 
 #: The problemtools-provided validator used when a problem doesn't ship a custom output validator.
-DEFAULT_VALIDATOR = get_tool('default_validator')
+_default_validator = get_tool('default_validator')
+DEFAULT_VALIDATOR = Prebuilt(_default_validator) if _default_validator is not None else None
 
 
 @dataclass(frozen=True)

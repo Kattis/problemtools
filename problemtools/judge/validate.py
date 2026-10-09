@@ -94,11 +94,12 @@ def _validate_output(
             'OLE', reason=f'output ({output_size:.1f} MiB) exceeds output limit ({metadata.limits.output} MiB)'
         )
 
-    if not output_validator.compile(base_dir).success:
+    validator_executable = output_validator.compile(base_dir).executable
+    if validator_executable is None:
         return SubmissionResult('JE', reason=f'output validator {output_validator} failed to compile')
     val_stdout = execution_dir / 'val_stdout'
     val_stderr = execution_dir / 'val_stderr'
-    status, _ = output_validator.run(
+    status, _ = validator_executable.run(
         infile=submission_output,
         args=[str(effective_infile), str(testcase.ansfile), str(feedback_dir) + os.sep] + flags,
         timelim=val_timelim,
