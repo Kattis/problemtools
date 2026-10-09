@@ -60,8 +60,3 @@ class Program(ABC):
     @abstractmethod
     def _do_compile(self, work_dir: Path) -> CompileResult:
         """Actually compile the program. Subclasses implement this, callers use compile()."""
-
-    def code_size(self) -> int:
-        """Subclasses should override this method with the total size of the
-        source code."""
-        return 0

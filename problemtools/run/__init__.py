@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 def find_programs(
     path: Path,
     language_config: Languages,
-    includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
 ) -> list[Program]:
     """Find all programs in a directory.
@@ -37,10 +36,6 @@ def find_programs(
         language_config: language config, used for auto-detecting
             programming language of source code and providing info
             on how to compile and run the source code.
-
-        includes: include files to add to programs found, resolved
-            per-program based on its detected language (see
-            Includes.get_includes_for_language).
 
         allow_validation_script: if true, also looks for
             validation scripts in the Checktestdata and VIVA formats.
@@ -56,7 +51,6 @@ def find_programs(
         run = get_program(
             fullpath,
             language_config=language_config,
-            includes=includes,
             allow_validation_script=allow_validation_script,
         )
         if run is not None:
@@ -67,7 +61,6 @@ def find_programs(
 def get_program(
     path: Path,
     language_config: Languages,
-    includes: 'Includes | None' = None,
     allow_validation_script: bool = False,
 ) -> Program | None:
     """Get a Program object for a program
@@ -81,10 +74,6 @@ def get_program(
             programming language of source code and providing info
             on how to compile and run the source code.
 
-        includes: include files to add to the program, resolved per
-            the program's detected language (see
-            Includes.get_includes_for_language). Defaults to no includes.
-
         allow_validation_script: if true, also looks for
             validation scripts in the Checktestdata and VIVA formats.
 
@@ -94,10 +83,7 @@ def get_program(
     """
     # Imported lazily (rather than at module scope) since `model` depends on `run`
     # (e.g. for `run.find_programs`), so importing it here avoids a circular import.
-    from ..model import Includes, load_program_files
-
-    if includes is None:
-        includes = Includes()
+    from ..model import load_program_files
 
     if path.is_file():
         if allow_validation_script:
@@ -105,17 +91,55 @@ def get_program(
                 return Viva(path)
             if path.suffix == '.ctd':
                 return Checktestdata(path)
-        files = [path]
     else:
         build = path / 'build'
         if build.is_file() and os.access(build, os.X_OK):
             return BuildRun(path.name, load_program_files(path))
-        files = rutil.list_files_recursive(path)
 
+    return get_source_program(path, language_config)
+
+
+def find_source_programs(path: Path, language_config: Languages, includes: 'Includes') -> list[SourceCode]:
+    """Find all programs provided as source code in a directory.
+
+    Like find_programs, but never gives a BuildRun: a directory with a build
+    script is treated like any other source code directory.
+    """
+    if not path.is_dir():
+        return []
+    ret = []
+    for fullpath in sorted(path.iterdir()):
+        program = get_source_program(fullpath, language_config=language_config, includes=includes)
+        if program is not None:
+            ret.append(program)
+    return ret
+
+
+def get_source_program(path: Path, language_config: Languages, includes: 'Includes | None' = None) -> SourceCode | None:
+    """Get a SourceCode object for a program.
+
+    Args:
+        path, language_config: see get_program.
+
+        includes: include files to add to the program, resolved per
+            the program's detected language (see
+            Includes.get_includes_for_language). Defaults to no includes.
+
+    Returns:
+        a SourceCode instance, or None if no source code in a known
+        language was found at the given path.
+    """
+    # Imported lazily, see get_program
+    from ..model import Includes, load_program_files
+
+    if includes is None:
+        includes = Includes()
+
+    files = [path] if path.is_file() else rutil.list_files_recursive(path)
     lang = language_config.detect_language(files)
-    if lang is not None:
-        return SourceCode(path.name, load_program_files(path), lang, includes=includes.get_includes_for_language(lang.lang_id))
-    return None
+    if lang is None:
+        return None
+    return SourceCode(path.name, load_program_files(path), lang, includes=includes.get_includes_for_language(lang.lang_id))
 
 
 def as_source_or_buildrun(programs: list[Program]) -> list[SourceCode | BuildRun]:

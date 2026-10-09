@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..languages import Languages
 from ..metadata import Metadata
-from ..run import Program, find_programs
+from ..run import SourceCode, find_source_programs
 from ..submission_rules import FinalVerdictRule, PermittedRule, Rule, ScoreRule
 from .includes import Includes
 from .paths import RelativePath, relpath, resolve
@@ -20,7 +20,7 @@ class Submission:
     `path` is relative to the submissions directory, e.g. for
     submissions/accepted/hello.java, path is accepted/hello.java."""
 
-    program: Program
+    program: SourceCode
     path: RelativePath
 
     def __post_init__(self) -> None:
@@ -110,7 +110,7 @@ def load_submissions(probdir: Path, language_config: Languages, includes: Includ
     submissions = []
     for entry in sorted(subs_root.iterdir()):
         if entry.is_dir():
-            for program in find_programs(entry, language_config=language_config, includes=includes):
+            for program in find_source_programs(entry, language_config=language_config, includes=includes):
                 submissions.append(Submission(program=program, path=relpath(Path(entry.name) / program.name)))
     return Submissions(submissions=submissions)
 

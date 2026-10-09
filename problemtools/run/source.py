@@ -50,6 +50,7 @@ class SourceCode(Program):
         self._includes = includes
 
     def code_size(self) -> int:
+        """Total size of the program's own source files, not including any include files."""
         return self.files.size()
 
     def _do_compile(self, work_dir: Path) -> CompileResult:
