@@ -1,7 +1,7 @@
 """In-memory snapshot of the files making up a program (e.g. a submission or validator)."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .paths import RelativePath, relpath
@@ -24,7 +24,12 @@ class ProgramFile:
 class ProgramFiles:
     """All files of a program, sorted by path."""
 
-    files: list[ProgramFile]
+    files: list[ProgramFile] = field(default_factory=list)
+
+    def merged(self, other: 'ProgramFiles') -> 'ProgramFiles':
+        """Files from both self and other; where paths coincide, the file from other wins."""
+        by_path = {file.path: file for file in self.files} | {file.path: file for file in other.files}
+        return ProgramFiles(files=sorted(by_path.values(), key=lambda file: file.path))
 
     def materialize(self, dest: Path) -> None:
         """Write the files into dest, creating subdirectories as needed.

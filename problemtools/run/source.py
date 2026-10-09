@@ -68,10 +68,7 @@ class SourceCode(Program):
 
         # Copy all files
         rutil.add_files(self._source_path, self.path)
-        for include_file in self._includes.files:
-            dest = self.path / include_file.path
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(include_file.data)
+        self._includes.files.materialize(self.path)
 
         self.src = sorted(self.language.get_source_files(rutil.list_files_recursive(self.path)))
         if len(self.src) == 0:

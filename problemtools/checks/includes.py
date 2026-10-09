@@ -40,7 +40,7 @@ def _check_default_and_unknown_languages(
 
 def _default_include_paths(includes: Includes) -> list[Path]:
     default_includes = includes.languages.get(DEFAULT_LANGUAGE)
-    return [f.path for f in default_includes.files] if default_includes else []
+    return [f.path for f in default_includes.files.files] if default_includes else []
 
 
 def _check_default_path_collision(includes: Includes, diag: Diagnostics) -> None:
@@ -49,7 +49,7 @@ def _check_default_path_collision(includes: Includes, diag: Diagnostics) -> None
         for lang_id, lang_includes in includes.languages.items():
             if lang_id == DEFAULT_LANGUAGE:
                 continue
-            colliding = sorted(str(f.path) for f in lang_includes.files if f.path in default_paths)
+            colliding = sorted(str(f.path) for f in lang_includes.files.files if f.path in default_paths)
             if colliding:
                 names = ', '.join(colliding)
                 diag.error(f'Include files for language "{lang_id}" collide with "{DEFAULT_LANGUAGE}" include files: {names}')
@@ -64,7 +64,7 @@ def _check_ambiguous_mainfile(includes: Includes, language_config: Languages, di
         if language is None:
             continue
 
-        candidates = language.mainfile_candidates([f.path for f in lang_includes.files])
+        candidates = language.mainfile_candidates([f.path for f in lang_includes.files.files])
         if len(candidates) > 1:
             names = ', '.join(str(candidate) for candidate in candidates)
             diag.error(f'Include files for language "{lang_id}" have multiple possible mainfiles: {names}')
