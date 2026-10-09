@@ -4,11 +4,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..languages import Languages
-from ..run import BuildRun, Prebuilt, SourceCode, as_source_or_buildrun, find_programs, get_tool
+from ..run import BuildRun, SourceCode, as_source_or_buildrun, find_programs, get_tool
 from .paths import resolve
 
-_default_grader = get_tool('default_grader')
-DEFAULT_GRADER = Prebuilt(_default_grader) if _default_grader is not None else None
+DEFAULT_GRADER = get_tool('default_grader')
 
 
 @dataclass(frozen=True)

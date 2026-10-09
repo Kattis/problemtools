@@ -6,12 +6,11 @@ from pathlib import Path
 from ..formatversion import FormatVersion
 from ..languages import Languages
 from ..metadata import Metadata
-from ..run import BuildRun, Prebuilt, Program, SourceCode, as_source_or_buildrun, find_programs, get_tool
+from ..run import BuildRun, Program, SourceCode, as_source_or_buildrun, find_programs, get_tool
 from .paths import resolve
 
 #: The problemtools-provided validator used when a problem doesn't ship a custom output validator.
-_default_validator = get_tool('default_validator')
-DEFAULT_VALIDATOR = Prebuilt(_default_validator) if _default_validator is not None else None
+DEFAULT_VALIDATOR = get_tool('default_validator')
 
 
 @dataclass(frozen=True)
@@ -45,9 +44,8 @@ class OutputValidators:
             return metadata.legacy_validation == 'default'
         return not self.validators
 
-    def select(self, format_version: FormatVersion, metadata: Metadata) -> Program | None:
-        """The output validator that will actually be used, or None if the default validator
-        is required but not available on this problemtools install."""
+    def select(self, format_version: FormatVersion, metadata: Metadata) -> Program:
+        """The output validator that will actually be used."""
         if self.uses_default(format_version, metadata) or not self.validators:
             return DEFAULT_VALIDATOR
         return self.validators[0]

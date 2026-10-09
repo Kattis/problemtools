@@ -107,7 +107,7 @@ def _run_interactive(
     diag: Diagnostics,
 ) -> SubmissionResult:
     """Run a submission once (interactive)"""
-    interactive = get_tool('interactive')
+    interactive = get_tool('interactive').compile(base_dir).executable
     if interactive is None:
         diag.error('Could not locate interactive runner')
         return SubmissionResult('JE', reason='Could not locate interactive runner')

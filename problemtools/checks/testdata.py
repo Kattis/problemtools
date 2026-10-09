@@ -42,8 +42,6 @@ def check_testdata(
 ) -> None:
     """Run all checks on a problem's test data."""
     output_validator = output_validators.select(format_version, metadata)
-    if output_validator is None:
-        diag.fatal('Unable to locate default validator')
 
     all_testcases = testdata.get_all_testcases()
     included_testcases = [tc for tc in all_testcases if tc.matches_filter(context.data_filter)]
@@ -55,7 +53,7 @@ def check_testdata(
     diag.msg(msg)
 
     has_custom_grader = graders.grader is not None
-    has_default_grader = DEFAULT_GRADER is not None
+    has_default_grader = DEFAULT_GRADER.compile(work_dir).success
 
     if metadata.is_scoring():
         _warn_reject_score(testdata, diag)
