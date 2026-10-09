@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import os
 import re
+import stat
 from pathlib import Path
 
 from ..diagnostics import Diagnostics
@@ -16,6 +17,7 @@ _NAME_REGEX = re.compile(r'^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,254}$')
 def check_problem_package(probdir: Path, format_version: FormatVersion, diag: Diagnostics) -> None:
     """Run all checks on the structure of a problem package."""
     _check_symlinks(probdir, diag)
+    _check_file_types(probdir, diag)
     _check_file_and_directory_names(probdir, diag)
     _check_root_directory_names(probdir, format_version, diag)
 
@@ -38,6 +40,22 @@ def _check_symlinks(probdir: Path, diag: Diagnostics) -> None:
                     diag.error(f'Symlink {relfile} links to {reltarget} which is outside of problem package')
                 if os.path.isabs(reltarget):
                     diag.error(f'Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative.')
+
+
+def _check_file_types(probdir: Path, diag: Diagnostics) -> None:
+    """Check that the package only contains regular files, directories and symlinks
+    (symlinks are checked by _check_symlinks), and warn about empty directories."""
+    for root, dirs, files in os.walk(probdir):
+        if root == str(probdir) and '.git' in dirs:
+            dirs.remove('.git')
+        # Path of the directory we're in, starting with problem shortname. Only used for nicer error messages.
+        reldir = os.path.relpath(root, probdir.parent)
+        if not dirs and not files:
+            diag.warning(f'Empty directory {reldir}')
+        for file in files:
+            mode = os.lstat(os.path.join(root, file)).st_mode
+            if not stat.S_ISREG(mode) and not stat.S_ISLNK(mode):
+                diag.error(f"'{file}' in {reldir} is not a regular file, directory or symlink")
 
 
 def _check_file_and_directory_names(probdir: Path, diag: Diagnostics) -> None:
