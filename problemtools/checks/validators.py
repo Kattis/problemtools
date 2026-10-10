@@ -8,8 +8,9 @@ import re
 import string
 import tempfile
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import Future
+from contextlib import contextmanager
 from pathlib import Path
 from re import Match
 
@@ -78,6 +79,15 @@ _JUNK_MODIFICATIONS = [
 ]
 
 
+@contextmanager
+def _temp_file_with(data: bytes, work_dir: Path) -> Iterator[Path]:
+    """Yield the path to a temporary file in work_dir containing data, deleted on exit."""
+    with tempfile.NamedTemporaryFile(dir=work_dir) as f:
+        f.write(data)
+        f.flush()
+        yield Path(f.name)
+
+
 def _error_in_2023_07(format_version: FormatVersion, diag: Diagnostics, msg: str, additional_info: str | None = None) -> None:
     if format_version is FormatVersion.LEGACY:
         diag.warning(msg, additional_info)
@@ -114,20 +124,16 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
 
     collect_flags(testdata, all_flags)
 
-    fd, tmp_name = tempfile.mkstemp()
-    os.close(fd)
-    file_name = Path(tmp_name)
     for desc, case in _JUNK_CASES:
-        with open(file_name, 'wb') as f:
-            f.write(case)
-        for flags_str in all_flags:
-            flags = flags_str.split()
-            for val in validators.validators:
-                status, _ = val.run(file_name, args=flags, work_dir=work_dir)
-                if os.WEXITSTATUS(status) != 42:
-                    break
-            else:
-                diag.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
+        with _temp_file_with(case, work_dir) as junk_file:
+            for flags_str in all_flags:
+                flags = flags_str.split()
+                for val in validators.validators:
+                    status, _ = val.run(junk_file, args=flags, work_dir=work_dir)
+                    if os.WEXITSTATUS(status) != 42:
+                        break
+                else:
+                    diag.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
 
     def modified_input_validates(applicable: Callable[[str], bool], modifier: Callable[[str], str]) -> bool:
         for testcase in testdata.get_all_testcases():
@@ -139,16 +145,14 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
             except UnicodeDecodeError:
                 continue
 
-            with open(file_name, 'wb') as f:
-                f.write(modifier(infile_data).encode('utf8'))
-
-            for flags_str in all_flags:
-                flags = flags_str.split()
-                for val in validators.validators:
-                    status, _ = val.run(file_name, args=flags, work_dir=work_dir)
-                    if os.WEXITSTATUS(status) != 42:
-                        # expected behavior; validator rejects modified input
-                        return False
+            with _temp_file_with(modifier(infile_data).encode('utf8'), work_dir) as modified_file:
+                for flags_str in all_flags:
+                    flags = flags_str.split()
+                    for val in validators.validators:
+                        status, _ = val.run(modified_file, args=flags, work_dir=work_dir)
+                        if os.WEXITSTATUS(status) != 42:
+                            # expected behavior; validator rejects modified input
+                            return False
 
             # we found a file we could modify, and all validators
             # accepted the modifications
@@ -160,8 +164,6 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
     for desc, applicable, modifier in _JUNK_MODIFICATIONS:
         if modified_input_validates(applicable, modifier):
             diag.warning(f'No validator rejects {desc}')
-
-    os.unlink(file_name)
 
 
 def _compute_testcase_input_errors(
@@ -189,7 +191,7 @@ def _run_input_validators(validators: InputValidators, testcase: TestCase, work_
         if not val.compile(work_dir).success:
             continue
 
-        with tempfile.NamedTemporaryFile() as outfile, tempfile.NamedTemporaryFile() as errfile:
+        with tempfile.NamedTemporaryFile(dir=work_dir) as outfile, tempfile.NamedTemporaryFile(dir=work_dir) as errfile:
             status, _ = val.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
             if not os.WIFEXITED(status):
                 emsg = f'Input format validator {val} crashed on input {testcase.infile}'
@@ -302,13 +304,11 @@ def check_output_validators(
 
     def run_junk_case(case_desc: str, junk_content: bytes, testcases: list[TestCase]) -> list[SubmissionResult]:
         results = []
-        with tempfile.NamedTemporaryFile(mode='wb') as f:
-            f.write(junk_content)
-            f.flush()
+        with _temp_file_with(junk_content, work_dir) as junk_file:
             for testcase in testcases:
                 result = validate_output(
                     testcase=testcase,
-                    submission_output=Path(f.name),
+                    submission_output=junk_file,
                     output_validator=selected,
                     metadata=metadata,
                     base_dir=work_dir,
