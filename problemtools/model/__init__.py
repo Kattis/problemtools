@@ -5,8 +5,9 @@ Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
 from .attachments import Attachments, load_attachments
 from .graders import DEFAULT_GRADER, Graders, load_graders
-from .includes import DEFAULT_LANGUAGE, IncludeFile, Includes, LanguageIncludes, load_includes
+from .includes import DEFAULT_LANGUAGE, Includes, LanguageIncludes, load_includes
 from .problem import Problem, load_problem
+from .program_files import ProgramFile, ProgramFiles, load_program_files
 from .statements import Statements, load_statements
 from .submissions import LegacyPolicy, Submission, Submissions, load_submissions
 from .testdata import DEFAULT_CONFIG, SCORING_ONLY_KEYS, TestCase, TestDataGroup, load_testdata
@@ -20,13 +21,14 @@ __all__ = [
     'SCORING_ONLY_KEYS',
     'Attachments',
     'Graders',
-    'IncludeFile',
     'Includes',
     'InputValidators',
     'LanguageIncludes',
     'LegacyPolicy',
     'OutputValidators',
     'Problem',
+    'ProgramFile',
+    'ProgramFiles',
     'Statements',
     'Submission',
     'Submissions',
@@ -39,6 +41,7 @@ __all__ = [
     'load_input_validators',
     'load_output_validators',
     'load_problem',
+    'load_program_files',
     'load_statements',
     'load_submissions',
     'load_testdata',

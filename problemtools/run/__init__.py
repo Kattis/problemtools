@@ -91,11 +91,11 @@ def get_program(
         a Program instance, or None if no program was found at
         the given path.
     """
-    if includes is None:
-        # Imported lazily (rather than at module scope) since `model` depends on `run`
-        # (e.g. for `run.find_programs`), so importing it here avoids a circular import.
-        from ..model import Includes
+    # Imported lazily (rather than at module scope) since `model` depends on `run`
+    # (e.g. for `run.find_programs`), so importing it here avoids a circular import.
+    from ..model import Includes, load_program_files
 
+    if includes is None:
         includes = Includes()
 
     if path.is_file():
@@ -108,12 +108,12 @@ def get_program(
     else:
         build = path / 'build'
         if build.is_file() and os.access(build, os.X_OK):
-            return BuildRun(path)
+            return BuildRun(path.name, load_program_files(path))
         files = rutil.list_files_recursive(path)
 
     lang = language_config.detect_language(files)
     if lang is not None:
-        return SourceCode(path, lang, includes=includes.get_includes_for_language(lang.lang_id))
+        return SourceCode(path.name, load_program_files(path), lang, includes=includes.get_includes_for_language(lang.lang_id))
     return None
 
 
