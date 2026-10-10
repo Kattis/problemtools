@@ -10,7 +10,7 @@ from pathlib import Path
 from ..context import Context
 from ..diagnostics import Diagnostics, pluralize
 from ..judge import SubmissionJudge, SubmissionResult, SubmissionsJudge
-from ..metadata import Metadata
+from ..metadata import FormatVersion, Metadata
 from ..model import Graders, LegacyPolicy, Submission, Submissions, TestDataGroup
 from ..run import Program
 from ..submission_rules import FinalVerdictRule, Rule
@@ -196,12 +196,9 @@ def _check_submission(
     timelim_high: float,
     diag: Diagnostics,
 ) -> list[SubmissionResult]:
-    partial = sub.directory == 'partially_accepted'
-
     results_high = judge.judge(timelim_high)
     if not results_high:
         diag.fatal('_check_submission called, but found no test cases to run on.')
-    result_high = results_high[-1]
 
     results = judge.judge(timelim)
     result = results[-1]
@@ -212,18 +209,16 @@ def _check_submission(
             if r.score is not None and isinstance(r.test_node, TestDataGroup):
                 _check_score_in_bounds(r.test_node, sub.program, r.score, probdir, seen_oob_score_groups, diag)
 
-    # Warn if a PAC submission would affect time limit, had it been use to compute the time limit. Only do this
-    # if it gets AC on the computed time limit, otherwise we have other warnings below.
-    if partial and result.verdict == 'AC':
-        _warn_pac_too_slow(judge, results, timelim, sub, metadata, diag)
-
-    if result.verdict != result_high.verdict or result.score != result_high.score:
-        diag.warning(
-            f'{sub} sensitive to time limit: limit of {timelim} secs -> {result}, limit of {timelim_high} secs -> {result_high}'
-        )
+    time_limit_sensitivity = _time_limit_sensitivity(judge, results_high, timelim, timelim_high, sub, metadata)
 
     # Use a list rather than any() on a generator, so that every rule gets checked
     reported_errors = [rule.check(sub, results, diag) for rule in rules]
+    if time_limit_sensitivity is not None:
+        if any(reported_errors):
+            # Already reported as an error, but knowing how the result depends on the time limit may help fix it
+            diag.msg(f'   {time_limit_sensitivity}')
+        else:
+            diag.warning(time_limit_sensitivity)
     if not any(reported_errors):
         diag.msg(f'   {sub} OK: {result}')
 
@@ -250,22 +245,54 @@ def _check_score_in_bounds(
     )
 
 
-def _warn_pac_too_slow(
+def _same_result(a: SubmissionResult, b: SubmissionResult) -> bool:
+    return a.verdict == b.verdict and a.score == b.score
+
+
+def _time_limit_sensitivity(
     judge: SubmissionJudge,
-    results: list[SubmissionResult],
+    results_high: list[SubmissionResult],
     timelim: float,
+    timelim_high: float,
     sub: Submission,
     metadata: Metadata,
-    diag: Diagnostics,
-) -> None:
-    """Warn if a PAC submission is slow enough that it would have affected the time limit."""
-    runtime_without_affecting_tl = timelim / metadata.limits.time_multipliers.ac_to_time_limit
-    if judge.judge(runtime_without_affecting_tl)[-1].verdict == 'AC':
-        return
-    for t in sorted(r.runtime for r in results if r.runtime > runtime_without_affecting_tl):
-        if judge.judge(t)[-1].verdict == 'AC':
-            diag.warning(f'{sub} is slower than all AC submissions. It needs {t:.2f}s to get AC')
-            return
+) -> str | None:
+    """Describe how sub's result changes for time limits between lo and timelim_high, listing each runtime where
+    it changes, or None if it doesn't change. lo is the largest runtime that wouldn't have affected the time limit,
+    had the submission been used to compute it."""
+    multipliers = metadata.limits.time_multipliers
+    lo = timelim / multipliers.ac_to_time_limit
+    steps = [(lo, judge.judge(lo)[-1])]
+    # Only try the largest runtime per printed value, so we don't list several changes at the same printed time
+    runtimes: dict[str, float] = {}
+    for r in results_high:
+        if lo < r.runtime <= timelim_high:
+            runtimes[f'{r.runtime:.2f}'] = max(r.runtime, runtimes.get(f'{r.runtime:.2f}', 0))
+    for t in sorted(runtimes.values()):
+        result = judge.judge(t)[-1]
+        if not _same_result(result, steps[-1][1]):
+            steps.append((t, result))
+
+    def fmt(result: SubmissionResult) -> str:
+        return result.format(fields=['score'])
+
+    if len(steps) == 1:
+        return None
+    if len(steps) == 2:
+        t, result = steps[1]
+        if t > timelim:
+            return f'{sub} would get {fmt(result)} with time limit >= {t:.2f}s'
+        factor_name = 'time_multiplier' if metadata.problem_format_version == FormatVersion.LEGACY else 'ac_to_time_limit'
+        return (
+            f'{sub} is within {factor_name} ({_fmt_number(multipliers.ac_to_time_limit)}) of time limit '
+            f'{_fmt_number(timelim)}s. It takes {t:.2f}s to get {fmt(result)}.'
+        )
+    parts = []
+    for i, (t, result) in enumerate(steps):
+        if i > 0 and steps[i - 1][0] <= timelim < t:
+            parts.append(f'[time limit {_fmt_number(timelim)}s]')
+        parts.append(f'{t:.2f}s -> {fmt(result)}')
+    return f'{sub} is sensitive to time limit. {", ".join(parts)}'
 
 
 def _get_table_groups(testdata: TestDataGroup) -> list[TestDataGroup]:
