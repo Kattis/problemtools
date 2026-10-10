@@ -4,6 +4,7 @@ from typing import Literal
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
 from .attachments import Attachments, load_attachments
+from .files import BadEntry, BadReason, EntryKind, Files, load_files
 from .graders import DEFAULT_GRADER, Graders, load_graders
 from .includes import DEFAULT_LANGUAGE, Includes, LanguageIncludes, load_includes
 from .problem import Problem, load_problem
@@ -20,6 +21,10 @@ __all__ = [
     'DEFAULT_VALIDATOR',
     'SCORING_ONLY_KEYS',
     'Attachments',
+    'BadEntry',
+    'BadReason',
+    'EntryKind',
+    'Files',
     'Graders',
     'Includes',
     'InputValidators',
@@ -36,6 +41,7 @@ __all__ = [
     'TestDataGroup',
     'Verdict',
     'load_attachments',
+    'load_files',
     'load_graders',
     'load_includes',
     'load_input_validators',
