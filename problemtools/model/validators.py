@@ -44,9 +44,8 @@ class OutputValidators:
             return metadata.legacy_validation == 'default'
         return not self.validators
 
-    def select(self, format_version: FormatVersion, metadata: Metadata) -> Program | None:
-        """The output validator that will actually be used, or None if the default validator
-        is required but not available on this problemtools install."""
+    def select(self, format_version: FormatVersion, metadata: Metadata) -> Program:
+        """The output validator that will actually be used."""
         if self.uses_default(format_version, metadata) or not self.validators:
             return DEFAULT_VALIDATOR
         return self.validators[0]

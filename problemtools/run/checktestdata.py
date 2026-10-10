@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 
 from .executable import Executable
-from .program import DEV_NULL, CompileResult
+from .program import CompileResult, Program
 
 
-class Checktestdata(Executable):
+class Checktestdata(Program):
     """Wrapper class for running Checktestdata scripts."""
 
     def __init__(self, path: Path) -> None:
@@ -19,47 +19,20 @@ class Checktestdata(Executable):
         Args:
             path: path to .ctd source file
         """
-        super().__init__(Path(sys.executable), args=['-m', 'checktestdata', str(path)], name=path.name)
-
-    def do_compile(self, work_dir: Path) -> CompileResult:
-        """Syntax-check the Checktestdata script"""
-        (status, _) = super().run()
-        success = os.WIFEXITED(status) and os.WEXITSTATUS(status) in [0, 1]
-        return CompileResult(success, None, self.path)
-
-    def run(
-        self,
-        infile: Path = DEV_NULL,
-        outfile: Path = DEV_NULL,
-        errfile: Path = DEV_NULL,
-        args: list[str] | None = None,
-        timelim: int = 1000,
-        memlim: int = 1024,
-        work_dir: Path | None = None,
-    ) -> tuple[int, float]:
-        """Run the Checktestdata script to validate an input file.
-
-        Args:
-            infile: input file to validate
-            outfile: file to save stdout of Checktestdata in
-            errfile: file to save stderr of Checktestdata in
-            args: additional command-line arguments to pass to Checktestdata
-            timelim: time limit for the Checktestdata process in seconds
-
-        Returns:
-            tuple (status, runtime):
-                status: exit status of the validator.
-                    WEXITSTATUS(status) will be 42 if and only if
-                    Checktestdata accepted the input file.
-                runtime: runtime of the Checktestdata process in seconds
-        """
-        (status, runtime) = super().run(
-            infile=infile, outfile=outfile, errfile=errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir
+        super().__init__(name=path.name)
+        # Checktestdata exits with 0 on accept, so swap that with our accept exit status 42.
+        self._executable = Executable(
+            path.name,
+            Path(sys.executable),
+            args=['-m', 'checktestdata', str(path)],
+            skip_memory_rlimit=True,
+            swap_exit_codes=True,
         )
-        # This is ugly, switches the accept exit status and our accept
-        # exit status 42.
-        if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
-            return (42 << 8, runtime)
-        if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 42:
-            return (0, runtime)
-        return (status, runtime)
+
+    def _do_compile(self, work_dir: Path) -> CompileResult:
+        """Syntax-check the Checktestdata script"""
+        (status, _) = self._executable.run()
+        # Checktestdata accepting (42 after swapping) or rejecting (1) the empty input both mean the syntax is fine.
+        if os.WIFEXITED(status) and os.WEXITSTATUS(status) in [42, 1]:
+            return CompileResult(executable=self._executable)
+        return CompileResult(errmsg='Checktestdata syntax check failed')

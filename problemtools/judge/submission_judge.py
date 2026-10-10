@@ -10,7 +10,7 @@ from ..context import Context
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
 from ..model import DEFAULT_GRADER, Graders, Submission, TestCase, TestDataGroup
-from ..run import CompileResult, Program
+from ..run import CompileResult, Executable, Program
 from .cache import ResultStore
 from .execute import execute_testcase
 from .grade import grade_group
@@ -55,8 +55,8 @@ class SubmissionJudge:
 
     def __init__(
         self,
-        sub: Program,
-        output_validator: Program,
+        sub: Executable,
+        output_validator: Executable,
         metadata: Metadata,
         root: TestDataGroup,
         base_dir: Path,
@@ -234,7 +234,7 @@ class SubmissionsJudge:
     def __init__(
         self,
         root: TestDataGroup,
-        output_validator: Program,
+        output_validator: Executable,
         metadata: Metadata,
         base_dir: Path,
         context: Context,
@@ -262,10 +262,10 @@ class SubmissionsJudge:
         for sub in submissions:
             result = sub.program.compile(self._base_dir)
             outcomes[sub] = result
-            if result.success:
+            if result.executable is not None:
                 assert sub not in self._judges, f'precompute() called more than once for submission {sub}'
                 judge = SubmissionJudge(
-                    sub=sub.program,
+                    sub=result.executable,
                     output_validator=self._output_validator,
                     metadata=self._metadata,
                     root=self._root,
@@ -291,7 +291,7 @@ class SubmissionsJudgeFactory(Protocol):
     def __call__(
         self,
         root: TestDataGroup,
-        output_validator: Program,
+        output_validator: Executable,
         metadata: Metadata,
         base_dir: Path,
         context: Context,
