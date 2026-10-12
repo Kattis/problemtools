@@ -56,7 +56,7 @@ def _check_bad_entries(files: Files, diag: Diagnostics) -> None:
 
 def _check_empty_directories(files: Files, diag: Diagnostics) -> None:
     for directory in files.walk(files.root, EntryKind.DIR):
-        if not files.children(directory):
+        if not files.listdir(directory):
             diag.warning(f'Empty directory {_display_path(files, directory)}')
 
 
@@ -87,7 +87,7 @@ def _check_root_directory_names(files: Files, format_version: FormatVersion, dia
     format versions, and likely typos."""
     known = format_version.root_directories
     other_known = {directory for version in FormatVersion for directory in version.root_directories} - known
-    existing_dirs = {path.name for path in files.children(files.root, EntryKind.DIR)}
+    existing_dirs = {path.name for path in files.listdir(files.root, EntryKind.DIR)}
     typo_candidates = known - existing_dirs
 
     for name in sorted(existing_dirs - known):

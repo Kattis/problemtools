@@ -64,7 +64,7 @@ class Files:
     def is_dir(self, path: Path) -> bool:
         return abspath(path) in self._children
 
-    def children(self, dir: Path, kind: EntryKind | None = None) -> list[AbsolutePath]:
+    def listdir(self, dir: Path, kind: EntryKind | None = None) -> list[AbsolutePath]:
         """Sorted entries directly in dir, optionally only those of the given kind.
 
         Empty if dir is not a directory in the package.

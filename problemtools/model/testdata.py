@@ -135,7 +135,7 @@ def _load_group(
         merged_config.setdefault(key, default)
 
     items: list[TestCase | TestDataGroup] = []
-    for entry in files.children(datadir):
+    for entry in files.listdir(datadir):
         if files.is_dir(entry):
             items.append(_load_group(files, entry, merged_config, metadata, is_root=False))
         elif entry.suffix == '.ans' and files.is_file(entry.with_suffix('.in')):

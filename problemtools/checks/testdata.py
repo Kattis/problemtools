@@ -291,7 +291,7 @@ def _check_group(
                     f'Identical input files: {", ".join(str(path) for path in identical)}. If this is intentional, use symlinks.'
                 )
 
-    for path in files.children(group.datadir, EntryKind.FILE):
+    for path in files.listdir(group.datadir, EntryKind.FILE):
         if path.suffix == '.in' and not files.is_file(path.with_suffix('.ans')):
             diag.error(f"No matching answer file for input '{path.relative_to(files.root)}'")
         elif path.suffix == '.ans' and not files.is_file(path.with_suffix('.in')):
@@ -304,7 +304,7 @@ def _check_group(
         else:
             if not (
                 (metadata.is_interactive() or metadata.is_multi_pass())
-                and any(path.suffix == '.interaction' for path in files.children(group.datadir, EntryKind.FILE))
+                and any(path.suffix == '.interaction' for path in files.listdir(group.datadir, EntryKind.FILE))
             ):
                 diag.warning(f'Sample testcase group {group_dir} exists, but does not contain any testcases')
 

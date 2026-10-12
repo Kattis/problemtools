@@ -74,7 +74,7 @@ def load_problem(probdir: Path, diag: Diagnostics) -> Problem:
             input_validators=load_input_validators(probdir, language_config),
             output_validators=load_output_validators(probdir, format_version, language_config),
             graders=load_graders(probdir, language_config),
-            testdata=load_testdata(probdir, problem_metadata),
+            testdata=load_testdata(files, problem_metadata),
             includes=includes,
             # Submissions need includes, so includes must be loaded first.
             submissions=load_submissions(probdir, language_config, includes),
