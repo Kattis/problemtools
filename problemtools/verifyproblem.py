@@ -205,7 +205,7 @@ class ProblemVerifier:
                     problem.testdata,
                     context,
                     problem.metadata,
-                    problem.probdir,
+                    problem.files,
                     problem.graders,
                     problem.input_validators,
                     problem.output_validators,

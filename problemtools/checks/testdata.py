@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import collections
-import glob
 import hashlib
-import os
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -18,6 +16,8 @@ from ..model import (
     DEFAULT_CONFIG,
     DEFAULT_GRADER,
     SCORING_ONLY_KEYS,
+    EntryKind,
+    Files,
     Graders,
     InputValidators,
     OutputValidators,
@@ -32,7 +32,7 @@ def check_testdata(
     testdata: TestDataGroup,
     context: Context,
     metadata: Metadata,
-    probdir: Path,
+    files: Files,
     graders: Graders,
     input_validators: InputValidators,
     output_validators: OutputValidators,
@@ -72,7 +72,7 @@ def check_testdata(
         testdata,
         context,
         metadata,
-        probdir,
+        files,
         has_custom_grader,
         has_default_grader,
         input_validation,
@@ -221,7 +221,7 @@ def _check_group(
     group: TestDataGroup,
     context: Context,
     metadata: Metadata,
-    probdir: Path,
+    files: Files,
     has_custom_grader: bool,
     has_default_grader: bool,
     input_validation: InputValidationCache,
@@ -278,48 +278,39 @@ def _check_group(
         if not seen_sample:
             diag.warning('No sample data provided')
 
-        hashes = collections.defaultdict(list)
-        for root, _dirs, files in os.walk(group.datadir):
-            for filename in files:
-                filepath = os.path.join(root, filename)
-                if filepath.endswith('.in') and not os.path.islink(filepath):
-                    md5 = hashlib.md5(usedforsecurity=False)
-                    with open(filepath, 'rb') as f:
-                        for buf in iter(lambda: f.read(1024), b''):
-                            md5.update(buf)
-                    filehash = md5.digest()
-                    hashes[filehash].append(os.path.relpath(filepath, probdir))
-        for files in hashes.values():
-            if len(files) > 1:
-                diag.warning(f"Identical input files: '{files!s}'")
+        hashes: dict[bytes, list[Path]] = collections.defaultdict(list)
+        for testcase in group.get_all_testcases():
+            if testcase.infile.is_symlink():
+                continue
+            with open(testcase.infile, 'rb') as f:
+                digest = hashlib.file_digest(f, lambda: hashlib.sha256(usedforsecurity=False)).digest()
+            hashes[digest].append(testcase.infile.relative_to(files.root))
+        for identical in hashes.values():
+            if len(identical) > 1:
+                diag.warning(
+                    f'Identical input files: {", ".join(str(path) for path in identical)}. If this is intentional, use symlinks.'
+                )
 
-    infiles = glob.glob(os.path.join(str(group.datadir), '*.in'))
-    ansfiles = glob.glob(os.path.join(str(group.datadir), '*.ans'))
-
-    for infile in infiles:
-        if os.path.isdir(infile):
-            continue
-        if f'{infile[:-3]}.ans' not in ansfiles:
-            diag.error(f"No matching answer file for input '{infile}'")
-    for ansfile in ansfiles:
-        if os.path.isdir(ansfile):
-            continue
-        if f'{ansfile[:-4]}.in' not in infiles:
-            diag.error(f"No matching input file for answer '{ansfile}'")
+    for path in files.children(group.datadir, EntryKind.FILE):
+        if path.suffix == '.in' and not files.is_file(path.with_suffix('.ans')):
+            diag.error(f"No matching answer file for input '{path.relative_to(files.root)}'")
+        elif path.suffix == '.ans' and not files.is_file(path.with_suffix('.in')):
+            diag.error(f"No matching input file for answer '{path.relative_to(files.root)}'")
 
     if not group.get_subgroups() and not group.get_testcases():
+        group_dir = group.datadir.relative_to(files.root)
         if group.datadir.name != 'sample':
-            diag.error(f'Testcase group {group.datadir} exists, but does not contain any testcases')
+            diag.error(f'Testcase group {group_dir} exists, but does not contain any testcases')
         else:
             if not (
                 (metadata.is_interactive() or metadata.is_multi_pass())
-                and glob.glob(os.path.join(str(group.datadir), '*.interaction'))
+                and any(path.suffix == '.interaction' for path in files.children(group.datadir, EntryKind.FILE))
             ):
-                diag.warning(f'Sample testcase group {group.datadir} exists, but does not contain any testcases')
+                diag.warning(f'Sample testcase group {group_dir} exists, but does not contain any testcases')
 
     last_testgroup_name = ''
     for subgroup in group.get_subgroups():
-        name = os.path.relpath(subgroup.datadir, probdir)
+        name = str(subgroup.datadir.relative_to(files.root))
         if _natural_sort_le(name, last_testgroup_name):
             diag.warning(f"Test data group '{last_testgroup_name}' will be ordered before '{name}'; consider zero-padding")
         last_testgroup_name = name
@@ -332,7 +323,7 @@ def _check_group(
                 child,
                 context,
                 metadata,
-                probdir,
+                files,
                 has_custom_grader,
                 has_default_grader,
                 input_validation,
