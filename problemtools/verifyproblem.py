@@ -170,7 +170,7 @@ class ProblemVerifier:
                 'statement',
                 'statement',
                 lambda diag: checks.check_statements(
-                    problem.statements, problem.metadata, problem.format_version, problem.probdir, work_dir, diag
+                    problem.statements, problem.metadata, problem.format_version, problem.files, work_dir, diag
                 ),
             ),
             _CheckStep('statement', 'attachments', lambda diag: checks.check_attachments(problem.attachments, diag)),
