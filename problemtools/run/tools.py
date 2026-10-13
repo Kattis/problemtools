@@ -2,8 +2,30 @@ import os
 from pathlib import Path
 
 from .executable import Executable
+from .program import CompileResult, Program
 
 _PACKAGE_DIR = Path(__file__).parent.parent
+
+
+class Tool(Program):
+    """One of problemtools' external tools. Compiling it fails if the tool was not found."""
+
+    executable: Executable | None  # The tool, or None if it was not found. Needs no compiling
+
+    def __init__(self, name: str, binary: Path | None) -> None:
+        """Instantiate tool object.
+
+        Args:
+            name: name of the tool.
+            binary: path to the tool, or None if it was not found.
+        """
+        super().__init__(name=name)
+        self.executable = Executable(name, binary, skip_memory_rlimit=True) if binary is not None else None
+
+    def _do_compile(self, work_dir: Path) -> CompileResult:
+        if self.executable is None:
+            return CompileResult(errmsg=f'Could not locate {self.name}')
+        return CompileResult(executable=self.executable)
 
 
 def get_tool_path(name: str) -> Path | None:
@@ -11,7 +33,7 @@ def get_tool_path(name: str) -> Path | None:
 
     Args:
         name: which tool is wanted (one of [default_grader,
-            default_validator, interactive, checktestdata, viva.sh])
+            default_validator, interactive, viva.sh])
 
     Returns:
         path to the tool, or None if the tool was not found.
@@ -24,18 +46,13 @@ def get_tool_path(name: str) -> Path | None:
     )
 
 
-def get_tool(name: str) -> Executable | None:
-    """Get an Executable instance for one of problemtools' external tools.
+def get_tool(name: str) -> Tool:
+    """Get a Tool instance for one of problemtools' external tools.
 
     Args:
         name: same as for get_tool_path
-
-    Returns:
-        problemtools.run.Executable object for the tool, or None if
-        the tool was not found.
     """
-    path = get_tool_path(name)
-    return Executable(path) if path is not None else None
+    return Tool(name, get_tool_path(name))
 
 
 def __locate_executable(candidate_paths: list[Path]) -> Path | None:

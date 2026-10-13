@@ -20,7 +20,7 @@ from ..formatversion import FormatVersion
 from ..judge import SubmissionResult, validate_output
 from ..metadata import Metadata
 from ..model import InputValidators, OutputValidators, TestCase, TestDataGroup
-from ..run import ProgramError, SourceCode
+from ..run import Executable, SourceCode
 
 # Junk data. The validator should reject these cases
 _JUNK_CASES: list[tuple[str, bytes]] = [
@@ -102,13 +102,13 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
     if len(validators.validators) == 0:
         diag.error('No input format validators found')
 
+    executables: list[Executable] = []
     for val in validators.validators:
-        try:
-            result = val.compile(work_dir)
-            if not result.success:
-                diag.error(f'Compile error for {val}', result.errmsg)
-        except ProgramError as e:
-            diag.error(str(e))
+        result = val.compile(work_dir)
+        if result.executable is None:
+            diag.error(f'Compile error for {val}', result.errmsg)
+        else:
+            executables.append(result.executable)
 
     # Only sanity check input validators if they all actually compiled
     if diag.errors != errors_before:
@@ -128,8 +128,8 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
         with _temp_file_with(case, work_dir) as junk_file:
             for flags_str in all_flags:
                 flags = flags_str.split()
-                for val in validators.validators:
-                    status, _ = val.run(junk_file, args=flags, work_dir=work_dir)
+                for executable in executables:
+                    status, _ = executable.run(junk_file, args=flags, work_dir=work_dir)
                     if os.WEXITSTATUS(status) != 42:
                         break
                 else:
@@ -148,8 +148,8 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
             with _temp_file_with(modifier(infile_data).encode('utf8'), work_dir) as modified_file:
                 for flags_str in all_flags:
                     flags = flags_str.split()
-                    for val in validators.validators:
-                        status, _ = val.run(modified_file, args=flags, work_dir=work_dir)
+                    for executable in executables:
+                        status, _ = executable.run(modified_file, args=flags, work_dir=work_dir)
                         if os.WEXITSTATUS(status) != 42:
                             # expected behavior; validator rejects modified input
                             return False
@@ -188,11 +188,12 @@ def _run_input_validators(validators: InputValidators, testcase: TestCase, work_
 
     for val in validators.validators:
         # A validator that failed to compile was already reported by check_input_validators; skip it.
-        if not val.compile(work_dir).success:
+        executable = val.compile(work_dir).executable
+        if executable is None:
             continue
 
         with tempfile.NamedTemporaryFile(dir=work_dir) as outfile, tempfile.NamedTemporaryFile(dir=work_dir) as errfile:
-            status, _ = val.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
+            status, _ = executable.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
             if not os.WIFEXITED(status):
                 emsg = f'Input format validator {val} crashed on input {testcase.infile}'
             elif os.WEXITSTATUS(status) != 42:
@@ -273,8 +274,6 @@ def check_output_validators(
             format_version, diag, f'Support for multiple output validators has been dropped. will only use {selected}'
         )
 
-    if selected is None:
-        diag.fatal('Unable to locate default validator')
     diag.msg('Checking output validator')
 
     safe_output_validator_languages = {'c', 'cpp', 'python3'}
@@ -291,12 +290,10 @@ def check_output_validators(
     elif not validators.uses_default(format_version, metadata) and not validators.validators:
         diag.fatal('problem.yaml specifies custom validator but no validator programs found')
 
-    try:
-        result = selected.compile(work_dir)
-        if not result.success:
-            diag.fatal(f'Compile error for output validator {selected}', result.errmsg)
-    except ProgramError as e:
-        diag.fatal(f'Compile error for output validator {selected}', str(e))
+    compile_result = selected.compile(work_dir)
+    executable = compile_result.executable
+    if executable is None:
+        diag.fatal(f'Compile error for output validator {selected}', compile_result.errmsg)
 
     # Only sanity check output validators if they all actually compiled
     if diag.errors != errors_before:
@@ -309,7 +306,7 @@ def check_output_validators(
                 result = validate_output(
                     testcase=testcase,
                     submission_output=junk_file,
-                    output_validator=selected,
+                    output_validator=executable,
                     metadata=metadata,
                     base_dir=work_dir,
                     diag=diag,

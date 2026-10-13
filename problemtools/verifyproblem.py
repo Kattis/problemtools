@@ -88,10 +88,7 @@ class ProblemVerifier:
 
         @functools.cache
         def get_output_validator() -> run.Program:
-            validator = problem.output_validators.select(problem.format_version, problem.metadata)
-            if validator is None:
-                diag.fatal('Unable to locate default validator')
-            return validator
+            return problem.output_validators.select(problem.format_version, problem.metadata)
 
         try:
             if not re.match('^[a-z0-9]+$', problem.shortname):
