@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ..languages import Language, Languages
-from .paths import RelativePath, relpath, resolve
+from .files import EntryKind, Files
+from .paths import RelativePath, relpath
 from .program_files import ProgramFiles, load_program_files
 
 #: Pseudo-language whose include files are added for every language.
@@ -41,27 +42,22 @@ class Includes:
         return LanguageIncludes(mainfile=lang_includes.mainfile, files=default_includes.files.merged(lang_includes.files))
 
 
-def load_includes(probdir: Path, language_config: Languages) -> Includes:
-    include_dir = resolve(probdir) / 'include'
+def load_includes(files: Files, language_config: Languages) -> Includes:
     includes = Includes()
-    if not include_dir.is_dir():
-        return includes
-
-    for lang_dir in sorted(include_dir.iterdir()):
-        if lang_dir.is_dir():
-            language = language_config.get(lang_dir.name)
-            includes.languages[lang_dir.name] = _load_language_includes(lang_dir, language)
+    for lang_dir in files.listdir(files.root / 'include', EntryKind.DIR):
+        language = language_config.get(lang_dir.name)
+        includes.languages[lang_dir.name] = _load_language_includes(files, lang_dir, language)
     return includes
 
 
-def _load_language_includes(lang_dir: Path, language: Language | None) -> LanguageIncludes:
-    files = load_program_files(lang_dir)
+def _load_language_includes(files: Files, lang_dir: Path, language: Language | None) -> LanguageIncludes:
+    program_files = load_program_files(files, lang_dir)
 
     mainfile: RelativePath | None = None
     if language is not None:
-        source_files = language.get_source_files([f.path for f in files.files])
+        source_files = language.get_source_files([f.path for f in program_files.files])
         candidates = language.mainfile_candidates(source_files)
         if candidates:
             mainfile = relpath(candidates[0])
 
-    return LanguageIncludes(mainfile=mainfile, files=files)
+    return LanguageIncludes(mainfile=mainfile, files=program_files)

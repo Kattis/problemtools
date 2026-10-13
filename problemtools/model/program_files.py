@@ -1,9 +1,9 @@
 """In-memory snapshot of the files making up a program (e.g. a submission or validator)."""
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .files import Files
 from .paths import RelativePath, relpath
 
 
@@ -48,22 +48,16 @@ class ProgramFiles:
         return sum(len(file.data) for file in self.files)
 
 
-def load_program_files(path: Path) -> ProgramFiles:
+def load_program_files(files: Files, path: Path) -> ProgramFiles:
     """Load the files of the program at path.
 
     path is either a single file (giving a program with that one file), or a
-    directory, which is read recursively, following symlinks. A file counts as
+    directory, giving all files below it in the package. A file counts as
     executable if any of its execute bits are set.
     """
-    if path.is_file():
+    if files.is_file(path):
         return ProgramFiles(files=[_load_file(path, relpath(Path(path.name)))])
-
-    files = []
-    for root, _, filenames in os.walk(path, followlinks=True):
-        for filename in filenames:
-            file_path = Path(root) / filename
-            files.append(_load_file(file_path, relpath(file_path.relative_to(path))))
-    return ProgramFiles(files=sorted(files, key=lambda file: file.path))
+    return ProgramFiles(files=[_load_file(file, relpath(file.relative_to(path))) for file in files.walk(path)])
 
 
 def _load_file(path: Path, relative: RelativePath) -> ProgramFile:

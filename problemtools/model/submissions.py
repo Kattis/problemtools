@@ -6,10 +6,12 @@ from pathlib import Path
 
 from ..languages import Languages
 from ..metadata import Metadata
-from ..run import SourceCode, find_source_programs
+from ..run import SourceCode
 from ..submission_rules import FinalVerdictRule, PermittedRule, Rule, ScoreRule
+from .files import EntryKind, Files
 from .includes import Includes
-from .paths import RelativePath, relpath, resolve
+from .paths import RelativePath, relpath
+from .programs import find_source_programs
 from .testdata import TestDataGroup
 
 
@@ -102,16 +104,11 @@ class Submissions:
     policy: LegacyPolicy = field(default_factory=LegacyPolicy)
 
 
-def load_submissions(probdir: Path, language_config: Languages, includes: Includes) -> Submissions:
-    subs_root = resolve(probdir) / 'submissions'
-    if not subs_root.is_dir():
-        return Submissions()
-
+def load_submissions(files: Files, language_config: Languages, includes: Includes) -> Submissions:
     submissions = []
-    for entry in sorted(subs_root.iterdir()):
-        if entry.is_dir():
-            for program in find_source_programs(entry, language_config=language_config, includes=includes):
-                submissions.append(Submission(program=program, path=relpath(Path(entry.name) / program.name)))
+    for entry in files.listdir(files.root / 'submissions', EntryKind.DIR):
+        for program in find_source_programs(files, entry, language_config=language_config, includes=includes):
+            submissions.append(Submission(program=program, path=relpath(Path(entry.name) / program.name)))
     return Submissions(submissions=submissions)
 
 

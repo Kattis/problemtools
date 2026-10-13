@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from .paths import AbsolutePath, abspath, resolve
+from .files import Files
+from .paths import AbsolutePath
 
 
 @dataclass(frozen=True)
@@ -13,7 +13,5 @@ class Attachments:
     paths: list[AbsolutePath] = field(default_factory=list)
 
 
-def load_attachments(probdir: Path) -> Attachments:
-    attachments_dir = resolve(probdir) / 'attachments'
-    paths = [abspath(p) for p in attachments_dir.iterdir()] if attachments_dir.is_dir() else []
-    return Attachments(paths=paths)
+def load_attachments(files: Files) -> Attachments:
+    return Attachments(paths=files.listdir(files.root / 'attachments'))

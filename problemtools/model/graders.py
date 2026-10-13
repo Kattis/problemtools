@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from ..languages import Languages
-from ..run import BuildRun, SourceCode, as_source_or_buildrun, find_programs, get_tool
-from .paths import resolve
+from ..run import BuildRun, SourceCode, get_tool
+from .files import Files
+from .programs import as_source_or_buildrun, find_programs
 
 DEFAULT_GRADER = get_tool('default_grader')
 
@@ -25,7 +25,6 @@ class Graders:
         return self.graders[0] if len(self.graders) == 1 else None
 
 
-def load_graders(probdir: Path, language_config: Languages) -> Graders:
-    probdir = resolve(probdir)
-    graders = as_source_or_buildrun(find_programs(probdir / 'graders', language_config=language_config))
+def load_graders(files: Files, language_config: Languages) -> Graders:
+    graders = as_source_or_buildrun(find_programs(files, files.root / 'graders', language_config=language_config))
     return Graders(graders=graders)
