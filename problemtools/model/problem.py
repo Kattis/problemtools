@@ -10,6 +10,7 @@ from ..formatversion import FormatVersion
 from ..languages import Languages, load_language_config
 from ..metadata import Metadata, load_metadata
 from .attachments import Attachments, load_attachments
+from .files import Files, load_files
 from .graders import Graders, load_graders
 from .includes import Includes, load_includes
 from .paths import AbsolutePath, resolve
@@ -29,6 +30,7 @@ class Problem:
     """
 
     probdir: AbsolutePath
+    files: Files
     language_config: Languages
     metadata: Metadata
     statements: Statements
@@ -56,24 +58,26 @@ def load_problem(probdir: Path, diag: Diagnostics) -> Problem:
     """
     try:
         probdir = resolve(probdir)
+        files = load_files(probdir)
         language_config = load_language_config(probdir.parent)
         problem_metadata = load_metadata(probdir)
         format_version = problem_metadata.problem_format_version
 
-        includes = load_includes(probdir, language_config)
+        includes = load_includes(files, language_config)
         return Problem(
             probdir=probdir,
+            files=files,
             language_config=language_config,
             metadata=problem_metadata,
             statements=load_statements(probdir, format_version),
-            attachments=load_attachments(probdir),
-            input_validators=load_input_validators(probdir, language_config),
-            output_validators=load_output_validators(probdir, format_version, language_config),
-            graders=load_graders(probdir, language_config),
-            testdata=load_testdata(probdir, problem_metadata),
+            attachments=load_attachments(files),
+            input_validators=load_input_validators(files, language_config),
+            output_validators=load_output_validators(files, format_version, language_config),
+            graders=load_graders(files, language_config),
+            testdata=load_testdata(files, problem_metadata),
             includes=includes,
             # Submissions need includes, so includes must be loaded first.
-            submissions=load_submissions(probdir, language_config, includes),
+            submissions=load_submissions(files, language_config, includes),
         )
     except VerifyError:
         # A loader already reported its own diagnostic; don't double-report.

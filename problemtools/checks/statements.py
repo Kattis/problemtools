@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import glob
 import os
 import traceback
 from pathlib import Path
@@ -11,24 +10,27 @@ from .. import problem2html, problem2pdf
 from ..diagnostics import Diagnostics, pluralize
 from ..formatversion import FormatVersion
 from ..metadata import Metadata
-from ..model import Statements
+from ..model import EntryKind, Files, Statements
 
 
 def check_statements(
     statements: Statements,
     metadata: Metadata,
     format_version: FormatVersion,
-    probdir: Path,
+    files: Files,
     work_dir: Path,
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's statements."""
     diag.msg(f'Checking problem statements in {pluralize(len(statements.by_language), "language")}')
 
-    for ifilename in glob.glob(os.path.join(str(probdir), 'data/sample/*.interaction')):
+    for path in files.listdir(files.root / 'data' / 'sample', EntryKind.FILE):
+        if path.suffix != '.interaction':
+            continue
+        ifilename = path.relative_to(files.root)
         if not metadata.is_interactive() and not metadata.is_multi_pass():
             diag.error(f'Problem is not interactive, but there is an interaction sample {ifilename}')
-        with open(ifilename, 'r') as interaction:
+        with open(path, 'r') as interaction:
             for i, line in enumerate(interaction):
                 valid_new_pass = metadata.is_multi_pass() and line.strip() == '---'
                 if len(line) == 0 or (line[0] != '<' and line[0] != '>' and not valid_new_pass):
@@ -52,9 +54,11 @@ def check_statements(
     def _latex_heuristic(name: str) -> bool:
         return '\\' in name or '$' in name
 
-    for lang, files in statements.by_language.items():
-        if len(files) > 1:
-            diag.error(f'Found multiple statements in the same language {lang}: {", ".join(file.name for file in files)}')
+    for lang, statement_files in statements.by_language.items():
+        if len(statement_files) > 1:
+            diag.error(
+                f'Found multiple statements in the same language {lang}: {", ".join(file.name for file in statement_files)}'
+            )
 
         if lang not in metadata.name:
             diag.error(f'No problem name given in language {lang}')
@@ -65,10 +69,10 @@ def check_statements(
         elif format_version is FormatVersion.LEGACY and _latex_heuristic(metadata.name[lang]):
             diag.warning(f'Problem name in language {lang} looks like LaTeX. Consider using plainproblemname.')
 
-        for file in files:
+        for file in statement_files:
             try:
                 options = problem2pdf.get_parser().parse_args([''])
-                options.problem = probdir
+                options.problem = files.root
                 options.language = lang
                 options.nopdf = True
                 options.quiet = True
@@ -82,7 +86,7 @@ def check_statements(
 
             try:
                 options = problem2html.get_parser().parse_args([''])
-                options.problem = probdir
+                options.problem = files.root
                 options.destdir = os.path.join(work_dir, 'html')
                 options.language = lang
                 options.quiet = True

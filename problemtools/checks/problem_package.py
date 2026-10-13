@@ -5,75 +5,68 @@ from __future__ import annotations
 import difflib
 import os
 import re
-import stat
 from pathlib import Path
 
-from ..diagnostics import Diagnostics
+from ..diagnostics import Diagnostics, pluralize
 from ..formatversion import FormatVersion
+from ..model import BadReason, EntryKind, Files
 
 _NAME_REGEX = re.compile(r'^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,254}$')
 
+_SYMLINK_PROBLEMS = {
+    BadReason.ABSOLUTE_SYMLINK: 'which is an absolute path. Symlinks must be relative.',
+    BadReason.OUTSIDE_PACKAGE: 'which is outside of problem package',
+    BadReason.BROKEN_SYMLINK: 'which does not exist',
+    BadReason.SYMLINK_LOOP: 'which creates a symlink loop',
+    BadReason.IGNORED_TARGET: "which is ignored (its name, or the name of a directory it is in, starts with '.')",
+}
 
-def check_problem_package(probdir: Path, format_version: FormatVersion, diag: Diagnostics) -> None:
+
+def check_problem_package(files: Files, format_version: FormatVersion, diag: Diagnostics) -> None:
     """Run all checks on the structure of a problem package."""
-    _check_symlinks(probdir, diag)
-    _check_file_types(probdir, diag)
-    _check_file_and_directory_names(probdir, diag)
-    _check_root_directory_names(probdir, format_version, diag)
+    num_files = len(files.walk(files.root, EntryKind.FILE))
+    num_dirs = len(files.walk(files.root, EntryKind.DIR))
+    msg = f'Checking package structure: {pluralize(num_files, "file")}, {pluralize(num_dirs, "directory", "directories")}'
+    extra = [f'{len(files.ignored)} ignored'] if files.ignored else []
+    extra += [f'{len(files.bad)} invalid'] if files.bad else []
+    if extra:
+        msg += f' ({", ".join(extra)})'
+    diag.msg(msg)
+
+    _check_bad_entries(files, diag)
+    _check_empty_directories(files, diag)
+    _check_file_and_directory_names(files, diag)
+    _check_root_directory_names(files, format_version, diag)
 
 
-def _check_symlinks(probdir: Path, diag: Diagnostics) -> None:
-    """Check that all symlinks point to something existing within the problem package"""
-    real_probdir = os.path.realpath(probdir)
-    for root, dirs, files in os.walk(real_probdir):
-        for file in dirs + files:
-            filename = os.path.join(root, file)
-            if os.path.islink(filename):
-                target = os.path.realpath(filename)
-                # relfile is the filename of the symlink, relative to the problem root (only used for nicer error messages)
-                relfile = os.path.relpath(filename, probdir)
-                # reltarget is what the symlink points to (absolute, or relative to where the symlink is)
-                reltarget = os.readlink(filename)
-                if not os.path.exists(target):
-                    diag.error(f'Symlink {relfile} links to {reltarget} which does not exist')
-                if os.path.commonpath([real_probdir, target]) != real_probdir:
-                    diag.error(f'Symlink {relfile} links to {reltarget} which is outside of problem package')
-                if os.path.isabs(reltarget):
-                    diag.error(f'Symlink {relfile} links to {reltarget} which is an absolute path. Symlinks must be relative.')
+def _display_path(files: Files, path: Path) -> Path:
+    """path, starting with the problem shortname. Only used for nicer error messages."""
+    return path.relative_to(files.root.parent)
 
 
-def _check_file_types(probdir: Path, diag: Diagnostics) -> None:
-    """Check that the package only contains regular files, directories and symlinks
-    (symlinks are checked by _check_symlinks), and warn about empty directories."""
-    for root, dirs, files in os.walk(probdir):
-        if root == str(probdir) and '.git' in dirs:
-            dirs.remove('.git')
-        # Path of the directory we're in, starting with problem shortname. Only used for nicer error messages.
-        reldir = os.path.relpath(root, probdir.parent)
-        if not dirs and not files:
-            diag.warning(f'Empty directory {reldir}')
-        for file in files:
-            mode = os.lstat(os.path.join(root, file)).st_mode
-            if not stat.S_ISREG(mode) and not stat.S_ISLNK(mode):
-                diag.error(f"'{file}' in {reldir} is not a regular file, directory or symlink")
+def _check_bad_entries(files: Files, diag: Diagnostics) -> None:
+    """Report entries which can not be part of a valid package: bad symlinks and special files."""
+    for entry in files.bad:
+        if entry.reason is BadReason.SPECIAL_FILE:
+            diag.error(f'{_display_path(files, entry.path)} is not a regular file, directory or symlink')
+        else:
+            target = os.readlink(entry.path)
+            diag.error(f'Symlink {_display_path(files, entry.path)} links to {target} {_SYMLINK_PROBLEMS[entry.reason]}')
 
 
-def _check_file_and_directory_names(probdir: Path, diag: Diagnostics) -> None:
-    def _special_case_allowed_files(file: str, reldir: str) -> bool:
-        return file == '.gitignore' or (file == '.timelimit' and reldir == probdir.name)
+def _check_empty_directories(files: Files, diag: Diagnostics) -> None:
+    for directory in files.walk(files.root, EntryKind.DIR):
+        if not files.listdir(directory):
+            diag.warning(f'Empty directory {_display_path(files, directory)}')
 
-    def _special_case_allowed_dirs(directory: str, reldir: str) -> bool:
-        return directory == '.git' and reldir == probdir.name
 
-    for root, dirs, files in os.walk(probdir):
-        # Path of the directory we're in, starting with problem shortname. Only used for nicer error messages.
-        reldir = os.path.relpath(root, probdir.parent)
-        for file in files:
-            if not _NAME_REGEX.match(file) and not _special_case_allowed_files(file, reldir):
-                diag.error(f"Invalid file name '{file}' in {reldir}, should match {_NAME_REGEX.pattern}")
-        for directory in dirs:
-            if not _NAME_REGEX.match(directory) and not _special_case_allowed_dirs(directory, reldir):
-                diag.error(f"Invalid directory name '{directory}' in {reldir}, should match {_NAME_REGEX.pattern}")
+def _check_file_and_directory_names(files: Files, diag: Diagnostics) -> None:
+    for path, kind in files.entries.items():
+        if not _NAME_REGEX.match(path.name):
+            what = 'file' if kind is EntryKind.FILE else 'directory'
+            diag.error(
+                f"Invalid {what} name '{path.name}' in {_display_path(files, path.parent)}, should match {_NAME_REGEX.pattern}"
+            )
 
 
 def _warn_renamed_directory(found_name: str, format_version: FormatVersion, diag: Diagnostics) -> bool:
@@ -88,13 +81,13 @@ def _warn_renamed_directory(found_name: str, format_version: FormatVersion, diag
     return False
 
 
-def _check_root_directory_names(probdir: Path, format_version: FormatVersion, diag: Diagnostics) -> None:
+def _check_root_directory_names(files: Files, format_version: FormatVersion, diag: Diagnostics) -> None:
     """Warn about unrecognized directories at the problem root: deprecated names,
     directories renamed between format versions, directories belonging to other
     format versions, and likely typos."""
     known = format_version.root_directories
     other_known = {directory for version in FormatVersion for directory in version.root_directories} - known
-    existing_dirs = {entry.name for entry in probdir.iterdir() if entry.is_dir()}
+    existing_dirs = {path.name for path in files.listdir(files.root, EntryKind.DIR)}
     typo_candidates = known - existing_dirs
 
     for name in sorted(existing_dirs - known):

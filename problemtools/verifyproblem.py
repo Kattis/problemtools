@@ -98,7 +98,7 @@ class ProblemVerifier:
                     f'Support for version {problem.format_version} is very incomplete. Verification may not work as expected.'
                 )
 
-            checks.check_problem_package(problem.probdir, problem.format_version, diag)
+            checks.check_problem_package(problem.files, problem.format_version, diag)
             run.limit.check_limit_capabilities(diag)
 
             steps = self._build_steps(context, get_output_validator, set_timelim)
@@ -170,7 +170,7 @@ class ProblemVerifier:
                 'statement',
                 'statement',
                 lambda diag: checks.check_statements(
-                    problem.statements, problem.metadata, problem.format_version, problem.probdir, work_dir, diag
+                    problem.statements, problem.metadata, problem.format_version, problem.files, work_dir, diag
                 ),
             ),
             _CheckStep('statement', 'attachments', lambda diag: checks.check_attachments(problem.attachments, diag)),
@@ -205,7 +205,7 @@ class ProblemVerifier:
                     problem.testdata,
                     context,
                     problem.metadata,
-                    problem.probdir,
+                    problem.files,
                     problem.graders,
                     problem.input_validators,
                     problem.output_validators,

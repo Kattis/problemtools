@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
 from re import Pattern
 from typing import Any
 
@@ -10,7 +9,8 @@ import yaml
 
 from .. import config
 from ..metadata import Metadata
-from .paths import AbsolutePath, RelativePath, abspath, relpath, resolve
+from .files import Files
+from .paths import AbsolutePath, RelativePath, abspath, relpath
 
 DEFAULT_CONFIG = config.load_config('testdata.yaml')
 SCORING_ONLY_KEYS = ['accept_score', 'reject_score', 'range']
@@ -90,26 +90,26 @@ class TestDataGroup:
             return (float('-inf'), float('inf'))
 
 
-def load_testdata(probdir: Path, metadata: Metadata) -> TestDataGroup:
+def load_testdata(files: Files, metadata: Metadata) -> TestDataGroup:
     """Load the full testdata tree rooted at <probdir>/data."""
-    root = resolve(probdir)
-    return _load_group(root, abspath(root / 'data'), {}, metadata, is_root=True)
+    return _load_group(files, abspath(files.root / 'data'), {}, metadata, is_root=True)
 
 
-def _load_group_config(datadir: AbsolutePath) -> dict[str, Any]:
+def _load_group_config(files: Files, datadir: AbsolutePath) -> dict[str, Any]:
     configfile = datadir / 'testdata.yaml'
-    if not configfile.is_file():
+    if not files.is_file(configfile):
         return {}
     loaded = yaml.safe_load(configfile.read_text())
     return loaded if loaded is not None else {}
 
 
 def _load_group(
-    probdir: AbsolutePath, datadir: AbsolutePath, parent_config: dict[str, Any], metadata: Metadata, is_root: bool
+    files: Files, datadir: AbsolutePath, parent_config: dict[str, Any], metadata: Metadata, is_root: bool
 ) -> TestDataGroup:
+    probdir = files.root
     name = os.path.relpath(datadir, probdir).replace(os.sep, '.')
 
-    merged_config = _load_group_config(datadir)
+    merged_config = _load_group_config(files, datadir)
 
     # For non-root groups, missing properties are inherited from the parent group
     for key, parent_value in parent_config.items():
@@ -135,12 +135,11 @@ def _load_group(
         merged_config.setdefault(key, default)
 
     items: list[TestCase | TestDataGroup] = []
-    if datadir.is_dir():
-        for entry in sorted(datadir.iterdir()):
-            if entry.is_dir():
-                items.append(_load_group(probdir, abspath(entry), merged_config, metadata, is_root=False))
-            elif entry.suffix == '.ans' and entry.with_suffix('.in').is_file():
-                items.append(_load_testcase(abspath(entry), abspath(probdir / 'data'), merged_config, metadata))
+    for entry in files.listdir(datadir):
+        if files.is_dir(entry):
+            items.append(_load_group(files, entry, merged_config, metadata, is_root=False))
+        elif entry.suffix == '.ans' and files.is_file(entry.with_suffix('.in')):
+            items.append(_load_testcase(entry, abspath(probdir / 'data'), merged_config, metadata))
     path = relpath(datadir.relative_to(probdir / 'data'))
     return TestDataGroup(name=name, datadir=datadir, path=path, config=merged_config, is_root=is_root, items=items)
 
