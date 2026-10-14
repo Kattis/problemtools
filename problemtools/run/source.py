@@ -53,6 +53,23 @@ class SourceCode(Program):
         """Total size of the program's own source files, not including any include files."""
         return self.files.size()
 
+    @property
+    def mainfile(self) -> Path | None:
+        """The program's main source file, relative to the program root, or None if
+        there are no source files."""
+        if self._includes.mainfile is not None:
+            return self._includes.mainfile
+        src = self._source_files()
+        candidates = self.language.mainfile_candidates(src)
+        return candidates[0] if candidates else next(iter(src), None)
+
+    def _all_files(self) -> 'ProgramFiles':
+        return self.files.merged(self._includes.files)
+
+    def _source_files(self) -> list[Path]:
+        """Source files, including include files, relative to the program root."""
+        return self.language.get_source_files([f.path for f in self._all_files().files])
+
     def _do_compile(self, work_dir: Path) -> CompileResult:
         """Set up the compile work-space (writing source and includes into work_dir) and
         compile the source code."""
@@ -65,21 +82,15 @@ class SourceCode(Program):
         else:
             build_dir.mkdir(parents=True)
 
-        all_files = self.files.merged(self._includes.files)
         try:
-            all_files.materialize(build_dir)
+            self._all_files().materialize(build_dir)
         except OSError as e:
             return CompileResult(errmsg=f'Failed to write program files: {e}')
 
-        src = self.language.get_source_files([f.path for f in all_files.files])
-        if len(src) == 0:
+        src = self._source_files()
+        mainfile = self.mainfile
+        if not src or mainfile is None:
             return CompileResult(errmsg=f'No source files found for language {self.language.lang_id}')
-
-        if self._includes.mainfile is not None:
-            mainfile: Path = self._includes.mainfile
-        else:
-            candidates = self.language.mainfile_candidates(src)
-            mainfile = candidates[0] if candidates else src[0]
 
         mainclass = mainfile.stem
         subs = CommandSubstitution(
