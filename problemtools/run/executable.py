@@ -4,6 +4,7 @@ import logging
 import os
 import resource
 import signal
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +42,14 @@ class RunResult:
             return f'Exit {self.exitcode}'
         # Should never happen: we only wait for terminated processes
         return f'status {self.status}'
+
+
+@dataclass(frozen=True)
+class CapturedRunResult(RunResult):
+    """Outcome of running a program, including its output."""
+
+    stdout: str
+    stderr: str
 
 
 class Executable:
@@ -146,6 +155,39 @@ class Executable:
             elif os.WEXITSTATUS(status) == 42:
                 status = 0
         return RunResult(status, runtime)
+
+    def run_capture(
+        self,
+        tmp_dir: Path,
+        infile: Path = DEV_NULL,
+        args: list[str] | None = None,
+        timelim: int = 1000,
+        memlim: int = 1024,
+        work_dir: Path | None = None,
+    ) -> CapturedRunResult:
+        """Run the program, capturing its stdout and stderr.
+
+        Args:
+            tmp_dir: directory in which to store the output while the
+                program runs. A uniquely named subdirectory is created in
+                it and removed afterwards, so it is safe to share between
+                concurrent runs.
+            other arguments: as for run()
+
+        Returns:
+            the CapturedRunResult of the process, with output decoded as
+            UTF-8 (invalid bytes replaced).
+        """
+        with tempfile.TemporaryDirectory(dir=tmp_dir) as capture_dir:
+            outfile = Path(capture_dir) / 'stdout'
+            errfile = Path(capture_dir) / 'stderr'
+            result = self.run(infile, outfile, errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir)
+            return CapturedRunResult(
+                result.status,
+                result.runtime,
+                stdout=outfile.read_text(encoding='utf-8', errors='replace'),
+                stderr=errfile.read_text(encoding='utf-8', errors='replace'),
+            )
 
     def __run_wait(
         self,
