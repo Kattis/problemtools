@@ -7,7 +7,7 @@ from pathlib import Path
 from ..diagnostics import Diagnostics
 from ..metadata import Metadata
 from ..model import TestCase
-from ..run import Executable
+from ..run import Executable, RunResult
 from .result import SubmissionResult
 
 
@@ -28,28 +28,27 @@ def _get_feedback(feedback_dir: Path) -> str | None:
 
 def _parse_validator_result(
     val: Executable,
-    status: int,
+    val_result: RunResult,
     feedback_dir: Path,
     metadata: Metadata,
 ) -> SubmissionResult:
-    if not os.WIFEXITED(status):
+    if val_result.exitcode is None:
         return SubmissionResult(
             'JE',
-            reason=f'output validator {val} crashed, status {status}',
+            reason=f'output validator {val} crashed, status {val_result.status}',
             additional_info=_get_feedback(feedback_dir),
         )
 
-    ret = os.WEXITSTATUS(status)
-    if ret not in [42, 43]:
+    if val_result.exitcode not in [42, 43]:
         return SubmissionResult(
             'JE',
-            reason=f'output validator {val} exited with status {ret}',
+            reason=f'output validator {val} exited with status {val_result.exitcode}',
             additional_info=_get_feedback(feedback_dir),
         )
 
     score_file = feedback_dir / 'score.txt'
 
-    if ret == 43:
+    if val_result.exitcode == 43:
         if score_file.is_file():
             return SubmissionResult('JE', reason='validator produced "score.txt" on a WA verdict')
         return SubmissionResult('WA', additional_info=_get_feedback(feedback_dir))
@@ -95,7 +94,7 @@ def _validate_output(
 
     val_stdout = execution_dir / 'val_stdout'
     val_stderr = execution_dir / 'val_stderr'
-    status, _ = output_validator.run(
+    val_result = output_validator.run(
         infile=submission_output,
         args=[str(effective_infile), str(testcase.ansfile), str(feedback_dir) + os.sep] + flags,
         timelim=val_timelim,
@@ -109,7 +108,7 @@ def _validate_output(
                 diag.debug(f'Validator {label}: {content}')
         except OSError as e:
             diag.info(f'Failed to read validator output: {e}')
-    return _parse_validator_result(output_validator, status, feedback_dir, metadata)
+    return _parse_validator_result(output_validator, val_result, feedback_dir, metadata)
 
 
 def validate_output(

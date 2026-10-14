@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 import tempfile
 from pathlib import Path
@@ -44,16 +43,16 @@ def grade_group(
         errfile = Path(tmpdir) / 'grader_err'
         infile.write_text(grader_input)
 
-        status, _runtime = grader_executable.run(infile, outfile, errfile, args=grader_flags)
+        result = grader_executable.run(infile, outfile, errfile, args=grader_flags)
 
         grader_output = outfile.read_text(errors='replace') if outfile.exists() else ''
         stderr_content = errfile.read_text(errors='replace') if errfile.exists() else ''
 
-    if not os.WIFEXITED(status) or os.WEXITSTATUS(status) != 0:
-        if not os.WIFEXITED(status):
+    if result.exitcode != 0:
+        if result.exitcode is None:
             diag.error(f'Judge error: {grader} crashed')
         else:
-            diag.error(f'Judge error: exit code {os.WEXITSTATUS(status)} for grader {grader}, expected 0')
+            diag.error(f'Judge error: exit code {result.exitcode} for grader {grader}, expected 0')
         if stderr_content:
             diag.error(f'Grader stderr:\n{stderr_content}')
         diag.debug(f'Grader input:\n{grader_input}')

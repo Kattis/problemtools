@@ -4,6 +4,7 @@ import logging
 import os
 import resource
 import signal
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import limit
@@ -11,6 +12,24 @@ from . import limit
 log = logging.getLogger(__name__)
 
 DEV_NULL = Path(os.devnull)
+
+
+@dataclass(frozen=True)
+class RunResult:
+    """Outcome of running a program."""
+
+    status: int  # Raw wait status of the process, as returned by os.wait4
+    runtime: float  # User+sys runtime of the process, in seconds
+
+    @property
+    def exitcode(self) -> int | None:
+        """Exit code of the process, or None if it did not exit normally (e.g. was killed by a signal)."""
+        return os.WEXITSTATUS(self.status) if os.WIFEXITED(self.status) else None
+
+    @property
+    def signal(self) -> int | None:
+        """Signal that terminated the process, or None if it was not killed by a signal."""
+        return os.WTERMSIG(self.status) if os.WIFSIGNALED(self.status) else None
 
 
 class Executable:
@@ -86,7 +105,7 @@ class Executable:
         timelim: int = 1000,
         memlim: int = 1024,
         work_dir: Path | None = None,
-    ) -> tuple[int, float]:
+    ) -> RunResult:
         """Run the program.
 
         Args:
@@ -99,9 +118,8 @@ class Executable:
             work_dir: directory to run the program in
 
         Returns:
-            pair (status, runtime):
-               status: exit status of the process
-               runtime: user+sys runtime of the process, in seconds
+            the RunResult of the process. If swap_exit_codes is set, exit
+            codes 0 and 42 are swapped in it.
         """
         argv = self.get_runcmd(memlim=memlim) + (args if args is not None else [])
         if self._infile_as_arg:
@@ -116,7 +134,7 @@ class Executable:
                 status = 42 << 8
             elif os.WEXITSTATUS(status) == 42:
                 status = 0
-        return status, runtime
+        return RunResult(status, runtime)
 
     def __run_wait(
         self,

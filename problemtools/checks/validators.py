@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import random
 import re
 import string
@@ -129,8 +128,7 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
             for flags_str in all_flags:
                 flags = flags_str.split()
                 for executable in executables:
-                    status, _ = executable.run(junk_file, args=flags, work_dir=work_dir)
-                    if os.WEXITSTATUS(status) != 42:
+                    if executable.run(junk_file, args=flags, work_dir=work_dir).exitcode != 42:
                         break
                 else:
                     diag.warning(f'No validator rejects {desc} with flags "{" ".join(flags)}"')
@@ -149,8 +147,7 @@ def check_input_validators(validators: InputValidators, testdata: TestDataGroup,
                 for flags_str in all_flags:
                     flags = flags_str.split()
                     for executable in executables:
-                        status, _ = executable.run(modified_file, args=flags, work_dir=work_dir)
-                        if os.WEXITSTATUS(status) != 42:
+                        if executable.run(modified_file, args=flags, work_dir=work_dir).exitcode != 42:
                             # expected behavior; validator rejects modified input
                             return False
 
@@ -193,11 +190,11 @@ def _run_input_validators(validators: InputValidators, testcase: TestCase, work_
             continue
 
         with tempfile.NamedTemporaryFile(dir=work_dir) as outfile, tempfile.NamedTemporaryFile(dir=work_dir) as errfile:
-            status, _ = executable.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
-            if not os.WIFEXITED(status):
+            result = executable.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
+            if result.exitcode is None:
                 emsg = f'Input format validator {val} crashed on input {testcase.infile}'
-            elif os.WEXITSTATUS(status) != 42:
-                emsg = f'Input format validator {val} did not accept input {testcase.infile}, exit code: {os.WEXITSTATUS(status)}'
+            elif result.exitcode != 42:
+                emsg = f'Input format validator {val} did not accept input {testcase.infile}, exit code: {result.exitcode}'
             else:
                 continue
             validator_stdout = outfile.read().decode('utf-8', 'replace')
