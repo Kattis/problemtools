@@ -189,18 +189,14 @@ def _run_input_validators(validators: InputValidators, testcase: TestCase, work_
         if executable is None:
             continue
 
-        with tempfile.NamedTemporaryFile(dir=work_dir) as outfile, tempfile.NamedTemporaryFile(dir=work_dir) as errfile:
-            result = executable.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
-            if result.exitcode is None:
-                emsg = f'Input format validator {val} crashed on input {testcase.infile} ({result})'
-            elif result.exitcode != 42:
-                emsg = f'Input format validator {val} did not accept input {testcase.infile}, exit code: {result.exitcode}'
-            else:
-                continue
-            validator_stdout = outfile.read().decode('utf-8', 'replace')
-            validator_stderr = errfile.read().decode('utf-8', 'replace')
-            validator_output = '\n'.join(out for out in [validator_stdout, validator_stderr] if out)
-            errors.append((emsg, validator_output))
+        result = executable.run_capture(work_dir, testcase.infile, args=flags, work_dir=work_dir)
+        if result.exitcode is None:
+            emsg = f'Input format validator {val} crashed on input {testcase.infile} ({result})'
+        elif result.exitcode != 42:
+            emsg = f'Input format validator {val} did not accept input {testcase.infile}, exit code: {result.exitcode}'
+        else:
+            continue
+        errors.append((emsg, result.output))
     return errors
 
 

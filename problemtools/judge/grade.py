@@ -39,28 +39,20 @@ def grade_group(
 
     with tempfile.TemporaryDirectory(dir=base_dir) as tmpdir:
         infile = Path(tmpdir) / 'grader_in'
-        outfile = Path(tmpdir) / 'grader_out'
-        errfile = Path(tmpdir) / 'grader_err'
         infile.write_text(grader_input)
-
-        result = grader_executable.run(infile, outfile, errfile, args=grader_flags)
-
-        grader_output = outfile.read_text(errors='replace') if outfile.exists() else ''
-        stderr_content = errfile.read_text(errors='replace') if errfile.exists() else ''
+        result = grader_executable.run_capture(Path(tmpdir), infile, args=grader_flags)
 
     if result.exitcode != 0:
-        diag.error(f'Judge error: grader {grader} failed ({result}), expected exit code 0')
-        if stderr_content:
-            diag.error(f'Grader stderr:\n{stderr_content}')
+        diag.error(f'Judge error: grader {grader} failed ({result}), expected exit code 0', result.stderr)
         diag.debug(f'Grader input:\n{grader_input}')
         return ('JE', None)
 
-    if not _GRADER_OUTPUT_RE.match(grader_output):
+    if not _GRADER_OUTPUT_RE.match(result.stdout):
         diag.error('Judge error: invalid format of grader output')
         diag.debug(f'Output must match: "{_GRADER_OUTPUT_RE.pattern}"')
-        diag.debug(f'Output was: "{grader_output}"')
+        diag.debug(f'Output was: "{result.stdout}"')
         return ('JE', None)
 
-    verdict_str, score_str = grader_output.split()
+    verdict_str, score_str = result.stdout.split()
     diag.debug(f'Grader result: {verdict_str} ({score_str})')
     return cast(Verdict, verdict_str), float(score_str)

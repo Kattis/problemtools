@@ -2,7 +2,6 @@
 verification language (http://viva.vanb.org/).
 """
 
-import os
 from pathlib import Path
 
 from .executable import Executable
@@ -38,8 +37,8 @@ class Viva(Program):
             swap_exit_codes=True,
             infile_as_arg=True,
         )
-        (status, _) = executable.run()
+        result = executable.run_capture(work_dir)
         # Without an input file, VIVA only checks the script, and accepts (42 after swapping) if the syntax is fine.
-        if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 42:
+        if result.exitcode == 42:
             return CompileResult(executable=executable)
-        return CompileResult(errmsg='VIVA syntax check failed')
+        return CompileResult(errmsg=f'VIVA syntax check failed:\n{result.output}')

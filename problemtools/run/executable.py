@@ -51,6 +51,13 @@ class CapturedRunResult(RunResult):
     stdout: str
     stderr: str
 
+    @property
+    def output(self) -> str:
+        """stdout followed by stderr, separated by a newline if both are non-empty."""
+        if self.stdout and self.stderr:
+            return f'{self.stdout}\n{self.stderr}'
+        return self.stdout or self.stderr
+
 
 class Executable:
     """Something that can be run: the result of compiling a Program."""
