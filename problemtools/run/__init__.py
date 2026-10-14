@@ -4,7 +4,9 @@ Problemtools.
 
 from .buildrun import BuildRun as BuildRun
 from .checktestdata import Checktestdata as Checktestdata
+from .executable import CapturedRunResult as CapturedRunResult
 from .executable import Executable as Executable
+from .executable import RunResult as RunResult
 from .program import CompileResult as CompileResult
 from .program import Program as Program
 from .source import SourceCode as SourceCode

@@ -4,6 +4,8 @@ import logging
 import os
 import resource
 import signal
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import limit
@@ -11,6 +13,50 @@ from . import limit
 log = logging.getLogger(__name__)
 
 DEV_NULL = Path(os.devnull)
+
+
+@dataclass(frozen=True)
+class RunResult:
+    """Outcome of running a program."""
+
+    status: int  # Raw wait status of the process, as returned by os.wait4
+    runtime: float  # User+sys runtime of the process, in seconds
+
+    @property
+    def exitcode(self) -> int | None:
+        """Exit code of the process, or None if it did not exit normally (e.g. was killed by a signal)."""
+        return os.WEXITSTATUS(self.status) if os.WIFEXITED(self.status) else None
+
+    @property
+    def signal(self) -> int | None:
+        """Signal that terminated the process, or None if it was not killed by a signal."""
+        return os.WTERMSIG(self.status) if os.WIFSIGNALED(self.status) else None
+
+    def __str__(self) -> str:
+        if (sig := self.signal) is not None:
+            try:
+                return signal.Signals(sig).name
+            except ValueError:
+                return f'SIG{sig}'
+        if self.exitcode is not None:
+            return f'Exit {self.exitcode}'
+        # Should never happen: we only wait for terminated processes
+        return f'status {self.status}'
+
+
+@dataclass(frozen=True)
+class CapturedRunResult(RunResult):
+    """Outcome of running a program, including its output."""
+
+    stdout: str
+    stderr: str
+
+    @property
+    def output(self) -> str:
+        """stdout followed by stderr, separated by a newline if both are non-empty."""
+        if self.stdout and self.stderr:
+            return f'{self.stdout}\n{self.stderr}'
+        return self.stdout or self.stderr
 
 
 class Executable:
@@ -86,7 +132,7 @@ class Executable:
         timelim: int = 1000,
         memlim: int = 1024,
         work_dir: Path | None = None,
-    ) -> tuple[int, float]:
+    ) -> RunResult:
         """Run the program.
 
         Args:
@@ -99,9 +145,8 @@ class Executable:
             work_dir: directory to run the program in
 
         Returns:
-            pair (status, runtime):
-               status: exit status of the process
-               runtime: user+sys runtime of the process, in seconds
+            the RunResult of the process. If swap_exit_codes is set, exit
+            codes 0 and 42 are swapped in it.
         """
         argv = self.get_runcmd(memlim=memlim) + (args if args is not None else [])
         if self._infile_as_arg:
@@ -116,7 +161,40 @@ class Executable:
                 status = 42 << 8
             elif os.WEXITSTATUS(status) == 42:
                 status = 0
-        return status, runtime
+        return RunResult(status, runtime)
+
+    def run_capture(
+        self,
+        tmp_dir: Path,
+        infile: Path = DEV_NULL,
+        args: list[str] | None = None,
+        timelim: int = 1000,
+        memlim: int = 1024,
+        work_dir: Path | None = None,
+    ) -> CapturedRunResult:
+        """Run the program, capturing its stdout and stderr.
+
+        Args:
+            tmp_dir: directory in which to store the output while the
+                program runs. A uniquely named subdirectory is created in
+                it and removed afterwards, so it is safe to share between
+                concurrent runs.
+            other arguments: as for run()
+
+        Returns:
+            the CapturedRunResult of the process, with output decoded as
+            UTF-8 (invalid bytes replaced).
+        """
+        with tempfile.TemporaryDirectory(dir=tmp_dir) as capture_dir:
+            outfile = Path(capture_dir) / 'stdout'
+            errfile = Path(capture_dir) / 'stderr'
+            result = self.run(infile, outfile, errfile, args=args, timelim=timelim, memlim=memlim, work_dir=work_dir)
+            return CapturedRunResult(
+                result.status,
+                result.runtime,
+                stdout=outfile.read_text(encoding='utf-8', errors='replace'),
+                stderr=errfile.read_text(encoding='utf-8', errors='replace'),
+            )
 
     def __run_wait(
         self,

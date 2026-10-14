@@ -2,7 +2,6 @@
 verification language (https://github.com/DOMjudge/checktestdata)
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -31,8 +30,8 @@ class Checktestdata(Program):
 
     def _do_compile(self, work_dir: Path) -> CompileResult:
         """Syntax-check the Checktestdata script"""
-        (status, _) = self._executable.run()
+        result = self._executable.run_capture(work_dir)
         # Checktestdata accepting (42 after swapping) or rejecting (1) the empty input both mean the syntax is fine.
-        if os.WIFEXITED(status) and os.WEXITSTATUS(status) in [42, 1]:
+        if result.exitcode in [42, 1]:
             return CompileResult(executable=self._executable)
-        return CompileResult(errmsg='Checktestdata syntax check failed')
+        return CompileResult(errmsg=f'Checktestdata syntax check failed:\n{result.output}')
