@@ -49,10 +49,7 @@ def grade_group(
         stderr_content = errfile.read_text(errors='replace') if errfile.exists() else ''
 
     if result.exitcode != 0:
-        if result.exitcode is None:
-            diag.error(f'Judge error: {grader} crashed')
-        else:
-            diag.error(f'Judge error: exit code {result.exitcode} for grader {grader}, expected 0')
+        diag.error(f'Judge error: grader {grader} failed ({result}), expected exit code 0')
         if stderr_content:
             diag.error(f'Grader stderr:\n{stderr_content}')
         diag.debug(f'Grader input:\n{grader_input}')

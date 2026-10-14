@@ -192,7 +192,7 @@ def _run_input_validators(validators: InputValidators, testcase: TestCase, work_
         with tempfile.NamedTemporaryFile(dir=work_dir) as outfile, tempfile.NamedTemporaryFile(dir=work_dir) as errfile:
             result = executable.run(testcase.infile, Path(outfile.name), Path(errfile.name), args=flags, work_dir=work_dir)
             if result.exitcode is None:
-                emsg = f'Input format validator {val} crashed on input {testcase.infile}'
+                emsg = f'Input format validator {val} crashed on input {testcase.infile} ({result})'
             elif result.exitcode != 42:
                 emsg = f'Input format validator {val} did not accept input {testcase.infile}, exit code: {result.exitcode}'
             else:

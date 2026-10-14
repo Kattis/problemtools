@@ -31,6 +31,17 @@ class RunResult:
         """Signal that terminated the process, or None if it was not killed by a signal."""
         return os.WTERMSIG(self.status) if os.WIFSIGNALED(self.status) else None
 
+    def __str__(self) -> str:
+        if (sig := self.signal) is not None:
+            try:
+                return signal.Signals(sig).name
+            except ValueError:
+                return f'SIG{sig}'
+        if self.exitcode is not None:
+            return f'Exit {self.exitcode}'
+        # Should never happen: we only wait for terminated processes
+        return f'status {self.status}'
+
 
 class Executable:
     """Something that can be run: the result of compiling a Program."""

@@ -32,17 +32,10 @@ def _parse_validator_result(
     feedback_dir: Path,
     metadata: Metadata,
 ) -> SubmissionResult:
-    if val_result.exitcode is None:
-        return SubmissionResult(
-            'JE',
-            reason=f'output validator {val} crashed, status {val_result.status}',
-            additional_info=_get_feedback(feedback_dir),
-        )
-
     if val_result.exitcode not in [42, 43]:
         return SubmissionResult(
             'JE',
-            reason=f'output validator {val} exited with status {val_result.exitcode}',
+            reason=f'output validator {val} failed ({val_result})',
             additional_info=_get_feedback(feedback_dir),
         )
 

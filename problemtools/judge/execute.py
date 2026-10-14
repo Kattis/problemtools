@@ -44,15 +44,6 @@ def _is_RTE(result: RunResult) -> bool:
     return result.exitcode != 0
 
 
-def _rte_reason(result: RunResult) -> str:
-    if (sig := result.signal) is not None:
-        try:
-            return signal.Signals(sig).name
-        except ValueError:
-            return f'SIG{sig}'
-    return f'Exit {result.exitcode}'
-
-
 def _read_safe(path: Path) -> str | None:
     try:
         return path.read_text(errors='replace')
@@ -84,7 +75,7 @@ def _run_normal(
     if _is_TLE(sub_result) or sub_result.runtime > timelim:
         result = SubmissionResult('TLE')
     elif _is_RTE(sub_result):
-        result = SubmissionResult('RTE', reason=_rte_reason(sub_result), additional_info=_read_safe(errfile))
+        result = SubmissionResult('RTE', reason=str(sub_result), additional_info=_read_safe(errfile))
     else:
         result = _validate_output(testcase, outfile, output_validator, metadata, execution_dir, diag, infile=infile)
     result.runtime = sub_result.runtime
@@ -123,8 +114,8 @@ def _run_interactive(
     )
 
     if _is_RTE(i_result):
-        diag.error(f'Interactive runner crashed, status {i_result.status}')
-        return SubmissionResult('JE', reason=f'Interactive runner crashed, status {i_result.status}')
+        diag.error(f'Interactive runner failed ({i_result})')
+        return SubmissionResult('JE', reason=f'Interactive runner failed ({i_result})')
 
     output = interactive_out.read_text()
     diag.debug(f'Interactive output: "{output}"')
@@ -150,7 +141,7 @@ def _run_interactive(
     elif _is_TLE(sub_result, may_signal_with_usr1=True) or sub_runtime > timelim:
         result = SubmissionResult('TLE')
     elif _is_RTE(sub_result):
-        result = SubmissionResult('RTE', reason=_rte_reason(sub_result))
+        result = SubmissionResult('RTE', reason=str(sub_result))
     else:
         result = _parse_validator_result(output_validator, val_result, feedback_dir, metadata)
 
