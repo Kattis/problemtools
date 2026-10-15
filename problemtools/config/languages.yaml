@@ -165,7 +165,7 @@ java:
     priority: 800
     files: '*.java'
     compile: 'javac -source 21 -encoding UTF-8 -sourcepath {path} -d {path} {files}'
-    run: 'java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
+    run: 'java -Dfile.encoding=UTF-8 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ActiveProcessorCount=2 -Xss64m -Xms{memlim}m -Xmx{memlim}m -cp {path} {mainclass}'
 
 javascript:
     name: 'JavaScript'
