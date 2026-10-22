@@ -16,7 +16,7 @@ from ..submission_rules import FinalVerdictRule, PermittedRule, RequiredRule, Ru
 from .files import EntryKind, Files
 from .includes import Includes
 from .paths import RelativePath, relpath
-from .programs import find_source_programs
+from .programs import get_source_program
 from .submissions_policy import SubmissionsEntry, SubmissionsPolicy, TimeLimitBound, parse_submissions_yaml
 from .testdata import TestDataGroup
 
@@ -63,13 +63,19 @@ class Submissions:
 def load_submissions(
     files: Files, language_config: Languages, includes: Includes, testdata: TestDataGroup, metadata: Metadata
 ) -> Submissions:
-    parsed_entries, parse_errors = _load_submissions_yaml(files)
+    parsed_entries, parse_errors = _load_submissions_yaml(files, language_config)
     policy = SubmissionsPolicy(entries=_default_entries(testdata, metadata) + parsed_entries, parse_errors=parse_errors)
     submissions = []
     for directory in files.listdir(files.root / 'submissions', EntryKind.DIR):
-        for program in find_source_programs(files, directory, language_config=language_config, includes=includes):
-            path = relpath(Path(directory.name) / program.name)
+        for program_path in files.listdir(directory):
+            path = relpath(Path(directory.name) / program_path.name)
             matching = policy.entries_for(path)
+            # Later entries take precedence. Conflicting entries are reported by checks.
+            language_codes = [entry.language for entry in matching if entry.language is not None]
+            language = language_config.languages[language_codes[-1]] if language_codes else None
+            program = get_source_program(files, program_path, language_config, includes=includes, language=language)
+            if program is None:
+                continue
             submissions.append(
                 Submission(
                     program=program,
@@ -81,7 +87,7 @@ def load_submissions(
     return Submissions(policy=policy, submissions=submissions)
 
 
-def _load_submissions_yaml(files: Files) -> tuple[list[SubmissionsEntry], list[str]]:
+def _load_submissions_yaml(files: Files, language_config: Languages) -> tuple[list[SubmissionsEntry], list[str]]:
     """The entries from submissions/submissions.yaml (if any), and errors from parsing it."""
     path = files.root / 'submissions' / 'submissions.yaml'
     if not files.is_file(path):
@@ -90,7 +96,7 @@ def _load_submissions_yaml(files: Files) -> tuple[list[SubmissionsEntry], list[s
         data = yaml.safe_load(path.read_text())
     except yaml.YAMLError as e:
         return [], [f'invalid YAML: {e}']
-    return parse_submissions_yaml(data)
+    return parse_submissions_yaml(data, language_config.languages.keys())
 
 
 def _default_entries(testdata: TestDataGroup, metadata: Metadata) -> list[SubmissionsEntry]:

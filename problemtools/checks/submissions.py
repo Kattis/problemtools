@@ -140,13 +140,8 @@ def _check_policy(policy: SubmissionsPolicy, metadata: Metadata, diag: Diagnosti
         )
 
     for entry in user_entries:
-        unsupported = []
-        if entry.language is not None:
-            unsupported.append('language')
         if entry.entrypoint is not None:
-            unsupported.append('entrypoint')
-        for key in unsupported:
-            diag.warning(f"submissions.yaml: '{entry.glob}': {key} is not supported yet (ignoring it)")
+            diag.warning(f"submissions.yaml: '{entry.glob}': entrypoint is not supported yet (ignoring it)")
         if not metadata.is_scoring() and any(isinstance(rule, ScoreRule) for rule in entry.rules):
             diag.error(f"submissions.yaml: '{entry.glob}': score is only allowed for scoring problems")
 
