@@ -13,7 +13,9 @@ from ..diagnostics import Diagnostics, pluralize
 from ..judge import SubmissionJudge, SubmissionResult, SubmissionsJudge
 from ..metadata import FormatVersion, Metadata
 from ..model import Graders, Submission, Submissions, SubmissionsPolicy, TestCase, TestDataGroup
+from ..model.paths import RelativePath
 from ..run import Program
+from ..submission_rules import ScoreRule
 
 
 def check_submissions(
@@ -30,6 +32,7 @@ def check_submissions(
 ) -> None:
     """Run all checks on a problem's submissions."""
     _check_policy(submissions.policy, metadata, diag)
+    _check_globs_match(submissions.policy, [sub.path for sub in submissions.submissions], testdata, diag)
     known_submissions = _check_has_rules(submissions, diag)
     included_submissions = [s for s in known_submissions if context.submission_filter.search(str(s.path))]
     ignored_submissions = len(known_submissions) - len(included_submissions)
@@ -144,6 +147,31 @@ def _check_policy(policy: SubmissionsPolicy, metadata: Metadata, diag: Diagnosti
             unsupported.append('entrypoint')
         for key in unsupported:
             diag.warning(f"submissions.yaml: '{entry.glob}': {key} is not supported yet (ignoring it)")
+        if not metadata.is_scoring() and any(isinstance(rule, ScoreRule) for rule in entry.rules):
+            diag.error(f"submissions.yaml: '{entry.glob}': score is only allowed for scoring problems")
+
+
+def _check_globs_match(
+    policy: SubmissionsPolicy, submission_paths: list[RelativePath], testdata: TestDataGroup, diag: Diagnostics
+) -> None:
+    """Warn about globs in submissions.yaml that don't match anything, which is likely a mistake."""
+    testcases = testdata.get_all_testcases()
+    nodes: list[TestCase | TestDataGroup] = [*testcases, *testdata.get_all_groups()]
+    for entry in policy.entries:
+        if entry.is_default:
+            continue
+        if not any(entry.glob.covers(path) for path in submission_paths):
+            diag.warning(f"submissions.yaml: '{entry.glob}' does not match any submission")
+
+        unmatched: set[str] = set()
+        for rule in entry.rules:
+            if not any(rule.applies_to(node) for node in nodes):
+                unmatched.add(f'test data {"group " if isinstance(rule, ScoreRule) else ""}glob {rule.scope.pattern!r}')
+        for bound in entry.time_limit_bounds:
+            if not any(bound.scope.covers(tc.path) for tc in testcases):
+                unmatched.add(f'test data glob {bound.scope.pattern!r}')
+        for what in sorted(unmatched):
+            diag.warning(f"submissions.yaml: '{entry.glob}': {what} does not match any test data")
 
 
 def _check_has_rules(submissions: Submissions, diag: Diagnostics) -> list[Submission]:

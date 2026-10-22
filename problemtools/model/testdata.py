@@ -78,6 +78,13 @@ class TestDataGroup:
             result.extend(item.get_all_testcases())
         return result
 
+    def get_all_groups(self) -> list[TestDataGroup]:
+        """This group and all groups below it."""
+        result = [self]
+        for subgroup in self.get_subgroups():
+            result.extend(subgroup.get_all_groups())
+        return result
+
     def has_custom_groups(self) -> bool:
         return any(group.get_subgroups() for group in self.get_subgroups())
 
