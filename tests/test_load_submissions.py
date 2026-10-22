@@ -10,14 +10,22 @@ LEGACY = 'name: Test\n'
 V_2023_07 = 'problem_format_version: 2023-07-draft\nname: Test\nuuid: 025dfeea-eb85-4532-94d1-3108ec03c80f\n'
 
 
-def load(probdir: Path, problem_yaml: str, submission_files: list[str], submissions_yaml: str | None = None) -> Submissions:
-    """Create a problem in `probdir` with the given submission files (relative to submissions/), and load its submissions."""
+def load(
+    probdir: Path,
+    problem_yaml: str,
+    submission_files: list[str],
+    submissions_yaml: str | None = None,
+    include_files: list[str] | None = None,
+) -> Submissions:
+    """Create a problem in `probdir` with the given submission files (relative to submissions/) and
+    include files (relative to include/), and load its submissions."""
     (probdir / 'data' / 'secret').mkdir(parents=True)
     (probdir / 'problem.yaml').write_text(problem_yaml)
     (probdir / 'data' / 'secret' / '1.in').write_text('')
     (probdir / 'data' / 'secret' / '1.ans').write_text('')
-    for name in submission_files:
-        path = probdir / 'submissions' / name
+    paths = [probdir / 'submissions' / name for name in submission_files]
+    paths += [probdir / 'include' / name for name in include_files or []]
+    for path in paths:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('')
     if submissions_yaml is not None:

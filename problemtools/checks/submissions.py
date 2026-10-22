@@ -33,6 +33,7 @@ def check_submissions(
     """Run all checks on a problem's submissions."""
     _check_policy(submissions.policy, metadata, diag)
     _check_globs_match(submissions.policy, [sub.path for sub in submissions.submissions], testdata, diag)
+    _check_language_and_entrypoint(submissions, diag)
     known_submissions = _check_has_rules(submissions, diag)
     included_submissions = [s for s in known_submissions if context.submission_filter.search(str(s.path))]
     ignored_submissions = len(known_submissions) - len(included_submissions)
@@ -167,6 +168,21 @@ def _check_globs_match(
                 unmatched.add(f'test data glob {bound.scope.pattern!r}')
         for what in sorted(unmatched):
             diag.warning(f"submissions.yaml: '{entry.glob}': {what} does not match any test data")
+
+
+def _check_language_and_entrypoint(submissions: Submissions, diag: Diagnostics) -> None:
+    for sub in submissions.submissions:
+        matching = submissions.policy.entries_for(sub.path)
+        for key, values in [
+            ('language', {entry.language for entry in matching if entry.language is not None}),
+            ('entrypoint', {entry.entrypoint for entry in matching if entry.entrypoint is not None}),
+        ]:
+            if len(values) > 1:
+                diag.error(f'submissions.yaml: conflicting {key} for submission {sub.path}: {", ".join(sorted(values))}')
+        if sub.program.entrypoint_override is not None and sub.program.has_include_mainfile:
+            diag.warning(
+                f'submissions.yaml: entrypoint for submission {sub.path} is ignored, as the include files give a main file'
+            )
 
 
 def _check_has_rules(submissions: Submissions, diag: Diagnostics) -> list[Submission]:

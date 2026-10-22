@@ -66,6 +66,11 @@ class SourceCode(Program):
         return self.files.size()
 
     @property
+    def has_include_mainfile(self) -> bool:
+        """Whether the include files give the mainfile, taking precedence over the program's own."""
+        return self._includes.mainfile is not None
+
+    @property
     def mainfile(self) -> Path | None:
         """The program's main source file, relative to the program root, or None if
         there are no source files."""
