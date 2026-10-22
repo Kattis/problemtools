@@ -6,14 +6,14 @@ import math
 import os
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from ..context import Context
 from ..diagnostics import Diagnostics, pluralize
 from ..judge import SubmissionJudge, SubmissionResult, SubmissionsJudge
 from ..metadata import FormatVersion, Metadata
-from ..model import Graders, LegacyPolicy, Submission, Submissions, TestDataGroup
+from ..model import Graders, Submission, Submissions, TestCase, TestDataGroup
 from ..run import Program
-from ..submission_rules import FinalVerdictRule, Rule
 
 
 def check_submissions(
@@ -29,9 +29,7 @@ def check_submissions(
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's submissions."""
-    policy = submissions.policy
-    rules_by_submission = _check_matches_policy(submissions, policy, testdata, metadata, diag)
-    known_submissions = list(rules_by_submission)
+    known_submissions = _check_has_rules(submissions, diag)
     included_submissions = [s for s in known_submissions if context.submission_filter.search(str(s.path))]
     ignored_submissions = len(known_submissions) - len(included_submissions)
     msg = f'Checking {pluralize(len(included_submissions), "submission")}'
@@ -63,10 +61,9 @@ def check_submissions(
     )
 
     timelim, timelim_high, fixed_limit = _initial_time_limit(metadata, context, diag)
-    lower_bound_submissions = [sub for sub in included_submissions if policy.lower_bounds_time_limit(sub)]
+    lower_bound_submissions = [sub for sub in included_submissions if _has_time_limit_bound(sub, 'lower')]
     all_submission_results = _check_submission_group(
         lower_bound_submissions,
-        rules_by_submission,
         metadata,
         submissions_judge,
         probdir,
@@ -91,18 +88,17 @@ def check_submissions(
             f'and no fixed time limit is set. Falling back to a {_fmt_number(timelim)}s cap.'
         )
 
-    # Run TLE submissions last (as they're presumably the slowest)
+    # Run submissions upper-bounding the time limit (i.e., TLE submissions) last, as they are presumably the slowest
     rest = sorted(
         (sub for sub in included_submissions if sub not in lower_bound_submissions),
         key=lambda sub: (
-            any(isinstance(r, FinalVerdictRule) and r.verdict == 'TLE' for r in rules_by_submission[sub]),
+            _has_time_limit_bound(sub, 'upper'),
             str(sub.path),
         ),
     )
     all_submission_results.extend(
         _check_submission_group(
             rest,
-            rules_by_submission,
             metadata,
             submissions_judge,
             probdir,
@@ -123,25 +119,24 @@ def _check_has_accepted_submission(submissions: Submissions, diag: Diagnostics) 
         diag.error('Require at least one "accepted" submission')
 
 
-def _check_matches_policy(
-    submissions: Submissions, policy: LegacyPolicy, testdata: TestDataGroup, metadata: Metadata, diag: Diagnostics
-) -> dict[Submission, list[Rule]]:
-    """Get the rules for every submission matching the policy. Emit an error for, and exclude, any
-    submission that doesn't match the policy at all (i.e. sits in an unrecognized directory). Such
-    a submission is never compiled or tested."""
-    rules_by_submission = {}
+def _has_time_limit_bound(sub: Submission, direction: Literal['lower', 'upper']) -> bool:
+    return any(bound.direction == direction for bound in sub.time_limit_bounds)
+
+
+def _check_has_rules(submissions: Submissions, diag: Diagnostics) -> list[Submission]:
+    """Get every submission with rules. Emit an error for, and exclude, any submission without
+    rules (e.g. one that sits in an unrecognized directory). Such a submission is never compiled or tested."""
+    with_rules = []
     for sub in submissions.submissions:
-        rules = policy.rules_for(sub, testdata, metadata)
-        if rules is not None:
-            rules_by_submission[sub] = rules
+        if sub.rules:
+            with_rules.append(sub)
         else:
             diag.error(f'Submission {sub.path} does not match any known submissions directory; ignoring it')
-    return rules_by_submission
+    return with_rules
 
 
 def _check_submission_group(
     subs: list[Submission],
-    rules_by_submission: dict[Submission, list[Rule]],
     metadata: Metadata,
     submissions_judge: SubmissionsJudge,
     probdir: Path,
@@ -177,7 +172,6 @@ def _check_submission_group(
         sub_results = _check_submission(
             sub,
             judge,
-            rules_by_submission[sub],
             metadata,
             probdir,
             seen_oob_score_groups,
@@ -193,7 +187,6 @@ def _check_submission_group(
 def _check_submission(
     sub: Submission,
     judge: SubmissionJudge,
-    rules: list[Rule],
     metadata: Metadata,
     probdir: Path,
     seen_oob_score_groups: set[int],
@@ -217,7 +210,7 @@ def _check_submission(
     time_limit_sensitivity = _time_limit_sensitivity(judge, results_high, timelim, timelim_high, sub, metadata)
 
     # Use a list rather than any() on a generator, so that every rule gets checked
-    reported_errors = [rule.check(sub, results, diag) for rule in rules]
+    reported_errors = [rule.check(sub, results, diag) for rule in sub.rules]
     if time_limit_sensitivity is not None:
         if any(reported_errors):
             # Already reported as an error, but knowing how the result depends on the time limit may help fix it
@@ -387,7 +380,18 @@ def _compute_time_limit(
     diag: Diagnostics,
 ) -> tuple[float, float]:
     limits = metadata.limits
-    lower_bound_runtime = max(results[-1].runtime for _, results in all_submission_results)
+    # The slowest runtime on a test case covered by a lower bound
+    lower_bound_runtime = max(
+        (
+            r.runtime
+            for sub, results in all_submission_results
+            for bound in sub.time_limit_bounds
+            if bound.direction == 'lower'
+            for r in results
+            if isinstance(r.test_node, TestCase) and bound.scope.covers(r.test_node.path)
+        ),
+        default=0.0,
+    )
     exact_timelim = lower_bound_runtime * limits.time_multipliers.ac_to_time_limit
     tl_from_runtime = max(1, math.ceil(exact_timelim / limits.time_resolution)) * limits.time_resolution
 
