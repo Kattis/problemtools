@@ -3,7 +3,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+
+import yaml
 
 from ..globs import Glob
 from ..languages import Languages
@@ -14,16 +15,8 @@ from .files import EntryKind, Files
 from .includes import Includes
 from .paths import RelativePath, relpath
 from .programs import find_source_programs
+from .submissions_policy import SubmissionsEntry, SubmissionsPolicy, TimeLimitBound, parse_submissions_yaml
 from .testdata import TestDataGroup
-
-
-@dataclass(frozen=True)
-class TimeLimitBound:
-    """The submission's runtime on the test cases in `scope` bounds the time limit: from below
-    (the time limit must be comfortably above the runtime) or from above (comfortably below it)."""
-
-    scope: Glob
-    direction: Literal['lower', 'upper']
 
 
 @dataclass(frozen=True)
@@ -58,30 +51,6 @@ class Submission:
 
 
 @dataclass(frozen=True)
-class SubmissionsEntry:
-    """What's expected of the submissions matched by `glob` (covering, so a directory matches all
-    submissions in it). Comes from the defaults for the problem format, or (in the future) from a key in
-    submissions.yaml. `is_default` is set for entries from the defaults."""
-
-    glob: Glob
-    rules: list[Rule] = field(default_factory=list)
-    time_limit_bounds: list[TimeLimitBound] = field(default_factory=list)
-    is_default: bool = False
-
-
-@dataclass(frozen=True)
-class SubmissionsPolicy:
-    """All entries describing what's expected of submissions. A submission gets the rules and time
-    limit bounds of every entry matching it."""
-
-    entries: list[SubmissionsEntry]
-
-    def entries_for(self, path: RelativePath) -> list[SubmissionsEntry]:
-        """The entries matching a submission, `path` being relative to the submissions directory."""
-        return [entry for entry in self.entries if entry.glob.covers(path)]
-
-
-@dataclass(frozen=True)
 class Submissions:
     """All example submissions for a problem, and the policy their expectations come from."""
 
@@ -92,7 +61,9 @@ class Submissions:
 def load_submissions(
     files: Files, language_config: Languages, includes: Includes, testdata: TestDataGroup, metadata: Metadata
 ) -> Submissions:
-    policy = SubmissionsPolicy(entries=_legacy_entries(testdata, metadata))
+    parsed_entries, parse_errors = _load_submissions_yaml(files)
+    # TODO: Use the defaults from the spec for 2023-07
+    policy = SubmissionsPolicy(entries=_legacy_entries(testdata, metadata) + parsed_entries, parse_errors=parse_errors)
     submissions = []
     for directory in files.listdir(files.root / 'submissions', EntryKind.DIR):
         for program in find_source_programs(files, directory, language_config=language_config, includes=includes):
@@ -107,6 +78,18 @@ def load_submissions(
                 )
             )
     return Submissions(policy=policy, submissions=submissions)
+
+
+def _load_submissions_yaml(files: Files) -> tuple[list[SubmissionsEntry], list[str]]:
+    """The entries from submissions/submissions.yaml (if any), and errors from parsing it."""
+    path = files.root / 'submissions' / 'submissions.yaml'
+    if not files.is_file(path):
+        return [], []
+    try:
+        data = yaml.safe_load(path.read_text())
+    except yaml.YAMLError as e:
+        return [], [f'invalid YAML: {e}']
+    return parse_submissions_yaml(data)
 
 
 def _legacy_entries(testdata: TestDataGroup, metadata: Metadata) -> list[SubmissionsEntry]:
