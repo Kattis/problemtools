@@ -26,8 +26,16 @@ class SourceCode(Program):
 
     files: 'ProgramFiles'  # The program's own source files, not including any include files
     language: Language  # The programming language of the code
+    entrypoint_override: str | None
 
-    def __init__(self, name: str, files: 'ProgramFiles', language: Language, includes: 'LanguageIncludes') -> None:
+    def __init__(
+        self,
+        name: str,
+        files: 'ProgramFiles',
+        language: Language,
+        includes: 'LanguageIncludes',
+        entrypoint_override: str | None = None,
+    ) -> None:
         """Instantiate SourceCode object
 
         Args:
@@ -43,9 +51,13 @@ class SourceCode(Program):
                 (see Includes.get_includes_for_language). If it specifies
                 a mainfile, that takes precedence over the one we would
                 otherwise have detected.
+
+            entrypoint_override: the entry point (e.g. a file or class name), as
+                given in submissions.yaml. Not used yet.
         """
         super().__init__(name=name)
         self.language = language
+        self.entrypoint_override = entrypoint_override
         self.files = files
         self._includes = includes
 

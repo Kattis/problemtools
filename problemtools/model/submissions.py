@@ -70,10 +70,18 @@ def load_submissions(
         for program_path in files.listdir(directory):
             path = relpath(Path(directory.name) / program_path.name)
             matching = policy.entries_for(path)
-            # Later entries take precedence. Conflicting entries are reported by checks.
+            # Conflicting values are an error reported by checks, so which one we pick doesn't matter
             language_codes = [entry.language for entry in matching if entry.language is not None]
             language = language_config.languages[language_codes[-1]] if language_codes else None
-            program = get_source_program(files, program_path, language_config, includes=includes, language=language)
+            entrypoints = [entry.entrypoint for entry in matching if entry.entrypoint is not None]
+            program = get_source_program(
+                files,
+                program_path,
+                language_config,
+                includes=includes,
+                language=language,
+                entrypoint_override=entrypoints[-1] if entrypoints else None,
+            )
             if program is None:
                 continue
             submissions.append(

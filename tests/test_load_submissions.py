@@ -82,12 +82,10 @@ def test_language_is_detected(tmp_path: Path) -> None:
 
 
 def test_language_from_submissions_yaml(tmp_path: Path) -> None:
-    files = ['accepted/a.py', 'accepted/b.py', 'accepted/sol.txt']
-    yaml = 'accepted:\n  language: python2\naccepted/b.py:\n  language: python3\naccepted/sol.txt:\n  language: python3\n'
+    files = ['accepted/a.py', 'accepted/sol.txt']
+    yaml = 'accepted/a.py:\n  language: python2\naccepted/sol.txt:\n  language: python3\n'
     subs = by_path(load(tmp_path, V_2023_07, files, yaml))
     assert subs['accepted/a.py'].program.language.lang_id == 'python2'
-    # Later entries take precedence
-    assert subs['accepted/b.py'].program.language.lang_id == 'python3'
     # A stated language makes a submission of a file we wouldn't detect
     assert subs['accepted/sol.txt'].program.language.lang_id == 'python3'
 
@@ -97,3 +95,10 @@ def test_unknown_language(tmp_path: Path) -> None:
     assert len(loaded.policy.parse_errors) == 1
     # The language is dropped, so it's detected as usual
     assert by_path(loaded)['accepted/a.py'].program.language.lang_id == 'python3'
+
+
+def test_entrypoint_from_submissions_yaml(tmp_path: Path) -> None:
+    yaml = 'accepted:\n  entrypoint: main.py\n'
+    subs = by_path(load(tmp_path, V_2023_07, ['accepted/a.py', 'wrong_answer/b.py'], yaml))
+    assert subs['accepted/a.py'].program.entrypoint_override == 'main.py'
+    assert subs['wrong_answer/b.py'].program.entrypoint_override is None
