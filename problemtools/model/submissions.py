@@ -3,7 +3,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
+from ..globs import Glob
 from ..languages import Languages
 from ..metadata import Metadata
 from ..run import SourceCode
@@ -36,6 +38,15 @@ class Submission:
 
     def __str__(self) -> str:
         return f'{self.directory}/{self.program}'
+
+
+@dataclass(frozen=True)
+class TimeLimitBound:
+    """The submission's runtime on the test cases in `scope` bounds the time limit: from below
+    (the time limit must be comfortably above the runtime) or from above (comfortably below it)."""
+
+    scope: Glob
+    direction: Literal['lower', 'upper']
 
 
 @dataclass(frozen=True)
@@ -91,9 +102,15 @@ class LegacyPolicy:
             case _:
                 return None
 
-    def lower_bounds_time_limit(self, submission: Submission) -> bool:
-        """Whether this submission's runtime should be used to lower-bound the time limit."""
-        return submission.directory == 'accepted'
+    def time_limit_bounds_for(self, submission: Submission) -> list[TimeLimitBound]:
+        """How this submission's runtime bounds the time limit."""
+        match submission.directory:
+            case 'accepted':
+                return [TimeLimitBound(scope=Glob(''), direction='lower')]
+            case 'time_limit_exceeded':
+                return [TimeLimitBound(scope=Glob(''), direction='upper')]
+            case _:
+                return []
 
 
 @dataclass(frozen=True)

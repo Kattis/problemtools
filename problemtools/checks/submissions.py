@@ -6,14 +6,15 @@ import math
 import os
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from ..context import Context
 from ..diagnostics import Diagnostics, pluralize
 from ..judge import SubmissionJudge, SubmissionResult, SubmissionsJudge
 from ..metadata import FormatVersion, Metadata
-from ..model import Graders, LegacyPolicy, Submission, Submissions, TestDataGroup
+from ..model import Graders, LegacyPolicy, Submission, Submissions, TestCase, TestDataGroup
 from ..run import Program
-from ..submission_rules import FinalVerdictRule, Rule
+from ..submission_rules import Rule
 
 
 def check_submissions(
@@ -63,7 +64,7 @@ def check_submissions(
     )
 
     timelim, timelim_high, fixed_limit = _initial_time_limit(metadata, context, diag)
-    lower_bound_submissions = [sub for sub in included_submissions if policy.lower_bounds_time_limit(sub)]
+    lower_bound_submissions = [sub for sub in included_submissions if _has_time_limit_bound(policy, sub, 'lower')]
     all_submission_results = _check_submission_group(
         lower_bound_submissions,
         rules_by_submission,
@@ -78,7 +79,7 @@ def check_submissions(
     )
 
     if all_submission_results:
-        timelim, timelim_high = _compute_time_limit(metadata, fixed_limit, all_submission_results, context, diag)
+        timelim, timelim_high = _compute_time_limit(metadata, policy, fixed_limit, all_submission_results, context, diag)
         set_timelim(timelim)
     elif fixed_limit is not None:
         # Corner case. The user may have filtered for only one (non-AC) sub, and set a fixed time limit.
@@ -91,11 +92,11 @@ def check_submissions(
             f'and no fixed time limit is set. Falling back to a {_fmt_number(timelim)}s cap.'
         )
 
-    # Run TLE submissions last (as they're presumably the slowest)
+    # Run submissions upper-bounding the time limit (i.e., TLE submissions) last, as they are presumably the slowest
     rest = sorted(
         (sub for sub in included_submissions if sub not in lower_bound_submissions),
         key=lambda sub: (
-            any(isinstance(r, FinalVerdictRule) and r.verdict == 'TLE' for r in rules_by_submission[sub]),
+            _has_time_limit_bound(policy, sub, 'upper'),
             str(sub.path),
         ),
     )
@@ -121,6 +122,10 @@ def check_submissions(
 def _check_has_accepted_submission(submissions: Submissions, diag: Diagnostics) -> None:
     if not any(sub.directory == 'accepted' for sub in submissions.submissions):
         diag.error('Require at least one "accepted" submission')
+
+
+def _has_time_limit_bound(policy: LegacyPolicy, sub: Submission, direction: Literal['lower', 'upper']) -> bool:
+    return any(bound.direction == direction for bound in policy.time_limit_bounds_for(sub))
 
 
 def _check_matches_policy(
@@ -381,13 +386,25 @@ def _initial_time_limit(metadata: Metadata, context: Context, diag: Diagnostics)
 
 def _compute_time_limit(
     metadata: Metadata,
+    policy: LegacyPolicy,
     fixed_limit: float | None,
     all_submission_results: list[tuple[Submission, list[SubmissionResult]]],
     context: Context,
     diag: Diagnostics,
 ) -> tuple[float, float]:
     limits = metadata.limits
-    lower_bound_runtime = max(results[-1].runtime for _, results in all_submission_results)
+    # The slowest runtime on a test case covered by a lower bound
+    lower_bound_runtime = max(
+        (
+            r.runtime
+            for sub, results in all_submission_results
+            for bound in policy.time_limit_bounds_for(sub)
+            if bound.direction == 'lower'
+            for r in results
+            if isinstance(r.test_node, TestCase) and bound.scope.covers(r.test_node.path)
+        ),
+        default=0.0,
+    )
     exact_timelim = lower_bound_runtime * limits.time_multipliers.ac_to_time_limit
     tl_from_runtime = max(1, math.ceil(exact_timelim / limits.time_resolution)) * limits.time_resolution
 

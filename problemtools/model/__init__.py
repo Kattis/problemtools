@@ -10,7 +10,7 @@ from .includes import DEFAULT_LANGUAGE, Includes, LanguageIncludes, load_include
 from .problem import Problem, load_problem
 from .program_files import ProgramFile, ProgramFiles, load_program_files
 from .statements import Statements, load_statements
-from .submissions import LegacyPolicy, Submission, Submissions, load_submissions
+from .submissions import LegacyPolicy, Submission, Submissions, TimeLimitBound, load_submissions
 from .testdata import DEFAULT_CONFIG, SCORING_ONLY_KEYS, TestCase, TestDataGroup, load_testdata
 from .validators import DEFAULT_VALIDATOR, InputValidators, OutputValidators, load_input_validators, load_output_validators
 
@@ -39,6 +39,7 @@ __all__ = [
     'Submissions',
     'TestCase',
     'TestDataGroup',
+    'TimeLimitBound',
     'Verdict',
     'load_attachments',
     'load_files',
