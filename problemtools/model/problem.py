@@ -64,6 +64,7 @@ def load_problem(probdir: Path, diag: Diagnostics) -> Problem:
         format_version = problem_metadata.problem_format_version
 
         includes = load_includes(files, language_config)
+        testdata = load_testdata(files, problem_metadata)
         return Problem(
             probdir=probdir,
             files=files,
@@ -74,10 +75,10 @@ def load_problem(probdir: Path, diag: Diagnostics) -> Problem:
             input_validators=load_input_validators(files, language_config),
             output_validators=load_output_validators(files, format_version, language_config),
             graders=load_graders(files, language_config),
-            testdata=load_testdata(files, problem_metadata),
+            testdata=testdata,
             includes=includes,
-            # Submissions need includes, so includes must be loaded first.
-            submissions=load_submissions(files, language_config, includes),
+            # Submissions need includes and testdata, so they must be loaded first.
+            submissions=load_submissions(files, language_config, includes, testdata, problem_metadata),
         )
     except VerifyError:
         # A loader already reported its own diagnostic; don't double-report.
