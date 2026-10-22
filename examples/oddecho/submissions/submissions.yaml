@@ -1,0 +1,8 @@
+# Only handles N = 5. That's enough for subtask 1, but it crashes on the smaller cases in subtask 2.
+partially_accepted/sol.py:
+  score: 50
+  secret/subtask1:
+    permitted: [AC]
+    score: 50
+  secret/subtask2:
+    required: [RTE]
