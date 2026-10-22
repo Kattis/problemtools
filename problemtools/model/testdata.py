@@ -61,7 +61,7 @@ class TestDataGroup:
     items: list[TestCase | TestDataGroup] = field(default_factory=list)
 
     def __str__(self) -> str:
-        return f'testcase group {self.name}'
+        return f'testcase group {"data" if self.is_root else self.path}'
 
     def matches_filter(self, filter_re: Pattern[str]) -> bool:
         return True

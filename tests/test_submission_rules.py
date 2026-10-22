@@ -171,6 +171,15 @@ def test_score_rule() -> None:
     assert check(rule, [result(G1, 'AC', 9), result(G2, 'AC', 25), result(ROOT, 'AC', 40)]) == ['error', 'error']
 
 
+def test_score_rule_ignores_verdict() -> None:
+    rule = ScoreRule(scope=Glob('secret/*'), min_score=10, max_score=20)
+    # A group that isn't accepted can still legitimately get a score from its grader
+    assert check(rule, [result(G1, 'WA', 15), result(G2, 'RTE', 10)]) == []
+    assert check(rule, [result(G1, 'WA', 0), result(G2, 'RTE', 10)]) == ['error']
+    # No score, e.g. due to a judge error
+    assert check(rule, [result(G1, 'JE'), result(G2, 'AC', 10)]) == []
+
+
 def test_score_rule_on_root() -> None:
     rule = ScoreRule(min_score=100, max_score=100)
     assert check(rule, [result(G1, 'AC', 50), result(ROOT, 'AC', 100)]) == []
