@@ -120,7 +120,9 @@ def _legacy_entries(testdata: TestDataGroup, metadata: Metadata) -> list[Submiss
     """The directory-name-based expectations used by problem formats that predate submissions.yaml.
 
     Problemtools has traditionally only checked a submission's final verdict, so that's an error,
-    while violating the (stricter) per test case expectations is only a warning.
+    while violating the (stricter) per test case expectations is only a warning. Likewise,
+    time_limit_exceeded doesn't upper bound the time limit, as a TLE submission running close to
+    the time limit has traditionally only given a warning (about time limit sensitivity).
     """
     # show_details=False: when the final verdict is wrong, the permitted rule shows the failing test case
     accepted: list[Rule] = [
@@ -143,7 +145,7 @@ def _legacy_entries(testdata: TestDataGroup, metadata: Metadata) -> list[Submiss
         _default_entry('accepted', accepted, 'lower'),
         _default_entry('partially_accepted', _partially_accepted_rules(testdata, metadata)),
         _default_entry('wrong_answer', wrong_answer),
-        _default_entry('time_limit_exceeded', time_limit_exceeded, 'upper'),
+        _default_entry('time_limit_exceeded', time_limit_exceeded),
         _default_entry('run_time_error', run_time_error),
     ]
 
