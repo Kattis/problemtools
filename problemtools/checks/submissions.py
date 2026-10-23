@@ -12,8 +12,10 @@ from ..context import Context
 from ..diagnostics import Diagnostics, pluralize
 from ..judge import SubmissionJudge, SubmissionResult, SubmissionsJudge
 from ..metadata import FormatVersion, Metadata
-from ..model import Graders, Submission, Submissions, TestCase, TestDataGroup
+from ..model import Graders, Submission, Submissions, SubmissionsPolicy, TestCase, TestDataGroup
+from ..model.paths import RelativePath
 from ..run import Program
+from ..submission_rules import ScoreRule
 
 
 def check_submissions(
@@ -29,6 +31,8 @@ def check_submissions(
     diag: Diagnostics,
 ) -> None:
     """Run all checks on a problem's submissions."""
+    _check_policy(submissions.policy, metadata, diag)
+    _check_globs_match(submissions.policy, [sub.path for sub in submissions.submissions], testdata, diag)
     known_submissions = _check_has_rules(submissions, diag)
     included_submissions = [s for s in known_submissions if context.submission_filter.search(str(s.path))]
     ignored_submissions = len(known_submissions) - len(included_submissions)
@@ -123,6 +127,53 @@ def _has_time_limit_bound(sub: Submission, direction: Literal['lower', 'upper'])
     return any(bound.direction == direction for bound in sub.time_limit_bounds)
 
 
+def _check_policy(policy: SubmissionsPolicy, metadata: Metadata, diag: Diagnostics) -> None:
+    """Check the policy itself, i.e. the default entries combined with those from submissions.yaml."""
+    for error in policy.parse_errors:
+        diag.error(f'submissions.yaml: {error}')
+
+    user_entries = [entry for entry in policy.entries if not entry.is_default]
+    if metadata.problem_format_version == FormatVersion.LEGACY and (user_entries or policy.parse_errors):
+        diag.warning(
+            f'submissions.yaml is not part of problem format version {FormatVersion.LEGACY}, '
+            'but is supported by problemtools as an extension'
+        )
+
+    for entry in user_entries:
+        unsupported = []
+        if entry.language is not None:
+            unsupported.append('language')
+        if entry.entrypoint is not None:
+            unsupported.append('entrypoint')
+        for key in unsupported:
+            diag.warning(f"submissions.yaml: '{entry.glob}': {key} is not supported yet (ignoring it)")
+        if not metadata.is_scoring() and any(isinstance(rule, ScoreRule) for rule in entry.rules):
+            diag.error(f"submissions.yaml: '{entry.glob}': score is only allowed for scoring problems")
+
+
+def _check_globs_match(
+    policy: SubmissionsPolicy, submission_paths: list[RelativePath], testdata: TestDataGroup, diag: Diagnostics
+) -> None:
+    """Warn about globs in submissions.yaml that don't match anything, which is likely a mistake."""
+    testcases = testdata.get_all_testcases()
+    nodes: list[TestCase | TestDataGroup] = [*testcases, *testdata.get_all_groups()]
+    for entry in policy.entries:
+        if entry.is_default:
+            continue
+        if not any(entry.glob.covers(path) for path in submission_paths):
+            diag.warning(f"submissions.yaml: '{entry.glob}' does not match any submission")
+
+        unmatched: set[str] = set()
+        for rule in entry.rules:
+            if not any(rule.applies_to(node) for node in nodes):
+                unmatched.add(f'test data {"group " if isinstance(rule, ScoreRule) else ""}glob {rule.scope.pattern!r}')
+        for bound in entry.time_limit_bounds:
+            if not any(bound.scope.covers(tc.path) for tc in testcases):
+                unmatched.add(f'test data glob {bound.scope.pattern!r}')
+        for what in sorted(unmatched):
+            diag.warning(f"submissions.yaml: '{entry.glob}': {what} does not match any test data")
+
+
 def _check_has_rules(submissions: Submissions, diag: Diagnostics) -> list[Submission]:
     """Get every submission with rules. Emit an error for, and exclude, any submission without
     rules (e.g. one that sits in an unrecognized directory). Such a submission is never compiled or tested."""
@@ -131,7 +182,9 @@ def _check_has_rules(submissions: Submissions, diag: Diagnostics) -> list[Submis
         if sub.rules:
             with_rules.append(sub)
         else:
-            diag.error(f'Submission {sub.path} does not match any known submissions directory; ignoring it')
+            diag.error(
+                f'Submission {sub.path} is not in a known submissions directory, and not matched by submissions.yaml; ignoring it'
+            )
     return with_rules
 
 

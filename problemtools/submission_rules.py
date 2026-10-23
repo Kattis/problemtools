@@ -148,11 +148,13 @@ class ScoreRule(Rule):
             expected = f'[{self.min_score:g}, {self.max_score:g}]'
         violations: list[Violation] = []
         for r in results:
-            if r.verdict != 'AC' or r.score is None or self.min_score <= r.score <= self.max_score:
+            # The score is None for judge errors (and for pass-fail problems, which can't have score rules)
+            if r.score is None or self.min_score <= r.score <= self.max_score:
                 continue
             assert isinstance(r.test_node, TestDataGroup)
+            verdict = '' if r.verdict == 'AC' else f' ({r.verdict})'
             where = '' if r.test_node.is_root else f' on {r.test_node}'
-            violations.append((f'got score {r.score:g}{where}, expected {expected}', None))
+            violations.append((f'got score {r.score:g}{verdict}{where}, expected {expected}', None))
         return violations
 
 
