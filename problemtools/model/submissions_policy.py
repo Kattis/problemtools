@@ -184,7 +184,7 @@ def _parse_str(value: Any, where: str, errors: list[str]) -> str | None:
 
 
 def _parse_verdicts(value: Any, where: str, errors: list[str]) -> frozenset[Verdict] | None:
-    if not isinstance(value, list) or not all(v in _VERDICTS for v in value):
+    if not isinstance(value, list) or not all(isinstance(v, str) and v in _VERDICTS for v in value):
         errors.append(f'{where}: expected a list of verdicts ({", ".join(sorted(_VERDICTS))}), got {_describe(value)}')
         return None
     return frozenset(cast(list[Verdict], value))

@@ -141,6 +141,7 @@ def test_invalid_entry_is_dropped(text: str) -> None:
         'permitted: [AC, XX]',
         'permitted: [MLE]',
         'permitted: {AC: 1}',
+        'permitted: [[AC]]',
         'score: high',
         'score: true',
         'score: [1]',
