@@ -209,7 +209,7 @@ def test_narrower_declared_range_propagates_to_parent(diag: RecordingDiagnostics
         (
             'warning',
             (
-                'No score range declared for testcase group g, but a range of [0, 10] can be computed from its '
+                'No score range declared for testcase group data, but a range of [0, 10] can be computed from its '
                 "grading configuration and test data; consider adding 'range: 0 10'"
             ),
         )
@@ -234,7 +234,7 @@ def test_root_with_unbounded_aggregate_and_no_declared_range_still_warns(diag: R
         (
             'warning',
             (
-                'No score range declared for testcase group g, and none could be computed automatically; as the '
+                'No score range declared for testcase group data, and none could be computed automatically; as the '
                 'top-level group, its range is the overall score range for the problem -- consider declaring one '
                 'explicitly'
             ),
@@ -255,7 +255,7 @@ def test_root_with_negative_minimum_and_no_other_issue_warns(diag: RecordingDiag
         (
             'warning',
             (
-                "Declared score range '-5 10' for testcase group g has a negative minimum; submissions with "
+                "Declared score range '-5 10' for testcase group data has a negative minimum; submissions with "
                 'non-AC final verdict always have score 0, so a negative minimum is usually a mistake'
             ),
         )

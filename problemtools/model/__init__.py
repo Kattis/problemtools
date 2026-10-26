@@ -10,7 +10,8 @@ from .includes import DEFAULT_LANGUAGE, Includes, LanguageIncludes, load_include
 from .problem import Problem, load_problem
 from .program_files import ProgramFile, ProgramFiles, load_program_files
 from .statements import Statements, load_statements
-from .submissions import Submission, Submissions, SubmissionsEntry, SubmissionsPolicy, TimeLimitBound, load_submissions
+from .submissions import Submission, Submissions, load_submissions
+from .submissions_policy import SubmissionsEntry, SubmissionsPolicy, TimeLimitBound, parse_submissions_yaml
 from .testdata import DEFAULT_CONFIG, SCORING_ONLY_KEYS, TestCase, TestDataGroup, load_testdata
 from .validators import DEFAULT_VALIDATOR, InputValidators, OutputValidators, load_input_validators, load_output_validators
 
@@ -53,4 +54,5 @@ __all__ = [
     'load_statements',
     'load_submissions',
     'load_testdata',
+    'parse_submissions_yaml',
 ]

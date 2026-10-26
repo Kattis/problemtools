@@ -61,7 +61,7 @@ class TestDataGroup:
     items: list[TestCase | TestDataGroup] = field(default_factory=list)
 
     def __str__(self) -> str:
-        return f'testcase group {self.name}'
+        return f'testcase group {"data" if self.is_root else self.path}'
 
     def matches_filter(self, filter_re: Pattern[str]) -> bool:
         return True
@@ -76,6 +76,13 @@ class TestDataGroup:
         result: list[TestCase] = []
         for item in self.items:
             result.extend(item.get_all_testcases())
+        return result
+
+    def get_all_groups(self) -> list[TestDataGroup]:
+        """This group and all groups below it."""
+        result = [self]
+        for subgroup in self.get_subgroups():
+            result.extend(subgroup.get_all_groups())
         return result
 
     def has_custom_groups(self) -> bool:
