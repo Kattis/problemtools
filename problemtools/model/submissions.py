@@ -101,7 +101,9 @@ def _load_submissions_yaml(files: Files, language_config: Languages) -> tuple[li
     if not files.is_file(path):
         return [], []
     try:
-        data = yaml.safe_load(path.read_text())
+        data = yaml.safe_load(path.read_text(encoding='utf-8'))
+    except UnicodeDecodeError as e:
+        return [], [f'not valid UTF-8: {e}']
     except yaml.YAMLError as e:
         return [], [f'invalid YAML: {e}']
     return parse_submissions_yaml(data, language_config.languages.keys())

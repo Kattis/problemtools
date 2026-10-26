@@ -14,7 +14,7 @@ def load(
     probdir: Path,
     problem_yaml: str,
     submission_files: list[str],
-    submissions_yaml: str | None = None,
+    submissions_yaml: str | bytes | None = None,
     include_files: list[str] | None = None,
 ) -> Submissions:
     """Create a problem in `probdir` with the given submission files (relative to submissions/) and
@@ -28,7 +28,9 @@ def load(
     for path in paths:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('')
-    if submissions_yaml is not None:
+    if isinstance(submissions_yaml, bytes):
+        (probdir / 'submissions' / 'submissions.yaml').write_bytes(submissions_yaml)
+    elif submissions_yaml is not None:
         (probdir / 'submissions' / 'submissions.yaml').write_text(submissions_yaml)
 
     files = load_files(probdir)
@@ -73,6 +75,12 @@ def test_invalid_submissions_yaml(tmp_path: Path) -> None:
     assert len(loaded.policy.parse_errors) == 1
     # The defaults still apply
     assert by_path(loaded)['accepted/a.py'].rules
+
+
+def test_non_utf8_submissions_yaml(tmp_path: Path) -> None:
+    loaded = load(tmp_path, V_2023_07, ['accepted/a.py'], b'accepted:\n  author: \xff\n')
+    assert len(loaded.policy.parse_errors) == 1
+    assert all(entry.is_default for entry in loaded.policy.entries)
 
 
 def test_no_submissions_yaml(tmp_path: Path) -> None:
