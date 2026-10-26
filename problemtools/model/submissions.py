@@ -16,7 +16,7 @@ from ..submission_rules import FinalVerdictRule, PermittedRule, RequiredRule, Ru
 from .files import EntryKind, Files
 from .includes import Includes
 from .paths import RelativePath, relpath
-from .programs import find_source_programs
+from .programs import get_source_program
 from .submissions_policy import SubmissionsEntry, SubmissionsPolicy, TimeLimitBound, parse_submissions_yaml
 from .testdata import TestDataGroup
 
@@ -32,12 +32,16 @@ class Submission:
     when it's not in a well-known directory. That's an error, and such a submission is ignored.
 
     `rules` and `time_limit_bounds` are tuples rather than lists to keep Submission hashable,
-    as it's used as a dict key."""
+    as it's used as a dict key.
+
+    `language_overridden` is whether the program's language was set by submissions.yaml
+    rather than auto-detected."""
 
     program: SourceCode
     path: RelativePath
     rules: tuple[Rule, ...]
     time_limit_bounds: tuple[TimeLimitBound, ...]
+    language_overridden: bool = False
 
     def __post_init__(self) -> None:
         if len(self.path.parts) != 2:
@@ -63,34 +67,51 @@ class Submissions:
 def load_submissions(
     files: Files, language_config: Languages, includes: Includes, testdata: TestDataGroup, metadata: Metadata
 ) -> Submissions:
-    parsed_entries, parse_errors = _load_submissions_yaml(files)
+    parsed_entries, parse_errors = _load_submissions_yaml(files, language_config)
     policy = SubmissionsPolicy(entries=_default_entries(testdata, metadata) + parsed_entries, parse_errors=parse_errors)
     submissions = []
     for directory in files.listdir(files.root / 'submissions', EntryKind.DIR):
-        for program in find_source_programs(files, directory, language_config=language_config, includes=includes):
-            path = relpath(Path(directory.name) / program.name)
+        for program_path in files.listdir(directory):
+            path = relpath(Path(directory.name) / program_path.name)
             matching = policy.entries_for(path)
+            # Conflicting values are an error reported by checks, so which one we pick doesn't matter
+            language_codes = [entry.language for entry in matching if entry.language is not None]
+            language = language_config.languages[language_codes[-1]] if language_codes else None
+            entrypoints = [entry.entrypoint for entry in matching if entry.entrypoint is not None]
+            program = get_source_program(
+                files,
+                program_path,
+                language_config,
+                includes=includes,
+                language=language,
+                entrypoint_override=entrypoints[-1] if entrypoints else None,
+            )
+            if program is None:
+                continue
             submissions.append(
                 Submission(
                     program=program,
                     path=path,
                     rules=tuple(rule for entry in matching for rule in entry.rules),
                     time_limit_bounds=tuple(bound for entry in matching for bound in entry.time_limit_bounds),
+                    language_overridden=language is not None,
                 )
             )
     return Submissions(policy=policy, submissions=submissions)
 
 
-def _load_submissions_yaml(files: Files) -> tuple[list[SubmissionsEntry], list[str]]:
+def _load_submissions_yaml(files: Files, language_config: Languages) -> tuple[list[SubmissionsEntry], list[str]]:
     """The entries from submissions/submissions.yaml (if any), and errors from parsing it."""
     path = files.root / 'submissions' / 'submissions.yaml'
     if not files.is_file(path):
         return [], []
     try:
-        data = yaml.safe_load(path.read_text())
+        data = yaml.safe_load(path.read_text(encoding='utf-8'))
+    except UnicodeDecodeError as e:
+        return [], [f'not valid UTF-8: {e}']
     except yaml.YAMLError as e:
         return [], [f'invalid YAML: {e}']
-    return parse_submissions_yaml(data)
+    return parse_submissions_yaml(data, language_config.languages.keys())
 
 
 def _default_entries(testdata: TestDataGroup, metadata: Metadata) -> list[SubmissionsEntry]:
@@ -106,7 +127,9 @@ def _legacy_entries(testdata: TestDataGroup, metadata: Metadata) -> list[Submiss
     """The directory-name-based expectations used by problem formats that predate submissions.yaml.
 
     Problemtools has traditionally only checked a submission's final verdict, so that's an error,
-    while violating the (stricter) per test case expectations is only a warning.
+    while violating the (stricter) per test case expectations is only a warning. Likewise,
+    time_limit_exceeded doesn't upper bound the time limit, as a TLE submission running close to
+    the time limit has traditionally only given a warning (about time limit sensitivity).
     """
     # show_details=False: when the final verdict is wrong, the permitted rule shows the failing test case
     accepted: list[Rule] = [
@@ -129,7 +152,7 @@ def _legacy_entries(testdata: TestDataGroup, metadata: Metadata) -> list[Submiss
         _default_entry('accepted', accepted, 'lower'),
         _default_entry('partially_accepted', _partially_accepted_rules(testdata, metadata)),
         _default_entry('wrong_answer', wrong_answer),
-        _default_entry('time_limit_exceeded', time_limit_exceeded, 'upper'),
+        _default_entry('time_limit_exceeded', time_limit_exceeded),
         _default_entry('run_time_error', run_time_error),
     ]
 

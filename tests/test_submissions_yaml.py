@@ -9,10 +9,11 @@ from problemtools.model import SubmissionsEntry, TimeLimitBound, parse_submissio
 from problemtools.submission_rules import PermittedRule, RequiredRule, ScoreRule
 
 ALL = Glob('')
+LANGUAGES = {'cpp', 'python3'}
 
 
 def parse(text: str) -> tuple[list[SubmissionsEntry], list[str]]:
-    return parse_submissions_yaml(yaml.safe_load(textwrap.dedent(text)))
+    return parse_submissions_yaml(yaml.safe_load(textwrap.dedent(text)), LANGUAGES)
 
 
 def parse_ok(text: str) -> list[SubmissionsEntry]:
@@ -170,6 +171,7 @@ def test_invalid_requirement_is_dropped(requirement: str) -> None:
     'setting',
     [
         'language: 3',
+        'language: nosuchlanguage',
         'entrypoint: [a.py]',
         'model_solution: yes please',
     ],

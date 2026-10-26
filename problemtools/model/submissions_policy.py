@@ -1,5 +1,6 @@
 """What's expected of example submissions, and parsing of submissions.yaml into it."""
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
@@ -54,7 +55,7 @@ _VERDICTS = frozenset({'AC', 'WA', 'TLE', 'RTE'})
 _REQUIREMENT_KEYS = frozenset({'permitted', 'required', 'score', 'use_for_time_limit'})
 
 
-def parse_submissions_yaml(data: Any) -> tuple[list[SubmissionsEntry], list[str]]:
+def parse_submissions_yaml(data: Any, known_languages: Collection[str]) -> tuple[list[SubmissionsEntry], list[str]]:
     """Parse the contents of submissions.yaml (as loaded by yaml.safe_load) into entries.
 
     Never raises on bad content. Instead, anything that can't be parsed is left out (as small a part
@@ -75,13 +76,13 @@ def parse_submissions_yaml(data: Any) -> tuple[list[SubmissionsEntry], list[str]
     errors: list[str] = []
     entries = []
     for key, value in data.items():
-        entry = _parse_entry(key, value, errors)
+        entry = _parse_entry(key, value, known_languages, errors)
         if entry is not None:
             entries.append(entry)
     return entries, errors
 
 
-def _parse_entry(key: Any, value: Any, errors: list[str]) -> SubmissionsEntry | None:
+def _parse_entry(key: Any, value: Any, known_languages: Collection[str], errors: list[str]) -> SubmissionsEntry | None:
     glob = _parse_glob(key, 'submission glob', errors)
     if glob is None:
         return None
@@ -101,6 +102,9 @@ def _parse_entry(key: Any, value: Any, errors: list[str]) -> SubmissionsEntry | 
         match k:
             case 'language':
                 language = _parse_str(v, f'{where}: language', errors)
+                if language is not None and language not in known_languages:
+                    errors.append(f"{where}: language '{language}' is not supported")
+                    language = None
             case 'entrypoint':
                 entrypoint = _parse_str(v, f'{where}: entrypoint', errors)
             case 'model_solution':

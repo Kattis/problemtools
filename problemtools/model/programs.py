@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from ..languages import Languages
+from ..languages import Language, Languages
 from ..run import BuildRun, Checktestdata, Program, SourceCode, Viva
 from .files import Files
 from .includes import Includes
@@ -78,22 +78,13 @@ def get_program(
     return get_source_program(files, path, language_config)
 
 
-def find_source_programs(files: Files, dir: Path, language_config: Languages, includes: Includes) -> list[SourceCode]:
-    """Find all programs provided as source code in a directory.
-
-    Like find_programs, but never gives a BuildRun: a directory with a build
-    script is treated like any other source code directory.
-    """
-    ret = []
-    for path in files.listdir(dir):
-        program = get_source_program(files, path, language_config=language_config, includes=includes)
-        if program is not None:
-            ret.append(program)
-    return ret
-
-
 def get_source_program(
-    files: Files, path: Path, language_config: Languages, includes: Includes | None = None
+    files: Files,
+    path: Path,
+    language_config: Languages,
+    includes: Includes | None = None,
+    language: Language | None = None,
+    entrypoint_override: str | None = None,
 ) -> SourceCode | None:
     """Get a SourceCode object for a program.
 
@@ -104,6 +95,10 @@ def get_source_program(
             the program's detected language (see
             Includes.get_includes_for_language). Defaults to no includes.
 
+        language: the program's language. If None, it's auto-detected.
+
+        entrypoint_override: see SourceCode.
+
     Returns:
         a SourceCode instance, or None if no source code in a known
         language was found at the given path.
@@ -111,10 +106,16 @@ def get_source_program(
     if includes is None:
         includes = Includes()
 
-    lang = language_config.detect_language([path] if files.is_file(path) else files.walk(path))
+    lang = language or language_config.detect_language([path] if files.is_file(path) else files.walk(path))
     if lang is None:
         return None
-    return SourceCode(path.name, load_program_files(files, path), lang, includes=includes.get_includes_for_language(lang.lang_id))
+    return SourceCode(
+        path.name,
+        load_program_files(files, path),
+        lang,
+        includes=includes.get_includes_for_language(lang.lang_id),
+        entrypoint_override=entrypoint_override,
+    )
 
 
 def as_source_or_buildrun(programs: list[Program]) -> list[SourceCode | BuildRun]:
