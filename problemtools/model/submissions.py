@@ -32,12 +32,16 @@ class Submission:
     when it's not in a well-known directory. That's an error, and such a submission is ignored.
 
     `rules` and `time_limit_bounds` are tuples rather than lists to keep Submission hashable,
-    as it's used as a dict key."""
+    as it's used as a dict key.
+
+    `language_overridden` is whether the program's language was set by submissions.yaml
+    rather than auto-detected."""
 
     program: SourceCode
     path: RelativePath
     rules: tuple[Rule, ...]
     time_limit_bounds: tuple[TimeLimitBound, ...]
+    language_overridden: bool = False
 
     def __post_init__(self) -> None:
         if len(self.path.parts) != 2:
@@ -90,6 +94,7 @@ def load_submissions(
                     path=path,
                     rules=tuple(rule for entry in matching for rule in entry.rules),
                     time_limit_bounds=tuple(bound for entry in matching for bound in entry.time_limit_bounds),
+                    language_overridden=language is not None,
                 )
             )
     return Submissions(policy=policy, submissions=submissions)

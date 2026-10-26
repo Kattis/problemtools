@@ -240,7 +240,8 @@ def _check_submission_group(
 
         result = outcomes[sub]
         if not result.success:
-            diag.error(f'Compile error for {sub}', additional_info=result.errmsg)
+            hint = f' (language set to {sub.program.language.lang_id} by submissions.yaml)' if sub.language_overridden else ''
+            diag.error(f'Compile error for {sub}{hint}', additional_info=result.errmsg)
             continue
 
         if not has_testcases:
