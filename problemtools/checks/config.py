@@ -105,12 +105,3 @@ def check_config(
             for param in validation_params:
                 if param not in ['score', 'interactive']:
                     diag.error(f"Invalid parameter '{param}' for custom validation")
-
-    if metadata.limits.time_limit is not None and not metadata.limits.time_limit.is_integer():
-        diag.warning(
-            'Time limit configured to non-integer value. This can be fragile, and may not be supported by your CCS (Kattis does not).'
-        )
-    if not metadata.limits.time_resolution.is_integer():
-        diag.warning(
-            'Time resolution is not an integer. This can be fragile, and may not be supported by your CCS (Kattis does not).'
-        )

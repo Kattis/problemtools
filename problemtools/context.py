@@ -16,7 +16,7 @@ _T = TypeVar('_T')
 _P = ParamSpec('_P')
 
 #: Listed in the order they're checked in.
-PROBLEM_PARTS = ['config', 'statement', 'validators', 'graders', 'data', 'submissions']
+PROBLEM_PARTS = ['config', 'judge', 'statement', 'validators', 'graders', 'data', 'submissions']
 
 
 class Context:
