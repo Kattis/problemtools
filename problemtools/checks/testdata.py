@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import collections
-import hashlib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -275,9 +274,7 @@ def _check_group(
         for testcase in group.get_all_testcases():
             if testcase.infile.is_symlink():
                 continue
-            with open(testcase.infile, 'rb') as f:
-                digest = hashlib.file_digest(f, lambda: hashlib.sha256(usedforsecurity=False)).digest()
-            hashes[digest].append(testcase.infile.relative_to(files.root))
+            hashes[testcase.input_sha256].append(testcase.infile.relative_to(files.root))
         for identical in hashes.values():
             if len(identical) > 1:
                 diag.warning(

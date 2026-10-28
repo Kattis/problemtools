@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 from concurrent.futures import Future
 from dataclasses import dataclass
-from functools import cache
-from pathlib import Path
 from threading import Lock
 
 from ..model import TestCase
@@ -19,20 +16,14 @@ class CacheKey:
     validator_flags: tuple[str, ...]
 
 
-@cache
-def _compute_reuse_key(infile: Path, ansfile: Path, output_validator_flags: tuple[str, ...]) -> CacheKey:
-    return CacheKey(
-        input_hash=hashlib.sha256(infile.read_bytes()).digest(),
-        ans_hash=hashlib.sha256(ansfile.read_bytes()).digest(),
-        validator_flags=output_validator_flags,
-    )
-
-
 def compute_reuse_key(testcase: TestCase) -> CacheKey:
     """A key identifying testcase for result-reuse purposes: same input/answer file contents
-    and same output validator flags means a result can be reused. Memoized, since this hashes
-    file contents on first computation for a given testcase."""
-    return _compute_reuse_key(testcase.infile, testcase.ansfile, tuple(testcase.output_validator_flags))
+    and same output validator flags means a result can be reused."""
+    return CacheKey(
+        input_hash=testcase.input_sha256,
+        ans_hash=testcase.answer_sha256,
+        validator_flags=tuple(testcase.output_validator_flags),
+    )
 
 
 @dataclass

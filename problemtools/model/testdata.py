@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from dataclasses import dataclass, field
+from functools import cached_property
 from re import Pattern
 from typing import Any
 
@@ -32,6 +34,16 @@ class TestCase:
     def __str__(self) -> str:
         return f'testcase {self.path}'
 
+    @cached_property
+    def input_sha256(self) -> bytes:
+        """sha256 of the input file contents. Computed on first access."""
+        return _file_digest(self.infile)
+
+    @cached_property
+    def answer_sha256(self) -> bytes:
+        """sha256 of the answer file contents. Computed on first access."""
+        return _file_digest(self.ansfile)
+
     def matches_filter(self, filter_re: Pattern[str]) -> bool:
         return filter_re.search(str(self.path)) is not None
 
@@ -40,6 +52,11 @@ class TestCase:
 
     def get_all_testcases(self) -> list[TestCase]:
         return [self]
+
+
+def _file_digest(path: AbsolutePath) -> bytes:
+    with open(path, 'rb') as f:
+        return hashlib.file_digest(f, lambda: hashlib.sha256(usedforsecurity=False)).digest()
 
 
 @dataclass(frozen=True)
