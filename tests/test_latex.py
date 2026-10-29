@@ -36,7 +36,7 @@ def test_html_render_different(diag: Diagnostics) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         problem_path = example_directory('different')
         out_dir = Path(temp_dir) / 'different_html'
-        options = problem2html.get_parser().parse_args(['-d', str(out_dir), '-l', 'en', '-q', str(problem_path)])
+        options = problem2html.get_parser().parse_args(['-d', str(out_dir), '-l', 'en', str(problem_path)])
         problem2html.convert(options, diag)
         with open(out_dir / 'index.html', 'r') as temp_file:
             full_html = temp_file.read()
@@ -52,7 +52,7 @@ def test_html_render_guess(diag: Diagnostics) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         problem_path = example_directory('guess')
         out_dir = Path(temp_dir) / 'guess_html'
-        options = problem2html.get_parser().parse_args(['-d', str(out_dir), '-l', 'en', '-q', str(problem_path)])
+        options = problem2html.get_parser().parse_args(['-d', str(out_dir), '-l', 'en', str(problem_path)])
         problem2html.convert(options, diag)
         with open(out_dir / 'index.html', 'r') as temp_file:
             full_html = temp_file.read()

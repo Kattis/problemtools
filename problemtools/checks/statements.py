@@ -89,7 +89,6 @@ def check_statements(
                 options.problem = files.root
                 options.destdir = os.path.join(work_dir, 'html')
                 options.language = lang
-                options.quiet = True
                 diag.ttymsg(f'Compiling statement for language "{lang}" to html...')
                 problem2html.convert(options, diag, file)
             except Exception as e:
