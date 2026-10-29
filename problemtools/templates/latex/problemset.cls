@@ -86,7 +86,8 @@
 \newcommand*{\licenseblurb}[1]{\def\@licenseblurb{#1}}
 \newcommand*{\statementdirectory}[1]{\def\@statementdirectory{#1}}
 \newcommand*{\statementfilename}[1]{\def\@statementfilename{#1}}
-\newcommand*{\problemparentpath}[1]{\def\@problemparentpath{#1}}
+% \problemparentpath{dir} makes \@problempath{X} expand to dir/X. Without it, \@problempath{X} is just X.
+\newcommand*{\problemparentpath}[1]{\def\@problempath##1{#1/##1}}
 \newcommand*{\problemlanguage}[1]{%
   \statementfilename{problem#1.tex}%
   \setproblemlanguagestrings{#1}%
@@ -98,9 +99,7 @@
 \licenseblurb{}
 \statementdirectory{problem_statement} % Default to the old standard directory on the off chance someone external uses problemset.cls
 \statementfilename{}
-\problemparentpath{}
-
-\newcommand{\@problempath}[1]{\ifx\@problemparentpath\@empty#1\else\@problemparentpath/#1\fi}
+\newcommand{\@problempath}[1]{#1}
 
 % Command to set a header logo
 \newsavebox{\PS@headerbox}
@@ -280,13 +279,13 @@
 % --- End Translations ---
 
 \newcommand{\setproblemlanguagestrings}[1]{%
-  \expandafter\ifx\csname @translation@#1@sampleinputname\endcsname\relax
+  \@ifundefined{@translation@#1@sampleinputname}{%
     % Language not found, default to English
     \def\problemlanguageis{en}%
-  \else
+  }{%
     % Language found
     \def\problemlanguageis{#1}%
-  \fi
+  }%
   \expandafter\let\expandafter\sampleinputname\csname @translation@\problemlanguageis @sampleinputname\endcsname
   \expandafter\let\expandafter\sampleoutputname\csname @translation@\problemlanguageis @sampleoutputname\endcsname
   \expandafter\let\expandafter\sampleinteractname\csname @translation@\problemlanguageis @sampleinteractname\endcsname
