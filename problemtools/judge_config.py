@@ -31,6 +31,7 @@ class JudgeConfig(BaseModel):
     enabled: bool = True
     name: str = 'your judge system'
     limits: LimitMaxima = LimitMaxima()
+    max_shortname_length: int | None = None  # length of the problem package directory name
     max_file_size: int | None = None  # MiB, any file in the package
     max_testdata_size: int | None = None  # MiB, de-duplicated test data .in and .ans files
     integer_time_limit: bool = False

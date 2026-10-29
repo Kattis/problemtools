@@ -43,6 +43,12 @@ def check_judge(metadata: Metadata, files: Files, testdata: TestDataGroup, diag:
         diag.msg('Not checking judge compatibility (disabled in judge.yaml)')
         return
     diag.msg(f'Checking compatibility with {judge_config.name}')
+    shortname = files.root.name
+    if judge_config.max_shortname_length is not None and len(shortname) > judge_config.max_shortname_length:
+        diag.warning(
+            f"Problem short name '{shortname}' is {len(shortname)} characters long, "
+            f'above what {judge_config.name} normally supports ({judge_config.max_shortname_length} characters)'
+        )
     _check_file_sizes(judge_config, files, testdata, diag)
     _check_config(judge_config, metadata, testdata, diag)
 

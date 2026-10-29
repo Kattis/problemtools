@@ -19,6 +19,9 @@ limits:
   validation_memory: 4096
   validation_output: 8
 
+# Maximum length of the problem short name (the package directory name).
+max_shortname_length: 40
+
 # Maximum size of any single file in the package, in MiB.
 max_file_size: 100
 # Maximum total size of test data input and answer files, in MiB. Files with
