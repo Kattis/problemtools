@@ -224,6 +224,30 @@ problemtools' configuration:
        memory: 2048 # (unit is MiB)
    ```
 
+3. `judge.yaml`.  Describes what the judge system you intend to run the
+   problem on supports, such as maximum limits, maximum file sizes, and
+   whether minimization problems or negative scores are allowed.
+   `verifyproblem` gives warnings (not errors) for problems exceeding this.
+   The default, found in [judge.yaml](problemtools/config/judge.yaml),
+   describes what Kattis supports. Settings are merged with the
+   defaults, so you only need to list what you want to change, and setting
+   a value to `null` disables that check.  For instance, if you are
+   targeting a judge system called Foo which supports 8 GiB of memory and
+   negative scores, you could use:
+
+   ```yaml
+   name: Foo
+   limits:
+       memory: 8192 # (unit is MiB)
+   allow_negative_scores: true
+   ```
+
+   To turn off all of these checks, set `enabled: false`. To skip them for a
+   single run, leave out the `judge` part when passing `-p` to `verifyproblem`.
+
+   Like `languages.yaml`, `judge.yaml` may also be placed as a sibling to the
+   problem package being checked.
+
 
 ## Requirements and compatibility
 
