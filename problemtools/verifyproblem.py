@@ -175,7 +175,13 @@ class ProblemVerifier:
                     problem.statements, problem.metadata, problem.format_version, problem.files, work_dir, diag
                 ),
             ),
-            _CheckStep('statement', 'attachments', lambda diag: checks.check_attachments(problem.attachments, diag)),
+            _CheckStep(
+                'statement',
+                'attachments',
+                lambda diag: checks.check_attachments(
+                    problem.attachments, problem.files, problem.metadata, problem.language_config, diag
+                ),
+            ),
             _CheckStep(
                 'validators',
                 'input_validator',
