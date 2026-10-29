@@ -280,13 +280,13 @@
 % --- End Translations ---
 
 \newcommand{\setproblemlanguagestrings}[1]{%
-  \expandafter\ifx\csname @translation@#1@sampleinputname\endcsname\relax
+  \@ifundefined{@translation@#1@sampleinputname}{%
     % Language not found, default to English
     \def\problemlanguageis{en}%
-  \else
+  }{%
     % Language found
     \def\problemlanguageis{#1}%
-  \fi
+  }%
   \expandafter\let\expandafter\sampleinputname\csname @translation@\problemlanguageis @sampleinputname\endcsname
   \expandafter\let\expandafter\sampleoutputname\csname @translation@\problemlanguageis @sampleoutputname\endcsname
   \expandafter\let\expandafter\sampleinteractname\csname @translation@\problemlanguageis @sampleinteractname\endcsname

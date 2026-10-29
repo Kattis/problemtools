@@ -12,6 +12,8 @@
 %% Here, we don't do that, as if a character is listed twice, listings also bugs, and we know exactly what extended
 %% characters occur.
 %% It would be very nice to replace listings with something better to avoid having to do this.
+%% Not needed for plasTeX, which does not use listings to render samples.
+\ifplastex\else
 \makeatletter
 \lst@InputCatcodes
 \def\lst@DefEC{%%
@@ -20,6 +22,7 @@
   ^^00}
 \lst@RestoreCatcodes
 \makeatother
+\fi
 
 \begin{document}
 
