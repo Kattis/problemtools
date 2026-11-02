@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Literal
 
-from ..model import TestCase, TestDataGroup
+from ..model import TestCase, TestDataGroup, Verdict
 
 #: The optional parts of a formatted SubmissionResult.
 ResultField = Literal['score', 'reason', 'testcase', 'runtime']
@@ -13,7 +13,7 @@ ALL_RESULT_FIELDS: tuple[ResultField, ...] = ('score', 'reason', 'testcase', 'ru
 class SubmissionResult:
     def __init__(
         self,
-        verdict: str,
+        verdict: Verdict,
         score: float | None = None,
         reason: str | None = None,
         additional_info: str | None = None,
@@ -30,7 +30,7 @@ class SubmissionResult:
     def format(self, fields: Collection[ResultField] = ALL_RESULT_FIELDS) -> str:
         """Format the verdict, followed by whichever of `fields` are available, e.g.
         'AC (50) [CPU: 0.12s @ testcase secret/3]' or 'RTE [SIGABRT, testcase: testcase secret/1]'."""
-        verdict = self.verdict
+        verdict: str = self.verdict
         if 'score' in fields and verdict == 'AC' and self.score is not None:
             verdict += f' ({self.score:g})'
         details = []

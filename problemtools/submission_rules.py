@@ -23,6 +23,14 @@ Violation = tuple[str, str | None]
 #: The scope of a rule applying to all test data.
 _ALL_TEST_DATA = Glob('')
 
+#: Verdicts that can't be expressed in a rule, and the verdict they count as when checking rules.
+_RULE_VERDICT_REMAP: dict[Verdict, Verdict] = {'OLE': 'WA', 'MLE': 'RTE'}
+
+
+def _rule_verdict(verdict: Verdict) -> Verdict:
+    """The verdict a result counts as when checking rules."""
+    return _RULE_VERDICT_REMAP.get(verdict, verdict)
+
 
 @dataclass(frozen=True, kw_only=True)
 class Rule(ABC):
@@ -68,7 +76,7 @@ class PermittedRule(Rule):
         """One violation per disallowed verdict, showing the first test case getting it."""
         disallowed_by_verdict: dict[str, list[SubmissionResult]] = {}
         for r in results:
-            if r.verdict not in self.verdicts:
+            if _rule_verdict(r.verdict) not in self.verdicts:
                 disallowed_by_verdict.setdefault(r.verdict, []).append(r)
 
         permitted = ', '.join(sorted(self.verdicts))
@@ -95,7 +103,7 @@ class RequiredRule(Rule):
         return isinstance(node, TestCase) and self.scope.covers(node.path)
 
     def _check(self, results: list[SubmissionResult]) -> list[Violation]:
-        if not results or any(r.verdict in self.verdicts for r in results):
+        if not results or any(_rule_verdict(r.verdict) in self.verdicts for r in results):
             return []
         required = ', '.join(sorted(self.verdicts))
         got = ', '.join(sorted({r.verdict for r in results}))
@@ -124,7 +132,7 @@ class FinalVerdictRule(Rule):
     def _check(self, results: list[SubmissionResult]) -> list[Violation]:
         assert len(results) == 1, f'Expected exactly one result for group {self.scope!r}, got {len(results)}'
         result = results[0]
-        if result.verdict == self.verdict:
+        if _rule_verdict(result.verdict) == self.verdict:
             return []
         additional_info = result.additional_info if self.show_details else None
         return [(f'got {_fmt_result(result)}, expected {self.verdict}', additional_info)]

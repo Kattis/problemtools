@@ -5,6 +5,7 @@ import pytest
 
 from problemtools.globs import Glob
 from problemtools.judge import SubmissionResult
+from problemtools.model import Verdict
 from problemtools.model.paths import abspath, relpath
 from problemtools.model.testdata import TestCase, TestDataGroup
 from problemtools.submission_rules import FinalVerdictRule, PermittedRule, RequiredRule, Rule, ScoreRule
@@ -65,13 +66,13 @@ class FakeSubmission:
 SUB = cast('Submission', FakeSubmission())
 
 
-def result(node: TestCase | TestDataGroup, verdict: str, score: float | None = None) -> SubmissionResult:
+def result(node: TestCase | TestDataGroup, verdict: Verdict, score: float | None = None) -> SubmissionResult:
     r = SubmissionResult(verdict, score=score)
     r.test_node = node
     return r
 
 
-def results_for(*verdicts: str) -> list[SubmissionResult]:
+def results_for(*verdicts: Verdict) -> list[SubmissionResult]:
     """Results for all test cases, in order SAMPLE_1, G1_1, G1_2, G2_1."""
     return [result(tc, v) for tc, v in zip(TESTCASES, verdicts, strict=True)]
 
@@ -137,6 +138,25 @@ def test_permitted_rule() -> None:
 def test_permitted_rule_warning() -> None:
     rule = PermittedRule(scope=Glob(''), verdicts=frozenset({'AC'}), is_error=False)
     assert check(rule, results_for('AC', 'AC', 'WA', 'AC')) == ['warning']
+
+
+def test_permitted_rule_remaps_ole_and_mle() -> None:
+    rule = PermittedRule(verdicts=frozenset({'AC', 'WA', 'RTE'}))
+    assert check(rule, results_for('AC', 'OLE', 'MLE', 'AC')) == []
+    rule = PermittedRule(verdicts=frozenset({'AC'}))
+    assert check(rule, results_for('AC', 'OLE', 'MLE', 'AC')) == ['error', 'error']
+
+
+def test_required_rule_remaps_ole_and_mle() -> None:
+    assert check(RequiredRule(verdicts=frozenset({'WA'})), results_for('AC', 'OLE', 'AC', 'AC')) == []
+    assert check(RequiredRule(verdicts=frozenset({'RTE'})), results_for('AC', 'MLE', 'AC', 'AC')) == []
+    assert check(RequiredRule(verdicts=frozenset({'RTE'})), results_for('AC', 'OLE', 'AC', 'AC')) == ['error']
+
+
+def test_final_verdict_rule_remaps_ole_and_mle() -> None:
+    assert check(FinalVerdictRule(verdict='WA'), [result(ROOT, 'OLE')]) == []
+    assert check(FinalVerdictRule(verdict='RTE'), [result(ROOT, 'MLE')]) == []
+    assert check(FinalVerdictRule(verdict='RTE'), [result(ROOT, 'OLE')]) == ['error']
 
 
 def test_required_rule_satisfied() -> None:
