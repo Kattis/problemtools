@@ -34,6 +34,8 @@ class JudgeConfig(BaseModel):
     max_shortname_length: int | None = None  # length of the problem package directory name
     max_file_size: int | None = None  # MiB, any file in the package
     max_testdata_size: int | None = None  # MiB, de-duplicated test data .in and .ans files
+    max_template_files: int | None = None  # number of code template files per language
+    max_template_size: int | None = None  # KiB, code template files per language
     integer_time_limit: bool = False
     allow_minimization: bool = True
     allow_negative_scores: bool = True
