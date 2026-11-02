@@ -5,10 +5,11 @@ from pathlib import Path
 from ..diagnostics import Diagnostics, pluralize
 from ..formatversion import FormatVersion
 from ..languages import Languages
+from ..metadata import Metadata
 from ..model import DEFAULT_LANGUAGE, Includes
 
 
-def check_includes(includes: Includes, language_config: Languages, format_version: FormatVersion, diag: Diagnostics) -> None:
+def check_includes(includes: Includes, language_config: Languages, metadata: Metadata, diag: Diagnostics) -> None:
     """Run all checks on a problem's include files."""
     real_langs = [lang for lang in includes.languages if lang != DEFAULT_LANGUAGE]
     has_default = DEFAULT_LANGUAGE in includes.languages
@@ -21,22 +22,22 @@ def check_includes(includes: Includes, language_config: Languages, format_versio
             msg += f' ({pluralize(overriding, "overriding entrypoint")})'
         diag.msg(msg)
 
-    _check_default_and_unknown_languages(includes, language_config, format_version, diag)
+    _check_languages(includes, language_config, metadata, diag)
     _check_ambiguous_mainfile(includes, language_config, diag)
     _check_default_sets_mainfile(includes, language_config, diag)
     _check_default_path_collision(includes, diag)
     _check_default_file_directory_collision(includes, diag)
 
 
-def _check_default_and_unknown_languages(
-    includes: Includes, language_config: Languages, format_version: FormatVersion, diag: Diagnostics
-) -> None:
+def _check_languages(includes: Includes, language_config: Languages, metadata: Metadata, diag: Diagnostics) -> None:
     for lang_id in includes.languages:
         if lang_id == DEFAULT_LANGUAGE:
-            if format_version is FormatVersion.LEGACY:
+            if metadata.problem_format_version is FormatVersion.LEGACY:
                 diag.error(f'Include files for language "{DEFAULT_LANGUAGE}" are not supported in the legacy problem format')
         elif language_config.get(lang_id) is None:
             diag.warning(f'Include files found for unknown language "{lang_id}"')
+        elif metadata.languages != 'all' and lang_id not in metadata.languages:
+            diag.error(f'Include files found for language "{lang_id}", which is not allowed by problem.yaml')
 
 
 def _default_include_paths(includes: Includes) -> list[Path]:
