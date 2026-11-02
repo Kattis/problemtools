@@ -13,7 +13,8 @@ from .diagnostics import Diagnostics, LoggingDiagnostics
 from .version import add_version_arg
 
 
-def convert(options: argparse.Namespace, diag: Diagnostics, force_statement_file: Path | None = None) -> None:
+def convert(options: argparse.Namespace, diag: Diagnostics, force_statement_file: Path | None = None) -> Path:
+    """Render the problem statement to HTML. Returns the path of the generated HTML file."""
     problem_root = Path(options.problem).resolve(strict=True)
 
     if force_statement_file:  # Used by verifyproblem to test rendering even if there are multiple statements in a language
@@ -32,8 +33,6 @@ def convert(options: argparse.Namespace, diag: Diagnostics, force_statement_file
         os.chdir(destdir)
 
     try:
-        if not options.quiet:
-            print('Rendering!')
         match statement_file.suffix:
             case '.md':
                 md2html.convert(problem_root, options, statement_file)
@@ -63,6 +62,7 @@ def convert(options: argparse.Namespace, diag: Diagnostics, force_statement_file
             body = re.search('<body>(.*)</body>', content, re.DOTALL)
             assert body
             Path(destfile).write_text(body.group(1), encoding='utf-8')
+        return Path(destfile).resolve()
     finally:
         # restore cwd
         os.chdir(origcwd)
@@ -94,8 +94,6 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '-L', '--log-level', dest='loglevel', help='set log level (debug, info, warning, error, critical)', default='warning'
     )
-    # Quiet is basically a no-op now, supersceded by --log-level. Should probably be dropped at some point
-    parser.add_argument('-q', '--quiet', dest='quiet', action='store_true', help='quiet', default=False)
     parser.add_argument('-i', '--imgbasedir', dest='imgbasedir', default='')
     parser.add_argument('problem', help='the problem to convert')
     add_version_arg(parser)
@@ -108,7 +106,7 @@ def main() -> None:
     options = parser.parse_args()
     diag = LoggingDiagnostics.create('problem2html', log_level=getattr(logging, options.loglevel.upper()))
     try:
-        convert(options, diag)
+        destfile = convert(options, diag)
     except Exception as e:
         print(e)
         sys.exit(1)
@@ -116,6 +114,7 @@ def main() -> None:
     if diag.errors:
         print(f'{diag.errors} errors and {diag.warnings} warnings')
         sys.exit(1)
+    print(f'Wrote {destfile}')
 
 
 if __name__ == '__main__':
