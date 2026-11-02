@@ -182,6 +182,7 @@ class MetadataLegacy(BaseModel):
     validator_flags: str = ''
     grading: LegacyGrading = LegacyGrading()
     keywords: str = ''
+    languages: list[str] | Literal['all'] = 'all'
 
     model_config = ConfigDict(extra='forbid')
 
@@ -281,7 +282,6 @@ class Metadata(BaseModel):
         del metadata['limits']['time_multiplier']
         del metadata['limits']['time_safety_margin']
         metadata['keywords'] = metadata['keywords'].split()
-        metadata['languages'] = 'all'
         metadata['allow_file_writing'] = True
         metadata['constants'] = {}
 
