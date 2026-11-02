@@ -1,0 +1,33 @@
+# Capabilities of the judge system problems are verified against. Exceeding
+# these gives warnings, not errors. Set a value to null to disable that check.
+
+# Set to false to disable all judge compatibility checks.
+enabled: true
+
+# Name of the judge system, used in warnings.
+name: Kattis
+
+# Maximum values for limits in problem.yaml. Same keys and units as there
+# (memory and output in MiB, code in KiB, times in seconds).
+limits:
+  memory: 4096
+  output: 50
+  code: 512
+  compilation_time: 120
+  compilation_memory: 4096
+  validation_time: 120
+  validation_memory: 4096
+  validation_output: 8
+
+# Maximum length of the problem short name (the package directory name).
+max_shortname_length: 40
+
+# Maximum size of any single file in the package, in MiB.
+max_file_size: 100
+# Maximum total size of test data input and answer files, in MiB. Files with
+# identical content are only counted once.
+max_testdata_size: 512
+
+integer_time_limit: true
+allow_minimization: false
+allow_negative_scores: false
