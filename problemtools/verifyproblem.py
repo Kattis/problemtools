@@ -219,7 +219,7 @@ class ProblemVerifier:
             _CheckStep(
                 'submissions',
                 'includes',
-                lambda diag: checks.check_includes(problem.includes, problem.language_config, problem.format_version, diag),
+                lambda diag: checks.check_includes(problem.includes, problem.language_config, problem.metadata, diag),
             ),
             _CheckStep(
                 'submissions',
