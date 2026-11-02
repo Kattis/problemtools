@@ -1,3 +1,77 @@
+kattis-problemtools (1.20261102) resolute; urgency=medium
+
+  [ Joshua Andersson ]
+  * More junk cases for output validator fuzzing
+  * Set max-width in problem2html css
+  * Make table column centering work in html renderer
+  * Style problem2html to look more like Kattis
+
+  [ Gunnar Kreitz ]
+  * Add RelativePath path to TestDataGroup
+  * Add format on SubmissionResult, allowing caller to pick fields
+  * Start implementing rules for submission outcomes. Make incorrect status at time limit be an ERROR
+  * Replace str with Path in run module
+  * Minor polish - use NamedTemporaryFile for temp file creation
+  * Add ProgramFiles to model, representing the files of a program
+  * Replace IncludeFile with ProgramFiles
+  * Add check for when a path is both a path and a directory in include files
+  * Use ProgramFiles in run, allowing API users to access the files of a program
+  * Error if package contains anything but files, directories, and symlinks
+  * Improve messages when submissions change status around the time limit #384
+  * Separate Program's concerns of building and execution into separate classes
+  * Drop ProgramError - it's all just normal compile errors now
+  * Adjust interface of get_tool to get rid of some clumsy None checks
+  * Check that programs only contain files + directories after compilation
+  * Stricten type of submissions - they now have to be SourceCode
+  * Change some uses of Program to Executable, moving some compile error checks earlier
+  * Expose mainfile property on SourceCode
+  * Create model.Files to represent our view of what files exist in the package
+  * Load Files in model. Use Files to simplify problem package checks
+  * Use Files in testdata checks
+  * Use Files when loading testdata
+  * Rename Files.children -> Files.listdir to make it more clear it's not recursive
+  * Use Files in statement checks
+  * Use Files in program discovery and attachments
+  * Add RunResult to capture result of a run and give cleaner exitcode/signal parsing
+  * Move _rte_reason into RunResult.__str__. Include signal/exit status in more crash messages
+  * Add helper to Executable to capture stdout + stderr
+  * Use run_capture. Improve error messages on ctd/viva failures
+  * Basic test coverage for Executable
+  * Add JVM flags for more consistent (and typically faster) timing #437
+  * Add glob support for use when parsing submissions.yaml
+  * Use Glob class in submission rules. Add tests for submission rules
+  * Generalize which submissions bound the time limit, and how
+  * Store rules on Submission. Update Submission loading
+  * Implement parsing of submissions.yaml
+  * Add example submissions.yaml to oddecho
+  * Add default submission rules from new format version (with minor extensions)
+  * Add basic checks of submission.yaml rules + extract get_all_groups()
+  * Fix Score rule ignoring non-AC nodes
+  * Fix crash on extremely malformed submissions.yaml
+  * Use language from submissions.yaml to override auto-discovery + tests
+  * Thread entrypoint through to SourceCode, but do not use it yet
+  * Add some basic checks for entrypoint and language overrides
+  * Add basic test coverage of submissions.yaml checks
+  * Implement use_for_time_limit: upper as an error, don't set it by default in legacy
+  * Fix crash if submissions.yaml was not valid utf-8
+  * Indicate when language came from submissions.yaml in compile errors
+  * Revert "Merge pull request #491 from Matistjati/more-output-validator-fuzzing"
+  * Remap OLE and MLE when checking submission results
+  * Give testdata cached properties to get the sha256 of in and ans
+  * Add support to check a problem package against what a judge supports (Kattis by default)
+  * Add judge limit on shortname length
+  * Fix plasTeX giving confusing warning about not finding a python version of problemset.cls
+  * Make plasTeX warnings and errors appear in verifyproblem. Drop -q for problem2html
+  * Fix plasTeX not falling back to english for missing translations
+  * Avoid using ifx to work around plasTeX bug
+  * Compare include file languages with problem.yaml languages (when set)
+  * Parse languages in legacy problem.yaml
+  * Add support for code templates
+  * Add judge limits for code templates
+  * Fix bug where attachments ignored a file called 'templates'. Make inconsistencies between problem.yaml and code templates an error
+
+ -- Gunnar Kreitz <gkreitz@kattis.com>  Mon, 02 Nov 2026 15:39:42 +0100
+
 kattis-problemtools (1.20260907) resolute; urgency=medium
 
   [ mzuenni ]
