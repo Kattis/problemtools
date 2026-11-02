@@ -28,6 +28,11 @@ max_file_size: 100
 # identical content are only counted once.
 max_testdata_size: 512
 
+# Maximum number of code template files per language.
+max_template_files: 5
+# Maximum total size of the code template files per language, in KiB.
+max_template_size: 32
+
 integer_time_limit: true
 allow_minimization: false
 allow_negative_scores: false

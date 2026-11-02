@@ -12,9 +12,10 @@ from ..config import ConfigError
 from ..diagnostics import Diagnostics
 from ..judge_config import JudgeConfig, LimitMaxima, load_judge_config
 from ..metadata import Metadata
-from ..model import EntryKind, Files, TestDataGroup
+from ..model import Attachments, EntryKind, Files, TestDataGroup
 
-_MIB = 1024 * 1024
+_KIB = 1024
+_MIB = 1024 * _KIB
 
 _LIMITS = {
     'memory': ('Memory limit', 'MiB'),
@@ -29,7 +30,7 @@ _LIMITS = {
 assert set(_LIMITS) == set(LimitMaxima.model_fields)
 
 
-def check_judge(metadata: Metadata, files: Files, testdata: TestDataGroup, diag: Diagnostics) -> None:
+def check_judge(metadata: Metadata, files: Files, testdata: TestDataGroup, attachments: Attachments, diag: Diagnostics) -> None:
     """Run all checks that the problem is supported by the judge system.
 
     The judge system is described by judge.yaml, using the problem's parent directory as
@@ -50,7 +51,25 @@ def check_judge(metadata: Metadata, files: Files, testdata: TestDataGroup, diag:
             f'above what {judge_config.name} normally supports ({judge_config.max_shortname_length} characters)'
         )
     _check_file_sizes(judge_config, files, testdata, diag)
+    _check_templates(judge_config, attachments, diag)
     _check_config(judge_config, metadata, testdata, diag)
+
+
+def _check_templates(judge_config: JudgeConfig, attachments: Attachments, diag: Diagnostics) -> None:
+    name = judge_config.name
+    for lang_id, program_files in attachments.templates.items():
+        count = len(program_files.files)
+        if judge_config.max_template_files is not None and count > judge_config.max_template_files:
+            diag.warning(
+                f'Code templates for language "{lang_id}" have {count} files, '
+                f'above what {name} normally supports ({judge_config.max_template_files} files)'
+            )
+        size = program_files.size()
+        if judge_config.max_template_size is not None and size > judge_config.max_template_size * _KIB:
+            diag.warning(
+                f'Code templates for language "{lang_id}" are {size / _KIB:.1f} KiB, '
+                f'above what {name} normally supports ({judge_config.max_template_size} KiB)'
+            )
 
 
 def _check_file_sizes(judge_config: JudgeConfig, files: Files, testdata: TestDataGroup, diag: Diagnostics) -> None:

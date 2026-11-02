@@ -3,7 +3,7 @@ from typing import Literal
 #: A submission's (or testcase's) verdict, e.g. as expected by policy or produced by judging.
 Verdict = Literal['AC', 'TLE', 'OLE', 'MLE', 'RTE', 'WA', 'PAC', 'JE']
 
-from .attachments import Attachments, load_attachments
+from .attachments import TEMPLATES_DIRECTORY, Attachments, load_attachments
 from .files import BadEntry, BadReason, EntryKind, Files, load_files
 from .graders import DEFAULT_GRADER, Graders, load_graders
 from .includes import DEFAULT_LANGUAGE, Includes, LanguageIncludes, load_includes
@@ -21,6 +21,7 @@ __all__ = [
     'DEFAULT_LANGUAGE',
     'DEFAULT_VALIDATOR',
     'SCORING_ONLY_KEYS',
+    'TEMPLATES_DIRECTORY',
     'Attachments',
     'BadEntry',
     'BadReason',

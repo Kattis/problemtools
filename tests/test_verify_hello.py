@@ -11,7 +11,7 @@ def test_load_hello(diag: Diagnostics) -> None:
 
     # pytest and fork don't go along very well, so just run checks that work without run
     checks.check_config(problem.metadata, problem.format_version, problem.statements, problem.testdata, diag)
-    checks.check_attachments(problem.attachments, diag)
+    checks.check_attachments(problem.attachments, problem.files, problem.metadata, problem.language_config, diag)
     assert diag.errors == 0
 
     assert problem.metadata.is_pass_fail()
