@@ -33,6 +33,6 @@ def _check_templates(
         if language_config.get(lang_id) is None:
             diag.error(f'Code templates found for unknown language "{lang_id}"')
         elif metadata.languages != 'all' and lang_id not in metadata.languages:
-            diag.warning(f'Code templates found for language "{lang_id}", which is not allowed by problem.yaml')
+            diag.error(f'Code templates found for language "{lang_id}", which is not allowed by problem.yaml')
         if not program_files.files:
             diag.error(f'Code templates directory for language "{lang_id}" is empty')

@@ -21,7 +21,7 @@ def load_attachments(files: Files) -> Attachments:
     attachments_dir = files.root / 'attachments'
     templates_dir = attachments_dir / TEMPLATES_DIRECTORY
     return Attachments(
-        paths=[path for path in files.listdir(attachments_dir) if path != templates_dir],
+        paths=[path for path in files.listdir(attachments_dir) if path != templates_dir or files.is_file(path)],
         templates={
             lang_dir.name: load_program_files(files, lang_dir) for lang_dir in files.listdir(templates_dir, EntryKind.DIR)
         },
