@@ -36,3 +36,11 @@ def _check_templates(
             diag.error(f'Code templates found for language "{lang_id}", which is not allowed by problem.yaml')
         if not program_files.files:
             diag.error(f'Code templates directory for language "{lang_id}" is empty')
+        for file in program_files.files:
+            path = templates_dir / lang_id / file.path
+            if len(file.path.parts) > 1:
+                diag.error(f'Code templates must be directly in the language directory, found {path}')
+            try:
+                file.data.decode('utf-8')
+            except UnicodeDecodeError:
+                diag.error(f'Code template {path} is not valid utf-8')
