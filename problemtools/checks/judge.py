@@ -12,7 +12,7 @@ from ..config import ConfigError
 from ..diagnostics import Diagnostics
 from ..judge_config import JudgeConfig, LimitMaxima, load_judge_config
 from ..metadata import Metadata
-from ..model import Attachments, EntryKind, Files, TestDataGroup
+from ..model import Attachments, EntryKind, Files, Submissions, TestDataGroup
 
 _KIB = 1024
 _MIB = 1024 * _KIB
@@ -30,7 +30,14 @@ _LIMITS = {
 assert set(_LIMITS) == set(LimitMaxima.model_fields)
 
 
-def check_judge(metadata: Metadata, files: Files, testdata: TestDataGroup, attachments: Attachments, diag: Diagnostics) -> None:
+def check_judge(
+    metadata: Metadata,
+    files: Files,
+    testdata: TestDataGroup,
+    attachments: Attachments,
+    submissions: Submissions,
+    diag: Diagnostics,
+) -> None:
     """Run all checks that the problem is supported by the judge system.
 
     The judge system is described by judge.yaml, using the problem's parent directory as
@@ -52,6 +59,7 @@ def check_judge(metadata: Metadata, files: Files, testdata: TestDataGroup, attac
         )
     _check_file_sizes(judge_config, files, testdata, diag)
     _check_templates(judge_config, attachments, diag)
+    _check_submissions(judge_config, submissions, diag)
     _check_config(judge_config, metadata, testdata, diag)
 
 
@@ -70,6 +78,14 @@ def _check_templates(judge_config: JudgeConfig, attachments: Attachments, diag: 
                 f'Code templates for language "{lang_id}" are {size / _KIB:.1f} KiB, '
                 f'above what {name} normally supports ({judge_config.max_template_size} KiB)'
             )
+
+
+def _check_submissions(judge_config: JudgeConfig, submissions: Submissions, diag: Diagnostics) -> None:
+    if judge_config.allow_submission_subdirectories:
+        return
+    for submission in submissions.submissions:
+        if any(len(file.path.parts) > 1 for file in submission.program.files.files):
+            diag.warning(f'Submission {submission.path} contains subdirectories, which is not supported by {judge_config.name}')
 
 
 def _check_file_sizes(judge_config: JudgeConfig, files: Files, testdata: TestDataGroup, diag: Diagnostics) -> None:
