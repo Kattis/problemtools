@@ -181,7 +181,7 @@ def format_samples(problem_root: Path) -> list[str]:
 
     Returns:
         List[str]: All samples, converted to a format appropriate to be pasted into
-        a markdown file. Ordered lexicographically by file names
+        a markdown file. Ordered lexicographically by sample name (file name without extension)
     """
 
     sample_path = os.path.join(str(problem_root), 'data', 'sample')
@@ -193,7 +193,7 @@ def format_samples(problem_root: Path) -> list[str]:
     is_multi_pass = problem_metadata.is_multi_pass()
     is_interactive = problem_metadata.is_interactive()
     all_cases = os.listdir(sample_path)
-    for sample in sorted(os.listdir(sample_path)):
+    for sample in sorted(all_cases, key=lambda name: Path(name).stem):
         if sample.endswith('.interaction'):
             samples.append(format_interactive_sample(sample_path, sample, casenum, is_interactive, is_multi_pass))
             casenum += 1

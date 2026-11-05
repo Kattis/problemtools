@@ -158,8 +158,9 @@ def _load_group(
     for key, default in DEFAULT_CONFIG.items():
         merged_config.setdefault(key, default)
 
+    # Order by base name (not file name, which would put foo-bar.in before foo.in)
     items: list[TestCase | TestDataGroup] = []
-    for entry in files.listdir(datadir):
+    for entry in sorted(files.listdir(datadir), key=lambda entry: entry.name if files.is_dir(entry) else entry.stem):
         if files.is_dir(entry):
             items.append(_load_group(files, entry, merged_config, metadata, is_root=False))
         elif entry.suffix == '.ans' and files.is_file(entry.with_suffix('.in')):
