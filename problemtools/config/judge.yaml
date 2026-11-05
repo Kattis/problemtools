@@ -36,3 +36,5 @@ max_template_size: 32
 integer_time_limit: true
 allow_minimization: false
 allow_negative_scores: false
+# Whether example submissions (in submissions/) may contain subdirectories.
+allow_submission_subdirectories: false

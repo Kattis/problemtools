@@ -166,7 +166,9 @@ class ProblemVerifier:
             _CheckStep(
                 'judge',
                 'judge',
-                lambda diag: checks.check_judge(problem.metadata, problem.files, problem.testdata, problem.attachments, diag),
+                lambda diag: checks.check_judge(
+                    problem.metadata, problem.files, problem.testdata, problem.attachments, problem.submissions, diag
+                ),
             ),
             _CheckStep(
                 'statement',

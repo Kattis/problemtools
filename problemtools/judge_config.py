@@ -39,6 +39,7 @@ class JudgeConfig(BaseModel):
     integer_time_limit: bool = False
     allow_minimization: bool = True
     allow_negative_scores: bool = True
+    allow_submission_subdirectories: bool = True  # whether example submissions may contain subdirectories
 
     model_config = ConfigDict(extra='forbid')
 
