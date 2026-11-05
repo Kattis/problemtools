@@ -287,6 +287,11 @@ def _check_group(
         elif path.suffix == '.ans' and not files.is_file(path.with_suffix('.in')):
             diag.error(f"No matching input file for answer '{path.relative_to(files.root)}'")
 
+    subgroup_names = {subgroup.path.name for subgroup in group.get_subgroups()}
+    for testcase in group.get_testcases():
+        if testcase.path.name in subgroup_names:
+            diag.error(f"Test case '{testcase.path}' has the same name as a test data group")
+
     if not group.get_subgroups() and not group.get_testcases():
         group_dir = group.datadir.relative_to(files.root)
         if group.datadir.name != 'sample':
