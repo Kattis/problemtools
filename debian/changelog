@@ -1,3 +1,17 @@
+kattis-problemtools (1.20261105) resolute; urgency=medium
+
+  [ Joshua Andersson ]
+  * Fix alarm submission compile error
+
+  [ Gunnar Kreitz ]
+  * Add 2 missing checks for code templates
+  * Add some basic tests for ResultStore
+  * Fix bug with testcase order
+  * Fix sorting bug of samples in markdown rendering
+  * Add judge rule for if example submissions are allowed to have subdirectories
+
+ -- Gunnar Kreitz <gkreitz@kattis.com>  Thu, 05 Nov 2026 11:58:49 +0100
+
 kattis-problemtools (1.20261102) resolute; urgency=medium
 
   [ Joshua Andersson ]
