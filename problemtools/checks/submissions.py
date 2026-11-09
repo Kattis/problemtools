@@ -357,10 +357,12 @@ def _time_limit_sensitivity(
     metadata: Metadata,
 ) -> str | None:
     """Describe how sub's result changes for time limits between lo and timelim_high, listing each runtime where
-    it changes, or None if it doesn't change. lo is the largest runtime that wouldn't have affected the time limit,
-    had the submission been used to compute it."""
-    multipliers = metadata.limits.time_multipliers
-    lo = timelim / multipliers.ac_to_time_limit
+    it changes, or None if it doesn't change. lo is timelim divided by the smaller of ac_to_time_limit and
+    time_limit_to_tle. Theoretically, this should probably be ac_to_time_limit, except for the fact that it has
+    a huge default in legacy and gets spammy. So, as this warning is just a heuristic, we pick the smaller of the
+    to."""
+    factor, factor_name = _sensitivity_factor(metadata)
+    lo = timelim / factor
     steps = [(lo, judge.judge(lo)[-1])]
     # Only try the largest runtime per printed value, so we don't list several changes at the same printed time
     runtimes: dict[str, float] = {}
@@ -381,9 +383,8 @@ def _time_limit_sensitivity(
         t, result = steps[1]
         if t > timelim:
             return f'{sub} would get {fmt(result)} with time limit >= {t:.2f}s'
-        factor_name = 'time_multiplier' if metadata.problem_format_version == FormatVersion.LEGACY else 'ac_to_time_limit'
         return (
-            f'{sub} is within {factor_name} ({_fmt_number(multipliers.ac_to_time_limit)}) of time limit '
+            f'{sub} is within {factor_name} ({_fmt_number(factor)}) of time limit '
             f'{_fmt_number(timelim)}s. It takes {t:.2f}s to get {fmt(result)}.'
         )
     parts = []
@@ -392,6 +393,16 @@ def _time_limit_sensitivity(
             parts.append(f'[time limit {_fmt_number(timelim)}s]')
         parts.append(f'{t:.2f}s -> {fmt(result)}')
     return f'{sub} is sensitive to time limit. {", ".join(parts)}'
+
+
+def _sensitivity_factor(metadata: Metadata) -> tuple[float, str]:
+    """The factor below the time limit within which we report time limit sensitivity, and the name of the
+    problem.yaml setting it comes from (the smaller of ac_to_time_limit and time_limit_to_tle)."""
+    multipliers = metadata.limits.time_multipliers
+    legacy = metadata.problem_format_version == FormatVersion.LEGACY
+    if multipliers.ac_to_time_limit <= multipliers.time_limit_to_tle:
+        return multipliers.ac_to_time_limit, 'time_multiplier' if legacy else 'ac_to_time_limit'
+    return multipliers.time_limit_to_tle, 'time_safety_margin' if legacy else 'time_limit_to_tle'
 
 
 def _get_table_groups(testdata: TestDataGroup) -> list[TestDataGroup]:
