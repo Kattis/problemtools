@@ -22,9 +22,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ghc \
         gnustep-devel gnustep gnustep-make gnustep-common gobjc \
         lua5.4 \
-        mono-complete \
+        mono-devel \
         nodejs \
-        ocaml-nox \
+        ocaml \
         php-cli \
         rustc \
         sbcl \

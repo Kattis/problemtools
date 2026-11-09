@@ -192,7 +192,7 @@ ocaml:
     name: 'OCaml'
     priority: 375
     files: '*.ml'
-    compile: 'ocamlopt -o {binary} unix.cmxa str.cmxa bigarray.cmxa {files}'
+    compile: 'ocamlopt -o {binary} -I +unix -I +str unix.cmxa str.cmxa {files}'
     run: '{binary}'
 
 objectivec:

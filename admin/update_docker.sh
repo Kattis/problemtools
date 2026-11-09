@@ -35,7 +35,7 @@ if [[ $(git rev-parse --abbrev-ref HEAD) != ${GITTAG} && $(git describe --exact-
 fi
 
 echo "Updating Ubuntu base image"
-docker pull ubuntu:24.04
+docker pull ubuntu:26.04
 
 # Make our internal images, and our githubci image. Order is important, images depend on each other
 echo "Building intermediate images, plus githubci image"
