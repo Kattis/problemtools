@@ -3,7 +3,7 @@
 # Not uploaded anywhere, only used locally during building
 
 ARG PROBLEMTOOLS_VERSION=develop
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 LABEL maintainer="contact@kattis.com"
 ENV DEBIAN_FRONTEND=noninteractive
