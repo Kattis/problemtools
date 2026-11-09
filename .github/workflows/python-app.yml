@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   pythontests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read  # for actions/checkout
     strategy:
@@ -51,7 +51,7 @@ jobs:
         venv/bin/mypy --non-interactive --config-file mypy.ini --exclude '^tests/data/' tests/
 
   packages: # Use a separate job to test debian packaging to speed things up (no need to test this for every python version above)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read  # for actions/checkout
     container:

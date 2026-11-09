@@ -16,7 +16,7 @@ permissions: {}
 
 jobs:
   build-pypi:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       contents: read  # for actions/checkout
     container:
@@ -46,7 +46,7 @@ jobs:
     name: Publish Python distribution to TestPyPI
     needs:
     - build-pypi
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     if: ${{ inputs.pushTestPyPi }}
 
     environment:
@@ -71,7 +71,7 @@ jobs:
     name: Publish Python distribution to PyPI
     needs:
     - build-pypi
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     if: ${{ inputs.pushPyPi }}
 
     environment:
