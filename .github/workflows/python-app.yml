@@ -9,12 +9,13 @@ on:
   pull_request:
     branches: [ "master", "develop" ]
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   pythontests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read  # for actions/checkout
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"] # 3.11 is the lowest we support, since we want StrEnum
@@ -51,6 +52,8 @@ jobs:
 
   packages: # Use a separate job to test debian packaging to speed things up (no need to test this for every python version above)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read  # for actions/checkout
     container:
       image: problemtools/githubci:latest
     steps:

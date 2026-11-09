@@ -12,9 +12,13 @@ on:
         required: true
         type: boolean
 
+permissions: {}
+
 jobs:
   build-pypi:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read  # for actions/checkout
     container:
       image: quay.io/pypa/manylinux_2_28_x86_64
     steps:
