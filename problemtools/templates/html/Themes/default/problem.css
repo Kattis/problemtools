@@ -60,6 +60,10 @@ div.figure {
   text-align: justify;
 }
 
+.problembody center p {
+  text-align: inherit;
+}
+
 td {
   vertical-align:top;
 }
